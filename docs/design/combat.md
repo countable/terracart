@@ -268,6 +268,12 @@ mechanics.
   the choice survives reloads and temporary wand expiry. Feeding and catching
   remain available. Explicit Equip or obtaining a new weapon resumes the normal
   equipment flow. Enemies still attack an unarmed player.
+- Quicksand uses actual world-foot movement: below 1 m/s the player sinks
+  over four foreground seconds; at 1 m/s or faster they rise over two seconds.
+  At the hat-tip limit, each full second costs 2 base energy through
+  `Combat.incomingDamage` / `Combat.playerDamage`, including armour, difficulty
+  and protection. Leaving, flight, support, death or changing floors resets
+  exposure. Offline time and teleports add no exposure.
 - Death cancels current work without completion or refund, clears the swing and
   staff charge, and blocks new melee and ranged attacks. Revival does not resume
   the cancelled job. Already launched projectiles continue their flight.

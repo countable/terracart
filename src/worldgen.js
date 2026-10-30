@@ -20,8 +20,8 @@
   // no row around it) is the rare find, so it rolls at PEACH_ONE_IN_LONE.
   const PEACH_ONE_IN = 50;
   const PEACH_ONE_IN_LONE = 10;
-  function fruitTreeSpecies(hash, oneIn = PEACH_ONE_IN) {
-    return (hash >>> 0) % oneIn === 0 ? 'worldpeach' : 'apple';
+  function fruitTreeSpecies(hash, oneIn = PEACH_ONE_IN, rareSpecies = ['worldpeach']) {
+    return rareSpecies[(hash >>> 0) % oneIn] || 'apple';
   }
   // Opt in to satellite detections for areas with extracted crowns. Elsewhere
   // keep the procedural residential canopy until detection coverage expands.
@@ -9496,7 +9496,7 @@
   //   flintRockP   share of ordinary cave rocks with a guaranteed flint seam
   //   streetGems   gemstone region and ordinary deposit probabilities
   const caveAreaProfile = (weights, carveWalls, goblins, spearGoblins) => Object.freeze({
-    weights: Object.freeze(['spring_cave', 'goblin_warrens', 'mushroom_cavern', 'gemstone_cavern', 'dungeon_maze']
+    weights: Object.freeze(['spring_cave', 'goblin_warrens', 'mushroom_cavern', 'gemstone_cavern', 'dungeon_maze', 'quicksand_cavern']
       .map((id, i) => Object.freeze({ id, weight: weights[i] }))),
     carveWalls, goblins, spearGoblins
   });
@@ -9508,13 +9508,13 @@
     // The original natural cave geology reads the surface directly, so adding
     // the sewer above cannot change its Small-road/building/water wall mask.
     Object.freeze({ depth: 2, generationDepth: 1, floorTorches: true, ambientBarrels: true, flintRockP: .25, arrivalStory: 'cave', entryKey: null, vents: Object.freeze(['confusion']),
-      pressureTraps: false, caveAreas: caveAreaProfile([50, 0, 30, 5, 15], false, 0, false),
+      pressureTraps: false, caveAreas: caveAreaProfile([50, 0, 30, 5, 15, 10], false, 0, false),
       streetGems: Object.freeze({ region: .05, ordinary: 0 }), biome: 'cave', terrain: 'surfacePaint', roadWalls: 'small', streetMirror: true,
       fallLandings: false, chestSource: 'surface', quarryProvenance: true, lava: false }),
     Object.freeze({ depth: 3, arrivalStory: 'dungeon_city', entryKey: null,
       vents: Object.freeze(['poison', 'fire', 'paralysis']),
       warren: Object.freeze({ roomCells: 10, enemyChance: .45, enemies: Object.freeze(['club_goblin', 'spear_goblin', 'archer_goblin', 'goblin_trapper']) }),
-      pressureTraps: true, caveAreas: caveAreaProfile([20, 45, 25, 10, 15], true, 16, true),
+      pressureTraps: true, caveAreas: caveAreaProfile([20, 45, 25, 10, 15, 10], true, 16, true),
       streetGems: Object.freeze({ region: .10, ordinary: .08 }), biome: 'goblin_city', terrain: 'city', streetMirror: true,
       fallLandings: true, chestSource: 'above', quarryProvenance: false, lava: false }),
     Object.freeze({ depth: 4, arrivalStory: 'dungeon_stone', entryKey: null,

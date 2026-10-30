@@ -13,11 +13,12 @@
       && !(scene.save.burnedObjects || []).includes(p.id)
       && !root.HomeVariant?.contains(scene,p.x,p.y) && !root.HomeVariant?.discardedAt(scene,p.x,p.y);
   }
-  function seat(scene, x, y) {
+  function seat(scene, x, y, street) {
     const W = root.WorldGen, at = worldMetersToTileCell(scene,x,y);
     const e = W.tileCache.get(W.tileKey(at.tx,at.ty));
     if (!e || e.status !== 'ready' || e.depth > 0) return null;
     const N = e.cellsPerEdge, ix = at.ix, iy = at.iy, i = iy*N+ix;
+    if (street && root.StreetVariants?.placementOwner(e, N)?.(ix, iy) !== street) return null;
     if ((e.zone?.coverage || e.zone?.idx)?.[i] || e.zone?.under?.present?.[i] || e.zone?.under?.[i]) return null;
     if (!W.isSpawnCell(e.grid,N,N,ix,iy,W.spawnOptsOf(e),'hazard') || W.isRoadTerrain(e.grid[i]) || e.roadMask?.[i]) return null;
     if (root.HomeVariant?.contains(scene,x,y) || root.HomeVariant?.discardedAt(scene,x,y)) return null;
@@ -35,7 +36,7 @@
     save.creepingVines ||= []; save.vineGrowth ||= {};
     const a = viewAnchorWorldM(scene), radius = scene.viewSize/2/CELL_PX*scene.cellM;
     const lo = worldMetersToTileCell(scene,a.x-radius,a.y-radius), hi = worldMetersToTileCell(scene,a.x+radius,a.y+radius);
-    const colonies = new Map();
+    const colonies = new Map(), colonyStreets = new Map();
     for (let ty=lo.ty;ty<=hi.ty;ty++) for (let tx=lo.tx;tx<=hi.tx;tx++) {
       const e = W.tileCache.get(W.tileKey(tx,ty));
       if (!e || e.status !== 'ready' || e.depth > 0) continue;
@@ -50,8 +51,10 @@
         }
       }
       W.forEachItemInBox(e,'wildplants',a.x-radius,a.y-radius,a.x+radius,a.y+radius,p=>{
-        if (!p._creepingVine || !live(scene,p) || !visible(scene,p)) return;
+        if (!p._creepingVine) return;
         const id = p._vineColony || p.id;
+        if (p._street) colonyStreets.set(id, p._street);
+        if (!live(scene,p) || !visible(scene,p)) return;
         if (!colonies.has(id)) colonies.set(id,[]);
         colonies.get(id).push(p);
       });
@@ -74,9 +77,11 @@
           const cell = worldMetersToAbsCell(scene,source.x,source.y);
           const {x,y} = absCellCenterMeters(scene,cell.cellIX+dx,cell.cellIY+dy);
           if (!visible(scene,{x,y})) continue;
-          const target = seat(scene,x,y); if (!target) continue;
+          const street = source._street || colonyStreets.get(id);
+          const target = seat(scene,x,y,street); if (!target) continue;
           const p = W.makeWildplant('creeping_vine',x,y,`${id}:growth:${state.count}`,{
-            _creepingVine:true,_vineColony:id,_plantArt:'creeping_vine',_ix:target.ix,_iy:target.iy});
+            _creepingVine:true,_vineColony:id,_plantArt:'creeping_vine',_ix:target.ix,_iy:target.iy,
+            ...(street ? {_street:street} : {})});
           target.e.wildplants.push(p); save.creepingVines.push({...p}); state.count++;
           grown = changed = true; break;
         }

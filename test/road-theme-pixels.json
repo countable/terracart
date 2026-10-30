@@ -7,7 +7,7 @@
   {
     "id": "plain",
     "restored": true,
-    "hash": "23a4489f"
+    "hash": "227f08c7"
   },
   {
     "id": "suppressed",
@@ -17,17 +17,17 @@
   {
     "id": "suppressed",
     "restored": true,
-    "hash": "578f98a9"
+    "hash": "7fea3008"
   },
   {
     "id": "hedgerow",
     "restored": false,
-    "hash": "55bfb8cf"
+    "hash": "fd0e6a75"
   },
   {
     "id": "hedgerow",
     "restored": true,
-    "hash": "e2cea19"
+    "hash": "8fa3ce68"
   },
   {
     "id": "overgrown",
@@ -37,7 +37,7 @@
   {
     "id": "overgrown",
     "restored": true,
-    "hash": "b2b22867"
+    "hash": "721a6d1a"
   },
   {
     "id": "orchard",
@@ -47,7 +47,7 @@
   {
     "id": "orchard",
     "restored": true,
-    "hash": "5c40f4eb"
+    "hash": "f48aa092"
   },
   {
     "id": "pilgrim",
@@ -57,7 +57,7 @@
   {
     "id": "pilgrim",
     "restored": true,
-    "hash": "66a0d7cc"
+    "hash": "4725d877"
   },
   {
     "id": "lantern",
@@ -67,7 +67,7 @@
   {
     "id": "lantern",
     "restored": true,
-    "hash": "7fd55a2c"
+    "hash": "4b161446"
   },
   {
     "id": "burned",
@@ -87,7 +87,7 @@
   {
     "id": "barricade",
     "restored": true,
-    "hash": "3bee016e"
+    "hash": "42677c3d"
   },
   {
     "id": "toadstool",
@@ -97,7 +97,7 @@
   {
     "id": "toadstool",
     "restored": true,
-    "hash": "2606f66f"
+    "hash": "49d650b5"
   },
   {
     "id": "promenade",
@@ -107,7 +107,7 @@
   {
     "id": "promenade",
     "restored": true,
-    "hash": "1de55adc"
+    "hash": "76466fa5"
   },
   {
     "id": "greenway",
@@ -117,7 +117,7 @@
   {
     "id": "greenway",
     "restored": true,
-    "hash": "87dabcb0"
+    "hash": "a406fe73"
   },
   {
     "id": "parkpath",
@@ -127,7 +127,7 @@
   {
     "id": "parkpath",
     "restored": true,
-    "hash": "2c474a7f"
+    "hash": "327bb6c0"
   },
   {
     "id": "golden",
@@ -137,7 +137,7 @@
   {
     "id": "golden",
     "restored": true,
-    "hash": "68d017f5"
+    "hash": "c6d8f825"
   },
   {
     "id": "snare",
@@ -147,7 +147,7 @@
   {
     "id": "snare",
     "restored": true,
-    "hash": "c8f10cc5"
+    "hash": "b6210c8d"
   },
   {
     "id": "thorny",
@@ -157,7 +157,7 @@
   {
     "id": "thorny",
     "restored": true,
-    "hash": "dc51f5b3"
+    "hash": "b9fe9754"
   },
   {
     "id": "goblin_gang",
@@ -167,7 +167,7 @@
   {
     "id": "goblin_gang",
     "restored": true,
-    "hash": "32bfb33e"
+    "hash": "d55996ff"
   },
   {
     "id": "golden_path",
@@ -177,7 +177,7 @@
   {
     "id": "golden_path",
     "restored": true,
-    "hash": "68d017f5"
+    "hash": "c6d8f825"
   },
   {
     "id": "slime_trail",
@@ -187,7 +187,7 @@
   {
     "id": "slime_trail",
     "restored": true,
-    "hash": "cd212428"
+    "hash": "e05fdee7"
   },
   {
     "id": "spider_path",
@@ -197,7 +197,7 @@
   {
     "id": "spider_path",
     "restored": true,
-    "hash": "bfee14ed"
+    "hash": "54bcc5"
   },
   {
     "id": "poison_path",
@@ -207,7 +207,7 @@
   {
     "id": "poison_path",
     "restored": true,
-    "hash": "aeacd192"
+    "hash": "57b69e10"
   },
   {
     "id": "fire_path",
@@ -217,7 +217,7 @@
   {
     "id": "fire_path",
     "restored": true,
-    "hash": "c27d5770"
+    "hash": "3619b76f"
   },
   {
     "id": "paralysis_path",
@@ -227,7 +227,7 @@
   {
     "id": "paralysis_path",
     "restored": true,
-    "hash": "f65db49d"
+    "hash": "28a65acc"
   },
   {
     "id": "confusion_path",
@@ -237,7 +237,7 @@
   {
     "id": "confusion_path",
     "restored": true,
-    "hash": "189912c0"
+    "hash": "2a4478c6"
   },
   {
     "id": "berry",
@@ -247,7 +247,7 @@
   {
     "id": "berry",
     "restored": true,
-    "hash": "2646503a"
+    "hash": "13f10d67"
   },
   {
     "id": "berry_trail",
@@ -257,7 +257,7 @@
   {
     "id": "berry_trail",
     "restored": true,
-    "hash": "2646503a"
+    "hash": "13f10d67"
   },
   {
     "id": "pottery",
@@ -267,7 +267,7 @@
   {
     "id": "pottery",
     "restored": true,
-    "hash": "fd82420b"
+    "hash": "a073adbc"
   },
   {
     "id": "trade",
@@ -277,7 +277,7 @@
   {
     "id": "trade",
     "restored": true,
-    "hash": "76278c90"
+    "hash": "1e74c083"
   },
   {
     "id": "rocky_path",
@@ -287,7 +287,7 @@
   {
     "id": "rocky_path",
     "restored": true,
-    "hash": "2925ab88"
+    "hash": "ead1eafd"
   },
   {
     "id": "grassy_lane",
@@ -297,7 +297,7 @@
   {
     "id": "grassy_lane",
     "restored": true,
-    "hash": "9c4923d1"
+    "hash": "b8c18e43"
   },
   {
     "id": "old_growth_path",
@@ -307,7 +307,7 @@
   {
     "id": "old_growth_path",
     "restored": true,
-    "hash": "ac425f17"
+    "hash": "fe96c64f"
   },
   {
     "id": "haunted_forest_path",
@@ -317,7 +317,7 @@
   {
     "id": "haunted_forest_path",
     "restored": true,
-    "hash": "97fdc705"
+    "hash": "fed06d63"
   },
   {
     "id": "way_of_variety",
@@ -327,6 +327,6 @@
   {
     "id": "way_of_variety",
     "restored": true,
-    "hash": "4538a95"
+    "hash": "d94675f3"
   }
 ]

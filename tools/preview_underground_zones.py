@@ -1,4 +1,4 @@
-"""Draft underground cards for the shared zone viewer; never runtime placement."""
+"""Runtime cave samples and labelled design studies for the zone viewer."""
 import base64
 import collections
 import functools
@@ -7,6 +7,7 @@ import json
 import math
 import copy
 import hashlib
+import subprocess
 import io
 from PIL import Image
 from pathlib import Path
@@ -411,9 +412,34 @@ def _maze_card(row, data, helpers):
             + f'<p>{html.escape(row.get("runtimeNote", ""))}</p><p>{html.escape(row["atmosphere"])}</p><p><a href="layout-lab.html#{html.escape(settings,quote=True)}">Open maze in Layout Lab</a></p><dl>{dl}</dl></article>')
 
 
+def _quicksand_card(helpers, out):
+    sample = json.loads(subprocess.check_output(['node', str(ROOT/'tools/preview_quicksand.cjs')], text=True))
+    (out/'quicksand-cavern.json').write_text(json.dumps(sample, indent=2)+'\n')
+    cfg = sample['config']
+    radius = max(abs(value) for cell in sample['reserved'] for value in cell) + 1
+    side, unit = radius * 2 + 1, 10
+    prefix = 'quicksand-runtime'
+    svg = (f'<svg role="img" aria-label="Quicksand Cavern runtime sample with dry approaches" viewBox="0 0 {side*unit} {side*unit}">'
+           + helpers['ground_pattern']('CAVE_FLOOR', prefix+'-floor', unit)
+           + helpers['ground_pattern']('SAND', prefix+'-sand', unit)
+           + f'<rect width="100%" height="100%" fill="url(#{prefix}-floor)"/>')
+    for x, y in sample['quicksand']:
+        svg += f'<rect data-quicksand-cell x="{(x+radius)*unit}" y="{(y+radius)*unit}" width="{unit}" height="{unit}" fill="url(#{prefix}-sand)"><title>Quicksand</title></rect>'
+    svg += '</svg>'
+    floors = ', '.join(str(depth) for depth in sample['depths'])
+    rules = (f'Moving below {cfg["escapeMps"]:g} m/s sinks you to your hat in {cfg["sinkMs"]/1000:g} s. '
+             f'Moving at least {cfg["escapeMps"]:g} m/s lifts you fully in {cfg["riseMs"]/1000:g} s. '
+             f'Fully sunk: {cfg["damage"]:g} base damage every {cfg["damageMs"]/1000:g} s.')
+    return (f'<article id="underground-quicksand_cavern"><header><small>In game · floors {floors}</small><h2>Quicksand Cavern</h2></header>'
+            f'<figure>{svg}<figcaption>Generated runtime sample · floor {sample["depth"]} · 1 cell = {sample["cellM"]:g} m</figcaption></figure>'
+            f'<p>{html.escape(rules)}</p><p>Dry approaches, routes and landmark clearings remain safe. Ordinary sand is harmless.</p>'
+            '<p><a href="/tools/floor-viewer.html">Open floor viewer</a> and choose Quicksand Cavern on a listed floor. '
+            '<a href="quicksand-cavern.json">Sample data</a></p></article>')
+
+
 def underground_section(helpers, out):
     data = json.loads(SOURCE.read_text())
-    cards = {'nexus': [], 'path': []}
+    cards = {'nexus': [_quicksand_card(helpers, out)], 'path': []}
     for row in data['previewRows']:
         if row.get('layout', {}).get('type') == 'maze_braid':
             cards[row['kind']].append(_maze_card(row,data,helpers))
@@ -468,9 +494,9 @@ def underground_section(helpers, out):
     # Keep the reviewed design alongside the preview without enabling it in runtime data.
     (out/'underground-zone-variants.draft.json').write_text(json.dumps(data,indent=2)+'\n')
     (out/'underground-art-license.txt').write_text((ROOT/'docs/art/underground-proposals/LICENSE.txt').read_text())
-    return ('<section id="underground" data-view-panel hidden><h2>Underground · design proposals</h2>'
+    return ('<section id="underground" data-view-panel hidden><h2>Cave variants and studies</h2>'
             '<nav class="page-nav" aria-label="Underground categories"><a href="#underground-nexus">Nexus and floor scatter</a><a href="#underground-paths">Paths and small roads</a></nav>'
-            '<p>Saved cave layout studies using game art. Cards describe their study data, not live generation. The Dungeon Maze is marked in game; its preview shows the reference pattern.</p>'
+            '<p>Quicksand uses the current cave generator. Other cards show saved layout studies; in-game variants are labelled.</p>'
             '<p><a href="underground-zone-variants.draft.json">Study data and rules</a> · <a href="underground-art-license.txt">Candidate art license</a></p>'
             '<section id="underground-nexus"><h2>Underground nexus</h2><div class="cards">'+''.join(cards['nexus'])+'</div></section>'
             '<section id="underground-paths"><h2>Underground paths and small roads</h2><div class="cards">'+''.join(cards['path'])+'</div></section></section>' + _ambush_script() + _pit_script())

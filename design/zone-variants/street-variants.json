@@ -1728,15 +1728,6 @@
           "kind": "wildplant",
           "crop": "white_flower",
           "x": 731.5,
-          "y": 780.5,
-          "id": "route_hedgerow_2622_5615_104_111",
-          "_street": "hedgerow",
-          "_streetArt": "white_flower"
-        },
-        {
-          "kind": "wildplant",
-          "crop": "white_flower",
-          "x": 731.5,
           "y": 815.5,
           "id": "route_hedgerow_2622_5615_104_116",
           "_street": "hedgerow",
@@ -1964,10 +1955,13 @@
         }
       ],
       "slowKinds": [],
-      "placement": "Hedge rows at 7 m spacing behind the lamps. White flowers fill the verges. Detected trees within 3 cells of the road edge use rounded crowns; no extra trees. One ambush where space permits."
+      "placement": "Hedge rows at 7 m spacing in the first verge row. White flowers fill the verges. Detected trees within 3 cells of the road edge use rounded crowns; no extra trees. One ambush where space permits."
     },
     {
       "id": "overgrown",
+      "materialLooks": {
+        "tree": "conifer_tree"
+      },
       "terrain": "FOREST",
       "treeSpecies": "pine",
       "affinities": [
@@ -2006,7 +2000,7 @@
       "story": "street_overgrown",
       "title": "Gone to seed",
       "label": "Overgrown Lane",
-      "body": "Saplings crowd the verge beneath tall pines. You push past branches reaching into the street.",
+      "body": "Seedlings grow into tall pines along the verge, then give way to bare trunks and stumps.",
       "flash": "The green is taking it back.",
       "code": 2,
       "baseTerrain": 6,
@@ -2891,341 +2885,175 @@
           "x": 710.5,
           "y": 794.5,
           "id": "tree_og_2622_5615_101_113",
-          "species": "pine",
-          "treeSpeciesFixed": true,
           "variant": 1,
           "_objectArt": "conifer_tree",
-          "_street": "overgrown"
+          "_street": "overgrown",
+          "species": "pine",
+          "treeSpeciesFixed": true
         },
         {
           "kind": "tree",
           "x": 724.5,
           "y": 794.5,
           "id": "tree_og_2622_5615_103_113",
-          "species": "pine",
-          "treeSpeciesFixed": true,
           "variant": 1,
           "_objectArt": "conifer_tree",
-          "_street": "overgrown"
+          "_street": "overgrown",
+          "species": "pine",
+          "treeSpeciesFixed": true
         },
         {
           "kind": "tree",
           "x": 738.5,
           "y": 794.5,
           "id": "tree_og_2622_5615_105_113",
-          "species": "pine",
-          "treeSpeciesFixed": true,
           "variant": 1,
           "_objectArt": "conifer_tree",
-          "_street": "overgrown"
+          "_street": "overgrown",
+          "species": "pine",
+          "treeSpeciesFixed": true
         },
         {
           "kind": "tree",
           "x": 745.5,
           "y": 794.5,
           "id": "tree_og_2622_5615_106_113",
-          "species": "pine",
-          "treeSpeciesFixed": true,
-          "variant": 1,
+          "variant": 2,
           "_objectArt": "conifer_tree",
-          "_street": "overgrown"
+          "_street": "overgrown",
+          "species": "pine",
+          "treeSpeciesFixed": true
         },
         {
           "kind": "tree",
           "x": 759.5,
           "y": 794.5,
           "id": "tree_og_2622_5615_108_113",
-          "species": "pine",
-          "treeSpeciesFixed": true,
-          "variant": 1,
+          "variant": 2,
           "_objectArt": "conifer_tree",
-          "_street": "overgrown"
+          "_street": "overgrown",
+          "species": "pine",
+          "treeSpeciesFixed": true
         },
         {
           "kind": "tree",
           "x": 773.5,
           "y": 794.5,
           "id": "tree_og_2622_5615_110_113",
-          "species": "pine",
-          "treeSpeciesFixed": true,
           "variant": 2,
           "_objectArt": "conifer_tree",
-          "_street": "overgrown"
+          "_street": "overgrown",
+          "species": "pine",
+          "treeSpeciesFixed": true
         },
         {
           "kind": "tree",
           "x": 780.5,
           "y": 794.5,
           "id": "tree_og_2622_5615_111_113",
-          "species": "pine",
-          "treeSpeciesFixed": true,
-          "variant": 2,
+          "variant": 3,
           "_objectArt": "conifer_tree",
-          "_street": "overgrown"
+          "_street": "overgrown",
+          "species": "pine",
+          "treeSpeciesFixed": true
         },
         {
           "kind": "tree",
           "x": 794.5,
           "y": 794.5,
           "id": "tree_og_2622_5615_113_113",
-          "species": "pine",
-          "treeSpeciesFixed": true,
-          "variant": 2,
+          "variant": 3,
           "_objectArt": "conifer_tree",
-          "_street": "overgrown"
+          "_street": "overgrown",
+          "species": "pine",
+          "treeSpeciesFixed": true
         },
         {
           "kind": "tree",
           "x": 808.5,
           "y": 794.5,
           "id": "tree_og_2622_5615_115_113",
-          "species": "pine",
-          "treeSpeciesFixed": true,
-          "variant": 2,
+          "variant": 3,
           "_objectArt": "conifer_tree",
-          "_street": "overgrown"
+          "_street": "overgrown",
+          "species": "pine",
+          "treeSpeciesFixed": true
         },
         {
           "kind": "tree",
           "x": 822.5,
           "y": 794.5,
           "id": "tree_og_2622_5615_117_113",
-          "species": "pine",
-          "treeSpeciesFixed": true,
-          "variant": 2,
+          "variant": 3,
           "_objectArt": "conifer_tree",
-          "_street": "overgrown"
+          "_street": "overgrown",
+          "species": "pine",
+          "treeSpeciesFixed": true
         },
         {
           "kind": "tree",
           "x": 829.5,
           "y": 794.5,
           "id": "tree_og_2622_5615_118_113",
+          "variant": 3,
+          "_objectArt": "dead_tree",
+          "_street": "overgrown",
           "species": "pine",
-          "treeSpeciesFixed": true,
-          "variant": 2,
-          "_objectArt": "conifer_tree",
-          "_street": "overgrown"
+          "treeSpeciesFixed": true
         },
         {
           "kind": "tree",
           "x": 843.5,
           "y": 794.5,
           "id": "tree_og_2622_5615_120_113",
-          "species": "pine",
-          "treeSpeciesFixed": true,
           "variant": 3,
-          "_objectArt": "conifer_tree",
-          "_street": "overgrown"
+          "_objectArt": "dead_tree",
+          "_street": "overgrown",
+          "species": "pine",
+          "treeSpeciesFixed": true
         },
         {
           "kind": "tree",
           "x": 857.5,
           "y": 794.5,
           "id": "tree_og_2622_5615_122_113",
-          "species": "pine",
-          "treeSpeciesFixed": true,
           "variant": 3,
-          "_objectArt": "conifer_tree",
-          "_street": "overgrown"
-        },
-        {
-          "kind": "tree",
-          "x": 864.5,
-          "y": 794.5,
-          "id": "tree_og_2622_5615_123_113",
-          "species": "pine",
-          "treeSpeciesFixed": true,
-          "variant": 3,
-          "_objectArt": "conifer_tree",
-          "_street": "overgrown"
-        },
-        {
-          "kind": "tree",
-          "x": 878.5,
-          "y": 794.5,
-          "id": "tree_og_2622_5615_125_113",
-          "species": "pine",
-          "treeSpeciesFixed": true,
-          "variant": 3,
-          "_objectArt": "conifer_tree",
-          "_street": "overgrown"
-        },
-        {
-          "kind": "tree",
-          "x": 892.5,
-          "y": 794.5,
-          "id": "tree_og_2622_5615_127_113",
-          "species": "pine",
-          "treeSpeciesFixed": true,
-          "variant": 3,
-          "_objectArt": "conifer_tree",
-          "_street": "overgrown"
-        },
-        {
-          "kind": "tree",
-          "x": 906.5,
-          "y": 794.5,
-          "id": "tree_og_2622_5615_129_113",
-          "species": "pine",
-          "treeSpeciesFixed": true,
-          "variant": 3,
-          "_objectArt": "conifer_tree",
-          "_street": "overgrown"
-        },
-        {
-          "kind": "mineralrock",
-          "x": 703.5,
-          "y": 815.5,
-          "id": "route_overgrown_2622_5615_100_116",
+          "_objectArt": "dead_tree",
           "_street": "overgrown",
-          "_streetArt": "mossy_rock",
-          "requiredTier": 1,
-          "yieldTier": 1
-        },
-        {
-          "kind": "mineralrock",
-          "x": 773.5,
-          "y": 808.5,
-          "id": "route_overgrown_2622_5615_110_115",
-          "_street": "overgrown",
-          "_streetArt": "mossy_rock",
-          "requiredTier": 1,
-          "yieldTier": 1
-        },
-        {
-          "kind": "mineralrock",
-          "x": 787.5,
-          "y": 794.5,
-          "id": "route_overgrown_2622_5615_112_113",
-          "_street": "overgrown",
-          "_streetArt": "mossy_rock",
-          "requiredTier": 1,
-          "yieldTier": 1
-        },
-        {
-          "kind": "mineralrock",
-          "x": 787.5,
-          "y": 808.5,
-          "id": "route_overgrown_2622_5615_112_115",
-          "_street": "overgrown",
-          "_streetArt": "mossy_rock",
-          "requiredTier": 1,
-          "yieldTier": 1
+          "species": "pine",
+          "treeSpeciesFixed": true
         },
         {
           "kind": "tree_stump",
-          "x": 801.5,
+          "x": 864.5,
           "y": 794.5,
-          "id": "route_overgrown_2622_5615_114_113",
-          "_street": "overgrown",
-          "_streetArt": "stump"
+          "id": "tree_og_2622_5615_123_113",
+          "_streetArt": "stump",
+          "_street": "overgrown"
         },
         {
-          "kind": "mineralrock",
-          "x": 801.5,
-          "y": 808.5,
-          "id": "route_overgrown_2622_5615_114_115",
-          "_street": "overgrown",
-          "_streetArt": "mossy_rock",
-          "requiredTier": 1,
-          "yieldTier": 1
+          "kind": "tree_stump",
+          "x": 878.5,
+          "y": 794.5,
+          "id": "tree_og_2622_5615_125_113",
+          "_streetArt": "stump",
+          "_street": "overgrown"
         },
         {
-          "kind": "tree",
-          "x": 780.5,
-          "y": 780.5,
-          "id": "route_overgrown_2622_5615_111_111",
-          "_street": "overgrown",
-          "_streetArt": "dead_tree",
-          "species": "maple",
-          "treeSpeciesFixed": true,
-          "_objectArt": "dead_tree",
-          "variant": 3
+          "kind": "tree_stump",
+          "x": 892.5,
+          "y": 794.5,
+          "id": "tree_og_2622_5615_127_113",
+          "_streetArt": "stump",
+          "_street": "overgrown"
         },
         {
-          "kind": "tree",
-          "x": 780.5,
-          "y": 822.5,
-          "id": "route_overgrown_2622_5615_111_117",
-          "_street": "overgrown",
-          "_streetArt": "dead_tree",
-          "species": "maple",
-          "treeSpeciesFixed": true,
-          "_objectArt": "dead_tree",
-          "variant": 3
-        },
-        {
-          "kind": "tree",
-          "x": 815.5,
-          "y": 780.5,
-          "id": "route_overgrown_2622_5615_116_111",
-          "_street": "overgrown",
-          "_streetArt": "conifer_tree",
-          "species": "pine",
-          "treeSpeciesFixed": true,
-          "_objectArt": "conifer_tree",
-          "variant": 2
-        },
-        {
-          "kind": "tree",
-          "x": 815.5,
-          "y": 822.5,
-          "id": "route_overgrown_2622_5615_116_117",
-          "_street": "overgrown",
-          "_streetArt": "dead_tree",
-          "species": "maple",
-          "treeSpeciesFixed": true,
-          "_objectArt": "dead_tree",
-          "variant": 1
-        },
-        {
-          "kind": "tree",
-          "x": 850.5,
-          "y": 780.5,
-          "id": "route_overgrown_2622_5615_121_111",
-          "_street": "overgrown",
-          "_streetArt": "conifer_tree",
-          "species": "pine",
-          "treeSpeciesFixed": true,
-          "_objectArt": "conifer_tree",
-          "variant": 1
-        },
-        {
-          "kind": "tree",
-          "x": 850.5,
-          "y": 822.5,
-          "id": "route_overgrown_2622_5615_121_117",
-          "_street": "overgrown",
-          "_streetArt": "dead_tree",
-          "species": "maple",
-          "treeSpeciesFixed": true,
-          "_objectArt": "dead_tree",
-          "variant": 2
-        },
-        {
-          "kind": "tree",
-          "x": 885.5,
-          "y": 780.5,
-          "id": "route_overgrown_2622_5615_126_111",
-          "_street": "overgrown",
-          "_streetArt": "conifer_tree",
-          "species": "pine",
-          "treeSpeciesFixed": true,
-          "_objectArt": "conifer_tree",
-          "variant": 2
-        },
-        {
-          "kind": "tree",
-          "x": 885.5,
-          "y": 822.5,
-          "id": "route_overgrown_2622_5615_126_117",
-          "_street": "overgrown",
-          "_streetArt": "dead_tree",
-          "species": "maple",
-          "treeSpeciesFixed": true,
-          "_objectArt": "dead_tree",
-          "variant": 3
+          "kind": "tree_stump",
+          "x": 906.5,
+          "y": 794.5,
+          "id": "tree_og_2622_5615_129_113",
+          "_streetArt": "stump",
+          "_street": "overgrown"
         },
         {
           "kind": "grove_shrine",
@@ -3264,6 +3092,15 @@
         },
         {
           "kind": "wildplant",
+          "crop": "young_fern",
+          "x": 703.5,
+          "y": 815.5,
+          "id": "route_overgrown_2622_5615_100_116",
+          "_street": "overgrown",
+          "_streetArt": "young_fern"
+        },
+        {
+          "kind": "wildplant",
           "crop": "longgrass",
           "x": 731.5,
           "y": 794.5,
@@ -3282,12 +3119,12 @@
         },
         {
           "kind": "wildplant",
-          "crop": "young_fern",
+          "crop": "longgrass",
           "x": 759.5,
           "y": 787.5,
           "id": "route_overgrown_2622_5615_108_112",
           "_street": "overgrown",
-          "_streetArt": "young_fern"
+          "_streetArt": "grass_clump"
         },
         {
           "kind": "wildplant",
@@ -3300,21 +3137,84 @@
         },
         {
           "kind": "wildplant",
-          "crop": "young_fern",
+          "crop": "longgrass",
           "x": 773.5,
           "y": 787.5,
           "id": "route_overgrown_2622_5615_110_112",
+          "_street": "overgrown",
+          "_streetArt": "grass_clump"
+        },
+        {
+          "kind": "wildplant",
+          "crop": "young_fern",
+          "x": 773.5,
+          "y": 808.5,
+          "id": "route_overgrown_2622_5615_110_115",
           "_street": "overgrown",
           "_streetArt": "young_fern"
         },
         {
           "kind": "wildplant",
           "crop": "young_fern",
+          "x": 787.5,
+          "y": 794.5,
+          "id": "route_overgrown_2622_5615_112_113",
+          "_street": "overgrown",
+          "_streetArt": "young_fern"
+        },
+        {
+          "kind": "wildplant",
+          "crop": "young_fern",
+          "x": 787.5,
+          "y": 808.5,
+          "id": "route_overgrown_2622_5615_112_115",
+          "_street": "overgrown",
+          "_streetArt": "young_fern"
+        },
+        {
+          "kind": "wildplant",
+          "crop": "longgrass",
+          "x": 801.5,
+          "y": 794.5,
+          "id": "route_overgrown_2622_5615_114_113",
+          "_street": "overgrown",
+          "_streetArt": "grass_clump"
+        },
+        {
+          "kind": "wildplant",
+          "crop": "young_fern",
+          "x": 801.5,
+          "y": 808.5,
+          "id": "route_overgrown_2622_5615_114_115",
+          "_street": "overgrown",
+          "_streetArt": "young_fern"
+        },
+        {
+          "kind": "wildplant",
+          "crop": "young_fern",
+          "x": 815.5,
+          "y": 794.5,
+          "id": "route_overgrown_2622_5615_116_113",
+          "_street": "overgrown",
+          "_streetArt": "young_fern"
+        },
+        {
+          "kind": "wildplant",
+          "crop": "longgrass",
+          "x": 815.5,
+          "y": 808.5,
+          "id": "route_overgrown_2622_5615_116_115",
+          "_street": "overgrown",
+          "_streetArt": "grass_clump"
+        },
+        {
+          "kind": "wildplant",
+          "crop": "longgrass",
           "x": 899.5,
           "y": 794.5,
           "id": "route_overgrown_2622_5615_128_113",
           "_street": "overgrown",
-          "_streetArt": "young_fern"
+          "_streetArt": "grass_clump"
         },
         {
           "kind": "wildplant",
@@ -3445,13 +3345,21 @@
         }
       ],
       "slowKinds": [],
-      "placement": "Trees every 12 m, up to 42 per line piece, progressing from saplings to mature trees."
+      "placement": "One verge row every 12 m: seedlings, young pines, large pines, dead trees, then stumps. Up to 42 per line piece."
     },
     {
       "id": "orchard",
+      "materialLooks": {
+        "tree": "mossy_tree"
+      },
       "terrain": "GRASS",
       "terrainVergeCells": 1,
+      "placementVergeCells": 1,
       "treeSpecies": "maple",
+      "rareFruitSpecies": [
+        "worldpeach",
+        "orange"
+      ],
       "affinities": [
         "cultivated"
       ],
@@ -4328,22 +4236,6 @@
         },
         {
           "kind": "tree_stump",
-          "x": 773.5,
-          "y": 815.5,
-          "id": "route_orchard_2622_5615_110_116",
-          "_street": "orchard",
-          "_streetArt": "stump"
-        },
-        {
-          "kind": "tree_stump",
-          "x": 829.5,
-          "y": 787.5,
-          "id": "route_orchard_2622_5615_118_112",
-          "_street": "orchard",
-          "_streetArt": "stump"
-        },
-        {
-          "kind": "tree_stump",
           "x": 885.5,
           "y": 794.5,
           "id": "route_orchard_2622_5615_126_113",
@@ -4357,54 +4249,6 @@
           "id": "route_orchard_2622_5615_128_113",
           "_street": "orchard",
           "_streetArt": "stump"
-        },
-        {
-          "kind": "tree",
-          "x": 710.5,
-          "y": 780.5,
-          "id": "route_orchard_2622_5615_101_111",
-          "_street": "orchard",
-          "_streetArt": "mossy_tree",
-          "species": "maple",
-          "treeSpeciesFixed": true,
-          "_objectArt": "mossy_tree",
-          "variant": 3
-        },
-        {
-          "kind": "tree",
-          "x": 710.5,
-          "y": 822.5,
-          "id": "route_orchard_2622_5615_101_117",
-          "_street": "orchard",
-          "_streetArt": "mossy_tree",
-          "species": "maple",
-          "treeSpeciesFixed": true,
-          "_objectArt": "mossy_tree",
-          "variant": 3
-        },
-        {
-          "kind": "tree",
-          "x": 815.5,
-          "y": 780.5,
-          "id": "route_orchard_2622_5615_116_111",
-          "_street": "orchard",
-          "_streetArt": "mossy_tree",
-          "species": "maple",
-          "treeSpeciesFixed": true,
-          "_objectArt": "mossy_tree",
-          "variant": 1
-        },
-        {
-          "kind": "tree",
-          "x": 815.5,
-          "y": 822.5,
-          "id": "route_orchard_2622_5615_116_117",
-          "_street": "orchard",
-          "_streetArt": "mossy_tree",
-          "species": "maple",
-          "treeSpeciesFixed": true,
-          "_objectArt": "mossy_tree",
-          "variant": 3
         },
         {
           "kind": "chest",
@@ -4435,15 +4279,6 @@
         },
         {
           "kind": "wildplant",
-          "crop": "white_flower",
-          "x": 703.5,
-          "y": 815.5,
-          "id": "route_orchard_2622_5615_100_116",
-          "_street": "orchard",
-          "_streetArt": "white_flower"
-        },
-        {
-          "kind": "wildplant",
           "crop": "yellow_flower",
           "x": 731.5,
           "y": 794.5,
@@ -4457,33 +4292,6 @@
           "x": 731.5,
           "y": 808.5,
           "id": "route_orchard_2622_5615_104_115",
-          "_street": "orchard",
-          "_streetArt": "white_flower"
-        },
-        {
-          "kind": "wildplant",
-          "crop": "yellow_flower",
-          "x": 745.5,
-          "y": 787.5,
-          "id": "route_orchard_2622_5615_106_112",
-          "_street": "orchard",
-          "_streetArt": "yellow_flowers"
-        },
-        {
-          "kind": "wildplant",
-          "crop": "yellow_flower",
-          "x": 745.5,
-          "y": 815.5,
-          "id": "route_orchard_2622_5615_106_116",
-          "_street": "orchard",
-          "_streetArt": "yellow_flowers"
-        },
-        {
-          "kind": "wildplant",
-          "crop": "white_flower",
-          "x": 773.5,
-          "y": 787.5,
-          "id": "route_orchard_2622_5615_110_112",
           "_street": "orchard",
           "_streetArt": "white_flower"
         },
@@ -4522,33 +4330,6 @@
           "id": "route_orchard_2622_5615_116_115",
           "_street": "orchard",
           "_streetArt": "white_flower"
-        },
-        {
-          "kind": "wildplant",
-          "crop": "white_flower",
-          "x": 829.5,
-          "y": 815.5,
-          "id": "route_orchard_2622_5615_118_116",
-          "_street": "orchard",
-          "_streetArt": "white_flower"
-        },
-        {
-          "kind": "wildplant",
-          "crop": "yellow_flower",
-          "x": 843.5,
-          "y": 787.5,
-          "id": "route_orchard_2622_5615_120_112",
-          "_street": "orchard",
-          "_streetArt": "yellow_flowers"
-        },
-        {
-          "kind": "wildplant",
-          "crop": "yellow_flower",
-          "x": 843.5,
-          "y": 815.5,
-          "id": "route_orchard_2622_5615_120_116",
-          "_street": "orchard",
-          "_streetArt": "yellow_flowers"
         },
         {
           "kind": "wildplant",
@@ -4637,10 +4418,13 @@
         }
       ],
       "slowKinds": [],
-      "placement": "Fruit trees and mature maples alternate on both sides every 12 m, up to 80 per line piece. Flowers and stumps fill available verge cells."
+      "placement": "Fruit trees and mature maples alternate on both sides every 12 m, up to 80 per line piece. Fruit trees are mostly apples, with occasional oranges and Worldpeaches. Flowers and stumps use the first verge row only; blocked seats are omitted."
     },
     {
       "id": "pilgrim",
+      "materialLooks": {
+        "tree": "conifer_tree"
+      },
       "terrain": "CHURCHYARD",
       "affinities": [
         "sacred"
@@ -4663,7 +4447,7 @@
       },
       "story": "street_pilgrim",
       "title": "Pilgrim's Way",
-      "body": "Smooth, rounded stones lie beside the road. Each lights beneath your feet. Keep them all glowing together.",
+      "body": "A neat row of smooth stones lines the verge. Step on each to keep them glowing together.",
       "flash": "Stones await your footsteps.",
       "code": 4,
       "baseTerrain": 6,
@@ -5545,45 +5329,45 @@
         },
         {
           "kind": "waystone",
-          "x": 822.5,
-          "y": 808.5,
-          "id": "waystone_2622_5615_117_115",
-          "_street": "pilgrim",
-          "waystoneSet": "pilgrim:2622,5615:preview 6|163,350",
-          "waystoneCount": 5
-        },
-        {
-          "kind": "waystone",
-          "x": 752.5,
-          "y": 808.5,
-          "id": "waystone_2622_5615_107_115",
-          "_street": "pilgrim",
-          "waystoneSet": "pilgrim:2622,5615:preview 6|163,350",
-          "waystoneCount": 5
-        },
-        {
-          "kind": "waystone",
-          "x": 892.5,
-          "y": 808.5,
-          "id": "waystone_2622_5615_127_115",
-          "_street": "pilgrim",
-          "waystoneSet": "pilgrim:2622,5615:preview 6|163,350",
-          "waystoneCount": 5
-        },
-        {
-          "kind": "waystone",
-          "x": 857.5,
+          "x": 759.5,
           "y": 794.5,
-          "id": "waystone_2622_5615_122_113",
+          "id": "waystone_2622_5615_108_113",
           "_street": "pilgrim",
           "waystoneSet": "pilgrim:2622,5615:preview 6|163,350",
           "waystoneCount": 5
         },
         {
           "kind": "waystone",
-          "x": 794.5,
+          "x": 773.5,
           "y": 794.5,
-          "id": "waystone_2622_5615_113_113",
+          "id": "waystone_2622_5615_110_113",
+          "_street": "pilgrim",
+          "waystoneSet": "pilgrim:2622,5615:preview 6|163,350",
+          "waystoneCount": 5
+        },
+        {
+          "kind": "waystone",
+          "x": 787.5,
+          "y": 794.5,
+          "id": "waystone_2622_5615_112_113",
+          "_street": "pilgrim",
+          "waystoneSet": "pilgrim:2622,5615:preview 6|163,350",
+          "waystoneCount": 5
+        },
+        {
+          "kind": "waystone",
+          "x": 801.5,
+          "y": 794.5,
+          "id": "waystone_2622_5615_114_113",
+          "_street": "pilgrim",
+          "waystoneSet": "pilgrim:2622,5615:preview 6|163,350",
+          "waystoneCount": 5
+        },
+        {
+          "kind": "waystone",
+          "x": 815.5,
+          "y": 794.5,
+          "id": "waystone_2622_5615_116_113",
           "_street": "pilgrim",
           "waystoneSet": "pilgrim:2622,5615:preview 6|163,350",
           "waystoneCount": 5
@@ -5595,60 +5379,6 @@
           "id": "street_shrine_2622_5615_114_112",
           "_shrineStreet": "pilgrim",
           "shrineKind": "wayfarer_post"
-        },
-        {
-          "kind": "wildplant",
-          "crop": "rubble",
-          "x": 773.5,
-          "y": 794.5,
-          "id": "route_pilgrim_2622_5615_110_113",
-          "_street": "pilgrim",
-          "_streetArt": "muted_stones"
-        },
-        {
-          "kind": "wildplant",
-          "crop": "rubble",
-          "x": 773.5,
-          "y": 808.5,
-          "id": "route_pilgrim_2622_5615_110_115",
-          "_street": "pilgrim",
-          "_streetArt": "muted_stones"
-        },
-        {
-          "kind": "wildplant",
-          "crop": "golden_bowl",
-          "x": 787.5,
-          "y": 794.5,
-          "id": "route_pilgrim_2622_5615_112_113",
-          "_street": "pilgrim",
-          "_streetArt": "golden_bowl"
-        },
-        {
-          "kind": "wildplant",
-          "crop": "golden_bowl",
-          "x": 787.5,
-          "y": 808.5,
-          "id": "route_pilgrim_2622_5615_112_115",
-          "_street": "pilgrim",
-          "_streetArt": "golden_bowl"
-        },
-        {
-          "kind": "wildplant",
-          "crop": "golden_bowl",
-          "x": 801.5,
-          "y": 794.5,
-          "id": "route_pilgrim_2622_5615_114_113",
-          "_street": "pilgrim",
-          "_streetArt": "golden_bowl"
-        },
-        {
-          "kind": "wildplant",
-          "crop": "golden_bowl",
-          "x": 801.5,
-          "y": 808.5,
-          "id": "route_pilgrim_2622_5615_114_115",
-          "_street": "pilgrim",
-          "_streetArt": "golden_bowl"
         }
       ],
       "lamps": [
@@ -5757,10 +5487,13 @@
         }
       ],
       "slowKinds": [],
-      "placement": "One group of 3-6 waystones per street per tile. Step on all before their light fades."
+      "placement": "One neat verge row of 3-6 waystones, spaced two cells apart. Step on all before their light fades."
     },
     {
       "id": "lantern",
+      "materialLooks": {
+        "tree": "mossy_tree"
+      },
       "pathWeight": 0.1,
       "terrain": "COMMERCIAL",
       "affinities": [
@@ -6215,6 +5948,9 @@
     },
     {
       "id": "burned",
+      "materialLooks": {
+        "tree": "dead_tree"
+      },
       "terrain": "INDUSTRIAL",
       "affinities": [
         "ruined"
@@ -7483,102 +7219,6 @@
           "yieldTier": 1
         },
         {
-          "kind": "tree",
-          "x": 710.5,
-          "y": 780.5,
-          "id": "route_burned_2622_5615_101_111",
-          "_street": "burned",
-          "_streetArt": "dead_tree",
-          "species": "maple",
-          "treeSpeciesFixed": true,
-          "_objectArt": "dead_tree",
-          "variant": 2
-        },
-        {
-          "kind": "tree",
-          "x": 710.5,
-          "y": 822.5,
-          "id": "route_burned_2622_5615_101_117",
-          "_street": "burned",
-          "_streetArt": "dead_tree",
-          "species": "maple",
-          "treeSpeciesFixed": true,
-          "_objectArt": "dead_tree",
-          "variant": 2
-        },
-        {
-          "kind": "tree",
-          "x": 745.5,
-          "y": 780.5,
-          "id": "route_burned_2622_5615_106_111",
-          "_street": "burned",
-          "_streetArt": "dead_tree",
-          "species": "maple",
-          "treeSpeciesFixed": true,
-          "_objectArt": "dead_tree",
-          "variant": 2
-        },
-        {
-          "kind": "tree",
-          "x": 745.5,
-          "y": 822.5,
-          "id": "route_burned_2622_5615_106_117",
-          "_street": "burned",
-          "_streetArt": "dead_tree",
-          "species": "maple",
-          "treeSpeciesFixed": true,
-          "_objectArt": "dead_tree",
-          "variant": 2
-        },
-        {
-          "kind": "tree",
-          "x": 815.5,
-          "y": 780.5,
-          "id": "route_burned_2622_5615_116_111",
-          "_street": "burned",
-          "_streetArt": "dead_tree",
-          "species": "maple",
-          "treeSpeciesFixed": true,
-          "_objectArt": "dead_tree",
-          "variant": 1
-        },
-        {
-          "kind": "tree",
-          "x": 815.5,
-          "y": 822.5,
-          "id": "route_burned_2622_5615_116_117",
-          "_street": "burned",
-          "_streetArt": "dead_tree",
-          "species": "maple",
-          "treeSpeciesFixed": true,
-          "_objectArt": "dead_tree",
-          "variant": 2
-        },
-        {
-          "kind": "tree",
-          "x": 850.5,
-          "y": 780.5,
-          "id": "route_burned_2622_5615_121_111",
-          "_street": "burned",
-          "_streetArt": "dead_tree",
-          "species": "maple",
-          "treeSpeciesFixed": true,
-          "_objectArt": "dead_tree",
-          "variant": 3
-        },
-        {
-          "kind": "tree",
-          "x": 850.5,
-          "y": 822.5,
-          "id": "route_burned_2622_5615_121_117",
-          "_street": "burned",
-          "_streetArt": "dead_tree",
-          "species": "maple",
-          "treeSpeciesFixed": true,
-          "_objectArt": "dead_tree",
-          "variant": 2
-        },
-        {
           "kind": "chest",
           "x": 906.5,
           "y": 801.5,
@@ -7795,6 +7435,9 @@
     },
     {
       "id": "barricade",
+      "materialLooks": {
+        "tree": "dead_tree"
+      },
       "pathWeight": 0.03,
       "terrain": "WASTELAND",
       "affinities": [
@@ -7857,24 +7500,6 @@
         {
           "kind": "stakes",
           "x": 773.5,
-          "y": 787.5,
-          "id": "stakes_barr_2622_5615_110_112",
-          "_street": "barricade",
-          "_streetScenery": true,
-          "_spawnClass": "streetObstacle"
-        },
-        {
-          "kind": "stakes",
-          "x": 773.5,
-          "y": 780.5,
-          "id": "stakes_barr_2622_5615_110_111",
-          "_street": "barricade",
-          "_streetScenery": true,
-          "_spawnClass": "streetObstacle"
-        },
-        {
-          "kind": "stakes",
-          "x": 773.5,
           "y": 808.5,
           "id": "stakes_barr_2622_5615_110_115",
           "_street": "barricade",
@@ -7886,24 +7511,6 @@
           "x": 773.5,
           "y": 815.5,
           "id": "stakes_barr_2622_5615_110_116",
-          "_street": "barricade",
-          "_streetScenery": true,
-          "_spawnClass": "streetObstacle"
-        },
-        {
-          "kind": "stakes",
-          "x": 773.5,
-          "y": 822.5,
-          "id": "stakes_barr_2622_5615_110_117",
-          "_street": "barricade",
-          "_streetScenery": true,
-          "_spawnClass": "streetObstacle"
-        },
-        {
-          "kind": "stakes",
-          "x": 773.5,
-          "y": 829.5,
-          "id": "stakes_barr_2622_5615_110_118",
           "_street": "barricade",
           "_streetScenery": true,
           "_spawnClass": "streetObstacle"
@@ -7923,26 +7530,6 @@
           "x": 794.5,
           "y": 808.5,
           "id": "stakes_barr_scatter_2622_5615_113_115",
-          "_street": "barricade",
-          "_streetScenery": true,
-          "_streetScatter": true,
-          "_spawnClass": "streetObstacle"
-        },
-        {
-          "kind": "stakes",
-          "x": 836.5,
-          "y": 780.5,
-          "id": "stakes_barr_scatter_2622_5615_119_111",
-          "_street": "barricade",
-          "_streetScenery": true,
-          "_streetScatter": true,
-          "_spawnClass": "streetObstacle"
-        },
-        {
-          "kind": "stakes",
-          "x": 850.5,
-          "y": 780.5,
-          "id": "stakes_barr_scatter_2622_5615_121_111",
           "_street": "barricade",
           "_streetScenery": true,
           "_streetScatter": true,
@@ -8002,26 +7589,6 @@
           "kind": "wildplant",
           "crop": "barricade",
           "x": 822.5,
-          "y": 787.5,
-          "id": "barr_scenery_2622_5615_117_112",
-          "_street": "barricade",
-          "_streetScenery": true,
-          "_spawnClass": "streetObstacle"
-        },
-        {
-          "kind": "wildplant",
-          "crop": "barricade",
-          "x": 822.5,
-          "y": 780.5,
-          "id": "barr_scenery_2622_5615_117_111",
-          "_street": "barricade",
-          "_streetScenery": true,
-          "_spawnClass": "streetObstacle"
-        },
-        {
-          "kind": "wildplant",
-          "crop": "barricade",
-          "x": 822.5,
           "y": 808.5,
           "id": "barr_scenery_2622_5615_117_115",
           "_street": "barricade",
@@ -8034,26 +7601,6 @@
           "x": 822.5,
           "y": 815.5,
           "id": "barr_scenery_2622_5615_117_116",
-          "_street": "barricade",
-          "_streetScenery": true,
-          "_spawnClass": "streetObstacle"
-        },
-        {
-          "kind": "wildplant",
-          "crop": "barricade",
-          "x": 822.5,
-          "y": 822.5,
-          "id": "barr_scenery_2622_5615_117_117",
-          "_street": "barricade",
-          "_streetScenery": true,
-          "_spawnClass": "streetObstacle"
-        },
-        {
-          "kind": "wildplant",
-          "crop": "barricade",
-          "x": 822.5,
-          "y": 829.5,
-          "id": "barr_scenery_2622_5615_117_118",
           "_street": "barricade",
           "_streetScenery": true,
           "_spawnClass": "streetObstacle"
@@ -8111,6 +7658,15 @@
           "id": "route_barricade_2622_5615_115_115",
           "_street": "barricade",
           "_streetArt": "muted_stones"
+        },
+        {
+          "kind": "wildplant",
+          "crop": "driftwood",
+          "x": 822.5,
+          "y": 787.5,
+          "id": "route_barricade_2622_5615_117_112",
+          "_street": "barricade",
+          "_streetArt": "plank_fragments"
         },
         {
           "kind": "wildplant",
@@ -8236,7 +7792,7 @@
         "stakes"
       ],
       "geography": [],
-      "placement": "Barriers cross the road every 50 m and extend up to 4 cells beyond it. A Trap Kit removes each piece. Goblins guard the route.",
+      "placement": "Barriers cross the road every 50 m and extend up to 3 cells beyond it. A Trap Kit removes each piece. Goblins guard the route.",
       "line": [
         {
           "x": 747.5999999999999,
@@ -8250,6 +7806,9 @@
     },
     {
       "id": "toadstool",
+      "materialLooks": {
+        "tree": "mossy_tree"
+      },
       "terrain": "WETLAND",
       "affinities": [
         "damp",
@@ -9192,7 +8751,7 @@
         },
         {
           "kind": "wildplant",
-          "crop": "mushroom",
+          "crop": "mushroom_bush",
           "x": 710.5,
           "y": 794.5,
           "id": "wp_ts_2622_5615_101_113",
@@ -9206,7 +8765,7 @@
           "y": 808.5,
           "id": "wp_ts_2622_5615_102_115",
           "_street": "toadstool",
-          "_streetArt": "red_mushroom"
+          "_plantArt": "ordinary"
         },
         {
           "kind": "wildplant",
@@ -9219,7 +8778,7 @@
         },
         {
           "kind": "wildplant",
-          "crop": "mushroom",
+          "crop": "mushroom_bush",
           "x": 731.5,
           "y": 808.5,
           "id": "wp_ts_2622_5615_104_115",
@@ -9233,11 +8792,11 @@
           "y": 794.5,
           "id": "wp_ts_2622_5615_106_113",
           "_street": "toadstool",
-          "_streetArt": "red_mushroom"
+          "_plantArt": "ordinary"
         },
         {
           "kind": "wildplant",
-          "crop": "mushroom",
+          "crop": "mushroom_bush",
           "x": 752.5,
           "y": 794.5,
           "id": "wp_ts_2622_5615_107_113",
@@ -9246,7 +8805,7 @@
         },
         {
           "kind": "wildplant",
-          "crop": "mushroom",
+          "crop": "mushroom_bush",
           "x": 759.5,
           "y": 794.5,
           "id": "wp_ts_2622_5615_108_113",
@@ -9260,7 +8819,7 @@
           "y": 808.5,
           "id": "wp_ts_2622_5615_109_115",
           "_street": "toadstool",
-          "_streetArt": "red_mushroom"
+          "_plantArt": "ordinary"
         },
         {
           "kind": "wildplant",
@@ -9273,7 +8832,7 @@
         },
         {
           "kind": "wildplant",
-          "crop": "mushroom",
+          "crop": "mushroom_bush",
           "x": 780.5,
           "y": 808.5,
           "id": "wp_ts_2622_5615_111_115",
@@ -9287,7 +8846,7 @@
           "y": 794.5,
           "id": "wp_ts_2622_5615_113_113",
           "_street": "toadstool",
-          "_streetArt": "red_mushroom"
+          "_plantArt": "ordinary"
         },
         {
           "kind": "wildplant",
@@ -9305,11 +8864,11 @@
           "y": 808.5,
           "id": "wp_ts_2622_5615_116_115",
           "_street": "toadstool",
-          "_streetArt": "red_mushroom"
+          "_plantArt": "ordinary"
         },
         {
           "kind": "wildplant",
-          "crop": "mushroom",
+          "crop": "mushroom_bush",
           "x": 822.5,
           "y": 808.5,
           "id": "wp_ts_2622_5615_117_115",
@@ -9318,7 +8877,7 @@
         },
         {
           "kind": "wildplant",
-          "crop": "mushroom",
+          "crop": "mushroom_bush",
           "x": 829.5,
           "y": 808.5,
           "id": "wp_ts_2622_5615_118_115",
@@ -9332,11 +8891,11 @@
           "y": 794.5,
           "id": "wp_ts_2622_5615_120_113",
           "_street": "toadstool",
-          "_streetArt": "red_mushroom"
+          "_plantArt": "ordinary"
         },
         {
           "kind": "wildplant",
-          "crop": "mushroom",
+          "crop": "mushroom_bush",
           "x": 850.5,
           "y": 794.5,
           "id": "wp_ts_2622_5615_121_113",
@@ -9350,7 +8909,7 @@
           "y": 808.5,
           "id": "wp_ts_2622_5615_123_115",
           "_street": "toadstool",
-          "_streetArt": "red_mushroom"
+          "_plantArt": "ordinary"
         },
         {
           "kind": "wildplant",
@@ -9363,7 +8922,7 @@
         },
         {
           "kind": "wildplant",
-          "crop": "mushroom",
+          "crop": "mushroom_bush",
           "x": 878.5,
           "y": 808.5,
           "id": "wp_ts_2622_5615_125_115",
@@ -9377,11 +8936,11 @@
           "y": 794.5,
           "id": "wp_ts_2622_5615_126_113",
           "_street": "toadstool",
-          "_streetArt": "red_mushroom"
+          "_plantArt": "ordinary"
         },
         {
           "kind": "wildplant",
-          "crop": "mushroom",
+          "crop": "mushroom_bush",
           "x": 892.5,
           "y": 794.5,
           "id": "wp_ts_2622_5615_127_113",
@@ -9390,7 +8949,7 @@
         },
         {
           "kind": "wildplant",
-          "crop": "mushroom",
+          "crop": "mushroom_bush",
           "x": 899.5,
           "y": 794.5,
           "id": "wp_ts_2622_5615_128_113",
@@ -9399,7 +8958,7 @@
         },
         {
           "kind": "wildplant",
-          "crop": "mushroom",
+          "crop": "mushroom_bush",
           "x": 696.5,
           "y": 787.5,
           "id": "wp_ts_2622_5615_99_112",
@@ -9413,11 +8972,11 @@
           "y": 808.5,
           "id": "wp_ts_2622_5615_99_115",
           "_street": "toadstool",
-          "_streetArt": "red_mushroom"
+          "_plantArt": "ordinary"
         },
         {
           "kind": "wildplant",
-          "crop": "mushroom",
+          "crop": "mushroom_bush",
           "x": 696.5,
           "y": 815.5,
           "id": "wp_ts_2622_5615_99_116",
@@ -9431,7 +8990,7 @@
           "y": 787.5,
           "id": "wp_ts_2622_5615_100_112",
           "_street": "toadstool",
-          "_streetArt": "red_mushroom"
+          "_plantArt": "ordinary"
         },
         {
           "kind": "wildplant",
@@ -9440,11 +8999,11 @@
           "y": 815.5,
           "id": "wp_ts_2622_5615_100_116",
           "_street": "toadstool",
-          "_streetArt": "red_mushroom"
+          "_plantArt": "ordinary"
         },
         {
           "kind": "wildplant",
-          "crop": "mushroom",
+          "crop": "mushroom_bush",
           "x": 710.5,
           "y": 787.5,
           "id": "wp_ts_2622_5615_101_112",
@@ -9458,11 +9017,11 @@
           "y": 808.5,
           "id": "wp_ts_2622_5615_101_115",
           "_street": "toadstool",
-          "_streetArt": "red_mushroom"
+          "_plantArt": "ordinary"
         },
         {
           "kind": "wildplant",
-          "crop": "mushroom",
+          "crop": "mushroom_bush",
           "x": 710.5,
           "y": 815.5,
           "id": "wp_ts_2622_5615_101_116",
@@ -9471,7 +9030,7 @@
         },
         {
           "kind": "wildplant",
-          "crop": "mushroom",
+          "crop": "mushroom_bush",
           "x": 717.5,
           "y": 794.5,
           "id": "wp_ts_2622_5615_102_113",
@@ -9485,7 +9044,7 @@
           "y": 787.5,
           "id": "wp_ts_2622_5615_102_112",
           "_street": "toadstool",
-          "_streetArt": "red_mushroom"
+          "_plantArt": "ordinary"
         },
         {
           "kind": "wildplant",
@@ -9494,7 +9053,7 @@
           "y": 815.5,
           "id": "wp_ts_2622_5615_102_116",
           "_street": "toadstool",
-          "_streetArt": "red_mushroom"
+          "_plantArt": "ordinary"
         },
         {
           "kind": "wildplant",
@@ -9503,11 +9062,11 @@
           "y": 794.5,
           "id": "wp_ts_2622_5615_103_113",
           "_street": "toadstool",
-          "_streetArt": "red_mushroom"
+          "_plantArt": "ordinary"
         },
         {
           "kind": "wildplant",
-          "crop": "mushroom",
+          "crop": "mushroom_bush",
           "x": 724.5,
           "y": 787.5,
           "id": "wp_ts_2622_5615_103_112",
@@ -9516,7 +9075,7 @@
         },
         {
           "kind": "wildplant",
-          "crop": "mushroom",
+          "crop": "mushroom_bush",
           "x": 724.5,
           "y": 815.5,
           "id": "wp_ts_2622_5615_103_116",
@@ -9525,7 +9084,7 @@
         },
         {
           "kind": "wildplant",
-          "crop": "mushroom",
+          "crop": "mushroom_bush",
           "x": 731.5,
           "y": 794.5,
           "id": "wp_ts_2622_5615_104_113",
@@ -9539,7 +9098,7 @@
           "y": 787.5,
           "id": "wp_ts_2622_5615_104_112",
           "_street": "toadstool",
-          "_streetArt": "red_mushroom"
+          "_plantArt": "ordinary"
         },
         {
           "kind": "wildplant",
@@ -9548,7 +9107,7 @@
           "y": 815.5,
           "id": "wp_ts_2622_5615_104_116",
           "_street": "toadstool",
-          "_streetArt": "red_mushroom"
+          "_plantArt": "ordinary"
         },
         {
           "kind": "wildplant",
@@ -9557,11 +9116,11 @@
           "y": 794.5,
           "id": "wp_ts_2622_5615_105_113",
           "_street": "toadstool",
-          "_streetArt": "red_mushroom"
+          "_plantArt": "ordinary"
         },
         {
           "kind": "wildplant",
-          "crop": "mushroom",
+          "crop": "mushroom_bush",
           "x": 738.5,
           "y": 787.5,
           "id": "wp_ts_2622_5615_105_112",
@@ -9575,11 +9134,11 @@
           "y": 808.5,
           "id": "wp_ts_2622_5615_105_115",
           "_street": "toadstool",
-          "_streetArt": "red_mushroom"
+          "_plantArt": "ordinary"
         },
         {
           "kind": "wildplant",
-          "crop": "mushroom",
+          "crop": "mushroom_bush",
           "x": 738.5,
           "y": 815.5,
           "id": "wp_ts_2622_5615_105_116",
@@ -9593,11 +9152,11 @@
           "y": 787.5,
           "id": "wp_ts_2622_5615_106_112",
           "_street": "toadstool",
-          "_streetArt": "red_mushroom"
+          "_plantArt": "ordinary"
         },
         {
           "kind": "wildplant",
-          "crop": "mushroom",
+          "crop": "mushroom_bush",
           "x": 745.5,
           "y": 808.5,
           "id": "wp_ts_2622_5615_106_115",
@@ -9611,11 +9170,11 @@
           "y": 815.5,
           "id": "wp_ts_2622_5615_106_116",
           "_street": "toadstool",
-          "_streetArt": "red_mushroom"
+          "_plantArt": "ordinary"
         },
         {
           "kind": "wildplant",
-          "crop": "mushroom",
+          "crop": "mushroom_bush",
           "x": 752.5,
           "y": 787.5,
           "id": "wp_ts_2622_5615_107_112",
@@ -9629,11 +9188,11 @@
           "y": 808.5,
           "id": "wp_ts_2622_5615_107_115",
           "_street": "toadstool",
-          "_streetArt": "red_mushroom"
+          "_plantArt": "ordinary"
         },
         {
           "kind": "wildplant",
-          "crop": "mushroom",
+          "crop": "mushroom_bush",
           "x": 752.5,
           "y": 815.5,
           "id": "wp_ts_2622_5615_107_116",
@@ -9647,11 +9206,11 @@
           "y": 787.5,
           "id": "wp_ts_2622_5615_108_112",
           "_street": "toadstool",
-          "_streetArt": "red_mushroom"
+          "_plantArt": "ordinary"
         },
         {
           "kind": "wildplant",
-          "crop": "mushroom",
+          "crop": "mushroom_bush",
           "x": 759.5,
           "y": 808.5,
           "id": "wp_ts_2622_5615_108_115",
@@ -9665,7 +9224,7 @@
           "y": 815.5,
           "id": "wp_ts_2622_5615_108_116",
           "_street": "toadstool",
-          "_streetArt": "red_mushroom"
+          "_plantArt": "ordinary"
         },
         {
           "kind": "wildplant",
@@ -9674,11 +9233,11 @@
           "y": 794.5,
           "id": "wp_ts_2622_5615_109_113",
           "_street": "toadstool",
-          "_streetArt": "red_mushroom"
+          "_plantArt": "ordinary"
         },
         {
           "kind": "wildplant",
-          "crop": "mushroom",
+          "crop": "mushroom_bush",
           "x": 766.5,
           "y": 787.5,
           "id": "wp_ts_2622_5615_109_112",
@@ -9687,7 +9246,7 @@
         },
         {
           "kind": "wildplant",
-          "crop": "mushroom",
+          "crop": "mushroom_bush",
           "x": 766.5,
           "y": 815.5,
           "id": "wp_ts_2622_5615_109_116",
@@ -9696,7 +9255,7 @@
         },
         {
           "kind": "wildplant",
-          "crop": "mushroom",
+          "crop": "mushroom_bush",
           "x": 773.5,
           "y": 794.5,
           "id": "wp_ts_2622_5615_110_113",
@@ -9710,7 +9269,7 @@
           "y": 787.5,
           "id": "wp_ts_2622_5615_110_112",
           "_street": "toadstool",
-          "_streetArt": "red_mushroom"
+          "_plantArt": "ordinary"
         },
         {
           "kind": "wildplant",
@@ -9719,7 +9278,7 @@
           "y": 815.5,
           "id": "wp_ts_2622_5615_110_116",
           "_street": "toadstool",
-          "_streetArt": "red_mushroom"
+          "_plantArt": "ordinary"
         },
         {
           "kind": "wildplant",
@@ -9728,11 +9287,11 @@
           "y": 794.5,
           "id": "wp_ts_2622_5615_111_113",
           "_street": "toadstool",
-          "_streetArt": "red_mushroom"
+          "_plantArt": "ordinary"
         },
         {
           "kind": "wildplant",
-          "crop": "mushroom",
+          "crop": "mushroom_bush",
           "x": 780.5,
           "y": 787.5,
           "id": "wp_ts_2622_5615_111_112",
@@ -9741,7 +9300,7 @@
         },
         {
           "kind": "wildplant",
-          "crop": "mushroom",
+          "crop": "mushroom_bush",
           "x": 780.5,
           "y": 815.5,
           "id": "wp_ts_2622_5615_111_116",
@@ -9750,7 +9309,7 @@
         },
         {
           "kind": "wildplant",
-          "crop": "mushroom",
+          "crop": "mushroom_bush",
           "x": 787.5,
           "y": 794.5,
           "id": "wp_ts_2622_5615_112_113",
@@ -9764,11 +9323,11 @@
           "y": 787.5,
           "id": "wp_ts_2622_5615_112_112",
           "_street": "toadstool",
-          "_streetArt": "red_mushroom"
+          "_plantArt": "ordinary"
         },
         {
           "kind": "wildplant",
-          "crop": "mushroom",
+          "crop": "mushroom_bush",
           "x": 787.5,
           "y": 808.5,
           "id": "wp_ts_2622_5615_112_115",
@@ -9782,11 +9341,11 @@
           "y": 815.5,
           "id": "wp_ts_2622_5615_112_116",
           "_street": "toadstool",
-          "_streetArt": "red_mushroom"
+          "_plantArt": "ordinary"
         },
         {
           "kind": "wildplant",
-          "crop": "mushroom",
+          "crop": "mushroom_bush",
           "x": 794.5,
           "y": 787.5,
           "id": "wp_ts_2622_5615_113_112",
@@ -9800,11 +9359,11 @@
           "y": 808.5,
           "id": "wp_ts_2622_5615_113_115",
           "_street": "toadstool",
-          "_streetArt": "red_mushroom"
+          "_plantArt": "ordinary"
         },
         {
           "kind": "wildplant",
-          "crop": "mushroom",
+          "crop": "mushroom_bush",
           "x": 794.5,
           "y": 815.5,
           "id": "wp_ts_2622_5615_113_116",
@@ -9818,11 +9377,11 @@
           "y": 787.5,
           "id": "wp_ts_2622_5615_114_112",
           "_street": "toadstool",
-          "_streetArt": "red_mushroom"
+          "_plantArt": "ordinary"
         },
         {
           "kind": "wildplant",
-          "crop": "mushroom",
+          "crop": "mushroom_bush",
           "x": 801.5,
           "y": 808.5,
           "id": "wp_ts_2622_5615_114_115",
@@ -9836,7 +9395,7 @@
           "y": 815.5,
           "id": "wp_ts_2622_5615_114_116",
           "_street": "toadstool",
-          "_streetArt": "red_mushroom"
+          "_plantArt": "ordinary"
         },
         {
           "kind": "wildplant",
@@ -9845,11 +9404,11 @@
           "y": 794.5,
           "id": "wp_ts_2622_5615_115_113",
           "_street": "toadstool",
-          "_streetArt": "red_mushroom"
+          "_plantArt": "ordinary"
         },
         {
           "kind": "wildplant",
-          "crop": "mushroom",
+          "crop": "mushroom_bush",
           "x": 808.5,
           "y": 787.5,
           "id": "wp_ts_2622_5615_115_112",
@@ -9863,11 +9422,11 @@
           "y": 808.5,
           "id": "wp_ts_2622_5615_115_115",
           "_street": "toadstool",
-          "_streetArt": "red_mushroom"
+          "_plantArt": "ordinary"
         },
         {
           "kind": "wildplant",
-          "crop": "mushroom",
+          "crop": "mushroom_bush",
           "x": 808.5,
           "y": 815.5,
           "id": "wp_ts_2622_5615_115_116",
@@ -9876,7 +9435,7 @@
         },
         {
           "kind": "wildplant",
-          "crop": "mushroom",
+          "crop": "mushroom_bush",
           "x": 815.5,
           "y": 794.5,
           "id": "wp_ts_2622_5615_116_113",
@@ -9890,7 +9449,7 @@
           "y": 787.5,
           "id": "wp_ts_2622_5615_116_112",
           "_street": "toadstool",
-          "_streetArt": "red_mushroom"
+          "_plantArt": "ordinary"
         },
         {
           "kind": "wildplant",
@@ -9899,7 +9458,7 @@
           "y": 815.5,
           "id": "wp_ts_2622_5615_116_116",
           "_street": "toadstool",
-          "_streetArt": "red_mushroom"
+          "_plantArt": "ordinary"
         },
         {
           "kind": "wildplant",
@@ -9908,11 +9467,11 @@
           "y": 794.5,
           "id": "wp_ts_2622_5615_117_113",
           "_street": "toadstool",
-          "_streetArt": "red_mushroom"
+          "_plantArt": "ordinary"
         },
         {
           "kind": "wildplant",
-          "crop": "mushroom",
+          "crop": "mushroom_bush",
           "x": 822.5,
           "y": 787.5,
           "id": "wp_ts_2622_5615_117_112",
@@ -9921,7 +9480,7 @@
         },
         {
           "kind": "wildplant",
-          "crop": "mushroom",
+          "crop": "mushroom_bush",
           "x": 822.5,
           "y": 815.5,
           "id": "wp_ts_2622_5615_117_116",
@@ -9930,7 +9489,7 @@
         },
         {
           "kind": "wildplant",
-          "crop": "mushroom",
+          "crop": "mushroom_bush",
           "x": 829.5,
           "y": 794.5,
           "id": "wp_ts_2622_5615_118_113",
@@ -9944,7 +9503,7 @@
           "y": 787.5,
           "id": "wp_ts_2622_5615_118_112",
           "_street": "toadstool",
-          "_streetArt": "red_mushroom"
+          "_plantArt": "ordinary"
         },
         {
           "kind": "wildplant",
@@ -9953,7 +9512,7 @@
           "y": 815.5,
           "id": "wp_ts_2622_5615_118_116",
           "_street": "toadstool",
-          "_streetArt": "red_mushroom"
+          "_plantArt": "ordinary"
         },
         {
           "kind": "wildplant",
@@ -9962,11 +9521,11 @@
           "y": 794.5,
           "id": "wp_ts_2622_5615_119_113",
           "_street": "toadstool",
-          "_streetArt": "red_mushroom"
+          "_plantArt": "ordinary"
         },
         {
           "kind": "wildplant",
-          "crop": "mushroom",
+          "crop": "mushroom_bush",
           "x": 836.5,
           "y": 787.5,
           "id": "wp_ts_2622_5615_119_112",
@@ -9980,11 +9539,11 @@
           "y": 808.5,
           "id": "wp_ts_2622_5615_119_115",
           "_street": "toadstool",
-          "_streetArt": "red_mushroom"
+          "_plantArt": "ordinary"
         },
         {
           "kind": "wildplant",
-          "crop": "mushroom",
+          "crop": "mushroom_bush",
           "x": 836.5,
           "y": 815.5,
           "id": "wp_ts_2622_5615_119_116",
@@ -9998,11 +9557,11 @@
           "y": 787.5,
           "id": "wp_ts_2622_5615_120_112",
           "_street": "toadstool",
-          "_streetArt": "red_mushroom"
+          "_plantArt": "ordinary"
         },
         {
           "kind": "wildplant",
-          "crop": "mushroom",
+          "crop": "mushroom_bush",
           "x": 843.5,
           "y": 808.5,
           "id": "wp_ts_2622_5615_120_115",
@@ -10016,11 +9575,11 @@
           "y": 815.5,
           "id": "wp_ts_2622_5615_120_116",
           "_street": "toadstool",
-          "_streetArt": "red_mushroom"
+          "_plantArt": "ordinary"
         },
         {
           "kind": "wildplant",
-          "crop": "mushroom",
+          "crop": "mushroom_bush",
           "x": 850.5,
           "y": 787.5,
           "id": "wp_ts_2622_5615_121_112",
@@ -10034,11 +9593,11 @@
           "y": 808.5,
           "id": "wp_ts_2622_5615_121_115",
           "_street": "toadstool",
-          "_streetArt": "red_mushroom"
+          "_plantArt": "ordinary"
         },
         {
           "kind": "wildplant",
-          "crop": "mushroom",
+          "crop": "mushroom_bush",
           "x": 850.5,
           "y": 815.5,
           "id": "wp_ts_2622_5615_121_116",
@@ -10047,7 +9606,7 @@
         },
         {
           "kind": "wildplant",
-          "crop": "mushroom",
+          "crop": "mushroom_bush",
           "x": 857.5,
           "y": 794.5,
           "id": "wp_ts_2622_5615_122_113",
@@ -10061,11 +9620,11 @@
           "y": 787.5,
           "id": "wp_ts_2622_5615_122_112",
           "_street": "toadstool",
-          "_streetArt": "red_mushroom"
+          "_plantArt": "ordinary"
         },
         {
           "kind": "wildplant",
-          "crop": "mushroom",
+          "crop": "mushroom_bush",
           "x": 857.5,
           "y": 808.5,
           "id": "wp_ts_2622_5615_122_115",
@@ -10079,7 +9638,7 @@
           "y": 815.5,
           "id": "wp_ts_2622_5615_122_116",
           "_street": "toadstool",
-          "_streetArt": "red_mushroom"
+          "_plantArt": "ordinary"
         },
         {
           "kind": "wildplant",
@@ -10116,7 +9675,7 @@
         },
         {
           "kind": "wildplant",
-          "crop": "mushroom",
+          "crop": "mushroom_bush",
           "x": 871.5,
           "y": 794.5,
           "id": "wp_ts_2622_5615_124_113",
@@ -10130,7 +9689,7 @@
           "y": 787.5,
           "id": "wp_ts_2622_5615_124_112",
           "_street": "toadstool",
-          "_streetArt": "red_mushroom"
+          "_plantArt": "ordinary"
         },
         {
           "kind": "wildplant",
@@ -10139,7 +9698,7 @@
           "y": 815.5,
           "id": "wp_ts_2622_5615_124_116",
           "_street": "toadstool",
-          "_streetArt": "red_mushroom"
+          "_plantArt": "ordinary"
         },
         {
           "kind": "wildplant",
@@ -10148,11 +9707,11 @@
           "y": 794.5,
           "id": "wp_ts_2622_5615_125_113",
           "_street": "toadstool",
-          "_streetArt": "red_mushroom"
+          "_plantArt": "ordinary"
         },
         {
           "kind": "wildplant",
-          "crop": "mushroom",
+          "crop": "mushroom_bush",
           "x": 878.5,
           "y": 787.5,
           "id": "wp_ts_2622_5615_125_112",
@@ -10161,7 +9720,7 @@
         },
         {
           "kind": "wildplant",
-          "crop": "mushroom",
+          "crop": "mushroom_bush",
           "x": 878.5,
           "y": 815.5,
           "id": "wp_ts_2622_5615_125_116",
@@ -10175,11 +9734,11 @@
           "y": 787.5,
           "id": "wp_ts_2622_5615_126_112",
           "_street": "toadstool",
-          "_streetArt": "red_mushroom"
+          "_plantArt": "ordinary"
         },
         {
           "kind": "wildplant",
-          "crop": "mushroom",
+          "crop": "mushroom_bush",
           "x": 885.5,
           "y": 808.5,
           "id": "wp_ts_2622_5615_126_115",
@@ -10193,11 +9752,11 @@
           "y": 815.5,
           "id": "wp_ts_2622_5615_126_116",
           "_street": "toadstool",
-          "_streetArt": "red_mushroom"
+          "_plantArt": "ordinary"
         },
         {
           "kind": "wildplant",
-          "crop": "mushroom",
+          "crop": "mushroom_bush",
           "x": 892.5,
           "y": 787.5,
           "id": "wp_ts_2622_5615_127_112",
@@ -10211,11 +9770,11 @@
           "y": 808.5,
           "id": "wp_ts_2622_5615_127_115",
           "_street": "toadstool",
-          "_streetArt": "red_mushroom"
+          "_plantArt": "ordinary"
         },
         {
           "kind": "wildplant",
-          "crop": "mushroom",
+          "crop": "mushroom_bush",
           "x": 892.5,
           "y": 815.5,
           "id": "wp_ts_2622_5615_127_116",
@@ -10229,11 +9788,11 @@
           "y": 787.5,
           "id": "wp_ts_2622_5615_128_112",
           "_street": "toadstool",
-          "_streetArt": "red_mushroom"
+          "_plantArt": "ordinary"
         },
         {
           "kind": "wildplant",
-          "crop": "mushroom",
+          "crop": "mushroom_bush",
           "x": 899.5,
           "y": 808.5,
           "id": "wp_ts_2622_5615_128_115",
@@ -10247,7 +9806,7 @@
           "y": 815.5,
           "id": "wp_ts_2622_5615_128_116",
           "_street": "toadstool",
-          "_streetArt": "red_mushroom"
+          "_plantArt": "ordinary"
         },
         {
           "kind": "wildplant",
@@ -10256,11 +9815,11 @@
           "y": 794.5,
           "id": "wp_ts_2622_5615_129_113",
           "_street": "toadstool",
-          "_streetArt": "red_mushroom"
+          "_plantArt": "ordinary"
         },
         {
           "kind": "wildplant",
-          "crop": "mushroom",
+          "crop": "mushroom_bush",
           "x": 906.5,
           "y": 787.5,
           "id": "wp_ts_2622_5615_129_112",
@@ -10274,214 +9833,16 @@
           "y": 808.5,
           "id": "wp_ts_2622_5615_129_115",
           "_street": "toadstool",
-          "_streetArt": "red_mushroom"
+          "_plantArt": "ordinary"
         },
         {
           "kind": "wildplant",
-          "crop": "mushroom",
+          "crop": "mushroom_bush",
           "x": 906.5,
           "y": 815.5,
           "id": "wp_ts_2622_5615_129_116",
           "_street": "toadstool",
           "_streetArt": "red_mushroom"
-        },
-        {
-          "kind": "wildplant",
-          "crop": "mushroom",
-          "x": 703.5,
-          "y": 780.5,
-          "id": "route_toadstool_2622_5615_100_111",
-          "_street": "toadstool",
-          "_streetArt": "toadstool_cluster"
-        },
-        {
-          "kind": "wildplant",
-          "crop": "mushroom",
-          "x": 703.5,
-          "y": 822.5,
-          "id": "route_toadstool_2622_5615_100_117",
-          "_street": "toadstool",
-          "_streetArt": "luminous_bulbs"
-        },
-        {
-          "kind": "wildplant",
-          "crop": "mushroom",
-          "x": 717.5,
-          "y": 780.5,
-          "id": "route_toadstool_2622_5615_102_111",
-          "_street": "toadstool",
-          "_streetArt": "toadstool_cluster"
-        },
-        {
-          "kind": "wildplant",
-          "crop": "mushroom",
-          "x": 717.5,
-          "y": 822.5,
-          "id": "route_toadstool_2622_5615_102_117",
-          "_street": "toadstool",
-          "_streetArt": "red_mushroom"
-        },
-        {
-          "kind": "wildplant",
-          "crop": "mushroom",
-          "x": 731.5,
-          "y": 780.5,
-          "id": "route_toadstool_2622_5615_104_111",
-          "_street": "toadstool",
-          "_streetArt": "luminous_bulbs"
-        },
-        {
-          "kind": "wildplant",
-          "crop": "giant_mushroom",
-          "x": 731.5,
-          "y": 822.5,
-          "id": "route_toadstool_2622_5615_104_117",
-          "_street": "toadstool",
-          "_streetArt": "spotted_mushroom"
-        },
-        {
-          "kind": "wildplant",
-          "crop": "mushroom",
-          "x": 759.5,
-          "y": 780.5,
-          "id": "route_toadstool_2622_5615_108_111",
-          "_street": "toadstool",
-          "_streetArt": "toadstool_cluster"
-        },
-        {
-          "kind": "wildplant",
-          "crop": "mushroom",
-          "x": 759.5,
-          "y": 822.5,
-          "id": "route_toadstool_2622_5615_108_117",
-          "_street": "toadstool",
-          "_streetArt": "red_mushroom"
-        },
-        {
-          "kind": "wildplant",
-          "crop": "giant_mushroom",
-          "x": 801.5,
-          "y": 780.5,
-          "id": "route_toadstool_2622_5615_114_111",
-          "_street": "toadstool",
-          "_streetArt": "spotted_mushroom"
-        },
-        {
-          "kind": "wildplant",
-          "crop": "mushroom",
-          "x": 801.5,
-          "y": 822.5,
-          "id": "route_toadstool_2622_5615_114_117",
-          "_street": "toadstool",
-          "_streetArt": "toadstool_cluster"
-        },
-        {
-          "kind": "wildplant",
-          "crop": "mushroom",
-          "x": 815.5,
-          "y": 780.5,
-          "id": "route_toadstool_2622_5615_116_111",
-          "_street": "toadstool",
-          "_streetArt": "luminous_bulbs"
-        },
-        {
-          "kind": "wildplant",
-          "crop": "mushroom",
-          "x": 815.5,
-          "y": 822.5,
-          "id": "route_toadstool_2622_5615_116_117",
-          "_street": "toadstool",
-          "_streetArt": "toadstool_cluster"
-        },
-        {
-          "kind": "wildplant",
-          "crop": "mushroom",
-          "x": 843.5,
-          "y": 780.5,
-          "id": "route_toadstool_2622_5615_120_111",
-          "_street": "toadstool",
-          "_streetArt": "red_mushroom"
-        },
-        {
-          "kind": "wildplant",
-          "crop": "mushroom",
-          "x": 843.5,
-          "y": 822.5,
-          "id": "route_toadstool_2622_5615_120_117",
-          "_street": "toadstool",
-          "_streetArt": "toadstool_cluster"
-        },
-        {
-          "kind": "wildplant",
-          "crop": "mushroom",
-          "x": 857.5,
-          "y": 780.5,
-          "id": "route_toadstool_2622_5615_122_111",
-          "_street": "toadstool",
-          "_streetArt": "red_mushroom"
-        },
-        {
-          "kind": "wildplant",
-          "crop": "mushroom",
-          "x": 857.5,
-          "y": 822.5,
-          "id": "route_toadstool_2622_5615_122_117",
-          "_street": "toadstool",
-          "_streetArt": "red_mushroom"
-        },
-        {
-          "kind": "wildplant",
-          "crop": "mushroom",
-          "x": 871.5,
-          "y": 780.5,
-          "id": "route_toadstool_2622_5615_124_111",
-          "_street": "toadstool",
-          "_streetArt": "luminous_bulbs"
-        },
-        {
-          "kind": "wildplant",
-          "crop": "mushroom",
-          "x": 871.5,
-          "y": 822.5,
-          "id": "route_toadstool_2622_5615_124_117",
-          "_street": "toadstool",
-          "_streetArt": "luminous_bulbs"
-        },
-        {
-          "kind": "wildplant",
-          "crop": "mushroom",
-          "x": 885.5,
-          "y": 780.5,
-          "id": "route_toadstool_2622_5615_126_111",
-          "_street": "toadstool",
-          "_streetArt": "toadstool_cluster"
-        },
-        {
-          "kind": "wildplant",
-          "crop": "mushroom",
-          "x": 885.5,
-          "y": 822.5,
-          "id": "route_toadstool_2622_5615_126_117",
-          "_street": "toadstool",
-          "_streetArt": "red_mushroom"
-        },
-        {
-          "kind": "wildplant",
-          "crop": "giant_mushroom",
-          "x": 899.5,
-          "y": 780.5,
-          "id": "route_toadstool_2622_5615_128_111",
-          "_street": "toadstool",
-          "_streetArt": "spotted_mushroom"
-        },
-        {
-          "kind": "wildplant",
-          "crop": "mushroom",
-          "x": 899.5,
-          "y": 822.5,
-          "id": "route_toadstool_2622_5615_128_117",
-          "_street": "toadstool",
-          "_streetArt": "luminous_bulbs"
         }
       ],
       "lamps": [
@@ -10597,10 +9958,13 @@
         }
       ],
       "slowKinds": [],
-      "placement": "Mushroom groups every 6 m, with up to 200 extra caps filling both two-cell verges."
+      "placement": "Small and medium mushrooms mix along both two-cell verges, with occasional giants. Groups every 6 m; up to 200 extra caps."
     },
     {
       "id": "promenade",
+      "materialLooks": {
+        "tree": "conifer_tree"
+      },
       "pathWeight": 0.12,
       "terrain": "SAND",
       "affinities": [
@@ -13249,6 +12613,9 @@
     },
     {
       "id": "greenway",
+      "materialLooks": {
+        "tree": "mossy_tree"
+      },
       "pathWeight": 0.2,
       "terrain": "GRASS",
       "affinities": [
@@ -13763,6 +13130,9 @@
     },
     {
       "id": "parkpath",
+      "materialLooks": {
+        "tree": "mossy_tree"
+      },
       "pathWeight": 0.27,
       "terrain": "PARK",
       "affinities": [
@@ -14102,6 +13472,9 @@
     },
     {
       "id": "golden",
+      "materialLooks": {
+        "tree": "mossy_tree"
+      },
       "terrain": "ROCK",
       "affinities": [
         "formal"
@@ -15020,11 +14393,6 @@
             },
             {
               "x": 4203762.5,
-              "y": 9001625.5,
-              "id": "golden_coin_2622_5615_99_111"
-            },
-            {
-              "x": 4203762.5,
               "y": 9001653.5,
               "id": "golden_coin_2622_5615_99_115"
             },
@@ -15034,24 +14402,9 @@
               "id": "golden_coin_2622_5615_99_116"
             },
             {
-              "x": 4203762.5,
-              "y": 9001667.5,
-              "id": "golden_coin_2622_5615_99_117"
-            },
-            {
               "x": 4203769.5,
               "y": 9001632.5,
               "id": "golden_coin_2622_5615_100_112"
-            },
-            {
-              "x": 4203769.5,
-              "y": 9001625.5,
-              "id": "golden_coin_2622_5615_100_111"
-            },
-            {
-              "x": 4203769.5,
-              "y": 9001667.5,
-              "id": "golden_coin_2622_5615_100_117"
             },
             {
               "x": 4203776.5,
@@ -15065,11 +14418,6 @@
             },
             {
               "x": 4203776.5,
-              "y": 9001625.5,
-              "id": "golden_coin_2622_5615_101_111"
-            },
-            {
-              "x": 4203776.5,
               "y": 9001653.5,
               "id": "golden_coin_2622_5615_101_115"
             },
@@ -15077,11 +14425,6 @@
               "x": 4203776.5,
               "y": 9001660.5,
               "id": "golden_coin_2622_5615_101_116"
-            },
-            {
-              "x": 4203776.5,
-              "y": 9001667.5,
-              "id": "golden_coin_2622_5615_101_117"
             },
             {
               "x": 4203783.5,
@@ -15095,11 +14438,6 @@
             },
             {
               "x": 4203783.5,
-              "y": 9001625.5,
-              "id": "golden_coin_2622_5615_102_111"
-            },
-            {
-              "x": 4203783.5,
               "y": 9001653.5,
               "id": "golden_coin_2622_5615_102_115"
             },
@@ -15107,11 +14445,6 @@
               "x": 4203783.5,
               "y": 9001660.5,
               "id": "golden_coin_2622_5615_102_116"
-            },
-            {
-              "x": 4203783.5,
-              "y": 9001667.5,
-              "id": "golden_coin_2622_5615_102_117"
             },
             {
               "x": 4203790.5,
@@ -15125,11 +14458,6 @@
             },
             {
               "x": 4203790.5,
-              "y": 9001625.5,
-              "id": "golden_coin_2622_5615_103_111"
-            },
-            {
-              "x": 4203790.5,
               "y": 9001653.5,
               "id": "golden_coin_2622_5615_103_115"
             },
@@ -15139,29 +14467,14 @@
               "id": "golden_coin_2622_5615_103_116"
             },
             {
-              "x": 4203790.5,
-              "y": 9001667.5,
-              "id": "golden_coin_2622_5615_103_117"
-            },
-            {
               "x": 4203797.5,
               "y": 9001632.5,
               "id": "golden_coin_2622_5615_104_112"
             },
             {
               "x": 4203797.5,
-              "y": 9001625.5,
-              "id": "golden_coin_2622_5615_104_111"
-            },
-            {
-              "x": 4203797.5,
               "y": 9001660.5,
               "id": "golden_coin_2622_5615_104_116"
-            },
-            {
-              "x": 4203797.5,
-              "y": 9001667.5,
-              "id": "golden_coin_2622_5615_104_117"
             },
             {
               "x": 4203804.5,
@@ -15175,11 +14488,6 @@
             },
             {
               "x": 4203804.5,
-              "y": 9001625.5,
-              "id": "golden_coin_2622_5615_105_111"
-            },
-            {
-              "x": 4203804.5,
               "y": 9001653.5,
               "id": "golden_coin_2622_5615_105_115"
             },
@@ -15189,29 +14497,14 @@
               "id": "golden_coin_2622_5615_105_116"
             },
             {
-              "x": 4203804.5,
-              "y": 9001667.5,
-              "id": "golden_coin_2622_5615_105_117"
-            },
-            {
               "x": 4203811.5,
               "y": 9001632.5,
               "id": "golden_coin_2622_5615_106_112"
             },
             {
               "x": 4203811.5,
-              "y": 9001625.5,
-              "id": "golden_coin_2622_5615_106_111"
-            },
-            {
-              "x": 4203811.5,
               "y": 9001660.5,
               "id": "golden_coin_2622_5615_106_116"
-            },
-            {
-              "x": 4203811.5,
-              "y": 9001667.5,
-              "id": "golden_coin_2622_5615_106_117"
             },
             {
               "x": 4203818.5,
@@ -15225,11 +14518,6 @@
             },
             {
               "x": 4203818.5,
-              "y": 9001625.5,
-              "id": "golden_coin_2622_5615_107_111"
-            },
-            {
-              "x": 4203818.5,
               "y": 9001653.5,
               "id": "golden_coin_2622_5615_107_115"
             },
@@ -15237,11 +14525,6 @@
               "x": 4203818.5,
               "y": 9001660.5,
               "id": "golden_coin_2622_5615_107_116"
-            },
-            {
-              "x": 4203818.5,
-              "y": 9001667.5,
-              "id": "golden_coin_2622_5615_107_117"
             },
             {
               "x": 4203825.5,
@@ -15255,11 +14538,6 @@
             },
             {
               "x": 4203825.5,
-              "y": 9001625.5,
-              "id": "golden_coin_2622_5615_108_111"
-            },
-            {
-              "x": 4203825.5,
               "y": 9001653.5,
               "id": "golden_coin_2622_5615_108_115"
             },
@@ -15267,11 +14545,6 @@
               "x": 4203825.5,
               "y": 9001660.5,
               "id": "golden_coin_2622_5615_108_116"
-            },
-            {
-              "x": 4203825.5,
-              "y": 9001667.5,
-              "id": "golden_coin_2622_5615_108_117"
             },
             {
               "x": 4203832.5,
@@ -15285,11 +14558,6 @@
             },
             {
               "x": 4203832.5,
-              "y": 9001625.5,
-              "id": "golden_coin_2622_5615_109_111"
-            },
-            {
-              "x": 4203832.5,
               "y": 9001653.5,
               "id": "golden_coin_2622_5615_109_115"
             },
@@ -15297,11 +14565,6 @@
               "x": 4203832.5,
               "y": 9001660.5,
               "id": "golden_coin_2622_5615_109_116"
-            },
-            {
-              "x": 4203832.5,
-              "y": 9001667.5,
-              "id": "golden_coin_2622_5615_109_117"
             },
             {
               "x": 4203839.5,
@@ -15315,11 +14578,6 @@
             },
             {
               "x": 4203839.5,
-              "y": 9001625.5,
-              "id": "golden_coin_2622_5615_110_111"
-            },
-            {
-              "x": 4203839.5,
               "y": 9001653.5,
               "id": "golden_coin_2622_5615_110_115"
             },
@@ -15327,11 +14585,6 @@
               "x": 4203839.5,
               "y": 9001660.5,
               "id": "golden_coin_2622_5615_110_116"
-            },
-            {
-              "x": 4203839.5,
-              "y": 9001667.5,
-              "id": "golden_coin_2622_5615_110_117"
             },
             {
               "x": 4203846.5,
@@ -15345,11 +14598,6 @@
             },
             {
               "x": 4203846.5,
-              "y": 9001625.5,
-              "id": "golden_coin_2622_5615_111_111"
-            },
-            {
-              "x": 4203846.5,
               "y": 9001653.5,
               "id": "golden_coin_2622_5615_111_115"
             },
@@ -15357,11 +14605,6 @@
               "x": 4203846.5,
               "y": 9001660.5,
               "id": "golden_coin_2622_5615_111_116"
-            },
-            {
-              "x": 4203846.5,
-              "y": 9001667.5,
-              "id": "golden_coin_2622_5615_111_117"
             },
             {
               "x": 4203853.5,
@@ -15375,11 +14618,6 @@
             },
             {
               "x": 4203853.5,
-              "y": 9001625.5,
-              "id": "golden_coin_2622_5615_112_111"
-            },
-            {
-              "x": 4203853.5,
               "y": 9001653.5,
               "id": "golden_coin_2622_5615_112_115"
             },
@@ -15387,11 +14625,6 @@
               "x": 4203853.5,
               "y": 9001660.5,
               "id": "golden_coin_2622_5615_112_116"
-            },
-            {
-              "x": 4203853.5,
-              "y": 9001667.5,
-              "id": "golden_coin_2622_5615_112_117"
             },
             {
               "x": 4203860.5,
@@ -15405,11 +14638,6 @@
             },
             {
               "x": 4203860.5,
-              "y": 9001625.5,
-              "id": "golden_coin_2622_5615_113_111"
-            },
-            {
-              "x": 4203860.5,
               "y": 9001653.5,
               "id": "golden_coin_2622_5615_113_115"
             },
@@ -15419,29 +14647,14 @@
               "id": "golden_coin_2622_5615_113_116"
             },
             {
-              "x": 4203860.5,
-              "y": 9001667.5,
-              "id": "golden_coin_2622_5615_113_117"
-            },
-            {
               "x": 4203867.5,
               "y": 9001632.5,
               "id": "golden_coin_2622_5615_114_112"
             },
             {
               "x": 4203867.5,
-              "y": 9001625.5,
-              "id": "golden_coin_2622_5615_114_111"
-            },
-            {
-              "x": 4203867.5,
               "y": 9001660.5,
               "id": "golden_coin_2622_5615_114_116"
-            },
-            {
-              "x": 4203867.5,
-              "y": 9001667.5,
-              "id": "golden_coin_2622_5615_114_117"
             },
             {
               "x": 4203874.5,
@@ -15455,11 +14668,6 @@
             },
             {
               "x": 4203874.5,
-              "y": 9001625.5,
-              "id": "golden_coin_2622_5615_115_111"
-            },
-            {
-              "x": 4203874.5,
               "y": 9001653.5,
               "id": "golden_coin_2622_5615_115_115"
             },
@@ -15467,11 +14675,6 @@
               "x": 4203874.5,
               "y": 9001660.5,
               "id": "golden_coin_2622_5615_115_116"
-            },
-            {
-              "x": 4203874.5,
-              "y": 9001667.5,
-              "id": "golden_coin_2622_5615_115_117"
             },
             {
               "x": 4203881.5,
@@ -15485,11 +14688,6 @@
             },
             {
               "x": 4203881.5,
-              "y": 9001625.5,
-              "id": "golden_coin_2622_5615_116_111"
-            },
-            {
-              "x": 4203881.5,
               "y": 9001653.5,
               "id": "golden_coin_2622_5615_116_115"
             },
@@ -15497,11 +14695,6 @@
               "x": 4203881.5,
               "y": 9001660.5,
               "id": "golden_coin_2622_5615_116_116"
-            },
-            {
-              "x": 4203881.5,
-              "y": 9001667.5,
-              "id": "golden_coin_2622_5615_116_117"
             },
             {
               "x": 4203888.5,
@@ -15515,11 +14708,6 @@
             },
             {
               "x": 4203888.5,
-              "y": 9001625.5,
-              "id": "golden_coin_2622_5615_117_111"
-            },
-            {
-              "x": 4203888.5,
               "y": 9001653.5,
               "id": "golden_coin_2622_5615_117_115"
             },
@@ -15527,11 +14715,6 @@
               "x": 4203888.5,
               "y": 9001660.5,
               "id": "golden_coin_2622_5615_117_116"
-            },
-            {
-              "x": 4203888.5,
-              "y": 9001667.5,
-              "id": "golden_coin_2622_5615_117_117"
             },
             {
               "x": 4203895.5,
@@ -15545,11 +14728,6 @@
             },
             {
               "x": 4203895.5,
-              "y": 9001625.5,
-              "id": "golden_coin_2622_5615_118_111"
-            },
-            {
-              "x": 4203895.5,
               "y": 9001653.5,
               "id": "golden_coin_2622_5615_118_115"
             },
@@ -15557,11 +14735,6 @@
               "x": 4203895.5,
               "y": 9001660.5,
               "id": "golden_coin_2622_5615_118_116"
-            },
-            {
-              "x": 4203895.5,
-              "y": 9001667.5,
-              "id": "golden_coin_2622_5615_118_117"
             },
             {
               "x": 4203902.5,
@@ -15575,11 +14748,6 @@
             },
             {
               "x": 4203902.5,
-              "y": 9001625.5,
-              "id": "golden_coin_2622_5615_119_111"
-            },
-            {
-              "x": 4203902.5,
               "y": 9001653.5,
               "id": "golden_coin_2622_5615_119_115"
             },
@@ -15587,11 +14755,6 @@
               "x": 4203902.5,
               "y": 9001660.5,
               "id": "golden_coin_2622_5615_119_116"
-            },
-            {
-              "x": 4203902.5,
-              "y": 9001667.5,
-              "id": "golden_coin_2622_5615_119_117"
             },
             {
               "x": 4203909.5,
@@ -15605,11 +14768,6 @@
             },
             {
               "x": 4203909.5,
-              "y": 9001625.5,
-              "id": "golden_coin_2622_5615_120_111"
-            },
-            {
-              "x": 4203909.5,
               "y": 9001653.5,
               "id": "golden_coin_2622_5615_120_115"
             },
@@ -15617,11 +14775,6 @@
               "x": 4203909.5,
               "y": 9001660.5,
               "id": "golden_coin_2622_5615_120_116"
-            },
-            {
-              "x": 4203909.5,
-              "y": 9001667.5,
-              "id": "golden_coin_2622_5615_120_117"
             },
             {
               "x": 4203916.5,
@@ -15635,11 +14788,6 @@
             },
             {
               "x": 4203916.5,
-              "y": 9001625.5,
-              "id": "golden_coin_2622_5615_121_111"
-            },
-            {
-              "x": 4203916.5,
               "y": 9001653.5,
               "id": "golden_coin_2622_5615_121_115"
             },
@@ -15649,29 +14797,14 @@
               "id": "golden_coin_2622_5615_121_116"
             },
             {
-              "x": 4203916.5,
-              "y": 9001667.5,
-              "id": "golden_coin_2622_5615_121_117"
-            },
-            {
               "x": 4203923.5,
               "y": 9001632.5,
               "id": "golden_coin_2622_5615_122_112"
             },
             {
               "x": 4203923.5,
-              "y": 9001625.5,
-              "id": "golden_coin_2622_5615_122_111"
-            },
-            {
-              "x": 4203923.5,
               "y": 9001660.5,
               "id": "golden_coin_2622_5615_122_116"
-            },
-            {
-              "x": 4203923.5,
-              "y": 9001667.5,
-              "id": "golden_coin_2622_5615_122_117"
             },
             {
               "x": 4203930.5,
@@ -15685,11 +14818,6 @@
             },
             {
               "x": 4203930.5,
-              "y": 9001625.5,
-              "id": "golden_coin_2622_5615_123_111"
-            },
-            {
-              "x": 4203930.5,
               "y": 9001653.5,
               "id": "golden_coin_2622_5615_123_115"
             },
@@ -15697,11 +14825,6 @@
               "x": 4203930.5,
               "y": 9001660.5,
               "id": "golden_coin_2622_5615_123_116"
-            },
-            {
-              "x": 4203930.5,
-              "y": 9001667.5,
-              "id": "golden_coin_2622_5615_123_117"
             },
             {
               "x": 4203937.5,
@@ -15715,11 +14838,6 @@
             },
             {
               "x": 4203937.5,
-              "y": 9001625.5,
-              "id": "golden_coin_2622_5615_124_111"
-            },
-            {
-              "x": 4203937.5,
               "y": 9001653.5,
               "id": "golden_coin_2622_5615_124_115"
             },
@@ -15727,11 +14845,6 @@
               "x": 4203937.5,
               "y": 9001660.5,
               "id": "golden_coin_2622_5615_124_116"
-            },
-            {
-              "x": 4203937.5,
-              "y": 9001667.5,
-              "id": "golden_coin_2622_5615_124_117"
             },
             {
               "x": 4203944.5,
@@ -15745,11 +14858,6 @@
             },
             {
               "x": 4203944.5,
-              "y": 9001625.5,
-              "id": "golden_coin_2622_5615_125_111"
-            },
-            {
-              "x": 4203944.5,
               "y": 9001653.5,
               "id": "golden_coin_2622_5615_125_115"
             },
@@ -15757,11 +14865,6 @@
               "x": 4203944.5,
               "y": 9001660.5,
               "id": "golden_coin_2622_5615_125_116"
-            },
-            {
-              "x": 4203944.5,
-              "y": 9001667.5,
-              "id": "golden_coin_2622_5615_125_117"
             },
             {
               "x": 4203951.5,
@@ -15775,11 +14878,6 @@
             },
             {
               "x": 4203951.5,
-              "y": 9001625.5,
-              "id": "golden_coin_2622_5615_126_111"
-            },
-            {
-              "x": 4203951.5,
               "y": 9001653.5,
               "id": "golden_coin_2622_5615_126_115"
             },
@@ -15787,11 +14885,6 @@
               "x": 4203951.5,
               "y": 9001660.5,
               "id": "golden_coin_2622_5615_126_116"
-            },
-            {
-              "x": 4203951.5,
-              "y": 9001667.5,
-              "id": "golden_coin_2622_5615_126_117"
             },
             {
               "x": 4203958.5,
@@ -15805,11 +14898,6 @@
             },
             {
               "x": 4203958.5,
-              "y": 9001625.5,
-              "id": "golden_coin_2622_5615_127_111"
-            },
-            {
-              "x": 4203958.5,
               "y": 9001653.5,
               "id": "golden_coin_2622_5615_127_115"
             },
@@ -15817,11 +14905,6 @@
               "x": 4203958.5,
               "y": 9001660.5,
               "id": "golden_coin_2622_5615_127_116"
-            },
-            {
-              "x": 4203958.5,
-              "y": 9001667.5,
-              "id": "golden_coin_2622_5615_127_117"
             },
             {
               "x": 4203965.5,
@@ -15835,11 +14918,6 @@
             },
             {
               "x": 4203965.5,
-              "y": 9001625.5,
-              "id": "golden_coin_2622_5615_128_111"
-            },
-            {
-              "x": 4203965.5,
               "y": 9001653.5,
               "id": "golden_coin_2622_5615_128_115"
             },
@@ -15847,11 +14925,6 @@
               "x": 4203965.5,
               "y": 9001660.5,
               "id": "golden_coin_2622_5615_128_116"
-            },
-            {
-              "x": 4203965.5,
-              "y": 9001667.5,
-              "id": "golden_coin_2622_5615_128_117"
             },
             {
               "x": 4203972.5,
@@ -15865,11 +14938,6 @@
             },
             {
               "x": 4203972.5,
-              "y": 9001625.5,
-              "id": "golden_coin_2622_5615_129_111"
-            },
-            {
-              "x": 4203972.5,
               "y": 9001653.5,
               "id": "golden_coin_2622_5615_129_115"
             },
@@ -15877,11 +14945,6 @@
               "x": 4203972.5,
               "y": 9001660.5,
               "id": "golden_coin_2622_5615_129_116"
-            },
-            {
-              "x": 4203972.5,
-              "y": 9001667.5,
-              "id": "golden_coin_2622_5615_129_117"
             }
           ]
         },
@@ -16104,7 +15167,11 @@
     },
     {
       "id": "snare",
+      "materialLooks": {
+        "tree": "dead_tree"
+      },
       "terrain": "WASTELAND",
+      "terrainVergeCells": 3,
       "affinities": [
         "ruined"
       ],
@@ -16127,6 +15194,181 @@
       "groundCells": [
         {
           "x": 686,
+          "y": 777,
+          "type": 27
+        },
+        {
+          "x": 693,
+          "y": 777,
+          "type": 27
+        },
+        {
+          "x": 700,
+          "y": 777,
+          "type": 27
+        },
+        {
+          "x": 707,
+          "y": 777,
+          "type": 27
+        },
+        {
+          "x": 714,
+          "y": 777,
+          "type": 27
+        },
+        {
+          "x": 721,
+          "y": 777,
+          "type": 27
+        },
+        {
+          "x": 728,
+          "y": 777,
+          "type": 27
+        },
+        {
+          "x": 735,
+          "y": 777,
+          "type": 27
+        },
+        {
+          "x": 742,
+          "y": 777,
+          "type": 27
+        },
+        {
+          "x": 749,
+          "y": 777,
+          "type": 27
+        },
+        {
+          "x": 756,
+          "y": 777,
+          "type": 27
+        },
+        {
+          "x": 763,
+          "y": 777,
+          "type": 27
+        },
+        {
+          "x": 770,
+          "y": 777,
+          "type": 27
+        },
+        {
+          "x": 777,
+          "y": 777,
+          "type": 27
+        },
+        {
+          "x": 784,
+          "y": 777,
+          "type": 27
+        },
+        {
+          "x": 791,
+          "y": 777,
+          "type": 27
+        },
+        {
+          "x": 798,
+          "y": 777,
+          "type": 27
+        },
+        {
+          "x": 805,
+          "y": 777,
+          "type": 27
+        },
+        {
+          "x": 812,
+          "y": 777,
+          "type": 27
+        },
+        {
+          "x": 819,
+          "y": 777,
+          "type": 27
+        },
+        {
+          "x": 826,
+          "y": 777,
+          "type": 27
+        },
+        {
+          "x": 833,
+          "y": 777,
+          "type": 27
+        },
+        {
+          "x": 840,
+          "y": 777,
+          "type": 27
+        },
+        {
+          "x": 847,
+          "y": 777,
+          "type": 27
+        },
+        {
+          "x": 854,
+          "y": 777,
+          "type": 27
+        },
+        {
+          "x": 861,
+          "y": 777,
+          "type": 27
+        },
+        {
+          "x": 868,
+          "y": 777,
+          "type": 27
+        },
+        {
+          "x": 875,
+          "y": 777,
+          "type": 27
+        },
+        {
+          "x": 882,
+          "y": 777,
+          "type": 27
+        },
+        {
+          "x": 889,
+          "y": 777,
+          "type": 27
+        },
+        {
+          "x": 896,
+          "y": 777,
+          "type": 27
+        },
+        {
+          "x": 903,
+          "y": 777,
+          "type": 27
+        },
+        {
+          "x": 910,
+          "y": 777,
+          "type": 27
+        },
+        {
+          "x": 672,
+          "y": 784,
+          "type": 27
+        },
+        {
+          "x": 679,
+          "y": 784,
+          "type": 27
+        },
+        {
+          "x": 686,
           "y": 784,
           "type": 27
         },
@@ -16288,6 +15530,21 @@
         {
           "x": 910,
           "y": 784,
+          "type": 27
+        },
+        {
+          "x": 917,
+          "y": 784,
+          "type": 27
+        },
+        {
+          "x": 924,
+          "y": 784,
+          "type": 27
+        },
+        {
+          "x": 672,
+          "y": 791,
           "type": 27
         },
         {
@@ -16466,6 +15723,16 @@
           "type": 27
         },
         {
+          "x": 924,
+          "y": 791,
+          "type": 27
+        },
+        {
+          "x": 672,
+          "y": 798,
+          "type": 27
+        },
+        {
           "x": 679,
           "y": 798,
           "type": 27
@@ -16641,6 +15908,16 @@
           "type": 27
         },
         {
+          "x": 924,
+          "y": 798,
+          "type": 27
+        },
+        {
+          "x": 672,
+          "y": 805,
+          "type": 27
+        },
+        {
           "x": 679,
           "y": 805,
           "type": 27
@@ -16816,6 +16093,21 @@
           "type": 27
         },
         {
+          "x": 924,
+          "y": 805,
+          "type": 27
+        },
+        {
+          "x": 672,
+          "y": 812,
+          "type": 27
+        },
+        {
+          "x": 679,
+          "y": 812,
+          "type": 27
+        },
+        {
           "x": 686,
           "y": 812,
           "type": 27
@@ -16978,6 +16270,181 @@
         {
           "x": 910,
           "y": 812,
+          "type": 27
+        },
+        {
+          "x": 917,
+          "y": 812,
+          "type": 27
+        },
+        {
+          "x": 924,
+          "y": 812,
+          "type": 27
+        },
+        {
+          "x": 686,
+          "y": 819,
+          "type": 27
+        },
+        {
+          "x": 693,
+          "y": 819,
+          "type": 27
+        },
+        {
+          "x": 700,
+          "y": 819,
+          "type": 27
+        },
+        {
+          "x": 707,
+          "y": 819,
+          "type": 27
+        },
+        {
+          "x": 714,
+          "y": 819,
+          "type": 27
+        },
+        {
+          "x": 721,
+          "y": 819,
+          "type": 27
+        },
+        {
+          "x": 728,
+          "y": 819,
+          "type": 27
+        },
+        {
+          "x": 735,
+          "y": 819,
+          "type": 27
+        },
+        {
+          "x": 742,
+          "y": 819,
+          "type": 27
+        },
+        {
+          "x": 749,
+          "y": 819,
+          "type": 27
+        },
+        {
+          "x": 756,
+          "y": 819,
+          "type": 27
+        },
+        {
+          "x": 763,
+          "y": 819,
+          "type": 27
+        },
+        {
+          "x": 770,
+          "y": 819,
+          "type": 27
+        },
+        {
+          "x": 777,
+          "y": 819,
+          "type": 27
+        },
+        {
+          "x": 784,
+          "y": 819,
+          "type": 27
+        },
+        {
+          "x": 791,
+          "y": 819,
+          "type": 27
+        },
+        {
+          "x": 798,
+          "y": 819,
+          "type": 27
+        },
+        {
+          "x": 805,
+          "y": 819,
+          "type": 27
+        },
+        {
+          "x": 812,
+          "y": 819,
+          "type": 27
+        },
+        {
+          "x": 819,
+          "y": 819,
+          "type": 27
+        },
+        {
+          "x": 826,
+          "y": 819,
+          "type": 27
+        },
+        {
+          "x": 833,
+          "y": 819,
+          "type": 27
+        },
+        {
+          "x": 840,
+          "y": 819,
+          "type": 27
+        },
+        {
+          "x": 847,
+          "y": 819,
+          "type": 27
+        },
+        {
+          "x": 854,
+          "y": 819,
+          "type": 27
+        },
+        {
+          "x": 861,
+          "y": 819,
+          "type": 27
+        },
+        {
+          "x": 868,
+          "y": 819,
+          "type": 27
+        },
+        {
+          "x": 875,
+          "y": 819,
+          "type": 27
+        },
+        {
+          "x": 882,
+          "y": 819,
+          "type": 27
+        },
+        {
+          "x": 889,
+          "y": 819,
+          "type": 27
+        },
+        {
+          "x": 896,
+          "y": 819,
+          "type": 27
+        },
+        {
+          "x": 903,
+          "y": 819,
+          "type": 27
+        },
+        {
+          "x": 910,
+          "y": 819,
           "type": 27
         }
       ],
@@ -17012,9 +16479,9 @@
         },
         {
           "kind": "mineralrock",
-          "x": 787.5,
-          "y": 780.5,
-          "id": "route_snare_2622_5615_112_111",
+          "x": 759.5,
+          "y": 822.5,
+          "id": "route_snare_2622_5615_108_117",
           "_street": "snare",
           "_streetArt": "dusty_stones",
           "requiredTier": 1,
@@ -17022,9 +16489,9 @@
         },
         {
           "kind": "mineralrock",
-          "x": 829.5,
-          "y": 794.5,
-          "id": "route_snare_2622_5615_118_113",
+          "x": 843.5,
+          "y": 815.5,
+          "id": "route_snare_2622_5615_120_116",
           "_street": "snare",
           "_streetArt": "dusty_stones",
           "requiredTier": 1,
@@ -17032,19 +16499,9 @@
         },
         {
           "kind": "mineralrock",
-          "x": 871.5,
-          "y": 808.5,
-          "id": "route_snare_2622_5615_124_115",
-          "_street": "snare",
-          "_streetArt": "dusty_stones",
-          "requiredTier": 1,
-          "yieldTier": 1
-        },
-        {
-          "kind": "mineralrock",
-          "x": 885.5,
-          "y": 794.5,
-          "id": "route_snare_2622_5615_126_113",
+          "x": 878.5,
+          "y": 815.5,
+          "id": "route_snare_2622_5615_125_116",
           "_street": "snare",
           "_streetArt": "dusty_stones",
           "requiredTier": 1,
@@ -17070,12 +16527,12 @@
         },
         {
           "kind": "wildplant",
-          "crop": "bone_fragments",
-          "x": 703.5,
+          "crop": "driftwood",
+          "x": 696.5,
           "y": 794.5,
-          "id": "route_snare_2622_5615_100_113",
+          "id": "route_snare_2622_5615_99_113",
           "_street": "snare",
-          "_streetArt": "bone_fragments"
+          "_streetArt": "plank_fragments"
         },
         {
           "kind": "wildplant",
@@ -17088,55 +16545,37 @@
         },
         {
           "kind": "wildplant",
-          "crop": "driftwood",
-          "x": 731.5,
-          "y": 794.5,
-          "id": "route_snare_2622_5615_104_113",
-          "_street": "snare",
-          "_streetArt": "plank_fragments"
-        },
-        {
-          "kind": "wildplant",
-          "crop": "driftwood",
-          "x": 731.5,
-          "y": 808.5,
-          "id": "route_snare_2622_5615_104_115",
-          "_street": "snare",
-          "_streetArt": "plank_fragments"
-        },
-        {
-          "kind": "wildplant",
           "crop": "bone_fragments",
-          "x": 745.5,
-          "y": 794.5,
-          "id": "route_snare_2622_5615_106_113",
-          "_street": "snare",
-          "_streetArt": "bone_fragments"
-        },
-        {
-          "kind": "wildplant",
-          "crop": "driftwood",
-          "x": 745.5,
+          "x": 710.5,
           "y": 808.5,
-          "id": "route_snare_2622_5615_106_115",
-          "_street": "snare",
-          "_streetArt": "plank_fragments"
-        },
-        {
-          "kind": "wildplant",
-          "crop": "bone_fragments",
-          "x": 759.5,
-          "y": 794.5,
-          "id": "route_snare_2622_5615_108_113",
+          "id": "route_snare_2622_5615_101_115",
           "_street": "snare",
           "_streetArt": "bone_fragments"
         },
         {
           "kind": "wildplant",
           "crop": "bone_fragments",
-          "x": 759.5,
+          "x": 717.5,
+          "y": 787.5,
+          "id": "route_snare_2622_5615_102_112",
+          "_street": "snare",
+          "_streetArt": "bone_fragments"
+        },
+        {
+          "kind": "wildplant",
+          "crop": "bone_fragments",
+          "x": 724.5,
+          "y": 822.5,
+          "id": "route_snare_2622_5615_103_117",
+          "_street": "snare",
+          "_streetArt": "bone_fragments"
+        },
+        {
+          "kind": "wildplant",
+          "crop": "bone_fragments",
+          "x": 766.5,
           "y": 808.5,
-          "id": "route_snare_2622_5615_108_115",
+          "id": "route_snare_2622_5615_109_115",
           "_street": "snare",
           "_streetArt": "bone_fragments"
         },
@@ -17144,64 +16583,37 @@
           "kind": "wildplant",
           "crop": "driftwood",
           "x": 773.5,
-          "y": 794.5,
-          "id": "route_snare_2622_5615_110_113",
+          "y": 815.5,
+          "id": "route_snare_2622_5615_110_116",
+          "_street": "snare",
+          "_streetArt": "plank_fragments"
+        },
+        {
+          "kind": "wildplant",
+          "crop": "driftwood",
+          "x": 836.5,
+          "y": 780.5,
+          "id": "route_snare_2622_5615_119_111",
           "_street": "snare",
           "_streetArt": "plank_fragments"
         },
         {
           "kind": "wildplant",
           "crop": "bone_fragments",
-          "x": 773.5,
-          "y": 808.5,
-          "id": "route_snare_2622_5615_110_115",
+          "x": 850.5,
+          "y": 780.5,
+          "id": "route_snare_2622_5615_121_111",
           "_street": "snare",
           "_streetArt": "bone_fragments"
-        },
-        {
-          "kind": "wildplant",
-          "crop": "driftwood",
-          "x": 801.5,
-          "y": 780.5,
-          "id": "route_snare_2622_5615_114_111",
-          "_street": "snare",
-          "_streetArt": "plank_fragments"
         },
         {
           "kind": "wildplant",
           "crop": "bone_fragments",
-          "x": 815.5,
-          "y": 780.5,
-          "id": "route_snare_2622_5615_116_111",
+          "x": 857.5,
+          "y": 822.5,
+          "id": "route_snare_2622_5615_122_117",
           "_street": "snare",
           "_streetArt": "bone_fragments"
-        },
-        {
-          "kind": "wildplant",
-          "crop": "driftwood",
-          "x": 829.5,
-          "y": 808.5,
-          "id": "route_snare_2622_5615_118_115",
-          "_street": "snare",
-          "_streetArt": "plank_fragments"
-        },
-        {
-          "kind": "wildplant",
-          "crop": "driftwood",
-          "x": 857.5,
-          "y": 794.5,
-          "id": "route_snare_2622_5615_122_113",
-          "_street": "snare",
-          "_streetArt": "plank_fragments"
-        },
-        {
-          "kind": "wildplant",
-          "crop": "driftwood",
-          "x": 857.5,
-          "y": 808.5,
-          "id": "route_snare_2622_5615_122_115",
-          "_street": "snare",
-          "_streetArt": "plank_fragments"
         },
         {
           "kind": "wildplant",
@@ -17214,10 +16626,37 @@
         },
         {
           "kind": "wildplant",
-          "crop": "driftwood",
+          "crop": "bone_fragments",
           "x": 885.5,
-          "y": 808.5,
-          "id": "route_snare_2622_5615_126_115",
+          "y": 815.5,
+          "id": "route_snare_2622_5615_126_116",
+          "_street": "snare",
+          "_streetArt": "bone_fragments"
+        },
+        {
+          "kind": "wildplant",
+          "crop": "driftwood",
+          "x": 892.5,
+          "y": 822.5,
+          "id": "route_snare_2622_5615_127_117",
+          "_street": "snare",
+          "_streetArt": "plank_fragments"
+        },
+        {
+          "kind": "wildplant",
+          "crop": "bone_fragments",
+          "x": 899.5,
+          "y": 815.5,
+          "id": "route_snare_2622_5615_128_116",
+          "_street": "snare",
+          "_streetArt": "bone_fragments"
+        },
+        {
+          "kind": "wildplant",
+          "crop": "driftwood",
+          "x": 906.5,
+          "y": 787.5,
+          "id": "route_snare_2622_5615_129_112",
           "_street": "snare",
           "_streetArt": "plank_fragments"
         },
@@ -17532,20 +16971,20 @@
           "recordType": "surface_trap"
         },
         {
-          "id": "trap_snare_2622_5615_109_113",
-          "x": 766.5,
-          "y": 794.5,
-          "_ix": 109,
-          "_iy": 113,
+          "id": "trap_snare_2622_5615_106_115",
+          "x": 745.5,
+          "y": 808.5,
+          "_ix": 106,
+          "_iy": 115,
           "_street": "snare",
           "kind": "trap",
           "recordType": "surface_trap"
         },
         {
-          "id": "trap_snare_2622_5615_99_113",
-          "x": 696.5,
+          "id": "trap_snare_2622_5615_109_113",
+          "x": 766.5,
           "y": 794.5,
-          "_ix": 99,
+          "_ix": 109,
           "_iy": 113,
           "_street": "snare",
           "kind": "trap",
@@ -17562,6 +17001,16 @@
           "recordType": "surface_trap"
         },
         {
+          "id": "trap_snare_2622_5615_104_115",
+          "x": 731.5,
+          "y": 808.5,
+          "_ix": 104,
+          "_iy": 115,
+          "_street": "snare",
+          "kind": "trap",
+          "recordType": "surface_trap"
+        },
+        {
           "id": "trap_snare_2622_5615_102_113",
           "x": 717.5,
           "y": 794.5,
@@ -17572,11 +17021,11 @@
           "recordType": "surface_trap"
         },
         {
-          "id": "trap_snare_2622_5615_109_115",
-          "x": 766.5,
-          "y": 808.5,
-          "_ix": 109,
-          "_iy": 115,
+          "id": "trap_snare_2622_5615_100_113",
+          "x": 703.5,
+          "y": 794.5,
+          "_ix": 100,
+          "_iy": 113,
           "_street": "snare",
           "kind": "trap",
           "recordType": "surface_trap"
@@ -17592,16 +17041,6 @@
           "recordType": "surface_trap"
         },
         {
-          "id": "trap_snare_2622_5615_107_114",
-          "x": 752.5,
-          "y": 801.5,
-          "_ix": 107,
-          "_iy": 114,
-          "_street": "snare",
-          "kind": "trap",
-          "recordType": "surface_trap"
-        },
-        {
           "id": "trap_snare_2622_5615_123_114",
           "x": 864.5,
           "y": 801.5,
@@ -17612,21 +17051,21 @@
           "recordType": "surface_trap"
         },
         {
-          "id": "trap_snare_2622_5615_98_115",
-          "x": 689.5,
+          "id": "trap_snare_2622_5615_108_115",
+          "x": 759.5,
           "y": 808.5,
-          "_ix": 98,
+          "_ix": 108,
           "_iy": 115,
           "_street": "snare",
           "kind": "trap",
           "recordType": "surface_trap"
         },
         {
-          "id": "trap_snare_2622_5615_104_114",
-          "x": 731.5,
-          "y": 801.5,
-          "_ix": 104,
-          "_iy": 114,
+          "id": "trap_snare_2622_5615_98_115",
+          "x": 689.5,
+          "y": 808.5,
+          "_ix": 98,
+          "_iy": 115,
           "_street": "snare",
           "kind": "trap",
           "recordType": "surface_trap"
@@ -17738,12 +17177,15 @@
         }
       ],
       "slowKinds": [],
-      "placement": "One T3 chest surrounded by 8-24 traps. Up to 12 extra snares lie along the road and verges."
+      "placement": "Dirt extends 3 cells, with scattered rocks and bones. One T3 chest surrounded by 8-24 traps. Up to 12 extra snares lie along the road and verges."
     },
     {
       "id": "thorny",
+      "materialLooks": {
+        "tree": "dead_tree"
+      },
       "terrain": "WASTELAND",
-      "terrainVergeCells": 4,
+      "terrainVergeCells": 3,
       "affinities": [
         "woodland"
       ],
@@ -17767,191 +17209,6 @@
       "baseTerrain": 6,
       "groundCells": [
         {
-          "x": 679,
-          "y": 770,
-          "type": 27
-        },
-        {
-          "x": 686,
-          "y": 770,
-          "type": 27
-        },
-        {
-          "x": 693,
-          "y": 770,
-          "type": 27
-        },
-        {
-          "x": 700,
-          "y": 770,
-          "type": 27
-        },
-        {
-          "x": 707,
-          "y": 770,
-          "type": 27
-        },
-        {
-          "x": 714,
-          "y": 770,
-          "type": 27
-        },
-        {
-          "x": 721,
-          "y": 770,
-          "type": 27
-        },
-        {
-          "x": 728,
-          "y": 770,
-          "type": 27
-        },
-        {
-          "x": 735,
-          "y": 770,
-          "type": 27
-        },
-        {
-          "x": 742,
-          "y": 770,
-          "type": 27
-        },
-        {
-          "x": 749,
-          "y": 770,
-          "type": 27
-        },
-        {
-          "x": 756,
-          "y": 770,
-          "type": 27
-        },
-        {
-          "x": 763,
-          "y": 770,
-          "type": 27
-        },
-        {
-          "x": 770,
-          "y": 770,
-          "type": 27
-        },
-        {
-          "x": 777,
-          "y": 770,
-          "type": 27
-        },
-        {
-          "x": 784,
-          "y": 770,
-          "type": 27
-        },
-        {
-          "x": 791,
-          "y": 770,
-          "type": 27
-        },
-        {
-          "x": 798,
-          "y": 770,
-          "type": 27
-        },
-        {
-          "x": 805,
-          "y": 770,
-          "type": 27
-        },
-        {
-          "x": 812,
-          "y": 770,
-          "type": 27
-        },
-        {
-          "x": 819,
-          "y": 770,
-          "type": 27
-        },
-        {
-          "x": 826,
-          "y": 770,
-          "type": 27
-        },
-        {
-          "x": 833,
-          "y": 770,
-          "type": 27
-        },
-        {
-          "x": 840,
-          "y": 770,
-          "type": 27
-        },
-        {
-          "x": 847,
-          "y": 770,
-          "type": 27
-        },
-        {
-          "x": 854,
-          "y": 770,
-          "type": 27
-        },
-        {
-          "x": 861,
-          "y": 770,
-          "type": 27
-        },
-        {
-          "x": 868,
-          "y": 770,
-          "type": 27
-        },
-        {
-          "x": 875,
-          "y": 770,
-          "type": 27
-        },
-        {
-          "x": 882,
-          "y": 770,
-          "type": 27
-        },
-        {
-          "x": 889,
-          "y": 770,
-          "type": 27
-        },
-        {
-          "x": 896,
-          "y": 770,
-          "type": 27
-        },
-        {
-          "x": 903,
-          "y": 770,
-          "type": 27
-        },
-        {
-          "x": 910,
-          "y": 770,
-          "type": 27
-        },
-        {
-          "x": 917,
-          "y": 770,
-          "type": 27
-        },
-        {
-          "x": 672,
-          "y": 777,
-          "type": 27
-        },
-        {
-          "x": 679,
-          "y": 777,
-          "type": 27
-        },
-        {
           "x": 686,
           "y": 777,
           "type": 27
@@ -18114,21 +17371,6 @@
         {
           "x": 910,
           "y": 777,
-          "type": 27
-        },
-        {
-          "x": 917,
-          "y": 777,
-          "type": 27
-        },
-        {
-          "x": 924,
-          "y": 777,
-          "type": 27
-        },
-        {
-          "x": 665,
-          "y": 784,
           "type": 27
         },
         {
@@ -18317,16 +17559,6 @@
           "type": 27
         },
         {
-          "x": 931,
-          "y": 784,
-          "type": 27
-        },
-        {
-          "x": 665,
-          "y": 791,
-          "type": 27
-        },
-        {
           "x": 672,
           "y": 791,
           "type": 27
@@ -18509,16 +17741,6 @@
         {
           "x": 924,
           "y": 791,
-          "type": 27
-        },
-        {
-          "x": 931,
-          "y": 791,
-          "type": 27
-        },
-        {
-          "x": 665,
-          "y": 798,
           "type": 27
         },
         {
@@ -18707,16 +17929,6 @@
           "type": 27
         },
         {
-          "x": 931,
-          "y": 798,
-          "type": 27
-        },
-        {
-          "x": 665,
-          "y": 805,
-          "type": 27
-        },
-        {
           "x": 672,
           "y": 805,
           "type": 27
@@ -18899,16 +18111,6 @@
         {
           "x": 924,
           "y": 805,
-          "type": 27
-        },
-        {
-          "x": 931,
-          "y": 805,
-          "type": 27
-        },
-        {
-          "x": 665,
-          "y": 812,
           "type": 27
         },
         {
@@ -19097,21 +18299,6 @@
           "type": 27
         },
         {
-          "x": 931,
-          "y": 812,
-          "type": 27
-        },
-        {
-          "x": 672,
-          "y": 819,
-          "type": 27
-        },
-        {
-          "x": 679,
-          "y": 819,
-          "type": 27
-        },
-        {
           "x": 686,
           "y": 819,
           "type": 27
@@ -19274,191 +18461,6 @@
         {
           "x": 910,
           "y": 819,
-          "type": 27
-        },
-        {
-          "x": 917,
-          "y": 819,
-          "type": 27
-        },
-        {
-          "x": 924,
-          "y": 819,
-          "type": 27
-        },
-        {
-          "x": 679,
-          "y": 826,
-          "type": 27
-        },
-        {
-          "x": 686,
-          "y": 826,
-          "type": 27
-        },
-        {
-          "x": 693,
-          "y": 826,
-          "type": 27
-        },
-        {
-          "x": 700,
-          "y": 826,
-          "type": 27
-        },
-        {
-          "x": 707,
-          "y": 826,
-          "type": 27
-        },
-        {
-          "x": 714,
-          "y": 826,
-          "type": 27
-        },
-        {
-          "x": 721,
-          "y": 826,
-          "type": 27
-        },
-        {
-          "x": 728,
-          "y": 826,
-          "type": 27
-        },
-        {
-          "x": 735,
-          "y": 826,
-          "type": 27
-        },
-        {
-          "x": 742,
-          "y": 826,
-          "type": 27
-        },
-        {
-          "x": 749,
-          "y": 826,
-          "type": 27
-        },
-        {
-          "x": 756,
-          "y": 826,
-          "type": 27
-        },
-        {
-          "x": 763,
-          "y": 826,
-          "type": 27
-        },
-        {
-          "x": 770,
-          "y": 826,
-          "type": 27
-        },
-        {
-          "x": 777,
-          "y": 826,
-          "type": 27
-        },
-        {
-          "x": 784,
-          "y": 826,
-          "type": 27
-        },
-        {
-          "x": 791,
-          "y": 826,
-          "type": 27
-        },
-        {
-          "x": 798,
-          "y": 826,
-          "type": 27
-        },
-        {
-          "x": 805,
-          "y": 826,
-          "type": 27
-        },
-        {
-          "x": 812,
-          "y": 826,
-          "type": 27
-        },
-        {
-          "x": 819,
-          "y": 826,
-          "type": 27
-        },
-        {
-          "x": 826,
-          "y": 826,
-          "type": 27
-        },
-        {
-          "x": 833,
-          "y": 826,
-          "type": 27
-        },
-        {
-          "x": 840,
-          "y": 826,
-          "type": 27
-        },
-        {
-          "x": 847,
-          "y": 826,
-          "type": 27
-        },
-        {
-          "x": 854,
-          "y": 826,
-          "type": 27
-        },
-        {
-          "x": 861,
-          "y": 826,
-          "type": 27
-        },
-        {
-          "x": 868,
-          "y": 826,
-          "type": 27
-        },
-        {
-          "x": 875,
-          "y": 826,
-          "type": 27
-        },
-        {
-          "x": 882,
-          "y": 826,
-          "type": 27
-        },
-        {
-          "x": 889,
-          "y": 826,
-          "type": 27
-        },
-        {
-          "x": 896,
-          "y": 826,
-          "type": 27
-        },
-        {
-          "x": 903,
-          "y": 826,
-          "type": 27
-        },
-        {
-          "x": 910,
-          "y": 826,
-          "type": 27
-        },
-        {
-          "x": 917,
-          "y": 826,
           "type": 27
         }
       ],
@@ -19484,28 +18486,28 @@
         {
           "kind": "grove_shrine",
           "x": 801.5,
-          "y": 773.5,
-          "id": "street_shrine_2622_5615_114_110",
+          "y": 787.5,
+          "id": "street_shrine_2622_5615_114_112",
           "_shrineStreet": "thorny",
           "shrineKind": "moss_cairn"
+        },
+        {
+          "kind": "tree",
+          "x": 850.5,
+          "y": 780.5,
+          "id": "route_thorny_2622_5615_121_111",
+          "_street": "thorny",
+          "_streetArt": "dead_tree",
+          "species": "maple",
+          "treeSpeciesFixed": true,
+          "_objectArt": "dead_tree",
+          "variant": 2
         },
         {
           "kind": "tree",
           "x": 885.5,
           "y": 780.5,
           "id": "route_thorny_2622_5615_126_111",
-          "_street": "thorny",
-          "_streetArt": "dead_tree",
-          "species": "maple",
-          "treeSpeciesFixed": true,
-          "_objectArt": "dead_tree",
-          "variant": 3
-        },
-        {
-          "kind": "tree",
-          "x": 885.5,
-          "y": 822.5,
-          "id": "route_thorny_2622_5615_126_117",
           "_street": "thorny",
           "_streetArt": "dead_tree",
           "species": "maple",
@@ -19530,156 +18532,6 @@
           "crate": true,
           "tierSeed": 1,
           "previewContainerFrame": 2
-        },
-        {
-          "kind": "wildplant",
-          "crop": "shrub",
-          "x": 787.5,
-          "y": 759.5,
-          "id": "bramble_2622_5615_112_108",
-          "_street": "thorny",
-          "_streetArt": "bramble",
-          "_spawnClass": "streetObstacle"
-        },
-        {
-          "kind": "wildplant",
-          "crop": "shrub",
-          "x": 794.5,
-          "y": 759.5,
-          "id": "bramble_2622_5615_113_108",
-          "_street": "thorny",
-          "_streetArt": "bramble",
-          "_spawnClass": "streetObstacle"
-        },
-        {
-          "kind": "wildplant",
-          "crop": "shrub",
-          "x": 801.5,
-          "y": 759.5,
-          "id": "bramble_2622_5615_114_108",
-          "_street": "thorny",
-          "_streetArt": "bramble",
-          "_spawnClass": "streetObstacle"
-        },
-        {
-          "kind": "wildplant",
-          "crop": "shrub",
-          "x": 808.5,
-          "y": 759.5,
-          "id": "bramble_2622_5615_115_108",
-          "_street": "thorny",
-          "_streetArt": "bramble",
-          "_spawnClass": "streetObstacle"
-        },
-        {
-          "kind": "wildplant",
-          "crop": "shrub",
-          "x": 815.5,
-          "y": 759.5,
-          "id": "bramble_2622_5615_116_108",
-          "_street": "thorny",
-          "_streetArt": "bramble",
-          "_spawnClass": "streetObstacle"
-        },
-        {
-          "kind": "wildplant",
-          "crop": "shrub",
-          "x": 787.5,
-          "y": 766.5,
-          "id": "bramble_2622_5615_112_109",
-          "_street": "thorny",
-          "_streetArt": "bramble",
-          "_spawnClass": "streetObstacle"
-        },
-        {
-          "kind": "wildplant",
-          "crop": "shrub",
-          "x": 794.5,
-          "y": 766.5,
-          "id": "bramble_2622_5615_113_109",
-          "_street": "thorny",
-          "_streetArt": "bramble",
-          "_spawnClass": "streetObstacle"
-        },
-        {
-          "kind": "wildplant",
-          "crop": "shrub",
-          "x": 801.5,
-          "y": 766.5,
-          "id": "bramble_2622_5615_114_109",
-          "_street": "thorny",
-          "_streetArt": "bramble",
-          "_spawnClass": "streetObstacle"
-        },
-        {
-          "kind": "wildplant",
-          "crop": "shrub",
-          "x": 808.5,
-          "y": 766.5,
-          "id": "bramble_2622_5615_115_109",
-          "_street": "thorny",
-          "_streetArt": "bramble",
-          "_spawnClass": "streetObstacle"
-        },
-        {
-          "kind": "wildplant",
-          "crop": "shrub",
-          "x": 815.5,
-          "y": 766.5,
-          "id": "bramble_2622_5615_116_109",
-          "_street": "thorny",
-          "_streetArt": "bramble",
-          "_spawnClass": "streetObstacle"
-        },
-        {
-          "kind": "wildplant",
-          "crop": "shrub",
-          "x": 787.5,
-          "y": 773.5,
-          "id": "bramble_2622_5615_112_110",
-          "_street": "thorny",
-          "_streetArt": "bramble",
-          "_spawnClass": "streetObstacle"
-        },
-        {
-          "kind": "wildplant",
-          "crop": "shrub",
-          "x": 794.5,
-          "y": 773.5,
-          "id": "bramble_2622_5615_113_110",
-          "_street": "thorny",
-          "_streetArt": "bramble",
-          "_spawnClass": "streetObstacle"
-        },
-        {
-          "kind": "wildplant",
-          "crop": "shrub",
-          "x": 808.5,
-          "y": 773.5,
-          "id": "bramble_2622_5615_115_110",
-          "_street": "thorny",
-          "_streetArt": "bramble",
-          "_spawnClass": "streetObstacle"
-        },
-        {
-          "kind": "wildplant",
-          "crop": "shrub",
-          "x": 815.5,
-          "y": 773.5,
-          "id": "bramble_2622_5615_116_110",
-          "_street": "thorny",
-          "_streetArt": "bramble",
-          "_spawnClass": "streetObstacle"
-        },
-        {
-          "kind": "wildplant",
-          "crop": "shrub",
-          "x": 787.5,
-          "y": 780.5,
-          "id": "bramble_2622_5615_112_111",
-          "_street": "thorny",
-          "_streetArt": "bramble",
-          "_spawnClass": "streetObstacle"
         },
         {
           "kind": "wildplant",
@@ -19714,39 +18566,9 @@
         {
           "kind": "wildplant",
           "crop": "shrub",
-          "x": 815.5,
-          "y": 780.5,
-          "id": "bramble_2622_5615_116_111",
-          "_street": "thorny",
-          "_streetArt": "bramble",
-          "_spawnClass": "streetObstacle"
-        },
-        {
-          "kind": "wildplant",
-          "crop": "shrub",
-          "x": 787.5,
-          "y": 787.5,
-          "id": "bramble_2622_5615_112_112",
-          "_street": "thorny",
-          "_streetArt": "bramble",
-          "_spawnClass": "streetObstacle"
-        },
-        {
-          "kind": "wildplant",
-          "crop": "shrub",
           "x": 794.5,
           "y": 787.5,
           "id": "bramble_2622_5615_113_112",
-          "_street": "thorny",
-          "_streetArt": "bramble",
-          "_spawnClass": "streetObstacle"
-        },
-        {
-          "kind": "wildplant",
-          "crop": "shrub",
-          "x": 801.5,
-          "y": 787.5,
-          "id": "bramble_2622_5615_114_112",
           "_street": "thorny",
           "_streetArt": "bramble",
           "_spawnClass": "streetObstacle"
@@ -19764,9 +18586,29 @@
         {
           "kind": "wildplant",
           "crop": "shrub",
-          "x": 815.5,
-          "y": 787.5,
-          "id": "bramble_2622_5615_116_112",
+          "x": 794.5,
+          "y": 794.5,
+          "id": "bramble_2622_5615_113_113",
+          "_street": "thorny",
+          "_streetArt": "bramble",
+          "_spawnClass": "streetObstacle"
+        },
+        {
+          "kind": "wildplant",
+          "crop": "shrub",
+          "x": 801.5,
+          "y": 794.5,
+          "id": "bramble_2622_5615_114_113",
+          "_street": "thorny",
+          "_streetArt": "bramble",
+          "_spawnClass": "streetObstacle"
+        },
+        {
+          "kind": "wildplant",
+          "crop": "shrub",
+          "x": 808.5,
+          "y": 794.5,
+          "id": "bramble_2622_5615_115_113",
           "_street": "thorny",
           "_streetArt": "bramble",
           "_spawnClass": "streetObstacle"
@@ -19795,16 +18637,6 @@
           "kind": "wildplant",
           "crop": "shrub",
           "x": 696.5,
-          "y": 787.5,
-          "id": "bramble_2622_5615_99_112",
-          "_street": "thorny",
-          "_streetArt": "bramble",
-          "_spawnClass": "streetObstacle"
-        },
-        {
-          "kind": "wildplant",
-          "crop": "shrub",
-          "x": 696.5,
           "y": 808.5,
           "id": "bramble_2622_5615_99_115",
           "_street": "thorny",
@@ -19817,16 +18649,6 @@
           "x": 696.5,
           "y": 815.5,
           "id": "bramble_2622_5615_99_116",
-          "_street": "thorny",
-          "_streetArt": "bramble",
-          "_spawnClass": "streetObstacle"
-        },
-        {
-          "kind": "wildplant",
-          "crop": "shrub",
-          "x": 696.5,
-          "y": 822.5,
-          "id": "bramble_2622_5615_99_117",
           "_street": "thorny",
           "_streetArt": "bramble",
           "_spawnClass": "streetObstacle"
@@ -19864,16 +18686,6 @@
         {
           "kind": "wildplant",
           "crop": "shrub",
-          "x": 703.5,
-          "y": 780.5,
-          "id": "bramble_2622_5615_100_111",
-          "_street": "thorny",
-          "_streetArt": "bramble",
-          "_spawnClass": "streetObstacle"
-        },
-        {
-          "kind": "wildplant",
-          "crop": "shrub",
           "x": 710.5,
           "y": 801.5,
           "id": "bramble_2622_5615_101_114",
@@ -19897,16 +18709,6 @@
           "x": 710.5,
           "y": 787.5,
           "id": "bramble_2622_5615_101_112",
-          "_street": "thorny",
-          "_streetArt": "bramble",
-          "_spawnClass": "streetObstacle"
-        },
-        {
-          "kind": "wildplant",
-          "crop": "shrub",
-          "x": 710.5,
-          "y": 780.5,
-          "id": "bramble_2622_5615_101_111",
           "_street": "thorny",
           "_streetArt": "bramble",
           "_spawnClass": "streetObstacle"
@@ -19957,16 +18759,6 @@
           "x": 717.5,
           "y": 794.5,
           "id": "bramble_2622_5615_102_113",
-          "_street": "thorny",
-          "_streetArt": "bramble",
-          "_spawnClass": "streetObstacle"
-        },
-        {
-          "kind": "wildplant",
-          "crop": "shrub",
-          "x": 717.5,
-          "y": 787.5,
-          "id": "bramble_2622_5615_102_112",
           "_street": "thorny",
           "_streetArt": "bramble",
           "_spawnClass": "streetObstacle"
@@ -20044,16 +18836,6 @@
         {
           "kind": "wildplant",
           "crop": "shrub",
-          "x": 738.5,
-          "y": 829.5,
-          "id": "bramble_2622_5615_105_118",
-          "_street": "thorny",
-          "_streetArt": "bramble",
-          "_spawnClass": "streetObstacle"
-        },
-        {
-          "kind": "wildplant",
-          "crop": "shrub",
           "x": 745.5,
           "y": 801.5,
           "id": "bramble_2622_5615_106_114",
@@ -20114,16 +18896,6 @@
         {
           "kind": "wildplant",
           "crop": "shrub",
-          "x": 745.5,
-          "y": 829.5,
-          "id": "bramble_2622_5615_106_118",
-          "_street": "thorny",
-          "_streetArt": "bramble",
-          "_spawnClass": "streetObstacle"
-        },
-        {
-          "kind": "wildplant",
-          "crop": "shrub",
           "x": 759.5,
           "y": 801.5,
           "id": "bramble_2622_5615_108_114",
@@ -20174,16 +18946,6 @@
         {
           "kind": "wildplant",
           "crop": "shrub",
-          "x": 759.5,
-          "y": 822.5,
-          "id": "bramble_2622_5615_108_117",
-          "_street": "thorny",
-          "_streetArt": "bramble",
-          "_spawnClass": "streetObstacle"
-        },
-        {
-          "kind": "wildplant",
-          "crop": "shrub",
           "x": 766.5,
           "y": 801.5,
           "id": "bramble_2622_5615_109_114",
@@ -20207,16 +18969,6 @@
           "x": 766.5,
           "y": 787.5,
           "id": "bramble_2622_5615_109_112",
-          "_street": "thorny",
-          "_streetArt": "bramble",
-          "_spawnClass": "streetObstacle"
-        },
-        {
-          "kind": "wildplant",
-          "crop": "shrub",
-          "x": 766.5,
-          "y": 780.5,
-          "id": "bramble_2622_5615_109_111",
           "_street": "thorny",
           "_streetArt": "bramble",
           "_spawnClass": "streetObstacle"
@@ -20284,16 +19036,6 @@
         {
           "kind": "wildplant",
           "crop": "shrub",
-          "x": 773.5,
-          "y": 822.5,
-          "id": "bramble_2622_5615_110_117",
-          "_street": "thorny",
-          "_streetArt": "bramble",
-          "_spawnClass": "streetObstacle"
-        },
-        {
-          "kind": "wildplant",
-          "crop": "shrub",
           "x": 780.5,
           "y": 801.5,
           "id": "bramble_2622_5615_111_114",
@@ -20335,6 +19077,16 @@
           "kind": "wildplant",
           "crop": "shrub",
           "x": 787.5,
+          "y": 787.5,
+          "id": "bramble_2622_5615_112_112",
+          "_street": "thorny",
+          "_streetArt": "bramble",
+          "_spawnClass": "streetObstacle"
+        },
+        {
+          "kind": "wildplant",
+          "crop": "shrub",
+          "x": 787.5,
           "y": 808.5,
           "id": "bramble_2622_5615_112_115",
           "_street": "thorny",
@@ -20367,16 +19119,6 @@
           "x": 801.5,
           "y": 801.5,
           "id": "bramble_2622_5615_114_114",
-          "_street": "thorny",
-          "_streetArt": "bramble",
-          "_spawnClass": "streetObstacle"
-        },
-        {
-          "kind": "wildplant",
-          "crop": "shrub",
-          "x": 801.5,
-          "y": 794.5,
-          "id": "bramble_2622_5615_114_113",
           "_street": "thorny",
           "_streetArt": "bramble",
           "_spawnClass": "streetObstacle"
@@ -20435,6 +19177,16 @@
           "kind": "wildplant",
           "crop": "shrub",
           "x": 815.5,
+          "y": 787.5,
+          "id": "bramble_2622_5615_116_112",
+          "_street": "thorny",
+          "_streetArt": "bramble",
+          "_spawnClass": "streetObstacle"
+        },
+        {
+          "kind": "wildplant",
+          "crop": "shrub",
+          "x": 815.5,
           "y": 808.5,
           "id": "bramble_2622_5615_116_115",
           "_street": "thorny",
@@ -20457,16 +19209,6 @@
           "x": 815.5,
           "y": 822.5,
           "id": "bramble_2622_5615_116_117",
-          "_street": "thorny",
-          "_streetArt": "bramble",
-          "_spawnClass": "streetObstacle"
-        },
-        {
-          "kind": "wildplant",
-          "crop": "shrub",
-          "x": 815.5,
-          "y": 829.5,
-          "id": "bramble_2622_5615_116_118",
           "_street": "thorny",
           "_streetArt": "bramble",
           "_spawnClass": "streetObstacle"
@@ -20574,16 +19316,6 @@
         {
           "kind": "wildplant",
           "crop": "shrub",
-          "x": 850.5,
-          "y": 829.5,
-          "id": "bramble_2622_5615_121_118",
-          "_street": "thorny",
-          "_streetArt": "bramble",
-          "_spawnClass": "streetObstacle"
-        },
-        {
-          "kind": "wildplant",
-          "crop": "shrub",
           "x": 857.5,
           "y": 801.5,
           "id": "bramble_2622_5615_122_114",
@@ -20684,16 +19416,6 @@
         {
           "kind": "wildplant",
           "crop": "shrub",
-          "x": 864.5,
-          "y": 829.5,
-          "id": "bramble_2622_5615_123_118",
-          "_street": "thorny",
-          "_streetArt": "bramble",
-          "_spawnClass": "streetObstacle"
-        },
-        {
-          "kind": "wildplant",
-          "crop": "shrub",
           "x": 871.5,
           "y": 801.5,
           "id": "bramble_2622_5615_124_114",
@@ -20717,16 +19439,6 @@
           "x": 871.5,
           "y": 787.5,
           "id": "bramble_2622_5615_124_112",
-          "_street": "thorny",
-          "_streetArt": "bramble",
-          "_spawnClass": "streetObstacle"
-        },
-        {
-          "kind": "wildplant",
-          "crop": "shrub",
-          "x": 871.5,
-          "y": 780.5,
-          "id": "bramble_2622_5615_124_111",
           "_street": "thorny",
           "_streetArt": "bramble",
           "_spawnClass": "streetObstacle"
@@ -20814,16 +19526,6 @@
         {
           "kind": "wildplant",
           "crop": "shrub",
-          "x": 878.5,
-          "y": 829.5,
-          "id": "bramble_2622_5615_125_118",
-          "_street": "thorny",
-          "_streetArt": "bramble",
-          "_spawnClass": "streetObstacle"
-        },
-        {
-          "kind": "wildplant",
-          "crop": "shrub",
           "x": 892.5,
           "y": 801.5,
           "id": "bramble_2622_5615_127_114",
@@ -20895,16 +19597,6 @@
           "kind": "wildplant",
           "crop": "shrub",
           "x": 899.5,
-          "y": 787.5,
-          "id": "bramble_2622_5615_128_112",
-          "_street": "thorny",
-          "_streetArt": "bramble",
-          "_spawnClass": "streetObstacle"
-        },
-        {
-          "kind": "wildplant",
-          "crop": "shrub",
-          "x": 899.5,
           "y": 808.5,
           "id": "bramble_2622_5615_128_115",
           "_street": "thorny",
@@ -20945,16 +19637,6 @@
           "kind": "wildplant",
           "crop": "shrub",
           "x": 906.5,
-          "y": 787.5,
-          "id": "bramble_2622_5615_129_112",
-          "_street": "thorny",
-          "_streetArt": "bramble",
-          "_spawnClass": "streetObstacle"
-        },
-        {
-          "kind": "wildplant",
-          "crop": "shrub",
-          "x": 906.5,
           "y": 808.5,
           "id": "bramble_2622_5615_129_115",
           "_street": "thorny",
@@ -20975,8 +19657,8 @@
           "kind": "wildplant",
           "crop": "shrub",
           "x": 696.5,
-          "y": 780.5,
-          "id": "bramble_2622_5615_99_111",
+          "y": 787.5,
+          "id": "bramble_2622_5615_99_112",
           "_street": "thorny",
           "_streetArt": "bramble",
           "_spawnClass": "streetObstacle"
@@ -20985,68 +19667,8 @@
           "kind": "wildplant",
           "crop": "shrub",
           "x": 696.5,
-          "y": 773.5,
-          "id": "bramble_2622_5615_99_110",
-          "_street": "thorny",
-          "_streetArt": "bramble",
-          "_spawnClass": "streetObstacle"
-        },
-        {
-          "kind": "wildplant",
-          "crop": "shrub",
-          "x": 696.5,
-          "y": 829.5,
-          "id": "bramble_2622_5615_99_118",
-          "_street": "thorny",
-          "_streetArt": "bramble",
-          "_spawnClass": "streetObstacle"
-        },
-        {
-          "kind": "wildplant",
-          "crop": "shrub",
-          "x": 696.5,
-          "y": 836.5,
-          "id": "bramble_2622_5615_99_119",
-          "_street": "thorny",
-          "_streetArt": "bramble",
-          "_spawnClass": "streetObstacle"
-        },
-        {
-          "kind": "wildplant",
-          "crop": "shrub",
-          "x": 710.5,
-          "y": 773.5,
-          "id": "bramble_2622_5615_101_110",
-          "_street": "thorny",
-          "_streetArt": "bramble",
-          "_spawnClass": "streetObstacle"
-        },
-        {
-          "kind": "wildplant",
-          "crop": "shrub",
-          "x": 710.5,
-          "y": 766.5,
-          "id": "bramble_2622_5615_101_109",
-          "_street": "thorny",
-          "_streetArt": "bramble",
-          "_spawnClass": "streetObstacle"
-        },
-        {
-          "kind": "wildplant",
-          "crop": "shrub",
-          "x": 710.5,
-          "y": 829.5,
-          "id": "bramble_2622_5615_101_118",
-          "_street": "thorny",
-          "_streetArt": "bramble",
-          "_spawnClass": "streetObstacle"
-        },
-        {
-          "kind": "wildplant",
-          "crop": "shrub",
-          "x": 710.5,
-          "y": 836.5,
-          "id": "bramble_2622_5615_101_119",
+          "y": 822.5,
+          "id": "bramble_2622_5615_99_117",
           "_street": "thorny",
           "_streetArt": "bramble",
           "_spawnClass": "streetObstacle"
@@ -21055,18 +19677,8 @@
           "kind": "wildplant",
           "crop": "shrub",
           "x": 731.5,
-          "y": 780.5,
-          "id": "bramble_2622_5615_104_111",
-          "_street": "thorny",
-          "_streetArt": "bramble",
-          "_spawnClass": "streetObstacle"
-        },
-        {
-          "kind": "wildplant",
-          "crop": "shrub",
-          "x": 731.5,
-          "y": 773.5,
-          "id": "bramble_2622_5615_104_110",
+          "y": 787.5,
+          "id": "bramble_2622_5615_104_112",
           "_street": "thorny",
           "_streetArt": "bramble",
           "_spawnClass": "streetObstacle"
@@ -21084,119 +19696,9 @@
         {
           "kind": "wildplant",
           "crop": "shrub",
-          "x": 731.5,
-          "y": 829.5,
-          "id": "bramble_2622_5615_104_118",
-          "_street": "thorny",
-          "_streetArt": "bramble",
-          "_spawnClass": "streetObstacle"
-        },
-        {
-          "kind": "wildplant",
-          "crop": "shrub",
-          "x": 731.5,
-          "y": 836.5,
-          "id": "bramble_2622_5615_104_119",
-          "_street": "thorny",
-          "_streetArt": "bramble",
-          "_spawnClass": "streetObstacle"
-        },
-        {
-          "kind": "wildplant",
-          "crop": "shrub",
-          "x": 731.5,
-          "y": 843.5,
-          "id": "bramble_2622_5615_104_120",
-          "_street": "thorny",
-          "_streetArt": "bramble",
-          "_spawnClass": "streetObstacle"
-        },
-        {
-          "kind": "wildplant",
-          "crop": "shrub",
           "x": 738.5,
           "y": 787.5,
           "id": "bramble_2622_5615_105_112",
-          "_street": "thorny",
-          "_streetArt": "bramble",
-          "_spawnClass": "streetObstacle"
-        },
-        {
-          "kind": "wildplant",
-          "crop": "shrub",
-          "x": 738.5,
-          "y": 780.5,
-          "id": "bramble_2622_5615_105_111",
-          "_street": "thorny",
-          "_streetArt": "bramble",
-          "_spawnClass": "streetObstacle"
-        },
-        {
-          "kind": "wildplant",
-          "crop": "shrub",
-          "x": 738.5,
-          "y": 773.5,
-          "id": "bramble_2622_5615_105_110",
-          "_street": "thorny",
-          "_streetArt": "bramble",
-          "_spawnClass": "streetObstacle"
-        },
-        {
-          "kind": "wildplant",
-          "crop": "shrub",
-          "x": 738.5,
-          "y": 766.5,
-          "id": "bramble_2622_5615_105_109",
-          "_street": "thorny",
-          "_streetArt": "bramble",
-          "_spawnClass": "streetObstacle"
-        },
-        {
-          "kind": "wildplant",
-          "crop": "shrub",
-          "x": 745.5,
-          "y": 780.5,
-          "id": "bramble_2622_5615_106_111",
-          "_street": "thorny",
-          "_streetArt": "bramble",
-          "_spawnClass": "streetObstacle"
-        },
-        {
-          "kind": "wildplant",
-          "crop": "shrub",
-          "x": 745.5,
-          "y": 773.5,
-          "id": "bramble_2622_5615_106_110",
-          "_street": "thorny",
-          "_streetArt": "bramble",
-          "_spawnClass": "streetObstacle"
-        },
-        {
-          "kind": "wildplant",
-          "crop": "shrub",
-          "x": 808.5,
-          "y": 843.5,
-          "id": "bramble_2622_5615_115_120",
-          "_street": "thorny",
-          "_streetArt": "bramble",
-          "_spawnClass": "streetObstacle"
-        },
-        {
-          "kind": "wildplant",
-          "crop": "shrub",
-          "x": 815.5,
-          "y": 836.5,
-          "id": "bramble_2622_5615_116_119",
-          "_street": "thorny",
-          "_streetArt": "bramble",
-          "_spawnClass": "streetObstacle"
-        },
-        {
-          "kind": "wildplant",
-          "crop": "shrub",
-          "x": 829.5,
-          "y": 843.5,
-          "id": "bramble_2622_5615_118_120",
           "_street": "thorny",
           "_streetArt": "bramble",
           "_spawnClass": "streetObstacle"
@@ -21214,56 +19716,6 @@
         {
           "kind": "wildplant",
           "crop": "shrub",
-          "x": 836.5,
-          "y": 780.5,
-          "id": "bramble_2622_5615_119_111",
-          "_street": "thorny",
-          "_streetArt": "bramble",
-          "_spawnClass": "streetObstacle"
-        },
-        {
-          "kind": "wildplant",
-          "crop": "shrub",
-          "x": 836.5,
-          "y": 773.5,
-          "id": "bramble_2622_5615_119_110",
-          "_street": "thorny",
-          "_streetArt": "bramble",
-          "_spawnClass": "streetObstacle"
-        },
-        {
-          "kind": "wildplant",
-          "crop": "shrub",
-          "x": 836.5,
-          "y": 766.5,
-          "id": "bramble_2622_5615_119_109",
-          "_street": "thorny",
-          "_streetArt": "bramble",
-          "_spawnClass": "streetObstacle"
-        },
-        {
-          "kind": "wildplant",
-          "crop": "shrub",
-          "x": 836.5,
-          "y": 829.5,
-          "id": "bramble_2622_5615_119_118",
-          "_street": "thorny",
-          "_streetArt": "bramble",
-          "_spawnClass": "streetObstacle"
-        },
-        {
-          "kind": "wildplant",
-          "crop": "shrub",
-          "x": 836.5,
-          "y": 836.5,
-          "id": "bramble_2622_5615_119_119",
-          "_street": "thorny",
-          "_streetArt": "bramble",
-          "_spawnClass": "streetObstacle"
-        },
-        {
-          "kind": "wildplant",
-          "crop": "shrub",
           "x": 850.5,
           "y": 787.5,
           "id": "bramble_2622_5615_121_112",
@@ -21274,159 +19726,9 @@
         {
           "kind": "wildplant",
           "crop": "shrub",
-          "x": 850.5,
-          "y": 780.5,
-          "id": "bramble_2622_5615_121_111",
-          "_street": "thorny",
-          "_streetArt": "bramble",
-          "_spawnClass": "streetObstacle"
-        },
-        {
-          "kind": "wildplant",
-          "crop": "shrub",
-          "x": 850.5,
-          "y": 773.5,
-          "id": "bramble_2622_5615_121_110",
-          "_street": "thorny",
-          "_streetArt": "bramble",
-          "_spawnClass": "streetObstacle"
-        },
-        {
-          "kind": "wildplant",
-          "crop": "shrub",
-          "x": 850.5,
-          "y": 766.5,
-          "id": "bramble_2622_5615_121_109",
-          "_street": "thorny",
-          "_streetArt": "bramble",
-          "_spawnClass": "streetObstacle"
-        },
-        {
-          "kind": "wildplant",
-          "crop": "shrub",
-          "x": 850.5,
-          "y": 836.5,
-          "id": "bramble_2622_5615_121_119",
-          "_street": "thorny",
-          "_streetArt": "bramble",
-          "_spawnClass": "streetObstacle"
-        },
-        {
-          "kind": "wildplant",
-          "crop": "shrub",
-          "x": 857.5,
-          "y": 829.5,
-          "id": "bramble_2622_5615_122_118",
-          "_street": "thorny",
-          "_streetArt": "bramble",
-          "_spawnClass": "streetObstacle"
-        },
-        {
-          "kind": "wildplant",
-          "crop": "shrub",
-          "x": 857.5,
-          "y": 836.5,
-          "id": "bramble_2622_5615_122_119",
-          "_street": "thorny",
-          "_streetArt": "bramble",
-          "_spawnClass": "streetObstacle"
-        },
-        {
-          "kind": "wildplant",
-          "crop": "shrub",
-          "x": 871.5,
-          "y": 843.5,
-          "id": "bramble_2622_5615_124_120",
-          "_street": "thorny",
-          "_streetArt": "bramble",
-          "_spawnClass": "streetObstacle"
-        },
-        {
-          "kind": "wildplant",
-          "crop": "shrub",
-          "x": 878.5,
-          "y": 780.5,
-          "id": "bramble_2622_5615_125_111",
-          "_street": "thorny",
-          "_streetArt": "bramble",
-          "_spawnClass": "streetObstacle"
-        },
-        {
-          "kind": "wildplant",
-          "crop": "shrub",
-          "x": 878.5,
-          "y": 766.5,
-          "id": "bramble_2622_5615_125_109",
-          "_street": "thorny",
-          "_streetArt": "bramble",
-          "_spawnClass": "streetObstacle"
-        },
-        {
-          "kind": "wildplant",
-          "crop": "shrub",
-          "x": 878.5,
-          "y": 836.5,
-          "id": "bramble_2622_5615_125_119",
-          "_street": "thorny",
-          "_streetArt": "bramble",
-          "_spawnClass": "streetObstacle"
-        },
-        {
-          "kind": "wildplant",
-          "crop": "shrub",
           "x": 885.5,
-          "y": 773.5,
-          "id": "bramble_2622_5615_126_110",
-          "_street": "thorny",
-          "_streetArt": "bramble",
-          "_spawnClass": "streetObstacle"
-        },
-        {
-          "kind": "wildplant",
-          "crop": "shrub",
-          "x": 885.5,
-          "y": 766.5,
-          "id": "bramble_2622_5615_126_109",
-          "_street": "thorny",
-          "_streetArt": "bramble",
-          "_spawnClass": "streetObstacle"
-        },
-        {
-          "kind": "wildplant",
-          "crop": "shrub",
-          "x": 885.5,
-          "y": 829.5,
-          "id": "bramble_2622_5615_126_118",
-          "_street": "thorny",
-          "_streetArt": "bramble",
-          "_spawnClass": "streetObstacle"
-        },
-        {
-          "kind": "wildplant",
-          "crop": "shrub",
-          "x": 885.5,
-          "y": 836.5,
-          "id": "bramble_2622_5615_126_119",
-          "_street": "thorny",
-          "_streetArt": "bramble",
-          "_spawnClass": "streetObstacle"
-        },
-        {
-          "kind": "wildplant",
-          "crop": "shrub",
-          "x": 885.5,
-          "y": 843.5,
-          "id": "bramble_2622_5615_126_120",
-          "_street": "thorny",
-          "_streetArt": "bramble",
-          "_spawnClass": "streetObstacle"
-        },
-        {
-          "kind": "wildplant",
-          "crop": "shrub",
-          "x": 899.5,
-          "y": 843.5,
-          "id": "bramble_2622_5615_128_120",
+          "y": 822.5,
+          "id": "bramble_2622_5615_126_117",
           "_street": "thorny",
           "_streetArt": "bramble",
           "_spawnClass": "streetObstacle"
@@ -21538,10 +19840,13 @@
         }
       ],
       "slowKinds": [],
-      "placement": "Bramble clusters cross the road and extend up to 4 cells beyond it, with sparse strays farther out. Some streets enclose a moss cairn. Brambles burn and drain energy on contact."
+      "placement": "Bramble clusters cross the road and extend up to 3 cells beyond it. Some streets enclose a moss cairn. Brambles burn and drain energy on contact."
     },
     {
       "id": "goblin_gang",
+      "materialLooks": {
+        "tree": "dead_tree"
+      },
       "terrain": "WASTELAND",
       "affinities": [
         "ruined"
@@ -23066,6 +21371,9 @@
     },
     {
       "id": "golden_path",
+      "materialLooks": {
+        "tree": "mossy_tree"
+      },
       "pathWeight": 0.02,
       "terrain": "ROCK",
       "affinities": [
@@ -23472,6 +21780,9 @@
     },
     {
       "id": "slime_trail",
+      "materialLooks": {
+        "tree": "mossy_tree"
+      },
       "pathWeight": 0.05,
       "terrain": "WETLAND",
       "affinities": [
@@ -23756,6 +22067,9 @@
     },
     {
       "id": "spider_path",
+      "materialLooks": {
+        "tree": "dead_tree"
+      },
       "pathWeight": 0.05,
       "terrain": "CAVE_FLOOR",
       "pathTerrainInfluence": true,
@@ -24256,54 +22570,6 @@
           ]
         },
         {
-          "kind": "tree",
-          "x": 766.5,
-          "y": 780.5,
-          "id": "route_spider_path_2622_5615_109_111",
-          "_street": "spider_path",
-          "_streetArt": "dead_tree",
-          "species": "maple",
-          "treeSpeciesFixed": true,
-          "_objectArt": "dead_tree",
-          "variant": 3
-        },
-        {
-          "kind": "tree",
-          "x": 766.5,
-          "y": 822.5,
-          "id": "route_spider_path_2622_5615_109_117",
-          "_street": "spider_path",
-          "_streetArt": "dead_tree",
-          "species": "maple",
-          "treeSpeciesFixed": true,
-          "_objectArt": "dead_tree",
-          "variant": 2
-        },
-        {
-          "kind": "tree",
-          "x": 836.5,
-          "y": 780.5,
-          "id": "route_spider_path_2622_5615_119_111",
-          "_street": "spider_path",
-          "_streetArt": "dead_tree",
-          "species": "maple",
-          "treeSpeciesFixed": true,
-          "_objectArt": "dead_tree",
-          "variant": 2
-        },
-        {
-          "kind": "tree",
-          "x": 836.5,
-          "y": 822.5,
-          "id": "route_spider_path_2622_5615_119_117",
-          "_street": "spider_path",
-          "_streetArt": "dead_tree",
-          "species": "maple",
-          "treeSpeciesFixed": true,
-          "_objectArt": "dead_tree",
-          "variant": 1
-        },
-        {
           "kind": "wildplant",
           "crop": "flint",
           "x": 766.5,
@@ -24573,6 +22839,9 @@
     },
     {
       "id": "poison_path",
+      "materialLooks": {
+        "tree": "dead_tree"
+      },
       "pathWeight": 0.03,
       "terrain": "WETLAND",
       "pathTerrainInfluence": true,
@@ -25092,7 +23361,7 @@
         },
         {
           "kind": "wildplant",
-          "crop": "mushroom",
+          "crop": "mushroom_bush",
           "x": 766.5,
           "y": 808.5,
           "id": "route_poison_path_2622_5615_109_115",
@@ -25110,7 +23379,7 @@
         },
         {
           "kind": "wildplant",
-          "crop": "mushroom",
+          "crop": "mushroom_bush",
           "x": 780.5,
           "y": 808.5,
           "id": "route_poison_path_2622_5615_111_115",
@@ -25119,7 +23388,7 @@
         },
         {
           "kind": "wildplant",
-          "crop": "mushroom",
+          "crop": "mushroom_bush",
           "x": 794.5,
           "y": 794.5,
           "id": "route_poison_path_2622_5615_113_113",
@@ -25128,7 +23397,7 @@
         },
         {
           "kind": "wildplant",
-          "crop": "mushroom",
+          "crop": "mushroom_bush",
           "x": 794.5,
           "y": 808.5,
           "id": "route_poison_path_2622_5615_113_115",
@@ -25137,7 +23406,7 @@
         },
         {
           "kind": "wildplant",
-          "crop": "mushroom",
+          "crop": "mushroom_bush",
           "x": 808.5,
           "y": 794.5,
           "id": "route_poison_path_2622_5615_115_113",
@@ -25146,7 +23415,7 @@
         },
         {
           "kind": "wildplant",
-          "crop": "mushroom",
+          "crop": "mushroom_bush",
           "x": 808.5,
           "y": 808.5,
           "id": "route_poison_path_2622_5615_115_115",
@@ -25155,7 +23424,7 @@
         },
         {
           "kind": "wildplant",
-          "crop": "mushroom",
+          "crop": "mushroom_bush",
           "x": 822.5,
           "y": 794.5,
           "id": "route_poison_path_2622_5615_117_113",
@@ -25182,7 +23451,7 @@
         },
         {
           "kind": "wildplant",
-          "crop": "mushroom",
+          "crop": "mushroom_bush",
           "x": 836.5,
           "y": 808.5,
           "id": "route_poison_path_2622_5615_119_115",
@@ -25323,6 +23592,9 @@
     },
     {
       "id": "fire_path",
+      "materialLooks": {
+        "tree": "dead_tree"
+      },
       "pathWeight": 0.03,
       "terrain": "ROCK",
       "affinities": [
@@ -25628,6 +23900,9 @@
     },
     {
       "id": "paralysis_path",
+      "materialLooks": {
+        "tree": "lavender_tree"
+      },
       "pathWeight": 0.03,
       "terrain": "ROCK",
       "affinities": [
@@ -26528,102 +24803,6 @@
           ]
         },
         {
-          "kind": "tree",
-          "x": 745.5,
-          "y": 780.5,
-          "id": "route_paralysis_path_2622_5615_106_111",
-          "_street": "paralysis_path",
-          "_streetArt": "lavender_tree",
-          "species": "maple",
-          "treeSpeciesFixed": true,
-          "_objectArt": "lavender_tree",
-          "variant": 3
-        },
-        {
-          "kind": "tree",
-          "x": 745.5,
-          "y": 822.5,
-          "id": "route_paralysis_path_2622_5615_106_117",
-          "_street": "paralysis_path",
-          "_streetArt": "lavender_tree",
-          "species": "maple",
-          "treeSpeciesFixed": true,
-          "_objectArt": "lavender_tree",
-          "variant": 3
-        },
-        {
-          "kind": "tree",
-          "x": 780.5,
-          "y": 780.5,
-          "id": "route_paralysis_path_2622_5615_111_111",
-          "_street": "paralysis_path",
-          "_streetArt": "lavender_tree",
-          "species": "maple",
-          "treeSpeciesFixed": true,
-          "_objectArt": "lavender_tree",
-          "variant": 3
-        },
-        {
-          "kind": "tree",
-          "x": 780.5,
-          "y": 822.5,
-          "id": "route_paralysis_path_2622_5615_111_117",
-          "_street": "paralysis_path",
-          "_streetArt": "lavender_tree",
-          "species": "maple",
-          "treeSpeciesFixed": true,
-          "_objectArt": "lavender_tree",
-          "variant": 3
-        },
-        {
-          "kind": "tree",
-          "x": 850.5,
-          "y": 780.5,
-          "id": "route_paralysis_path_2622_5615_121_111",
-          "_street": "paralysis_path",
-          "_streetArt": "lavender_tree",
-          "species": "maple",
-          "treeSpeciesFixed": true,
-          "_objectArt": "lavender_tree",
-          "variant": 3
-        },
-        {
-          "kind": "tree",
-          "x": 850.5,
-          "y": 822.5,
-          "id": "route_paralysis_path_2622_5615_121_117",
-          "_street": "paralysis_path",
-          "_streetArt": "lavender_tree",
-          "species": "maple",
-          "treeSpeciesFixed": true,
-          "_objectArt": "lavender_tree",
-          "variant": 3
-        },
-        {
-          "kind": "tree",
-          "x": 885.5,
-          "y": 780.5,
-          "id": "route_paralysis_path_2622_5615_126_111",
-          "_street": "paralysis_path",
-          "_streetArt": "lavender_tree",
-          "species": "maple",
-          "treeSpeciesFixed": true,
-          "_objectArt": "lavender_tree",
-          "variant": 3
-        },
-        {
-          "kind": "tree",
-          "x": 885.5,
-          "y": 822.5,
-          "id": "route_paralysis_path_2622_5615_126_117",
-          "_street": "paralysis_path",
-          "_streetArt": "lavender_tree",
-          "species": "maple",
-          "treeSpeciesFixed": true,
-          "_objectArt": "lavender_tree",
-          "variant": 3
-        },
-        {
           "kind": "grove_shrine",
           "x": 696.5,
           "y": 794.5,
@@ -26831,6 +25010,9 @@
     },
     {
       "id": "confusion_path",
+      "materialLooks": {
+        "tree": "lavender_tree"
+      },
       "pathWeight": 0.03,
       "terrain": "FOREST",
       "affinities": [
@@ -26873,54 +25055,6 @@
               "variant": "confusion_path"
             }
           ]
-        },
-        {
-          "kind": "tree",
-          "x": 766.5,
-          "y": 780.5,
-          "id": "route_confusion_path_2622_5615_109_111",
-          "_street": "confusion_path",
-          "_streetArt": "lavender_tree",
-          "species": "maple",
-          "treeSpeciesFixed": true,
-          "_objectArt": "lavender_tree",
-          "variant": 3
-        },
-        {
-          "kind": "tree",
-          "x": 766.5,
-          "y": 822.5,
-          "id": "route_confusion_path_2622_5615_109_117",
-          "_street": "confusion_path",
-          "_streetArt": "lavender_tree",
-          "species": "maple",
-          "treeSpeciesFixed": true,
-          "_objectArt": "lavender_tree",
-          "variant": 3
-        },
-        {
-          "kind": "tree",
-          "x": 836.5,
-          "y": 780.5,
-          "id": "route_confusion_path_2622_5615_119_111",
-          "_street": "confusion_path",
-          "_streetArt": "lavender_tree",
-          "species": "maple",
-          "treeSpeciesFixed": true,
-          "_objectArt": "lavender_tree",
-          "variant": 3
-        },
-        {
-          "kind": "tree",
-          "x": 836.5,
-          "y": 822.5,
-          "id": "route_confusion_path_2622_5615_119_117",
-          "_street": "confusion_path",
-          "_streetArt": "lavender_tree",
-          "species": "maple",
-          "treeSpeciesFixed": true,
-          "_objectArt": "lavender_tree",
-          "variant": 3
         },
         {
           "kind": "grove_shrine",
@@ -27086,6 +25220,9 @@
     },
     {
       "id": "berry",
+      "materialLooks": {
+        "tree": "mossy_tree"
+      },
       "terrain": "GRASS",
       "affinities": [
         "cultivated",
@@ -28675,6 +26812,9 @@
     },
     {
       "id": "berry_trail",
+      "materialLooks": {
+        "tree": "mossy_tree"
+      },
       "pathWeight": 0.04,
       "terrain": "GRASS",
       "affinities": [
@@ -29005,15 +27145,6 @@
           "kind": "wildplant",
           "crop": "yellow_flower",
           "x": 766.5,
-          "y": 780.5,
-          "id": "route_berry_trail_2622_5615_109_111",
-          "_street": "berry_trail",
-          "_streetArt": "yellow_flowers"
-        },
-        {
-          "kind": "wildplant",
-          "crop": "yellow_flower",
-          "x": 766.5,
           "y": 815.5,
           "id": "route_berry_trail_2622_5615_109_116",
           "_street": "berry_trail",
@@ -29052,15 +27183,6 @@
           "x": 794.5,
           "y": 815.5,
           "id": "route_berry_trail_2622_5615_113_116",
-          "_street": "berry_trail",
-          "_streetArt": "yellow_flowers"
-        },
-        {
-          "kind": "wildplant",
-          "crop": "yellow_flower",
-          "x": 808.5,
-          "y": 780.5,
-          "id": "route_berry_trail_2622_5615_115_111",
           "_street": "berry_trail",
           "_streetArt": "yellow_flowers"
         },
@@ -29246,6 +27368,9 @@
     },
     {
       "id": "pottery",
+      "materialLooks": {
+        "tree": "mossy_tree"
+      },
       "terrain": "ROCK",
       "affinities": [
         "cultivated",
@@ -31377,160 +29502,6 @@
         },
         {
           "kind": "chest",
-          "x": 731.5,
-          "y": 780.5,
-          "id": "route_pottery_2622_5615_104_111",
-          "_street": "pottery",
-          "_streetArt": "pottery_stack",
-          "barrel": true,
-          "barrelStyle": "street_decor_pottery_stack",
-          "previewContainerFrame": "__BASE"
-        },
-        {
-          "kind": "chest",
-          "x": 731.5,
-          "y": 822.5,
-          "id": "route_pottery_2622_5615_104_117",
-          "_street": "pottery",
-          "_streetArt": "pottery_stack",
-          "barrel": true,
-          "barrelStyle": "street_decor_pottery_stack",
-          "previewContainerFrame": "__BASE"
-        },
-        {
-          "kind": "chest",
-          "x": 759.5,
-          "y": 780.5,
-          "id": "route_pottery_2622_5615_108_111",
-          "_street": "pottery",
-          "_streetArt": "pottery_stack",
-          "barrel": true,
-          "barrelStyle": "street_decor_pottery_stack",
-          "previewContainerFrame": "__BASE"
-        },
-        {
-          "kind": "chest",
-          "x": 759.5,
-          "y": 822.5,
-          "id": "route_pottery_2622_5615_108_117",
-          "_street": "pottery",
-          "_streetArt": "pottery_stack",
-          "barrel": true,
-          "barrelStyle": "street_decor_pottery_stack",
-          "previewContainerFrame": "__BASE"
-        },
-        {
-          "kind": "chest",
-          "x": 787.5,
-          "y": 780.5,
-          "id": "route_pottery_2622_5615_112_111",
-          "_street": "pottery",
-          "_streetArt": "pottery_stack",
-          "barrel": true,
-          "barrelStyle": "street_decor_pottery_stack",
-          "previewContainerFrame": "__BASE"
-        },
-        {
-          "kind": "chest",
-          "x": 787.5,
-          "y": 822.5,
-          "id": "route_pottery_2622_5615_112_117",
-          "_street": "pottery",
-          "_streetArt": "pottery_stack",
-          "barrel": true,
-          "barrelStyle": "street_decor_pottery_stack",
-          "previewContainerFrame": "__BASE"
-        },
-        {
-          "kind": "chest",
-          "x": 815.5,
-          "y": 780.5,
-          "id": "route_pottery_2622_5615_116_111",
-          "_street": "pottery",
-          "_streetArt": "pottery_stack",
-          "barrel": true,
-          "barrelStyle": "street_decor_pottery_stack",
-          "previewContainerFrame": "__BASE"
-        },
-        {
-          "kind": "chest",
-          "x": 815.5,
-          "y": 822.5,
-          "id": "route_pottery_2622_5615_116_117",
-          "_street": "pottery",
-          "_streetArt": "pottery_stack",
-          "barrel": true,
-          "barrelStyle": "street_decor_pottery_stack",
-          "previewContainerFrame": "__BASE"
-        },
-        {
-          "kind": "chest",
-          "x": 829.5,
-          "y": 780.5,
-          "id": "route_pottery_2622_5615_118_111",
-          "_street": "pottery",
-          "_streetArt": "pottery_stack",
-          "barrel": true,
-          "barrelStyle": "street_decor_pottery_stack",
-          "previewContainerFrame": "__BASE"
-        },
-        {
-          "kind": "chest",
-          "x": 829.5,
-          "y": 822.5,
-          "id": "route_pottery_2622_5615_118_117",
-          "_street": "pottery",
-          "_streetArt": "pottery_stack",
-          "barrel": true,
-          "barrelStyle": "street_decor_pottery_stack",
-          "previewContainerFrame": "__BASE"
-        },
-        {
-          "kind": "chest",
-          "x": 885.5,
-          "y": 780.5,
-          "id": "route_pottery_2622_5615_126_111",
-          "_street": "pottery",
-          "_streetArt": "pottery_stack",
-          "barrel": true,
-          "barrelStyle": "street_decor_pottery_stack",
-          "previewContainerFrame": "__BASE"
-        },
-        {
-          "kind": "chest",
-          "x": 885.5,
-          "y": 822.5,
-          "id": "route_pottery_2622_5615_126_117",
-          "_street": "pottery",
-          "_streetArt": "pottery_stack",
-          "barrel": true,
-          "barrelStyle": "street_decor_pottery_stack",
-          "previewContainerFrame": "__BASE"
-        },
-        {
-          "kind": "chest",
-          "x": 899.5,
-          "y": 780.5,
-          "id": "route_pottery_2622_5615_128_111",
-          "_street": "pottery",
-          "_streetArt": "pottery_stack",
-          "barrel": true,
-          "barrelStyle": "street_decor_pottery_stack",
-          "previewContainerFrame": "__BASE"
-        },
-        {
-          "kind": "chest",
-          "x": 899.5,
-          "y": 822.5,
-          "id": "route_pottery_2622_5615_128_117",
-          "_street": "pottery",
-          "_streetArt": "pottery_stack",
-          "barrel": true,
-          "barrelStyle": "street_decor_pottery_stack",
-          "previewContainerFrame": "__BASE"
-        },
-        {
-          "kind": "chest",
           "x": 906.5,
           "y": 801.5,
           "id": "crate_end_2622_5615_129_114",
@@ -31658,6 +29629,9 @@
     },
     {
       "id": "trade",
+      "materialLooks": {
+        "tree": "dead_tree"
+      },
       "terrain": "WASTELAND",
       "affinities": [
         "ruined",
@@ -33418,6 +31392,9 @@
     },
     {
       "id": "rocky_path",
+      "materialLooks": {
+        "tree": "conifer_tree"
+      },
       "baseline": true,
       "size": "minor",
       "share": 0.24,
@@ -35159,6 +33136,9 @@
     },
     {
       "id": "grassy_lane",
+      "materialLooks": {
+        "tree": "mossy_tree"
+      },
       "baseline": true,
       "size": "minor",
       "share": 0.28,
@@ -37054,246 +35034,6 @@
         },
         {
           "kind": "wildplant",
-          "crop": "shrub",
-          "x": 703.5,
-          "y": 780.5,
-          "id": "route_grassy_lane_2622_5615_100_111",
-          "_street": "grassy_lane"
-        },
-        {
-          "kind": "wildplant",
-          "crop": "shrub",
-          "x": 703.5,
-          "y": 822.5,
-          "id": "route_grassy_lane_2622_5615_100_117",
-          "_street": "grassy_lane"
-        },
-        {
-          "kind": "wildplant",
-          "crop": "petnip",
-          "x": 717.5,
-          "y": 780.5,
-          "id": "route_grassy_lane_2622_5615_102_111",
-          "_street": "grassy_lane"
-        },
-        {
-          "kind": "wildplant",
-          "crop": "petnip",
-          "x": 717.5,
-          "y": 822.5,
-          "id": "route_grassy_lane_2622_5615_102_117",
-          "_street": "grassy_lane"
-        },
-        {
-          "kind": "wildplant",
-          "crop": "berry",
-          "x": 731.5,
-          "y": 780.5,
-          "id": "route_grassy_lane_2622_5615_104_111",
-          "_street": "grassy_lane"
-        },
-        {
-          "kind": "wildplant",
-          "crop": "shrub",
-          "x": 731.5,
-          "y": 822.5,
-          "id": "route_grassy_lane_2622_5615_104_117",
-          "_street": "grassy_lane"
-        },
-        {
-          "kind": "wildplant",
-          "crop": "petnip",
-          "x": 745.5,
-          "y": 780.5,
-          "id": "route_grassy_lane_2622_5615_106_111",
-          "_street": "grassy_lane"
-        },
-        {
-          "kind": "wildplant",
-          "crop": "petnip",
-          "x": 745.5,
-          "y": 822.5,
-          "id": "route_grassy_lane_2622_5615_106_117",
-          "_street": "grassy_lane"
-        },
-        {
-          "kind": "wildplant",
-          "crop": "shrub",
-          "x": 759.5,
-          "y": 780.5,
-          "id": "route_grassy_lane_2622_5615_108_111",
-          "_street": "grassy_lane"
-        },
-        {
-          "kind": "wildplant",
-          "crop": "berry",
-          "x": 759.5,
-          "y": 822.5,
-          "id": "route_grassy_lane_2622_5615_108_117",
-          "_street": "grassy_lane"
-        },
-        {
-          "kind": "wildplant",
-          "crop": "berry",
-          "x": 773.5,
-          "y": 780.5,
-          "id": "route_grassy_lane_2622_5615_110_111",
-          "_street": "grassy_lane"
-        },
-        {
-          "kind": "wildplant",
-          "crop": "petnip",
-          "x": 773.5,
-          "y": 822.5,
-          "id": "route_grassy_lane_2622_5615_110_117",
-          "_street": "grassy_lane"
-        },
-        {
-          "kind": "wildplant",
-          "crop": "berry",
-          "x": 787.5,
-          "y": 780.5,
-          "id": "route_grassy_lane_2622_5615_112_111",
-          "_street": "grassy_lane"
-        },
-        {
-          "kind": "wildplant",
-          "crop": "petnip",
-          "x": 787.5,
-          "y": 822.5,
-          "id": "route_grassy_lane_2622_5615_112_117",
-          "_street": "grassy_lane"
-        },
-        {
-          "kind": "wildplant",
-          "crop": "shrub",
-          "x": 801.5,
-          "y": 780.5,
-          "id": "route_grassy_lane_2622_5615_114_111",
-          "_street": "grassy_lane"
-        },
-        {
-          "kind": "wildplant",
-          "crop": "shrub",
-          "x": 801.5,
-          "y": 822.5,
-          "id": "route_grassy_lane_2622_5615_114_117",
-          "_street": "grassy_lane"
-        },
-        {
-          "kind": "wildplant",
-          "crop": "berry",
-          "x": 815.5,
-          "y": 780.5,
-          "id": "route_grassy_lane_2622_5615_116_111",
-          "_street": "grassy_lane"
-        },
-        {
-          "kind": "wildplant",
-          "crop": "petnip",
-          "x": 815.5,
-          "y": 822.5,
-          "id": "route_grassy_lane_2622_5615_116_117",
-          "_street": "grassy_lane"
-        },
-        {
-          "kind": "wildplant",
-          "crop": "petnip",
-          "x": 829.5,
-          "y": 780.5,
-          "id": "route_grassy_lane_2622_5615_118_111",
-          "_street": "grassy_lane"
-        },
-        {
-          "kind": "wildplant",
-          "crop": "shrub",
-          "x": 829.5,
-          "y": 822.5,
-          "id": "route_grassy_lane_2622_5615_118_117",
-          "_street": "grassy_lane"
-        },
-        {
-          "kind": "wildplant",
-          "crop": "shrub",
-          "x": 843.5,
-          "y": 780.5,
-          "id": "route_grassy_lane_2622_5615_120_111",
-          "_street": "grassy_lane"
-        },
-        {
-          "kind": "wildplant",
-          "crop": "shrub",
-          "x": 843.5,
-          "y": 822.5,
-          "id": "route_grassy_lane_2622_5615_120_117",
-          "_street": "grassy_lane"
-        },
-        {
-          "kind": "wildplant",
-          "crop": "shrub",
-          "x": 857.5,
-          "y": 780.5,
-          "id": "route_grassy_lane_2622_5615_122_111",
-          "_street": "grassy_lane"
-        },
-        {
-          "kind": "wildplant",
-          "crop": "berry",
-          "x": 857.5,
-          "y": 822.5,
-          "id": "route_grassy_lane_2622_5615_122_117",
-          "_street": "grassy_lane"
-        },
-        {
-          "kind": "wildplant",
-          "crop": "petnip",
-          "x": 871.5,
-          "y": 780.5,
-          "id": "route_grassy_lane_2622_5615_124_111",
-          "_street": "grassy_lane"
-        },
-        {
-          "kind": "wildplant",
-          "crop": "petnip",
-          "x": 871.5,
-          "y": 822.5,
-          "id": "route_grassy_lane_2622_5615_124_117",
-          "_street": "grassy_lane"
-        },
-        {
-          "kind": "wildplant",
-          "crop": "berry",
-          "x": 885.5,
-          "y": 780.5,
-          "id": "route_grassy_lane_2622_5615_126_111",
-          "_street": "grassy_lane"
-        },
-        {
-          "kind": "wildplant",
-          "crop": "petnip",
-          "x": 885.5,
-          "y": 822.5,
-          "id": "route_grassy_lane_2622_5615_126_117",
-          "_street": "grassy_lane"
-        },
-        {
-          "kind": "wildplant",
-          "crop": "petnip",
-          "x": 899.5,
-          "y": 780.5,
-          "id": "route_grassy_lane_2622_5615_128_111",
-          "_street": "grassy_lane"
-        },
-        {
-          "kind": "wildplant",
-          "crop": "shrub",
-          "x": 899.5,
-          "y": 822.5,
-          "id": "route_grassy_lane_2622_5615_128_117",
-          "_street": "grassy_lane"
-        },
-        {
-          "kind": "wildplant",
           "crop": "longgrass",
           "x": 703.5,
           "y": 787.5,
@@ -37510,6 +35250,9 @@
     },
     {
       "id": "old_growth_path",
+      "materialLooks": {
+        "tree": "conifer_tree"
+      },
       "baseline": true,
       "size": "minor",
       "share": 0.2,
@@ -38636,126 +36379,6 @@
           "yieldTier": 1
         },
         {
-          "kind": "tree",
-          "x": 710.5,
-          "y": 780.5,
-          "id": "route_old_growth_path_2622_5615_101_111",
-          "_street": "old_growth_path",
-          "_streetArt": "mossy_tree",
-          "species": "maple",
-          "treeSpeciesFixed": true,
-          "_objectArt": "mossy_tree",
-          "variant": 2
-        },
-        {
-          "kind": "tree",
-          "x": 710.5,
-          "y": 822.5,
-          "id": "route_old_growth_path_2622_5615_101_117",
-          "_street": "old_growth_path",
-          "_streetArt": "mossy_tree",
-          "species": "maple",
-          "treeSpeciesFixed": true,
-          "_objectArt": "mossy_tree",
-          "variant": 2
-        },
-        {
-          "kind": "tree",
-          "x": 745.5,
-          "y": 780.5,
-          "id": "route_old_growth_path_2622_5615_106_111",
-          "_street": "old_growth_path",
-          "_streetArt": "mossy_tree",
-          "species": "maple",
-          "treeSpeciesFixed": true,
-          "_objectArt": "mossy_tree",
-          "variant": 2
-        },
-        {
-          "kind": "tree",
-          "x": 745.5,
-          "y": 822.5,
-          "id": "route_old_growth_path_2622_5615_106_117",
-          "_street": "old_growth_path",
-          "_streetArt": "conifer_tree",
-          "species": "pine",
-          "treeSpeciesFixed": true,
-          "_objectArt": "conifer_tree",
-          "variant": 1
-        },
-        {
-          "kind": "tree",
-          "x": 780.5,
-          "y": 780.5,
-          "id": "route_old_growth_path_2622_5615_111_111",
-          "_street": "old_growth_path",
-          "_streetArt": "mossy_tree",
-          "species": "maple",
-          "treeSpeciesFixed": true,
-          "_objectArt": "mossy_tree",
-          "variant": 1
-        },
-        {
-          "kind": "tree",
-          "x": 780.5,
-          "y": 822.5,
-          "id": "route_old_growth_path_2622_5615_111_117",
-          "_street": "old_growth_path",
-          "_streetArt": "mossy_tree",
-          "species": "maple",
-          "treeSpeciesFixed": true,
-          "_objectArt": "mossy_tree",
-          "variant": 3
-        },
-        {
-          "kind": "tree",
-          "x": 850.5,
-          "y": 780.5,
-          "id": "route_old_growth_path_2622_5615_121_111",
-          "_street": "old_growth_path",
-          "_streetArt": "conifer_tree",
-          "species": "pine",
-          "treeSpeciesFixed": true,
-          "_objectArt": "conifer_tree",
-          "variant": 1
-        },
-        {
-          "kind": "tree",
-          "x": 850.5,
-          "y": 822.5,
-          "id": "route_old_growth_path_2622_5615_121_117",
-          "_street": "old_growth_path",
-          "_streetArt": "mossy_tree",
-          "species": "maple",
-          "treeSpeciesFixed": true,
-          "_objectArt": "mossy_tree",
-          "variant": 2
-        },
-        {
-          "kind": "tree",
-          "x": 885.5,
-          "y": 780.5,
-          "id": "route_old_growth_path_2622_5615_126_111",
-          "_street": "old_growth_path",
-          "_streetArt": "mossy_tree",
-          "species": "maple",
-          "treeSpeciesFixed": true,
-          "_objectArt": "mossy_tree",
-          "variant": 3
-        },
-        {
-          "kind": "tree",
-          "x": 885.5,
-          "y": 822.5,
-          "id": "route_old_growth_path_2622_5615_126_117",
-          "_street": "old_growth_path",
-          "_streetArt": "mossy_tree",
-          "species": "maple",
-          "treeSpeciesFixed": true,
-          "_objectArt": "mossy_tree",
-          "variant": 3
-        },
-        {
           "kind": "chest",
           "x": 906.5,
           "y": 801.5,
@@ -38935,7 +36558,7 @@
         },
         {
           "kind": "wildplant",
-          "crop": "mushroom",
+          "crop": "mushroom_bush",
           "x": 703.5,
           "y": 787.5,
           "id": "route_old_growth_path_2622_5615_100_112",
@@ -38944,7 +36567,7 @@
         },
         {
           "kind": "wildplant",
-          "crop": "mushroom",
+          "crop": "mushroom_bush",
           "x": 703.5,
           "y": 815.5,
           "id": "route_old_growth_path_2622_5615_100_116",
@@ -38953,7 +36576,7 @@
         },
         {
           "kind": "wildplant",
-          "crop": "mushroom",
+          "crop": "mushroom_bush",
           "x": 759.5,
           "y": 787.5,
           "id": "route_old_growth_path_2622_5615_108_112",
@@ -38962,7 +36585,7 @@
         },
         {
           "kind": "wildplant",
-          "crop": "mushroom",
+          "crop": "mushroom_bush",
           "x": 801.5,
           "y": 787.5,
           "id": "route_old_growth_path_2622_5615_114_112",
@@ -38971,7 +36594,7 @@
         },
         {
           "kind": "wildplant",
-          "crop": "mushroom",
+          "crop": "mushroom_bush",
           "x": 801.5,
           "y": 815.5,
           "id": "route_old_growth_path_2622_5615_114_116",
@@ -38989,7 +36612,7 @@
         },
         {
           "kind": "wildplant",
-          "crop": "mushroom",
+          "crop": "mushroom_bush",
           "x": 885.5,
           "y": 787.5,
           "id": "route_old_growth_path_2622_5615_126_112",
@@ -39115,6 +36738,9 @@
     },
     {
       "id": "haunted_forest_path",
+      "materialLooks": {
+        "tree": "dead_tree"
+      },
       "haunting": true,
       "baseline": true,
       "size": "minor",
@@ -40282,150 +37908,6 @@
           "_street": "haunted_forest_path"
         },
         {
-          "kind": "tree",
-          "x": 710.5,
-          "y": 780.5,
-          "id": "route_haunted_forest_path_2622_5615_101_111",
-          "_street": "haunted_forest_path",
-          "_streetArt": "dead_tree",
-          "species": "maple",
-          "treeSpeciesFixed": true,
-          "_objectArt": "dead_tree",
-          "variant": 1
-        },
-        {
-          "kind": "tree",
-          "x": 710.5,
-          "y": 822.5,
-          "id": "route_haunted_forest_path_2622_5615_101_117",
-          "_street": "haunted_forest_path",
-          "_streetArt": "dead_tree",
-          "species": "maple",
-          "treeSpeciesFixed": true,
-          "_objectArt": "dead_tree",
-          "variant": 3
-        },
-        {
-          "kind": "tree",
-          "x": 745.5,
-          "y": 780.5,
-          "id": "route_haunted_forest_path_2622_5615_106_111",
-          "_street": "haunted_forest_path",
-          "_streetArt": "dead_tree",
-          "species": "maple",
-          "treeSpeciesFixed": true,
-          "_objectArt": "dead_tree",
-          "variant": 1
-        },
-        {
-          "kind": "tree",
-          "x": 745.5,
-          "y": 822.5,
-          "id": "route_haunted_forest_path_2622_5615_106_117",
-          "_street": "haunted_forest_path",
-          "_streetArt": "dead_tree",
-          "species": "maple",
-          "treeSpeciesFixed": true,
-          "_objectArt": "dead_tree",
-          "variant": 1
-        },
-        {
-          "kind": "tree",
-          "x": 780.5,
-          "y": 780.5,
-          "id": "route_haunted_forest_path_2622_5615_111_111",
-          "_street": "haunted_forest_path",
-          "_streetArt": "dead_tree",
-          "species": "maple",
-          "treeSpeciesFixed": true,
-          "_objectArt": "dead_tree",
-          "variant": 1
-        },
-        {
-          "kind": "tree",
-          "x": 780.5,
-          "y": 822.5,
-          "id": "route_haunted_forest_path_2622_5615_111_117",
-          "_street": "haunted_forest_path",
-          "_streetArt": "dead_tree",
-          "species": "maple",
-          "treeSpeciesFixed": true,
-          "_objectArt": "dead_tree",
-          "variant": 2
-        },
-        {
-          "kind": "tree",
-          "x": 815.5,
-          "y": 780.5,
-          "id": "route_haunted_forest_path_2622_5615_116_111",
-          "_street": "haunted_forest_path",
-          "_streetArt": "dead_tree",
-          "species": "maple",
-          "treeSpeciesFixed": true,
-          "_objectArt": "dead_tree",
-          "variant": 3
-        },
-        {
-          "kind": "tree",
-          "x": 815.5,
-          "y": 822.5,
-          "id": "route_haunted_forest_path_2622_5615_116_117",
-          "_street": "haunted_forest_path",
-          "_streetArt": "dead_tree",
-          "species": "maple",
-          "treeSpeciesFixed": true,
-          "_objectArt": "dead_tree",
-          "variant": 2
-        },
-        {
-          "kind": "tree",
-          "x": 850.5,
-          "y": 780.5,
-          "id": "route_haunted_forest_path_2622_5615_121_111",
-          "_street": "haunted_forest_path",
-          "_streetArt": "dead_tree",
-          "species": "maple",
-          "treeSpeciesFixed": true,
-          "_objectArt": "dead_tree",
-          "variant": 2
-        },
-        {
-          "kind": "tree",
-          "x": 850.5,
-          "y": 822.5,
-          "id": "route_haunted_forest_path_2622_5615_121_117",
-          "_street": "haunted_forest_path",
-          "_streetArt": "dead_tree",
-          "species": "maple",
-          "treeSpeciesFixed": true,
-          "_objectArt": "dead_tree",
-          "variant": 1
-        },
-        {
-          "kind": "tree",
-          "x": 885.5,
-          "y": 780.5,
-          "id": "route_haunted_forest_path_2622_5615_126_111",
-          "_street": "haunted_forest_path",
-          "_streetArt": "dead_tree",
-          "species": "maple",
-          "treeSpeciesFixed": true,
-          "_objectArt": "dead_tree",
-          "variant": 1
-        },
-        {
-          "kind": "tree",
-          "x": 885.5,
-          "y": 822.5,
-          "id": "route_haunted_forest_path_2622_5615_126_117",
-          "_street": "haunted_forest_path",
-          "_streetArt": "dead_tree",
-          "species": "maple",
-          "treeSpeciesFixed": true,
-          "_objectArt": "dead_tree",
-          "variant": 3
-        },
-        {
           "kind": "chest",
           "x": 906.5,
           "y": 801.5,
@@ -40661,6 +38143,9 @@
     },
     {
       "id": "way_of_variety",
+      "materialLooks": {
+        "tree": "mossy_tree"
+      },
       "baseline": true,
       "size": "minor",
       "share": 0.16,
@@ -42026,31 +39511,9 @@
         },
         {
           "kind": "chest",
-          "x": 731.5,
-          "y": 822.5,
-          "id": "route_way_of_variety_2622_5615_104_117",
-          "_street": "way_of_variety",
-          "_streetArt": "pottery_stack",
-          "barrel": true,
-          "barrelStyle": "street_decor_pottery_stack",
-          "previewContainerFrame": "__BASE"
-        },
-        {
-          "kind": "chest",
           "x": 745.5,
           "y": 787.5,
           "id": "route_way_of_variety_2622_5615_106_112",
-          "_street": "way_of_variety",
-          "_streetArt": "pottery_stack",
-          "barrel": true,
-          "barrelStyle": "street_decor_pottery_stack",
-          "previewContainerFrame": "__BASE"
-        },
-        {
-          "kind": "chest",
-          "x": 745.5,
-          "y": 822.5,
-          "id": "route_way_of_variety_2622_5615_106_117",
           "_street": "way_of_variety",
           "_streetArt": "pottery_stack",
           "barrel": true,
@@ -42092,31 +39555,9 @@
         },
         {
           "kind": "chest",
-          "x": 787.5,
-          "y": 822.5,
-          "id": "route_way_of_variety_2622_5615_112_117",
-          "_street": "way_of_variety",
-          "_streetArt": "pottery_stack",
-          "barrel": true,
-          "barrelStyle": "street_decor_pottery_stack",
-          "previewContainerFrame": "__BASE"
-        },
-        {
-          "kind": "chest",
           "x": 801.5,
           "y": 787.5,
           "id": "route_way_of_variety_2622_5615_114_112",
-          "_street": "way_of_variety",
-          "_streetArt": "pottery_stack",
-          "barrel": true,
-          "barrelStyle": "street_decor_pottery_stack",
-          "previewContainerFrame": "__BASE"
-        },
-        {
-          "kind": "chest",
-          "x": 801.5,
-          "y": 822.5,
-          "id": "route_way_of_variety_2622_5615_114_117",
           "_street": "way_of_variety",
           "_streetArt": "pottery_stack",
           "barrel": true,
@@ -42136,53 +39577,9 @@
         },
         {
           "kind": "chest",
-          "x": 815.5,
-          "y": 822.5,
-          "id": "route_way_of_variety_2622_5615_116_117",
-          "_street": "way_of_variety",
-          "_streetArt": "pottery_stack",
-          "barrel": true,
-          "barrelStyle": "street_decor_pottery_stack",
-          "previewContainerFrame": "__BASE"
-        },
-        {
-          "kind": "chest",
-          "x": 843.5,
-          "y": 822.5,
-          "id": "route_way_of_variety_2622_5615_120_117",
-          "_street": "way_of_variety",
-          "_streetArt": "pottery_stack",
-          "barrel": true,
-          "barrelStyle": "street_decor_pottery_stack",
-          "previewContainerFrame": "__BASE"
-        },
-        {
-          "kind": "chest",
           "x": 857.5,
           "y": 787.5,
           "id": "route_way_of_variety_2622_5615_122_112",
-          "_street": "way_of_variety",
-          "_streetArt": "pottery_stack",
-          "barrel": true,
-          "barrelStyle": "street_decor_pottery_stack",
-          "previewContainerFrame": "__BASE"
-        },
-        {
-          "kind": "chest",
-          "x": 857.5,
-          "y": 822.5,
-          "id": "route_way_of_variety_2622_5615_122_117",
-          "_street": "way_of_variety",
-          "_streetArt": "pottery_stack",
-          "barrel": true,
-          "barrelStyle": "street_decor_pottery_stack",
-          "previewContainerFrame": "__BASE"
-        },
-        {
-          "kind": "chest",
-          "x": 885.5,
-          "y": 822.5,
-          "id": "route_way_of_variety_2622_5615_126_117",
           "_street": "way_of_variety",
           "_streetArt": "pottery_stack",
           "barrel": true,
@@ -42828,7 +40225,7 @@
         },
         {
           "kind": "wildplant",
-          "crop": "mushroom",
+          "crop": "mushroom_bush",
           "x": 703.5,
           "y": 787.5,
           "id": "route_way_of_variety_2622_5615_100_112",
@@ -42837,7 +40234,7 @@
         },
         {
           "kind": "wildplant",
-          "crop": "mushroom",
+          "crop": "mushroom_bush",
           "x": 731.5,
           "y": 787.5,
           "id": "route_way_of_variety_2622_5615_104_112",
@@ -42846,25 +40243,7 @@
         },
         {
           "kind": "wildplant",
-          "crop": "mushroom",
-          "x": 759.5,
-          "y": 822.5,
-          "id": "route_way_of_variety_2622_5615_108_117",
-          "_street": "way_of_variety",
-          "_streetArt": "toadstool_cluster"
-        },
-        {
-          "kind": "wildplant",
-          "crop": "mushroom",
-          "x": 773.5,
-          "y": 822.5,
-          "id": "route_way_of_variety_2622_5615_110_117",
-          "_street": "way_of_variety",
-          "_streetArt": "toadstool_cluster"
-        },
-        {
-          "kind": "wildplant",
-          "crop": "mushroom",
+          "crop": "mushroom_bush",
           "x": 843.5,
           "y": 787.5,
           "id": "route_way_of_variety_2622_5615_120_112",
@@ -42873,19 +40252,10 @@
         },
         {
           "kind": "wildplant",
-          "crop": "mushroom",
+          "crop": "mushroom_bush",
           "x": 885.5,
           "y": 787.5,
           "id": "route_way_of_variety_2622_5615_126_112",
-          "_street": "way_of_variety",
-          "_streetArt": "toadstool_cluster"
-        },
-        {
-          "kind": "wildplant",
-          "crop": "mushroom",
-          "x": 899.5,
-          "y": 822.5,
-          "id": "route_way_of_variety_2622_5615_128_117",
           "_street": "way_of_variety",
           "_streetArt": "toadstool_cluster"
         }

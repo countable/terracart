@@ -208,3 +208,17 @@ test('downed players retain covered actors and scenery, with cover restored on r
     assert.truthy(Visibility.hidden(f.scene,.5,4.5,true));
   } finally { f.done(); }
 });
+
+
+test('medium mushroom bushes conceal occupants while small mushrooms remain clear', () => {
+  const mushroom={id:'mushroom-cover',kind:'wildplant',crop:'mushroom_bush',_streetArt:'red_mushroom',x:4.5,y:.5};
+  const f=coverFixture([mushroom]);
+  try {
+    assert.truthy(Visibility.objectConceals(mushroom));
+    assert.eq(Visibility.playerCover(f.scene,4.5,.5),Visibility.PARTIAL);
+    assert.truthy(Visibility.hidden(f.scene,4.5,.5));
+    f.scene.playerM={x:3.5,y:.5};
+    assert.eq(Visibility.playerCover(f.scene,4.5,.5),Visibility.CLEAR,'adjacent actors remain visible');
+    assert.eq(Visibility.objectCover({...mushroom,crop:'mushroom',_plantArt:'ordinary',_streetArt:undefined}),Visibility.CLEAR);
+  } finally {f.done();}
+});

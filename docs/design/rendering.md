@@ -686,7 +686,7 @@ the surrounding grove’s shrub scale.
 - Long grass leaves the player at the normal feet-on-ground position, with no
   half-body crop, sinking, step lift or balancing slowdown. Only foreground
   blades naturally obscure the body. Clipped hedges likewise never crop or
-  sink the body; only liquid (below) does. `ObstacleStep`'s `covered` marks
+  sink the body; liquids and quicksand (below) do. `ObstacleStep`'s `covered` marks
   the foliage footprint and is not a waterline.
 - Water, tar-yard terrain and unburned street tar puddles lower the player's
   body to the waterline and crop away the lower half of its current sprite frame.
@@ -696,6 +696,10 @@ the surrounding grove’s shrub scale.
   This spatial pose stays while paused, clears on dry ground, and yields to
   flight, the dragon form, collapse and step-over support. It does not change
   movement, reach or feet-based sorting; heading-up rotates the same cropped body.
+- Quicksand reuses the water crop and `playerBodyDy()`, progressively lowering
+  the body until only the top four source rows remain (the hat tip). Its foreground hazard state
+  owns the progress; the pose never changes world feet, reach or heading.
+  Leaving marked sand, changing floor, flight, support or collapse clears it.
 - Flight raises the body by the consumable row’s `liftPx` through `playerBodyDy()`;
   the shadow, world position and ground sorting remain at the feet. Expiry lowers
   the body automatically. Thrown flight potions also raise creature bodies.
@@ -1292,7 +1296,9 @@ the reach rim within the existing player-light radius.
   joints, the approved study's layout at two-thirds scale (`SPARSE_SCALE`: 8px
   grid, 128px repeat). Each theme has its approved colour (a `ROAD_THEME_MIXES` theme, Way of Variety, gives each cobble one of several theme colours off its layout slot); unrestored stones retain 55% colour
   saturation, while restored stones use 115% of the theme saturation and add
-  missing cobbles at the same positions. Both states keep the approved Promenade light–dark contrast.
+  missing cobbles at the same positions. Both states keep the approved Promenade light–dark contrast, except Hedged Lane,
+  whose formal setts use a narrower tonal range. Its equal stones follow staggered
+  courses with tight transparent joints; repairs fill the missing setts.
   Palette pixels are calculated once per cached theme/state, never per frame.
   Orchard Lane's shared warm source uses solid sandstone faces. Burned Row keeps
   its solid charcoal surface and ember warning. Rail ballast stays solid.

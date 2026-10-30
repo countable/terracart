@@ -46,9 +46,19 @@ const read = name => fs.readFileSync(path.join(root, name), 'utf8');
       for(let i=3;i<prior.length;i+=4)if(prior[i]===255&&after[i]===0)moved++;
       const erased=pass('plain',false,false,[[120,160,40,64]]);
       const warm=['orchard','lantern','golden','golden_path','promenade'].map(id=>api.selectedRoadTile(id,false));
+      const formal=api.selectedRoadTile('hedgerow',true), wornFormal=api.selectedRoadTile('hedgerow',false);
+      const fp=formal.getContext('2d').getImageData(0,0,formal.width,formal.height).data;
+      const wp=wornFormal.getContext('2d').getImageData(0,0,wornFormal.width,wornFormal.height).data;
+      let regular=true, formalGaps=0, formalAdded=0;
+      for(let y=0;y<formal.height;y++)for(let x=0;x<formal.width;x++) {
+        const i=(y*formal.width+x)*4+3;
+        if((fp[i]>0)!==(fp[(y*formal.width+(x+8)%formal.width)*4+3]>0))regular=false;
+        if(fp[i]===0)formalGaps++;
+        if(fp[i]===255&&wp[i]!==255)formalAdded++;
+      }
       const target=document.createElement('canvas');target.width=target.height=384;
       api.paintPavementTile(target.getContext('2d'),384,false,false,'plain');
-      return {ordinary:open(ordinary),repaired:open(repaired),combined:open(combined),burned:open(burned),fire:open(fire),rail:open(pass('',false,true)),moved,
+      return {formalRegular:regular,formalGaps,formalAdded,formalSeparate:formal!==api.selectedRoadTile('overgrown',true),ordinary:open(ordinary),repaired:open(repaired),combined:open(combined),burned:open(burned),fire:open(fire),rail:open(pass('',false,true)),moved,
         erasedAlpha:erased.getContext('2d').getImageData(120,160,40,64).data.filter((_,i)=>i%4===3).reduce((a,b)=>a+b,0),
         warmDistinct:new Set(warm).size===warm.length,burnedSeparate:api.selectedRoadTile('burned',false)!==api.selectedRoadTile('fire_path',false),
         swatch:open(target),cached:api.selectedRoadTile('plain',false)===api.selectedRoadTile('plain',false)};
@@ -64,6 +74,8 @@ const read = name => fs.readFileSync(path.join(root, name), 'utf8');
     assert.equal(result.erasedAlpha, 0, 'keep-out erases survive compositing');
     assert(result.warmDistinct && result.burnedSeparate && result.cached);
     assert(result.swatch > .55, 'shared preview painter must preserve gaps');
+    assert(result.formalRegular && result.formalSeparate, 'formal setts repeat evenly without replacing other moss-family roads');
+    assert(result.formalGaps > 0 && result.formalAdded > 0, 'formal repairs fill missing stones and retain transparent joints');
     const expected=JSON.parse(read('test/road-theme-pixels.json'));
     const actual=await page.evaluate(rows=>rows.map(({id,restored})=>{
       const tile=RoadOverlay.selectedRoadTile(id,restored);
