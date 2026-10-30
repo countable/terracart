@@ -1,0 +1,68 @@
+[
+  {
+    "id": "golden",
+    "prompt": "Create a NEW standalone environment concept painting for a fantasy exploration RPG, 3:2 landscape. Painterly pixel art, deliberate chunky pixels with detailed tactile vegetation, restrained earthy palette, elevated three-quarter view of a road entering the foreground and receding into a believable landscape. Invent coherent road materials and practical light-post designs. Full scene, no UI, no text, no lettering, no montage, no comparison, no border. Golden Road: an old ceremonial road with warm ochre stone and subtle gold mineral seams, a small gilded wayside shrine releases a quiet trail of green coins along both verges. Weathered hillside grasses, elegant brass hooded lamps, a hopeful discovery rather than a palace.",
+    "generatedPath": "/home/claude/.codex/generated_images/01a18a22-cb79-7893-9bf5-e8ab12962996/exec-1828a225-fe8c-4c27-8dad-1c0a99f0c2e0.png",
+    "image": "images/golden.webp"
+  },
+  {
+    "id": "snare",
+    "prompt": "Create a NEW standalone environment concept painting for a fantasy exploration RPG, 3:2 landscape. Painterly pixel art, deliberate chunky pixels with detailed tactile vegetation, restrained earthy palette, elevated three-quarter view of a road entering the foreground and receding into a believable landscape. Invent coherent road materials and practical light-post designs. Full scene, no UI, no text, no lettering, no montage, no comparison, no border. Snare Road: a dangerous abandoned lane across dry wasted ground; scattered bones, broken planks and dark rocks across broad dusty verges. A few subtle ground snares are visible, low battered lantern posts illuminate cracked dark stone. Bleak but beautiful, no gore, no people.",
+    "generatedPath": "/home/claude/.codex/generated_images/01a18a22-cb79-7893-9bf5-e8ab12962996/exec-e7e62a5b-3d14-47c2-95a9-b991d8db66c8.png",
+    "image": "images/snare.webp"
+  },
+  {
+    "id": "thorny",
+    "prompt": "Create a NEW standalone environment concept painting for a fantasy exploration RPG, 3:2 landscape. Painterly pixel art, deliberate chunky pixels with detailed tactile vegetation, restrained earthy palette, elevated three-quarter view of a road entering the foreground and receding into a believable landscape. Invent coherent road materials and practical light-post designs. Full scene, no UI, no text, no lettering, no montage, no comparison, no border. Thorny Way: a secluded narrow earthy road through dense thorn hedges; beside it a small stone shrine enclosed by a complete compact square ring of brambles, scattered thorn shrubs in the verge. Twisted timber lantern posts, purple dusk and warm tiny lights.",
+    "generatedPath": "/home/claude/.codex/generated_images/01a18a22-cb79-7893-9bf5-e8ab12962996/exec-2a02a2ca-4dbb-4b73-9253-aa8450a94f61.png",
+    "image": "images/thorny.webp"
+  },
+  {
+    "id": "goblin_gang",
+    "prompt": "Create a NEW standalone environment concept painting for a fantasy exploration RPG, 3:2 landscape. Painterly pixel art, deliberate chunky pixels with detailed tactile vegetation, restrained earthy palette, elevated three-quarter view of a road entering the foreground and receding into a believable landscape. Invent coherent road materials and practical light-post designs. Full scene, no UI, no text, no lettering, no montage, no comparison, no border. Goblin Gang road: a rough cobbled woodland lane controlled by a small gang of green goblins, improvised timber barricade furnishings and low sturdy lanterns, modest scavenged roadside camp, worn ground and forest canopy. Two or three small distant goblins, environment dominates.",
+    "generatedPath": "/home/claude/.codex/generated_images/01a18a22-cb79-7893-9bf5-e8ab12962996/exec-b22fd6b1-ee9e-47f3-b890-e62bab98fe82.png",
+    "image": "images/goblin_gang.webp"
+  },
+  {
+    "id": "golden_path",
+    "prompt": "Create a NEW standalone environment concept painting for a fantasy exploration RPG, 3:2 landscape. Painterly pixel art, deliberate chunky pixels with detailed tactile vegetation, restrained earthy palette, elevated three-quarter view of a road entering the foreground and receding into a believable landscape. Invent coherent road materials and practical light-post designs. Full scene, no UI, no text, no lettering, no montage, no comparison, no border. Golden Path: a narrow intimate footpath of honey-colored stone, modest clusters of gold coins along the margins, low paired candle sconces on squat stones, soft golden flowering vegetation and woodland clearing. Magical treasure trail but restrained, no grand palace.",
+    "generatedPath": "/home/claude/.codex/generated_images/01a18a22-cb79-7893-9bf5-e8ab12962996/exec-cf12e371-d35c-42d3-84b2-caec3a942632.png",
+    "image": "images/golden_path.webp"
+  },
+  {
+    "id": "slime_trail",
+    "prompt": "Create a NEW standalone environment concept painting for a fantasy exploration RPG, 3:2 landscape. Painterly pixel art, deliberate chunky pixels with detailed tactile vegetation, restrained earthy palette, elevated three-quarter view of a road entering the foreground and receding into a believable landscape. Invent coherent road materials and practical light-post designs. Full scene, no UI, no text, no lettering, no montage, no comparison, no border. Slime Trail: a damp woodland footpath, dark stepping stones and low mossy lantern posts; a few small translucent green slime creatures and wet slime slicks reflect greenish light beside the route. Tactile wet ferns and moss, atmospheric and inviting, not grotesque.",
+    "generatedPath": "/home/claude/.codex/generated_images/01a18a22-cb79-7893-9bf5-e8ab12962996/exec-ccdb4c09-13e3-4f63-8f36-4886bb974e70.png",
+    "image": "images/slime_trail.webp"
+  },
+  {
+    "id": "spider_path",
+    "prompt": "Create a NEW standalone environment concept painting for a fantasy exploration RPG, 3:2 landscape. Painterly pixel art, deliberate chunky pixels with detailed tactile vegetation, restrained earthy palette, elevated three-quarter view of a road entering the foreground and receding into a believable landscape. Invent coherent road materials and practical light-post designs. Full scene, no UI, no text, no lettering, no montage, no comparison, no border. Spider Path: a shaded woodland footpath under bare branching trees, delicate large cobwebs strung between trunks and pale web patches beside the path; one small spider silhouette. Pale grey broken paving, narrow iron cage lamps with amber glow, moody dusk, no horror gore.",
+    "generatedPath": "/home/claude/.codex/generated_images/01a18a22-cb79-7893-9bf5-e8ab12962996/exec-445a934a-df8b-49f7-9634-eb00e4edfad6.png",
+    "image": "images/spider_path.webp"
+  },
+  {
+    "id": "poison_path",
+    "prompt": "Create a NEW standalone environment concept painting for a fantasy exploration RPG, 3:2 landscape. Painterly pixel art, deliberate chunky pixels with detailed tactile vegetation, restrained earthy palette, elevated three-quarter view of a road entering the foreground and receding into a believable landscape. Invent coherent road materials and practical light-post designs. Full scene, no UI, no text, no lettering, no montage, no comparison, no border. Poison Path: a damp toxic footpath with sparse sickly green gas venting from low roadside fissures, dark stones and pools, subtle lime-green orb lamps in weathered stone cradles. Wilted ferns and muted olive vegetation, environmental hazard legible, no skull signage or text.",
+    "generatedPath": "/home/claude/.codex/generated_images/01a18a22-cb79-7893-9bf5-e8ab12962996/exec-274b2a2e-5308-4d60-8f7d-91cf291e2076.png",
+    "image": "images/poison_path.webp"
+  },
+  {
+    "id": "fire_path",
+    "prompt": "Create a NEW standalone environment concept painting for a fantasy exploration RPG, 3:2 landscape. Painterly pixel art, deliberate chunky pixels with detailed tactile vegetation, restrained earthy palette, elevated three-quarter view of a road entering the foreground and receding into a believable landscape. Invent coherent road materials and practical light-post designs. Full scene, no UI, no text, no lettering, no montage, no comparison, no border. Fire Path: a scorched volcanic footpath with charcoal paving and glowing ember fissures; small separate flames flare at intervals from roadside vents, narrow upright fire lamps on black stone posts. Ashy grass and charred trees in muted rust landscape, believable walkable route, not a lava river.",
+    "generatedPath": "/home/claude/.codex/generated_images/01a18a22-cb79-7893-9bf5-e8ab12962996/exec-e71691c8-e709-45b2-aea4-2072e14b3110.png",
+    "image": "images/fire_path.webp"
+  },
+  {
+    "id": "paralysis_path",
+    "prompt": "Create a NEW standalone environment concept painting for a fantasy exploration RPG, 3:2 landscape. Painterly pixel art, deliberate chunky pixels with detailed tactile vegetation, restrained earthy palette, elevated three-quarter view of a road entering the foreground and receding into a believable landscape. Invent coherent road materials and practical light-post designs. Full scene, no UI, no text, no lettering, no montage, no comparison, no border. Paralysis Path: a mysterious woodland footpath where pale amber dust or pollen hangs in small localized clouds from roadside vents, dry yellow grasses and modest thorny plants; warm pale stone steps and squat lanterns with honey glass. Quiet tense atmosphere suggesting numbing magic, no lightning storm.",
+    "generatedPath": "/home/claude/.codex/generated_images/01a18a22-cb79-7893-9bf5-e8ab12962996/exec-ca1fcdd4-e484-4c41-8093-abb8bef091dd.png",
+    "image": "images/paralysis_path.webp"
+  },
+  {
+    "id": "confusion_path",
+    "prompt": "Create a NEW standalone environment concept painting for a fantasy exploration RPG, 3:2 landscape. Painterly pixel art, deliberate chunky pixels with detailed tactile vegetation, restrained earthy palette, elevated three-quarter view of a road entering the foreground and receding into a believable landscape. Invent coherent road materials and practical light-post designs. Full scene, no UI, no text, no lettering, no montage, no comparison, no border. Confusion Path: an uncanny forest footpath with a few violet-blue vapor wisps from small roadside vents, crooked trees and subtly disorienting bends yet a clear traversable route. Weathered slate paving, green orb lamps on simple stone columns, muted lavender dusk, restrained fantasy rather than psychedelic rainbow.",
+    "generatedPath": "/home/claude/.codex/generated_images/01a18a22-cb79-7893-9bf5-e8ab12962996/exec-9ca336d1-03da-4b82-8d3c-f930d8253153.png",
+    "image": "images/confusion_path.webp"
+  }
+]

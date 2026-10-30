@@ -308,7 +308,7 @@
     { id: 'barricade', materialLooks: { tree: 'dead_tree' }, pathWeight: .03, terrain: 'WASTELAND', terrainVergeCells: 3, pathTerrainInfluence: true, affinities: ['ruined'], size: 'path', share: 0.04, rung: 'rare',
       stone: { weathered: '#8c806b', restored: '#a19276' }, lampDensity: 1,
       words: /(gate|wall|fort|\btor\b|mauer|castle|burg|bastion|guard|wache|barrack|kaserne|armou?ry)/i,
-      lampGlow: '#ff8c2a',
+      lampGlow: '#ffc171',
       story: 'street_barricade', title: 'The barricade',
       body: 'Rough barricades cross the road and reach into the verges. Iron spikes stand between the wooden barriers.',
       flash: 'Barricades. Goblins held it.' },

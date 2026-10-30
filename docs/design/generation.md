@@ -744,7 +744,7 @@ access or tile lifecycle mechanics.
 - Roadside lights use `StreetLights.VARIANTS`: hanging lanterns for Hedged Lane
   and Trade Row, a wooden lantern for Lantern Row, a tall lantern on Promenade,
   street lamps on Park Path, fire pedestals for Pilgrim/Burned/Fire routes, and
-  green orbs on Poison and Confusion paths. Restoration still owns their light.
+  green orbs on Poison and Confusion paths. Barricade uses warm upright torches. Restoration still owns their light.
   A sign reserves a free verge cell near each section's canonical endpoint.
   Its directions come from actual nearby same-level road geometry and theme
   names; the sign never invents a destination across an unrelated crossing.

@@ -1,0 +1,82 @@
+[
+  {
+    "id": "berry",
+    "title": "Berry Lane",
+    "prompt": "Create ONE standalone environment concept illustration for a fantasy exploration RPG. Landscape 3:2. Painterly pixel art, deliberate visible pixel clusters and textured material shading, not photorealism or vector art. Elevated three-quarter view: a readable road runs from the wide foreground toward a distant bend, terrain and light posts integrated with the road. Cohesive restrained earthy palette, tactile details, strong atmospheric depth, beautiful environmental storytelling. Fresh bespoke environment design, not a comparison, collage, sprite sheet or diagram. No UI, captions, labels, letters, logos, watermarks, border or visible text. No characters.  Theme: Berry Lane. A gentle rural lane tightly lined with plain rounded berry bushes, a few thorny bushes mixed in, ripe modest red berry clusters. NO yellow flowers. Warm soil and worn local paving, practical handmade light posts that feel native to fruit growers.",
+    "source": "/home/claude/.codex/generated_images/01a18a22-9b05-7262-8673-5d69898a63ac/exec-eff0304d-4bda-4dbd-8cef-8c1c77774318.png",
+    "image": "images/berry.webp",
+    "original": "/home/claude/.artifacts/road-environment-concepts/originals/berry.png"
+  },
+  {
+    "id": "berry_trail",
+    "title": "Berry Trail",
+    "prompt": "Create ONE standalone environment concept illustration for a fantasy exploration RPG. Landscape 3:2. Painterly pixel art, deliberate visible pixel clusters and textured material shading, not photorealism or vector art. Elevated three-quarter view: a readable road runs from the wide foreground toward a distant bend, terrain and light posts integrated with the road. Cohesive restrained earthy palette, tactile details, strong atmospheric depth, beautiful environmental storytelling. Fresh bespoke environment design, not a comparison, collage, sprite sheet or diagram. No UI, captions, labels, letters, logos, watermarks, border or visible text. No characters.  Theme: Berry Trail. A narrow foraging trail threading dense low berry bushes and occasional brambles through a sheltered green hillside; compact simple trail lights, intimate wild atmosphere, NO yellow flowers.",
+    "source": "/home/claude/.codex/generated_images/01a18a22-9b05-7262-8673-5d69898a63ac/exec-904eb2de-ff92-4ce5-b18b-1258bf53db41.png",
+    "image": "images/berry_trail.webp",
+    "original": "/home/claude/.artifacts/road-environment-concepts/originals/berry_trail.png"
+  },
+  {
+    "id": "pottery",
+    "title": "Pottery Road",
+    "prompt": "Create ONE standalone environment concept illustration for a fantasy exploration RPG. Landscape 3:2. Painterly pixel art, deliberate visible pixel clusters and textured material shading, not photorealism or vector art. Elevated three-quarter view: a readable road runs from the wide foreground toward a distant bend, terrain and light posts integrated with the road. Cohesive restrained earthy palette, tactile details, strong atmospheric depth, beautiful environmental storytelling. Fresh bespoke environment design, not a comparison, collage, sprite sheet or diagram. No UI, captions, labels, letters, logos, watermarks, border or visible text. No characters.  Theme: Pottery Road. A potters lane with kilns distant, shelves and grouped clay pots directly at the roadside and occasional pots on the road. All pottery uses exactly TWO clay colors: terracotta #bf6f4a and sandy tan #c29c67. No glazed multicolor pots. Invent a tactile road treatment and warm kiln-like lampposts integral to this working landscape.",
+    "source": "/home/claude/.codex/generated_images/01a18a22-9b05-7262-8673-5d69898a63ac/exec-87150da7-f4cd-4a53-84d8-656ef7e88874.png",
+    "image": "images/pottery.webp",
+    "original": "/home/claude/.artifacts/road-environment-concepts/originals/pottery.png"
+  },
+  {
+    "id": "trade",
+    "title": "Trade Row",
+    "prompt": "Create ONE standalone environment concept illustration for a fantasy exploration RPG. Landscape 3:2. Painterly pixel art, deliberate visible pixel clusters and textured material shading, not photorealism or vector art. Elevated three-quarter view: a readable road runs from the wide foreground toward a distant bend, terrain and light posts integrated with the road. Cohesive restrained earthy palette, tactile details, strong atmospheric depth, beautiful environmental storytelling. Fresh bespoke environment design, not a comparison, collage, sprite sheet or diagram. No UI, captions, labels, letters, logos, watermarks, border or visible text. No characters.  Theme: Trade Row. A lively yet unoccupied fantasy trading route with weathered barrels of goods, simple roadside merchant shelters and freight details, rugged practical light posts. No people. Rich visual rhythm from varied stacked barrels, worn stone and rope.",
+    "source": "/home/claude/.codex/generated_images/01a18a22-9b05-7262-8673-5d69898a63ac/exec-ede3d538-8156-460d-aa0a-284e24126d4d.png",
+    "image": "images/trade.webp",
+    "original": "/home/claude/.artifacts/road-environment-concepts/originals/trade.png"
+  },
+  {
+    "id": "rocky_path",
+    "title": "Rocky Road",
+    "prompt": "Create ONE standalone environment concept illustration for a fantasy exploration RPG. Landscape 3:2. Painterly pixel art, deliberate visible pixel clusters and textured material shading, not photorealism or vector art. Elevated three-quarter view: a readable road runs from the wide foreground toward a distant bend, terrain and light posts integrated with the road. Cohesive restrained earthy palette, tactile details, strong atmospheric depth, beautiful environmental storytelling. Fresh bespoke environment design, not a comparison, collage, sprite sheet or diagram. No UI, captions, labels, letters, logos, watermarks, border or visible text. No characters.  Theme: Rocky Road. A dry rugged route strewn only with ordinary small grey stones, flint nodules and rubble both ON the road and immediately at its first narrow verge row. Open terrain beyond that adjacent row, no decorative outer boulders or mineral gem piles. Low rugged stone-based lights suited to rocky terrain.",
+    "source": "/home/claude/.codex/generated_images/01a18a22-9b05-7262-8673-5d69898a63ac/exec-03f8868f-7030-42b9-9cf1-f933c715d6b8.png",
+    "image": "images/rocky_path.webp",
+    "original": "/home/claude/.artifacts/road-environment-concepts/originals/rocky_path.png"
+  },
+  {
+    "id": "grassy_lane",
+    "title": "Grassy Lane",
+    "prompt": "Create ONE standalone environment concept illustration for a fantasy exploration RPG. Landscape 3:2. Painterly pixel art, deliberate visible pixel clusters and textured material shading, not photorealism or vector art. Elevated three-quarter view: a readable road runs from the wide foreground toward a distant bend, terrain and light posts integrated with the road. Cohesive restrained earthy palette, tactile details, strong atmospheric depth, beautiful environmental storytelling. Fresh bespoke environment design, not a comparison, collage, sprite sheet or diagram. No UI, captions, labels, letters, logos, watermarks, border or visible text. No characters.  Theme: Grassy Lane. A peaceful open grassland lane with long grass spilling onto the track and both verges; all added vegetation is GRASS ONLY, no ferns, no flowers, no bushes. An evocative grass-and-worn-road surface with simple understated trail light posts, afternoon wind.",
+    "source": "/home/claude/.codex/generated_images/01a18a22-9b05-7262-8673-5d69898a63ac/exec-acfae01c-80a7-48df-8ae3-686fc3470958.png",
+    "image": "images/grassy_lane.webp",
+    "original": "/home/claude/.artifacts/road-environment-concepts/originals/grassy_lane.png"
+  },
+  {
+    "id": "old_growth_path",
+    "title": "Old Growth Path",
+    "prompt": "Create ONE standalone environment concept illustration for a fantasy exploration RPG. Landscape 3:2. Painterly pixel art, deliberate visible pixel clusters and textured material shading, not photorealism or vector art. Elevated three-quarter view: a readable road runs from the wide foreground toward a distant bend, terrain and light posts integrated with the road. Cohesive restrained earthy palette, tactile details, strong atmospheric depth, beautiful environmental storytelling. Fresh bespoke environment design, not a comparison, collage, sprite sheet or diagram. No UI, captions, labels, letters, logos, watermarks, border or visible text. No characters.  Theme: Old Growth Path. Ancient tall mature trees shade a narrow forest road, with a few small mushrooms at its edges. NO stumps, NO bushes or shrub understorey. Root textures, fern-free low forest floor, deep canopy and dappled light. Old handcrafted woodland light posts blend into the mature forest.",
+    "source": "/home/claude/.codex/generated_images/01a18a22-9b05-7262-8673-5d69898a63ac/exec-7dcf9516-3635-4f8b-bc38-3e5dbaf528d4.png",
+    "image": "images/old_growth_path.webp",
+    "original": "/home/claude/.artifacts/road-environment-concepts/originals/old_growth_path.png"
+  },
+  {
+    "id": "haunted_forest_path",
+    "title": "Haunt",
+    "prompt": "Create ONE standalone environment concept illustration for a fantasy exploration RPG. Landscape 3:2. Painterly pixel art, deliberate visible pixel clusters and textured material shading, not photorealism or vector art. Elevated three-quarter view: a readable road runs from the wide foreground toward a distant bend, terrain and light posts integrated with the road. Cohesive restrained earthy palette, tactile details, strong atmospheric depth, beautiful environmental storytelling. Fresh bespoke environment design, not a comparison, collage, sprite sheet or diagram. No UI, captions, labels, letters, logos, watermarks, border or visible text. No characters.  Theme: Haunt. A solemn haunted forest lane under dead leafless trees; old leaning headstones and small mushrooms beside a dark stone route. Pale atmospheric light posts, thin ground mist, muted cold slate and bark palette. Eerie and quietly beautiful, no gore, no characters.",
+    "source": "/home/claude/.codex/generated_images/01a18a22-9b05-7262-8673-5d69898a63ac/exec-7ee70e90-592e-4047-a274-496b78084d20.png",
+    "image": "images/haunted_forest_path.webp",
+    "original": "/home/claude/.artifacts/road-environment-concepts/originals/haunted_forest_path.png"
+  },
+  {
+    "id": "way_of_variety",
+    "title": "Way of Variety",
+    "prompt": "Create ONE standalone environment concept illustration for a fantasy exploration RPG. Landscape 3:2. Painterly pixel art, deliberate visible pixel clusters and textured material shading, not photorealism or vector art. Elevated three-quarter view: a readable road runs from the wide foreground toward a distant bend, terrain and light posts integrated with the road. Cohesive restrained earthy palette, tactile details, strong atmospheric depth, beautiful environmental storytelling. Fresh bespoke environment design, not a comparison, collage, sprite sheet or diagram. No UI, captions, labels, letters, logos, watermarks, border or visible text. No characters.  Theme: Way of Variety. A playful coherent roadside landscape of common herbs, berry bushes, mushrooms, ordinary rocks, clay pots and barrels, with occasional visibly rooted potato/cress/onion/nut crop plants and a few copper ore and pale pink rose-quartz mineral rocks. NO planted or generated trees, keep foreground and route treeless. Invent eclectic but practical road paving and light posts tying the varied finds together.",
+    "source": "/home/claude/.codex/generated_images/01a18a22-9b05-7262-8673-5d69898a63ac/exec-465dbc50-eff3-4f93-a7b1-2e06e0666a4b.png",
+    "image": "images/way_of_variety.webp",
+    "original": "/home/claude/.artifacts/road-environment-concepts/originals/way_of_variety.png"
+  },
+  {
+    "id": "causeway",
+    "title": "Causeway",
+    "prompt": "Create ONE standalone environment concept illustration for a fantasy exploration RPG. Landscape 3:2. Painterly pixel art, deliberate visible pixel clusters and textured material shading, not photorealism or vector art. Elevated three-quarter view: a readable road runs from the wide foreground toward a distant bend, terrain and light posts integrated with the road. Cohesive restrained earthy palette, tactile details, strong atmospheric depth, beautiful environmental storytelling. Fresh bespoke environment design, not a comparison, collage, sprite sheet or diagram. No UI, captions, labels, letters, logos, watermarks, border or visible text. No characters.  Theme: Causeway. A raised completely DRY road through shallow clear pools on BOTH sides. Water never touches or covers the walking surface, no puddles on the route. Evocative well-built stone-and-timber causeway, distinct dry edges, wetland reflections and purposeful light posts. Make the separation of dry road and adjacent water unmistakable.",
+    "source": "/home/claude/.codex/generated_images/01a18a22-9b05-7262-8673-5d69898a63ac/exec-61b94728-0948-4fc6-9e29-bce7b98721ef.png",
+    "image": "images/causeway.webp",
+    "original": "/home/claude/.artifacts/road-environment-concepts/originals/causeway.png"
+  }
+]
