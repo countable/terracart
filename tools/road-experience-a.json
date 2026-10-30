@@ -38,6 +38,10 @@
       {
         "text": "Plant guards and a wild-boar encounter interrupt the woodland walk; some streets also have a bear.",
         "status": "existing"
+      },
+      {
+        "status": "existing",
+        "text": "Concealed seed cache, with its own themed T1\u2013T3 loot roll."
       }
     ],
     "adjectives": [
@@ -63,6 +67,10 @@
       {
         "text": "Farmer-goblin guards make some harvesting stops contested.",
         "status": "existing"
+      },
+      {
+        "status": "existing",
+        "text": "Concealed fruit cache, with its own themed T1\u2013T3 loot roll."
       }
     ],
     "adjectives": [
@@ -88,6 +96,10 @@
       {
         "text": "The completed set records its reward, so the same puzzle cannot be farmed repeatedly.",
         "status": "existing"
+      },
+      {
+        "status": "existing",
+        "text": "Concealed sacred cache, with its own themed T1\u2013T3 loot roll."
       }
     ],
     "adjectives": [

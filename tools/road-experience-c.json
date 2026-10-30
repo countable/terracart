@@ -6,7 +6,8 @@
     "art": [
       "Use the existing plain, fruiting and poison-berry bush silhouettes; keep plain bushes dominant.",
       "Keep thorns sparse and omit yellow flowers so fruit and movement remain the strongest signals.",
-      "Use the existing warm lamp glow to reveal gaps between bushes."
+      "Use the existing warm lamp glow to reveal gaps between bushes.",
+      "Two bush rows on each side: 48% plain, 25% berry, 15% poison, 10% thorn and 2% golden; no yellow flowers."
     ],
     "mechanics": [
       {
@@ -31,11 +32,12 @@
     "art": [
       "Use denser existing berry-bush art than Berry Lane, with a few poison bushes and brambles.",
       "Keep the bear readable through breaks in the bushes rather than adding new scenery.",
-      "Retain the narrow path silhouette so approaching the fruit feels like a deliberate detour."
+      "Retain the narrow path silhouette so approaching the fruit feels like a deliberate detour.",
+      "Two bush rows on each side: 48% plain, 25% berry, 15% poison, 10% thorn and 2% golden; no yellow flowers."
     ],
     "mechanics": [
       {
-        "text": "The trail uses a fruit-heavy bush mix and adds one large forest-bear encounter where a legal seat exists.",
+        "text": "The trail shares Berry Lane\u2019s bush mix and adds one large forest-bear encounter where a legal seat exists.",
         "status": "existing"
       },
       {
@@ -85,7 +87,7 @@
     ],
     "mechanics": [
       {
-        "text": "Barrels use existing container loot and smashing interactions.",
+        "text": "Most barrels yield normal container loot; 10% instead start a five-second explosive fuse when tapped.",
         "status": "existing"
       },
       {
@@ -101,7 +103,7 @@
   },
   {
     "id": "rocky_path",
-    "feeling": "A practical gathering route where useful stone is always underfoot.",
+    "feeling": "Useful stone rewards a careful walker on ground that can give way.",
     "arrival": "Common rocks, flint and rubble extend onto the route itself and stop at the first verge row.",
     "art": [
       "Use only the existing common-rock, flint and rubble forms; omit outer decorative rock types.",
@@ -116,12 +118,16 @@
       {
         "text": "Finds can occupy the road and first verge row; blocked seats do not push them farther outward.",
         "status": "existing"
+      },
+      {
+        "status": "existing",
+        "text": "Stepping on an eligible cave-in seed has an 8% chance to start a 2\u20135-cell collapse. Cracks warn for five seconds before permanent holes open; the static preview shows intact ground."
       }
     ],
     "adjectives": [
-      "Practical",
       "Rugged",
-      "Productive"
+      "Unstable",
+      "Tense"
     ]
   },
   {
@@ -166,6 +172,10 @@
       {
         "text": "Small mushrooms are pickable, while the existing medium mushroom clusters yield wood and mushroom when chopped.",
         "status": "existing"
+      },
+      {
+        "status": "existing",
+        "text": "Concealed forage cache, with its own themed T1\u2013T3 loot roll."
       }
     ],
     "adjectives": [
@@ -185,12 +195,24 @@
     ],
     "mechanics": [
       {
-        "text": "The route is marked as a haunting habitat and participates in the shared haunting rules.",
+        "text": "After dark, eligible unlit spots can raise 1\u20133 ghosts per attempt every 4\u20136 minutes. Tapping a headstone has a 1-in-3 chance to raise a ghost at any hour.",
         "status": "existing"
       },
       {
         "text": "Dead-tree finds and mushrooms retain ordinary chopping and picking interactions.",
         "status": "existing"
+      },
+      {
+        "status": "existing",
+        "text": "Permanent maws occur about every 70 m where safe placement permits. Stepping into one drops a grounded player one level."
+      },
+      {
+        "status": "existing",
+        "text": "About one-third of graves raise one ghost when approached within one cell. Each approach trigger fires once per save; flying players do not trigger it."
+      },
+      {
+        "status": "existing",
+        "text": "Concealed occult cache, with its own themed T1\u2013T3 loot roll."
       }
     ],
     "adjectives": [
@@ -204,7 +226,7 @@
     "feeling": "A compact scavenging sampler that keeps changing what catches your eye.",
     "arrival": "Plants, pots, barrels and stones share the road and verges, with occasional crop plants and distinctive ore colours.",
     "art": [
-      "Use existing mature T1–T2 crop art for potato, cress, onion and nut plants, alongside ordinary finds.",
+      "Use existing mature T1\u2013T2 crop art for potato, cress, onion and nut plants, alongside ordinary finds.",
       "Let existing copper and pale pink rose-quartz rock art provide occasional colour accents.",
       "Add no trees; retain only the styling of satellite-detected trees already present."
     ],
@@ -216,6 +238,10 @@
       {
         "text": "Each find keeps its normal picking, chopping, smashing or mining interaction; the crop plants are harvestable wild plants, not timed farm plots.",
         "status": "existing"
+      },
+      {
+        "status": "existing",
+        "text": "Up to three small snakes inhabit the tile\u2019s eligible Variety corridor. Decorated verge rows fill every available cell."
       }
     ],
     "adjectives": [
@@ -235,7 +261,7 @@
     ],
     "mechanics": [
       {
-        "text": "The terrain pass creates water pools beside the road, up to three cells outward.",
+        "text": "Rocky ground with water pools extends up to three cells beside the road.",
         "status": "existing"
       },
       {

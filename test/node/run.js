@@ -110,7 +110,7 @@ const FILES = [
   'zones.js', 'zone_variant_data.js', 'terrain.js', 'zone_variants.js', 'shrines.js', 'status_icons.js', 'buffs.js', 'zone_coverage.js', 'quarry_layout.js', 'zone_dressing.js', 'reef_layout.js',
   'enemy_protocol.js', 'weather_codes.js', 'multiplayer.js', 'weather.js', 'placed_floor.js', 'campfires.js', 'coords.js', 'fog.js', 'biome_profiles.js', 'habitat_spawns.js', 'home.js', 'home_variant.js',
   // Traps — pure (reads WorldGen at CALL time); index.html puts it first, so do we.
-  'traps.js', 'whirlwinds.js', 'hazard_falls.js', 'environment_hazards.js', 'waystones.js', 'pressure_traps.js', 'spider_webs.js',
+  'traps.js', 'whirlwinds.js', 'hazard_falls.js', 'environment_hazards.js', 'waystones.js', 'pressure_traps.js', 'explosive_barrels.js', 'spider_webs.js',
   'gas.js', 'mushroom_gas.js', 'creeping_vines.js',
   // Derelict lairs — pure, reads WorldGen at CALL time like traps.js.
   'lairs.js',

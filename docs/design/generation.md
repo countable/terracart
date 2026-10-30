@@ -443,6 +443,10 @@ access or tile lifecycle mechanics.
   containers pay that budget as coins or use `ChestThemes.quantityForBudget`
   for item stacks, including category shares and caps; higher budgets never
   promote item tiers. All containers remain permanently smashed after use.
+- A stable object-ID roll makes 10% of ordinary wooden barrels explosive.
+  Goblin Gang also places red barrels that always explode. Pots and caches
+  are excluded; explosive barrels arm instead of yielding container loot.
+  The fuse and blast are owned by `ExplosiveBarrels` (see combat).
 - The Ring of Gathering draws loose coins gradually toward the player;
   `COIN_COLLECTION` owns the pull speed and arrival distance. Collection pays
   only on arrival and preserves the generated coin’s one-time ledger.
@@ -451,6 +455,17 @@ access or tile lifecycle mechanics.
   `save.hiddenDiscoveries`), or within the vision disc with Perception; until
   then it is neither drawn nor diggable. A covering rock adds no rule of its
   own. The Treasure Map's dot is apart.
+- Concealed caches are a distinct `cache:true` container family with stable
+  cell-derived T1–T3 tiers and their own variant-themed reward tables: seed
+  (Gone to Seed), fruit (Orchard), forage (Old Growth), occult (Haunt), sacred
+  (Pilgrim), supply (Spider), and magic consumables (Paralysis/Confusion).
+  Generation attempts one per street/tile on eligible unoccupied verge ground.
+  `concealed:true` requires exact player-cell contact or a direct own-cell tap,
+  regardless of Perception; the first tap reveals without opening. Discovery
+  persists through `hiddenDiscoveries`; covered finds still require removing
+  their physical cover. Normal chest opening persists, but cache loot, tier,
+  art and one-time behavior remain independent from ordinary chest quotas,
+  restocking and mimics. Legacy `revealOnCell` records retain their discovery rule.
 - X-mark density: every ambient X stream (tile scatter, low-tier quota,
   footpath, inland-sand and front-yard bonuses, shoreline, cave floors) scales its count
   by `loot.js X_MARK_FREQUENCY`; authored marks (parking, hoards) stay one
@@ -682,8 +697,15 @@ access or tile lifecycle mechanics.
   visible-time ledger survive reloads; cut cells stay cleared. Growth uses the
   hazard spawn gate and avoids roads, water, buildings, Home and occupied cells.
   Road-seeded colonies keep their source variant and remain inside its influence.
+  T2 Toxic Seeds use the normal seed planting flow to create exactly one saved
+  live vine cell on eligible outdoor soil. They need no watering and use the
+  same growth and contact damage; the seed shop and T2 park seed rewards supply
+  them. Planting retains the shared Home, Nexus, occupancy and hazard restrictions.
 - Spider Path retains its authored path selection weight. A seeded 35% of cell-spaced
   path samples receive permanent webs, with a small seeded lateral offset.
+  Another seeded 20% of eligible off-path cells within its two-cell verge get
+  webs. Whole road footprints, crossings and occupied cache seats stay clear;
+  concealed caches are reserved before either web pass.
   Webs use the hazard spawn gate and reserve their cells; restricted land,
   occupancy, vehicle roads and road-junction safety can leave gaps. One
   two-spider garrison per section seats on safe nearby ground. Both webs
@@ -709,12 +731,19 @@ access or tile lifecycle mechanics.
   cells on each side with harvestable long grass only. Grass uses ordinary clearing and regrowth, deterministic cell IDs, and
   the shared land/occupancy gates. Old Growth Path has
   mature trees and mushrooms, with no generated stumps or bushes; Haunt lays dark cobbles with the shared dead-tree art,
-  headstones and mushrooms. Way of Variety densely fills its road or path
+  headstones and mushrooms. A deterministic third of Haunt headstones have a
+  one-cell approach trigger: `PressureTraps` reuses its ghost-plate logic through
+  invisible proxies, raising one ghost and saving `pressedPlates` only after a
+  successful summon. Flight, safety and nearby-ghost caps apply; ordinary
+  headstone taps and nighttime haunting remain active.
+  Way of Variety densely fills its road or path
   surface and two verge cells on each side (Grassy Lane's cross-section) with
   deterministic common plants, rocks, pots and barrels, with occasional T1–T2 crop
   plants, copper and rose quartz. It adds no trees; detected trees retain their
-  themed appearance. None
-  blocks movement. All use existing interactions and shared spawn gates; Grassy
+  themed appearance. Its approved decorations fill every available verge seat,
+  and its habitat requests three ordinary small snakes per eligible tile
+  corridor. Snakes reuse the serpent-head artwork and ordinary pursuit; they
+  have no segmented-boss behavior. Finds do not block movement. All use existing interactions and shared spawn gates; Grassy
   Lane and Way of Variety intentionally cover their road surfaces.
 - Road-variant scenery starts in the first adjacent verge cell. Additional
   authored rows sit behind that first row. All additions and initial guards
@@ -779,7 +808,8 @@ access or tile lifecycle mechanics.
   scattered across the strip. It keeps its trapped chest and adds up to 12 seeded scattered
   snares, spaced at least two cells apart. Barricade Road adds up to six
   seeded ground stakes along its verges without adding guard posts.
-- Causeway places water pools within three cells of both verges, with dry gaps.
+- Causeway paints rocky ground within three cells of both verges, with water
+  pools and dry gaps.
   Whole road cells, diagonal road corners, crossings and protected occupied
   cells stay dry. Pools use ordinary water movement and submersion.
 - Medium roads are always **Old Trade Road**, and large roads are always
@@ -961,6 +991,16 @@ access or tile lifecycle mechanics.
   unloaded neighbours never count as boundary evidence. Ordinary hazard,
   transport, private-ground and occupancy gates still apply; tier ownership is
   unchanged. This adds no ambient vent or sinkhole inside the quarry.
+- Rocky Road/Path also opts into the shared cave-in lifecycle: an 8% roll on
+  first contact starts a 2–5-cell cluster with a five-second warning. Two clear
+  sections every eight dressing samples leave room for interior collapses. Bounded
+  road ownership keeps cells on the route and its first verge; Nexus ownership,
+  shared hazard tiers, private ground and occupancy take precedence. Saved pits
+  stay inert if their cells no longer belong to eligible collapse ground.
+- Haunt adds permanent one-cell maws, alternating route and verge opportunities
+  every 70 m. These `ground_hole` records use the shared hazard placement gate,
+  connected chasm art, flight protection and safe one-level surface fall. They
+  do not deal the underground chasm's separate energy penalty.
 - L1 and the surface Nexus rows marked `caveIns` (the Seep tar pits) use `EnvironmentHazards` for hidden cave-in clusters of
   2–5 connected cells scattered across general eligible ground. Their seeds are
   cell-based and materialized on first contact. Any grounded entity (player,
@@ -1204,11 +1244,10 @@ Higher-priority placements and their access space take precedence in this order:
    third of them held (`BERRY_RUNT_CHANCE`), seats the `street_berry`
    garrison one cell behind the bush row: one ambusher that hides in the
    nearest bush.
-   Berry Lane uses 50% ordinary shrubs, 25% berry bushes, 15% poisonberry
-   and 10% brambles before the golden roll, with no yellow flowers.
-   Berry Trail uses a denser, gap-free first-verge row: 80% berry bushes,
-   10% poisonberry, 5% ordinary shrubs and 5% brambles before the shared
-   golden roll. One existing giant-bear encounter is seated behind the bushes.
+   Berry Lane and Berry Trail share two bush rows on each side and one exact
+   cell-seeded mix: 48% ordinary shrubs, 25% berry, 15% poisonberry, 10% bramble
+   and 2% goldenberry, with no second golden promotion or yellow flowers.
+   Berry Trail retains its giant-bear encounter behind the bushes.
    Pottery Road (a Small-road row, sections up to 250 m) lines both verges
    with two ranks of generated clay pots (`VERGE_ROWS.pottery`): one sample
    a cell without random gaps (`POTTERY_GAP` and `POTTERY_BACK_GAP` are zero).

@@ -155,15 +155,16 @@ const affinityContexts = Object.fromEntries(['neutral', 'cultivated', 'woodland'
   [trait, Object.fromEntries(['minor'].map(size =>
     [size, SV.selectionWeights('Preview', size, trait === 'neutral' ? {} : {[trait]: 1})]))]));
 const rules = {
-  way_of_variety: 'Common finds cover the road and two-cell verges, with occasional T1–T2 crop plants, copper and rose quartz. No added trees.',
-  rocky_path: 'Common rocks, flint and rubble fill the road and first verge row.',
-  causeway: `Water pools extend up to ${SV.VARIANT_BY_ID.causeway.terrainVergeCells} cells beside both verges. Road surfaces and crossings stay dry.`,
+  way_of_variety: 'Common finds cover the road and two-cell verges, with occasional T1–T2 crop plants, copper and rose quartz. No added trees. Up to three small snakes per eligible tile habitat.',
+  rocky_path: 'Common rocks, flint and rubble occupy the road and first verge row, with paired clear sections for cave-ins. Hidden cave-ins crack on contact, then open after five seconds; the preview shows intact ground.',
+  haunted_forest_path: 'Permanent maws alternate between the route and verge, with one opportunity every 70 m. Each drops grounded players one level. Dead trees, headstones and mushrooms surround them.',
+  causeway: `Rocky ground extends up to ${SV.VARIANT_BY_ID.causeway.terrainVergeCells} cells beside both verges, with water pools. Road surfaces and crossings stay dry.`,
   slime_trail: `One slime species per section. Two guards per eligible post, spaced ${SV.VARIANT_BY_ID.slime_trail.enemyStepM} m apart; short sections use the midpoint.`,
-  spider_path: `Permanent webs on ${SV.VARIANT_BY_ID.spider_path.webDensity * 100}% of eligible samples. Webs paralyse grounded actors. One two-spider garrison per section.`,
+  spider_path: `Permanent webs on ${SV.VARIANT_BY_ID.spider_path.webDensity * 100}% of eligible samples. Webs also occupy 20% of eligible off-path verge cells. Contact paralyses grounded actors. One two-spider garrison and a concealed supply cache per eligible section.`,
   golden_path: 'Either end shrine starts the same daily coin run along the path.',
   hedgerow: `Hedge rows at ${cellM} m spacing in the first verge row. White flowers fill the verges. Detected trees within 3 cells of the road edge use rounded crowns; no extra trees. One ambush where space permits.`,
   thorny: `Bramble clusters cross the road and extend up to ${SV.THORNY_VERGE_MAX_CELLS} cells beyond it. Some streets enclose a moss cairn. Brambles burn and drain energy on contact.`,
-  overgrown: `One verge row with one empty cell between trees. Equal groups of seedlings, young pines, large pines, dead trees, then stumps; group size follows road length. The shrine sits after the stumps.`,
+  overgrown: `One verge row with one empty cell between trees. Equal groups of seedlings, young pines, large pines, dead trees, then stumps; group size follows road length. The shrine sits after the stumps. A concealed seed cache rolls themed T1–T3 loot; enter its cell or tap it to reveal it.`,
   orchard: `Fruit trees and mature maples alternate on both sides every ${SV.ORCHARD_STEP_M} m, up to ${SV.ORCHARD_MAX} per line piece. Fruit trees are mostly apples, with occasional oranges and Worldpeaches. Flowers and stumps use the first verge row only; blocked seats are omitted.`,
   snare: `Dirt extends ${SV.VARIANT_BY_ID.snare.terrainVergeCells} cells, with scattered rocks and bones. One T${SV.SNARE_CHEST_TIER} chest surrounded by ${SV.SNARE_MIN_TRAPS}-${(2 * SV.SNARE_TRAP_RADIUS_CELLS + 1) ** 2 - 1} traps. Up to ${SV.SNARE_STRAYS} extra snares lie along the road and verges.`,
   golden: 'Visit the golden idol to start a daily coin spree along both verges.',
@@ -174,12 +175,14 @@ const rules = {
   toadstool: `Small and medium mushrooms grow on the road and both two-cell verges, with occasional giants; 30% of candidate caps are omitted. Groups every ${SV.TOADSTOOL_STEP_M} m; up to ${SV.TOADSTOOL_COVER_MAX} extra caps.`,
   trade: `Barrels line both verges with ${SV.TRADE_BARREL_GAP * 100}% gaps. Two-grunt posts are sampled every ${SV.TRADE_GRUNT_STEP_M} m; ${Math.round(SV.TRADE_GRUNT_CHANCE * 100)}% are occupied.`,
   pottery: 'Clay pots sit on the road and in two verge rows where space permits.',
-  berry_trail: 'Dense berry bushes line both edges, with occasional brambles and golden berries. One large bear encounter per section.',
+  berry_trail: 'Two bush rows on each side: 48% plain, 25% berry, 15% poison, 10% thorn and 2% golden. One large bear encounter per section.',
   goblin_gang: `Up to ${SV.VARIANT_BY_ID.goblin_gang.clusters} gangs beside stacks of ${SV.VARIANT_BY_ID.goblin_gang.barrelsPerCluster} barrels, where space permits.`,
 };
 for (const row of rows) {
   row.placement = rules[row.id] || row.placement;
   if (row.ventKind) row.placement = `${row.ventKind} geysers beside the path, with a matching daily shrine on eligible sections.`;
+  if (row.cacheTheme && row.id !== 'overgrown') row.placement += ' A concealed themed T1–T3 cache reveals on exact-cell contact or a direct tap.';
+  if (row.id === 'goblin_gang') row.placement += ' Red barrels always explode; 10% of ordinary barrels do too. Tap starts a five-second fuse before a one-cell blast and fire.';
 }
 process.stdout.write(JSON.stringify({ cellM, terrainVergeCells: Number(read('street_variants').match(/const TERRAIN_VERGE_CELLS = ([\d.]+)/)[1]), affinityContexts, fixture: { tx, ty, cellsPerEdge: N }, rows, baseline: SV.BANDIT_STORY,
   maxVariantLengthM: SV.MAX_VARIANT_LENGTH_M, wagonStopShare: SV.WAGON_STOP_SHARE, rockStreetShare: SV.ROCK_STREET_SHARE,

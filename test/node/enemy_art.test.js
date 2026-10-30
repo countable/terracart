@@ -125,7 +125,7 @@ test('enemy art: size reduction targets 2x foes and the two selected giants only
     // surface slime's row under its own palette.
     gull: 1.3, raven: 1.3, storm_gull: 1.3, split_slime: 1.2,
     // The serpent's 32px parts atlas at its native size: a piece is about a cell.
-    serpent_head: 1, serpent_body: 1, serpent_tail: 1 });
+    snake: 1, serpent_head: 1, serpent_body: 1, serpent_tail: 1 });
   assert.eq(Object.keys(expected).length, EnemyRoster.ROWS.filter(row => !row.art.directions).length);
   for (const [kind, scale] of Object.entries(expected)) {
     assert.lt(Math.abs(SpriteLayout.creatureScale(kind) - scale), 1e-9, kind);

@@ -90,7 +90,7 @@ test('chest themes: every authored path terminates and conserves probability', (
   // Memorials mint no chest, and the unused pets theme is gone because
   // OpenMapTiles represents pet stores as shop/pet commerce POIs. `boss` is
   // a slain boss's hoard (scene_boss.js), never a POI's.
-  assert.eq(Object.keys(ChestThemes.themes).length, 14);
+  assert.eq(Object.values(ChestThemes.themes).filter(row => !row.cache).length, 14);
   assert.falsy(ChestThemes.themes.memorial, 'no memorial theme');
   for (const theme of Object.keys(ChestThemes.themes)) for (let tier = 1; tier <= 7; tier++) {
     for (const depth of [0, 1]) {
@@ -107,7 +107,7 @@ test('chest themes: every authored path terminates and conserves probability', (
           assert.falsy(isTome(id), `${theme}/${tier}/${depth}/${group} keeps tomes for the scholar`);
           if (item.cooked) assert.eq(r.group, 'food', 'cooked meals stay in the food pool');
           assert.truthy(!item.caveOnly || depth > 0);
-          assert.truthy(item.baseTier <= tier, 'the Book is a T1 item; every group member is tier-gated');
+          assert.truthy((ChestThemes.groups[r.group].minTier?.[theme] ?? item.baseTier) <= tier, 'every group member follows its authored tier gate');
         }
       }
     }
@@ -338,7 +338,7 @@ test('chest themes: school-only Book exception and named venue preference', () =
 });
 
 test('chest themes: high-tier rolls keep quality and one reward through quantity-heavy chains', () => {
-  for (const theme of Object.keys(ChestThemes.themes)) for (const tier of [3, 4, 5]) {
+  for (const theme of Object.keys(ChestThemes.themes).filter(id => !ChestThemes.themes[id].cache)) for (const tier of [3, 4, 5]) {
     const rng = makeRng32(707 + tier);
     for (let i = 0; i < 250; i++) {
       const reward = pickChestReward(theme, { relics: {}, armor: {} }, rng, { tier });

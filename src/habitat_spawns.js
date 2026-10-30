@@ -143,7 +143,7 @@
         budget[0] += range[0]; budget[1] += range[1];
       }
       roadCache.set(id, Object.freeze({ id, owner: 'road', fauna: weightedRows(mix),
-        faunaBudget: Object.freeze(budget), haunting: row.haunting === true || id === 'pilgrim' }));
+        faunaBudget: Object.freeze(budget), habitatEnemies: row.habitatEnemies, haunting: row.haunting === true || id === 'pilgrim' }));
     }
     return roadCache.get(id);
   }
@@ -214,7 +214,8 @@
     return root.BiomeProfiles?.faunaAllows(kind, type) ?? true;
   }
   function enemyRows(profile, type, context) {
-    if (!profile || profile.owner === 'road') return [];
+    if (!profile || profile.owner === 'road' && !profile.habitatEnemies) return [];
+    if (profile.owner === 'road') return root.EnemyRoster.ROWS.filter(row => profile.habitatEnemies.kinds.includes(row.id));
     const family = profile.owner === 'zone' ? root.EnemyHabitats?.SURFACE_FAMILIES[profile.id] : null;
     let eligible = root.EnemyRoster.ROWS.filter(row => !row.retired && row.surface && row.tier <= 3
       && row.attackType !== 'touch' && (family ? family.includes(row.id)
@@ -286,6 +287,7 @@
     for (const group of groups) group.enemyReserve = 0;
     allocate(armed, budget(reserveBudget()), 'enemyReserve');
     for (const group of groups) {
+      if (group.profile.owner === 'road') group.enemyRequested = group.profile.habitatEnemies?.count || 0;
       if (group.profile.owner !== 'land') group.faunaRequested = faunaBudget(group.profile, `${tx}|${ty}|${group.key}`);
       group.diagnostic = { key: group.key, profile: group.profile.id, rawCells: group.cells.length,
         fauna: counts(group.faunaRequested), enemies: counts(group.enemyRequested), reserve: counts(group.enemyReserve) };

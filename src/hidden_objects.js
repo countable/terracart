@@ -1,12 +1,13 @@
-// Discoveries belong to the player's feet, never the camera or equipment reach.
-// Hidden: neighbouring cells. Stealthy (or Perception): the current vision disc.
+// Passive discovery follows the player's feet, never camera peek. Hidden uses
+// neighbouring cells; stealthy or Perception uses vision. Concealed requires
+// the same cell or a direct tap within ordinary reach; physical cover still wins.
 (function (root) {
   'use strict';
   const KINDS = {
     shrine_spirit: { discover: (scene, object) => root.Temples.discoverSpirit(scene, object) },
   };
   function mode(object) {
-    if (object?.hidden || object?.kind === 'treasure') return 'hidden';
+    if (object?.concealed || object?.revealOnCell || object?.hidden || object?.kind === 'treasure') return 'hidden';
     return object?.stealthy ? 'stealthy' : null;
   }
   function isHidden(save, object) {
@@ -49,7 +50,8 @@
       object._hunting = true;
     }
   }
-  function reveal(scene, object) {
+  function reveal(scene, object, tap = null) {
+    if (object.coverRockId && !root.treasureExposed?.(object, scene)) return false;
     if (!isHidden(scene.save, object)) {
       if (mode(object)) markDiscovered(object);
       return false;
@@ -57,7 +59,16 @@
     const bySight = object.kind !== 'pit_trap'
       && (mode(object) === 'stealthy' || root.Gear.hasPerception(scene.save));
     const exactProximity = Number.isFinite(object.revealDistanceCells) && object.revealDistanceCells >= 0;
-    if (!(exactProximity ? proximity(scene, object)
+    // Legacy exact-cell records share the concealed rule. Perception never
+    // reveals these; an explicit tap must hit the object's own cell.
+    const concealed = object.concealed || object.revealOnCell;
+    const sameDepth = (object.depth || 0) === (scene.depth || 0);
+    const delta = concealed && sameDepth ? cellDelta(scene, object) : null;
+    const tapCell = concealed && sameDepth && tap ? worldMetersToAbsCell(scene, tap.x, tap.y) : null;
+    const own = tapCell ? worldMetersToAbsCell(scene, object.x, object.y) : null;
+    const tapped = own && own.cellIX === tapCell.cellIX && own.cellIY === tapCell.cellIY;
+    if (!(concealed ? tapped || delta && delta.dx === 0 && delta.dy === 0
+      : exactProximity ? proximity(scene, object)
       : bySight ? inVision(scene, object) : adjacent(scene, object))) return false;
     (scene.save.hiddenDiscoveries ||= {})[object.id] = true;
     markDiscovered(object);

@@ -28,6 +28,14 @@
     return best;
   }
   async function fall(scene, hole, latitude = 0) {
+    // Surface maws use the existing safe pit transition and its landing story.
+    // Keep underground chasm damage and acknowledgement behavior unchanged.
+    if (scene.depth === 0 && (hole.depth || 0) === 0) {
+      if (scene._caveFallPending || scene._hazardFallPending || root.Conditions.flying(scene.save)) return false;
+      const cell = scene.cellAt(hole.x, hole.y);
+      return root.HazardFalls.fall(scene, { ...hole, depth: 0, phase: 'open',
+        widthCells: 1, heightCells: 1, footprintCells: [cell] });
+    }
     if (root.Conditions.flying(scene.save) || scene._caveFallPending || scene._hazardFallPending || !(scene.depth > 0) || (hole.depth || 0) !== scene.depth) return false;
     const depth = scene.depth;
     if (!root.DungeonProgression.ropeCanDescend(depth)) return false;
@@ -75,7 +83,7 @@
   }
   function tick(scene, latitude) {
     if (root.Conditions.flying(scene.save)) { scene._caveHoleCell = null; return; }
-    if (!(scene.depth > 0) || scene._caveFallPending || scene._hazardFallPending || !scene.startWorldM
+    if (scene.depth < 0 || scene._caveFallPending || scene._hazardFallPending || !scene.startWorldM
         || root.Combat.playerDowned(scene.save.energy) || scene._dialogOpen?.()) return;
     const p = scene.playerToWorldCell();
     const entry = root.WorldGen.tileCache.get(root.WorldGen.tileKey(p.tx, p.ty));

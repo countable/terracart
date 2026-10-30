@@ -52,9 +52,9 @@
   {
     "id": "goblin_gang",
     "feeling": "You have walked into someone else\u2019s territory.",
-    "arrival": "Barrel stacks and grouped goblins signal occupied ground rather than an isolated encounter.",
+    "arrival": "Barrel stacks and grouped goblins guard the road; red barrels offer a dangerous opening.",
     "art": [
-      "Make existing barrel stacks the landmark for each gang.",
+      "Red explosive barrels punctuate the wooden stacks.",
       "Keep goblin silhouettes visible around the stacks.",
       "Use dusty ground and plank fragments to connect each group without adding new fortifications."
     ],
@@ -65,6 +65,10 @@
       },
       {
         "text": "Each cluster combines goblin guards with up to five barrels.",
+        "status": "existing"
+      },
+      {
+        "text": "Red barrels always explode; 10% of ordinary barrels do too. Tap to start a flashing five-second fuse, then a one-cell blast, burning and ground fire.",
         "status": "existing"
       }
     ],
@@ -135,12 +139,16 @@
     ],
     "mechanics": [
       {
-        "text": "Lasting webs occupy 35% of eligible samples and paralyse grounded actors.",
+        "text": "Permanent webs occur on 35% of eligible path samples and 20% of eligible verge cells. Contact paralyses grounded actors.",
         "status": "existing"
       },
       {
         "text": "A section has one two-spider garrison.",
         "status": "existing"
+      },
+      {
+        "status": "existing",
+        "text": "Concealed supply cache, with its own themed T1\u2013T3 loot roll."
       }
     ],
     "adjectives": [
@@ -216,6 +224,10 @@
       {
         "text": "A creeping-vine colony grows from a roadside seed; tendrils sting on contact.",
         "status": "existing"
+      },
+      {
+        "status": "existing",
+        "text": "Concealed magic-consumable cache, with its own themed T1\u2013T3 loot roll."
       }
     ],
     "adjectives": [
@@ -241,6 +253,10 @@
       {
         "text": "The daily lantern shrine boosts light for five minutes; it does not cure confusion.",
         "status": "existing"
+      },
+      {
+        "status": "existing",
+        "text": "Concealed magic-consumable cache, with its own themed T1\u2013T3 loot roll."
       }
     ],
     "adjectives": [

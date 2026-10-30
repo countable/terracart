@@ -89,10 +89,10 @@ def material_art(material):
         return r['streetGeometryArt']['hedge']
     if material.get('recordType') == 'surface_trap':
         return {'procedural': 'trap_hidden', 'source': 'src/textures.js · hidden trap scuff', 'alternates': ['trap_open']}
-    container = material.get('barrelStyle') or ('barrel' if material.get('barrel') else None)
+    container = ('cache' if material.get('cache') else None) or material.get('barrelStyle') or ('barrel' if material.get('barrel') else None)
     if not container and material['kind'] in ('barrel', 'clay_pot', 'box'):
         container = material['kind']
-    if container and not material.get('_streetArt'):
+    if container and not material.get('_streetArt') and not material.get('redBarrel'):
         art = r['containerArt'][container]
         frames = art.get('byFrame', {})
         frame = material.get('previewContainerFrame', material.get('_chestLook', {}).get('frame'))
@@ -100,7 +100,7 @@ def material_art(material):
             art = frames[str(frame)]
         return {**art, 'source': r['assets'][art['sheet']].get('path', 'runtime texture bake').split('?')[0] + ' · frame ' + str(art['frames'][0])}
     kind = material['kind']
-    if kind in ('mineralrock', 'headstone', 'waystone', 'tree', 'fruittree', 'staircase', 'roadsign') or (kind != 'wildplant' and material.get('_streetArt')):
+    if material.get('redBarrel') or kind in ('mineralrock', 'headstone', 'waystone', 'tree', 'fruittree', 'staircase', 'roadsign', 'ground_hole', 'pressure_plate') or (kind != 'wildplant' and material.get('_streetArt')):
         fields = r['materialArtFields']
         key = json.dumps([material.get(field) for field in fields], separators=(',', ':'))
         if key not in r['materialArt']:
@@ -186,7 +186,7 @@ def sprite_cell(prefix, material, x, y, size, definition=None):
             fw, fh = fruit['width'] * unit, fruit['height'] * unit
             picture += art_image(fruit, f'class="sprite-cell" data-fruit-overlay="{fruit["sheet"]}" x="{x+size/2+fruit["dxPx"]*unit-fw/2}" y="{y+size/2+fruit["dyPx"]*unit-fh/2}" width="{fw}" height="{fh}"')
         return picture
-    if definition and (definition.get('_objectArt') or definition.get('_streetArt') or definition.get('kind') in ('mineralrock', 'headstone', 'waystone', 'roadsign', 'barrel', 'clay_pot', 'box') or definition.get('barrelStyle') or definition.get('barrel')):
+    if definition and (definition.get('_objectArt') or definition.get('_streetArt') or definition.get('kind') in ('mineralrock', 'headstone', 'waystone', 'roadsign', 'barrel', 'clay_pot', 'box', 'ground_hole', 'pressure_plate') or definition.get('barrelStyle') or definition.get('barrel')):
         art = material_art(definition)
         if 'width' in art:
             unit = size / .8 / art_registry()['cellPx']
@@ -661,7 +661,7 @@ STREET_COLORS = {
 
 def container_look(o):
     """The chest-kind object's container art look, as material_art resolves it."""
-    return o.get('barrelStyle') or ('barrel' if o.get('barrel') else 'chest')
+    return ('cache' if o.get('cache') else None) or o.get('barrelStyle') or ('barrel' if o.get('barrel') else 'chest')
 
 
 def street_material_key(o):
@@ -727,6 +727,7 @@ def street_svg(v, cell_m, detail=False):
     art_prefix = f'street-art-{v["id"]}{suffix}'
     parts.append(sprite_symbols(street_materials([v]), art_prefix))
     for o in v['objects']:
+        if o.get('hidden') or o.get('concealed'): continue  # Exact-cell caches are undiscovered in this static view.
         kind = o.get('crop', o['kind'])
         if o.get('kind') == 'chest' and container_look(o) != 'chest':
             kind = 'clay pot' if container_look(o) == 'clay_pot' else 'salvage barrel'
@@ -764,6 +765,14 @@ def street_svg(v, cell_m, detail=False):
         # A short sample may not earn a population slot: label this as an example.
         parts.append(creature_at(kind, mid_x, mid_y + cell_m, cell_m,
             f'Example {kind.replace("_", " ")}: 1 per {rule["perPathM"]} m; max {rule["max"]}/tile'))
+    for kind in v.get('habitatEnemies', {}).get('kinds', []):
+        parts.append(creature_at(kind, mid_x + cell_m * 3, mid_y + cell_m, cell_m,
+            f'Example {kind}; up to {v["habitatEnemies"]["count"]} per eligible tile habitat'))
+    if v.get('graveAmbush'):
+        grave = next((o for o in v['objects'] if o.get('graveGhostRadiusCells')), None)
+        if grave:
+            parts.append(creature_at('ghost', grave['x'], grave['y'] - cell_m, cell_m,
+                'Example ghost after approaching a haunted grave; trigger is spent once saved'))
     for lamp in v['lamps']:
         emitter = art_registry().get('lampEmitterByStyle', {}).get(lamp.get('_streetArt'), {})
         parts.append(light_guide(lamp['x'] + cell_m * emitter.get('offset', .45),lamp['y'] - cell_m * emitter.get('rise', .6),cell_m*art_registry()['lighting']['cobble']['radiusCells'],lamp['glow']))
@@ -802,6 +811,12 @@ def street_section(streets):
         tiers = sorted(set(o.get('tier',o['kind']) for o in v['lairs']))
         monsters = '; '.join(' or '.join(k.replace('_',' ') for k in art_registry()['lairs']['kinds'].get(t,[])) + f' · {art_registry()["lairs"]["counts"].get(t,1)} guard per eligible anchor' for t in tiers) or 'No variant-specific enemies'
         if tiers: monsters += '; stays defeated; subject to placement and Home safety'
+        if v.get('habitatEnemies'):
+            monsters = ', '.join(v['habitatEnemies']['kinds']) + f" · up to {v['habitatEnemies']['count']} per eligible tile habitat; example shown"
+        if v.get('haunting'):
+            monsters += '; nighttime ghosts and disturbed headstones'
+            if v.get('graveAmbush'): monsters += '; selected graves raise one ghost on approach, once per save'
+
         affinity = ', '.join(v.get('affinities', [])) or 'Neutral'
         affinity_details = f'<dt>Affinities</dt><dd>{html.escape(affinity)}</dd>' + (f'<dt>Selection</dt><dd data-affinity-row="{v["id"]}" data-road-size="{v["size"]}"></dd>' if v['size'] != 'path' else '')
         road_spawns = {

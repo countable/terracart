@@ -795,6 +795,7 @@ function inventoryIconSource(itemId) {
   if (MINERAL_ICON_SHEET[itemId]) return MINERAL_ICON_SHEET[itemId];
   const item = ITEM_BY_ID[itemId];
   if (!item) return null;
+  if (item.plants === 'creeping_vine') return { sheet: 'crops', frame: 15 * CROPS_SHEET_COLS + SEEDBOX_COL };
   const cropKey = item.grows || item.crop;
   if (!cropKey) return null;
   const ov = CROP_SPRITE[cropKey];
@@ -833,7 +834,7 @@ function inventoryIconSource(itemId) {
 const PLANTS_YIELD = { tree: 'wood' };
 // Both potions use the approved ALT-0603 flask. Their pet and renewal charms
 // distinguish the effects without recolouring or replacing that shared artwork.
-const SHARED_ICON_BADGES = { taming_potion: 'pet_fang_charm', resurrection_potion: 'regeneration_amulet' };
+const SHARED_ICON_BADGES = { toxic_seed: 'poisonberry', taming_potion: 'pet_fang_charm', resurrection_potion: 'regeneration_amulet' };
 function iconBadgeItem(itemId) {
   if (Object.hasOwn(SHARED_ICON_BADGES, itemId)) return SHARED_ICON_BADGES[itemId];
   const item = ITEM_BY_ID[itemId];
@@ -1039,6 +1040,7 @@ const ITEMS = [
   { id: 'smiths_guild_badge', name: 'Smiths’ Guild Badge', kind: 'unique_relic' },
   { id: 'marketeers_guild_badge', name: 'Shopkeepers’ Guild Badge', kind: 'unique_relic' },
   { id: 'traders_guild_badge', name: 'Traders’ Guild Badge', kind: 'unique_relic' },
+  { id: 'toxic_seed', name: 'Toxic Seed', kind: 'seed', plants: 'creeping_vine', grows: 'creeping_vine', baseTier: 2 },
   ...Object.keys(CROP_ROW).map(c => ({
     id: `${c}_seed`, name: `${CROP_NAMES[c]} Seed`, kind: 'seed', grows: c,
     baseTier: BASE_TIER[c] || 1,
@@ -1876,7 +1878,7 @@ const PRICES = {
   // A seed's price is also its roll-budget divisor (chest_themes.js
   // quantity): ~TIER_VALUE[baseTier] / 5, so a same-tier roll with no
   // brackets (BUDGET_SHARE.seed of the budget) holds about four.
-  rainberry_seed: 63, pairy_seed: 63, nut_seed: 5, potato_seed: 1,
+  toxic_seed: 5, rainberry_seed: 63, pairy_seed: 63, nut_seed: 5, potato_seed: 1,
   berry_seed: 5, cress_seed: 1, onion_seed: 5, starfruit_seed: 15,
   gemfruit_seed: 15, rubble_seed: 8, coffee_seed: 12,
   sunflower_seed: 30, fireflower_seed: 40, iceflower_seed: 50, dawnfruit_seed: 480,
@@ -2061,7 +2063,7 @@ for (const k of BABY_KINDS) PRICES[babyItemId(k)] = itemValue(k) * 3;
 // bought on tap at any house.
 const BUY_LIST = Object.keys(CROP_ROW)
   .filter(c => (BASE_TIER[c] || 1) <= 3)
-  .map(c => `${c}_seed`);
+  .map(c => `${c}_seed`).concat('toxic_seed');
 const STARTING_MONEY = 0;
 
 // === Energy / food ===
@@ -2304,7 +2306,9 @@ for (const raw of Object.keys(COOKED_FOODS)) {
 for (const item of ITEMS.filter(item => item.kind === 'seed')) {
   Object.defineProperty(ITEM_EFFECTS, item.id, {
     enumerable: true,
-    get: () => 'A small promise of green, waiting for a soft bed of earth.',
+    get: () => item.plants === 'creeping_vine'
+      ? 'Plant in open soil to start one toxic creeping vine. It spreads while nearby and stings on contact.'
+      : 'A small promise of green, waiting for a soft bed of earth.',
   });
 }
 
