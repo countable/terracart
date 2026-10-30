@@ -3078,78 +3078,6 @@
       }
     },
     {
-      "kind": "chest",
-      "x": 4203832.5,
-      "y": 9001569.5,
-      "id": "zq_quarry-stronghold_10741563.248908296_23000855.475982532_find_1",
-      "zoneKind": "quarry",
-      "zoneVariant": "quarry-stronghold",
-      "zoneLayer": "find",
-      "_ix": 109,
-      "_iy": 103,
-      "tierSeed": 2,
-      "_standCache": null,
-      "_macroCache": null,
-      "_chestLook": {
-        "stand": null,
-        "bike": false,
-        "barrel": false,
-        "macro": null,
-        "box": false,
-        "wagon": false,
-        "texKey": "chest",
-        "smashedFrame": 0,
-        "frame": 1
-      },
-      "cell": [
-        13,
-        7
-      ],
-      "material": "chest",
-      "previewArt": {
-        "sheet": "chest",
-        "frames": [
-          1
-        ]
-      }
-    },
-    {
-      "kind": "chest",
-      "x": 4203874.5,
-      "y": 9001569.5,
-      "id": "zq_quarry-stronghold_10741563.248908296_23000855.475982532_find_2",
-      "zoneKind": "quarry",
-      "zoneVariant": "quarry-stronghold",
-      "zoneLayer": "find",
-      "_ix": 115,
-      "_iy": 103,
-      "tierSeed": 2,
-      "_standCache": null,
-      "_macroCache": null,
-      "_chestLook": {
-        "stand": null,
-        "bike": false,
-        "barrel": false,
-        "macro": null,
-        "box": false,
-        "wagon": false,
-        "texKey": "chest",
-        "smashedFrame": 0,
-        "frame": 1
-      },
-      "cell": [
-        19,
-        7
-      ],
-      "material": "chest",
-      "previewArt": {
-        "sheet": "chest",
-        "frames": [
-          1
-        ]
-      }
-    },
-    {
       "kind": "zone_prop",
       "x": 4203951.5,
       "y": 9001737.5,
@@ -3666,6 +3594,44 @@
         6
       ],
       "material": "stronghold_wall"
+    },
+    {
+      "kind": "chest",
+      "x": 4203902.5,
+      "y": 9001562.5,
+      "id": "zt_2622_5615_119_102",
+      "zoneKind": "quarry",
+      "zoneVariant": "quarry-stronghold",
+      "zoneLayer": "background",
+      "_ix": 119,
+      "_iy": 102,
+      "barrelStyle": "barrel",
+      "barrel": true,
+      "_standCache": null,
+      "_chestLook": {
+        "stand": null,
+        "bike": false,
+        "barrel": true,
+        "macro": null,
+        "smashedKey": null,
+        "barrelName": "barrel",
+        "box": false,
+        "wagon": false,
+        "texKey": "barrel",
+        "smashedFrame": 0,
+        "frame": 3
+      },
+      "cell": [
+        23,
+        6
+      ],
+      "material": "barrel",
+      "previewArt": {
+        "sheet": "barrel",
+        "frames": [
+          3
+        ]
+      }
     },
     {
       "kind": "stronghold_wall",
@@ -5974,6 +5940,44 @@
       "material": "stronghold_wall"
     },
     {
+      "kind": "chest",
+      "x": 4203776.5,
+      "y": 9001646.5,
+      "id": "zt_2622_5615_101_114",
+      "zoneKind": "quarry",
+      "zoneVariant": "quarry-stronghold",
+      "zoneLayer": "background",
+      "_ix": 101,
+      "_iy": 114,
+      "barrelStyle": "barrel",
+      "barrel": true,
+      "_standCache": null,
+      "_chestLook": {
+        "stand": null,
+        "bike": false,
+        "barrel": true,
+        "macro": null,
+        "smashedKey": null,
+        "barrelName": "barrel",
+        "box": false,
+        "wagon": false,
+        "texKey": "barrel",
+        "smashedFrame": 0,
+        "frame": 3
+      },
+      "cell": [
+        5,
+        18
+      ],
+      "material": "barrel",
+      "previewArt": {
+        "sheet": "barrel",
+        "frames": [
+          3
+        ]
+      }
+    },
+    {
       "kind": "stronghold_wall",
       "x": 4203797.5,
       "y": 9001646.5,
@@ -7278,6 +7282,44 @@
       "material": "stronghold_wall"
     },
     {
+      "kind": "chest",
+      "x": 4203818.5,
+      "y": 9001688.5,
+      "id": "zt_2622_5615_107_120",
+      "zoneKind": "quarry",
+      "zoneVariant": "quarry-stronghold",
+      "zoneLayer": "background",
+      "_ix": 107,
+      "_iy": 120,
+      "barrelStyle": "barrel",
+      "barrel": true,
+      "_standCache": null,
+      "_chestLook": {
+        "stand": null,
+        "bike": false,
+        "barrel": true,
+        "macro": null,
+        "smashedKey": null,
+        "barrelName": "barrel",
+        "box": false,
+        "wagon": false,
+        "texKey": "barrel",
+        "smashedFrame": 0,
+        "frame": 3
+      },
+      "cell": [
+        11,
+        24
+      ],
+      "material": "barrel",
+      "previewArt": {
+        "sheet": "barrel",
+        "frames": [
+          3
+        ]
+      }
+    },
+    {
       "kind": "stronghold_wall",
       "x": 4203839.5,
       "y": 9001688.5,
@@ -8510,6 +8552,44 @@
       "material": "stronghold_wall"
     },
     {
+      "kind": "chest",
+      "x": 4203818.5,
+      "y": 9001730.5,
+      "id": "zt_2622_5615_107_126",
+      "zoneKind": "quarry",
+      "zoneVariant": "quarry-stronghold",
+      "zoneLayer": "background",
+      "_ix": 107,
+      "_iy": 126,
+      "barrelStyle": "barrel",
+      "barrel": true,
+      "_standCache": null,
+      "_chestLook": {
+        "stand": null,
+        "bike": false,
+        "barrel": true,
+        "macro": null,
+        "smashedKey": null,
+        "barrelName": "barrel",
+        "box": false,
+        "wagon": false,
+        "texKey": "barrel",
+        "smashedFrame": 0,
+        "frame": 3
+      },
+      "cell": [
+        11,
+        30
+      ],
+      "material": "barrel",
+      "previewArt": {
+        "sheet": "barrel",
+        "frames": [
+          3
+        ]
+      }
+    },
+    {
       "kind": "stronghold_wall",
       "x": 4203839.5,
       "y": 9001730.5,
@@ -8614,6 +8694,44 @@
         30
       ],
       "material": "stronghold_wall"
+    },
+    {
+      "kind": "chest",
+      "x": 4203902.5,
+      "y": 9001730.5,
+      "id": "zt_2622_5615_119_126",
+      "zoneKind": "quarry",
+      "zoneVariant": "quarry-stronghold",
+      "zoneLayer": "background",
+      "_ix": 119,
+      "_iy": 126,
+      "barrelStyle": "barrel",
+      "barrel": true,
+      "_standCache": null,
+      "_chestLook": {
+        "stand": null,
+        "bike": false,
+        "barrel": true,
+        "macro": null,
+        "smashedKey": null,
+        "barrelName": "barrel",
+        "box": false,
+        "wagon": false,
+        "texKey": "barrel",
+        "smashedFrame": 0,
+        "frame": 3
+      },
+      "cell": [
+        23,
+        30
+      ],
+      "material": "barrel",
+      "previewArt": {
+        "sheet": "barrel",
+        "frames": [
+          3
+        ]
+      }
     },
     {
       "kind": "stronghold_wall",
@@ -9368,16 +9486,16 @@
       "anchorKey": 3526560550,
       "zoneVariant": "quarry-stronghold",
       "eligible": 746,
-      "placed": 330,
-      "findsRequested": 3,
+      "placed": 333,
+      "findsRequested": 1,
       "background": {
-        "planned": 325,
-        "placed": 325,
+        "planned": 330,
+        "placed": 330,
         "occupied": 0,
         "blocked": 0,
         "reserved": 0
       },
-      "findsPlaced": 3,
+      "findsPlaced": 1,
       "guardsRequested": 0,
       "guardsPlaced": 0,
       "shortfalls": [],

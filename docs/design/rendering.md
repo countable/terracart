@@ -686,7 +686,7 @@ the surrounding grove’s shrub scale.
 - Long grass leaves the player at the normal feet-on-ground position, with no
   half-body crop, sinking, step lift or balancing slowdown. Only foreground
   blades naturally obscure the body. Clipped hedges likewise never crop or
-  sink the body; only liquid (below) does. `ObstacleStep`'s `covered` marks
+  sink the body; liquids and quicksand (below) do. `ObstacleStep`'s `covered` marks
   the foliage footprint and is not a waterline.
 - Water, tar-yard terrain and unburned street tar puddles lower the player's
   body to the waterline and crop away the lower half of its current sprite frame.
@@ -696,6 +696,10 @@ the surrounding grove’s shrub scale.
   This spatial pose stays while paused, clears on dry ground, and yields to
   flight, the dragon form, collapse and step-over support. It does not change
   movement, reach or feet-based sorting; heading-up rotates the same cropped body.
+- Quicksand reuses the water crop and `playerBodyDy()`, progressively lowering
+  the body until only the top four source rows remain (the hat tip). Its foreground hazard state
+  owns the progress; the pose never changes world feet, reach or heading.
+  Leaving marked sand, changing floor, flight, support or collapse clears it.
 - Flight raises the body by the consumable row’s `liftPx` through `playerBodyDy()`;
   the shadow, world position and ground sorting remain at the feet. Expiry lowers
   the body automatically. Thrown flight potions also raise creature bodies.
@@ -1303,7 +1307,11 @@ the reach rim within the existing player-light radius.
   joints, the approved study's layout at two-thirds scale (`SPARSE_SCALE`: 8px
   grid, 128px repeat). Each theme has its approved colour (a `ROAD_THEME_MIXES` theme, Way of Variety, gives each cobble one of several theme colours off its layout slot); unrestored stones retain 55% colour
   saturation, while restored stones use 115% of the theme saturation and add
-  missing cobbles at the same positions. Both states keep the approved Promenade light–dark contrast.
+  missing cobbles at the same positions. Both states keep the approved Promenade light–dark contrast, except Hedged Lane,
+  whose formal setts use a narrower tonal range. Its equal stones follow staggered
+  courses with tight transparent joints; repairs fill the missing setts.
+  Pottery Road mixes the two shipping clay-pot body colours, terracotta and
+  sandy ochre, retaining source texture and shading in both repair states.
   Palette pixels are calculated once per cached theme/state, never per frame.
   Orchard Lane's shared warm source uses solid sandstone faces. Burned Row keeps
   its solid charcoal surface and ember warning. Rail ballast stays solid.
@@ -1327,8 +1335,6 @@ the reach rim within the existing player-light radius.
   remove the old base surface/decor while retaining
   its geometric mask for larger-road occlusion, so the scar and missing pieces
   cannot show through the restored surface. None of this repaints grid terrain.
-  Theme ground verges are disabled: source landcover remains beneath and beside
-  roads, while existing props, hazard rules and route identities remain in place.
   Commercial ground uses original square concrete, independently of road stone.
 - Opaque selected terrain supplies its dominant ink for existing fills,
   sampled once per material when the atlas loads. `SELECTED_TERRAIN` maps landcover
@@ -1382,7 +1388,9 @@ the reach rim within the existing player-light radius.
   restoration; only restored lamps emit light. `RENDER_SPEC._streetlamp`
   and `Lighting.collectLamps` share this table's scale and emitter offsets. Their source pixels and contact seating stay in
   the normal object renderer; there is no alternate foundation painter,
-  per-colour lamp bake or selected-streetlamp derivative. Road restoration
+  per-colour lamp bake or selected-streetlamp derivative. The hanging lantern
+  uses the shared palette bake to colour its bottom contact ink as wood;
+  its source alpha and contact bounds stay unchanged. Road restoration
   and brightness retain their existing site data and gameplay rules.
   Variant and Nexus colours tint emitted light through `Lighting`, not the
   lamp image. Screen-space emission anchors use `StreetLights.ART` per silhouette,
@@ -1390,8 +1398,8 @@ the reach rim within the existing player-light radius.
   `Lighting.liftPx` rotates the offsets into the map frame, keeping radiance
   aligned through camera rotation without depending on a retired canvas size.
   Collect/cache lamps about the camera anchor, only after tiles finish loading.
-  Lamp anchors sit exactly on the vector road boundary, half its width from
-  the centreline. Their continuous coordinates and arclength identities are
+  Lamp anchors sit 0.5 m outside the vector road boundary, using
+  `Streets.LAMP_EDGE_CLEARANCE_M` beyond half the drawn width. Their continuous coordinates and arclength identities are
   independent of the grid: lamps reserve no cells and add no planting or
   scenery exclusions. Existing terrain and access rules still apply.
 - Restoration ladder rewards use `Trail.PRIZE_CONTEXT`; the first reward offers the fixed
@@ -1800,4 +1808,13 @@ Mossy, conifer, bare and lavender tree families use the same silhouette at three
 growth sizes; bare trees share one family across burned, thorny and haunted routes.
 The small grass-clump variant retains the longgrass 3D blade material and root
 placement, with one third of blades and 65% blade dimensions. It stays harvestable
-longgrass. Mushroom imports use a muted warm tint to fit the existing caps.
+longgrass. The hedged lane adds white flowers but no grass clumps or trees. Detected trees
+in its three-cell roadside influence use the rounded mossy-tree look. Mushroom imports use a muted warm tint to fit the existing caps.
+
+Road experience briefs live in `design/road-experiences/`.
+`tools/preview_road_experiences.py` pairs the briefs in
+`tools/road-experience-*.json` with shipped story paintings and current 20 × 7
+captures from `tools/capture_road_variant_views.cjs`. Regenerate the variant
+dashboard before capturing, then rebuild the gallery. Each brief describes the
+intended feeling, art cues and player actions; proposed mechanics are labelled
+separately from existing behavior. These briefs do not change runtime behavior.

@@ -52,6 +52,7 @@ const CROPS_SHEET_COLS = 9; // Crops.png is 9 cols wide
 const SPRING_CROPS_COLS = 14;
 // Fruiting and ordinary bushes share every foliage pixel and the same geometry.
 const BUSH_SPRITE = { sheet: 'bushes', custom: true, frames: [0, 1, 2, 3, 4, 5, 6, 7], scale: 1 };
+const MUSHROOM_SPRITE = { sheet: 'selected_mushroom', custom: true, frames: [0], scale: 1.1016, caveFrames: [2, 3] };
 const CROP_SPRITE = {
   creeping_vine: { sheet: 'zone_hedge', custom: true, frame: 0, scale: 1 },
   white_flower: { sheet: 'street_decor_white_flower', custom: true, frame: 0, scale: 1.4 },
@@ -84,7 +85,8 @@ const CROP_SPRITE = {
   shrub: { sheet: 'selected_shrub', custom: true, frames: [0], scale: 1.5,
     looks: { bramble: { sheet: 'bramble', shadow: true, custom: true, frames: [0], scale: 4 / 3 }, clipped: { sheet: 'approved_clipped_hedge', shadow: true, custom: true, frames: [0], scale: 0.8 } } },
   // Surface choices vary stably; the two existing blue cave caps remain distinct.
-  mushroom: { sheet: 'selected_mushroom', custom: true, frames: [0, 1], scale: 1.1016, caveFrames: [2, 3] },
+  mushroom: MUSHROOM_SPRITE,
+  mushroom_bush: MUSHROOM_SPRITE,
   // Keep planted-rock growth stages; mature and wild rocks use the selected art.
   rubble: { mature: { sheet: 'selected_rubble', custom: true, frames: [0], scale: 1.5 } },
   // Approved shell is exported from the original art into a 24px cell.
@@ -190,10 +192,12 @@ const WILDPLANT_CONTEXT_ART = {
   reeds: { crop: 'longgrass', sheet: 'approved_wetland_reeds', custom: true, frame: 0, scale: 1.16 },
 };
 function wildplantSprite(p) {
+  // Keep saved red-cap placements and bush interactions, using the grove giant art.
+  if (p?._streetArt === 'red_mushroom') return { ...CROP_SPRITE.giant_mushroom, crop: p.crop };
   const streetArt = typeof STREET_DECORATION_ART !== 'undefined' && STREET_DECORATION_ART[p?._streetArt];
   if (streetArt) return { crop: p.crop, sheet: 'street_decor_' + p._streetArt, custom: true,
     frame: 0, scale: streetArt.scale, shadow: !streetArt.ground,
-    tint: ['spotted_mushroom', 'red_mushroom'].includes(p._streetArt) ? 0xb0a27c : undefined };
+    tint: p._streetArt === 'spotted_mushroom' ? 0xb0a27c : undefined };
 
   // Authored mineral seams and cover-sized boulders keep their specific silhouettes.
   if (p?.crop === 'rubble' && (p.kind === 'wildplant' || p.wildId)
@@ -266,6 +270,8 @@ const WILDPLANT_RULES = {
   // `nest`: one shrub in twenty is a NEST BUSH (isNestBush) — it wiggles
   // now and then and may shelter a baby, slime or local animal.
   shrub:     { output: 'wood', workRelic: 'axe', barehandMs: 5000, workCharged: true, nest: true, hazardMinTier: 1 },
+  mushroom_bush: { name: 'Mushroom bush', outputs: [{id:'wood',qty:1},{id:'mushroom',qty:1}],
+    workRelic: 'axe', barehandMs: 5000, workCharged: true, light: 'mushroom' },
   giant_mushroom: { name: 'Giant mushroom', outputs: [{id:'wood',qty:1},{id:'mushroom',qty:1}],
     workRelic: 'axe', workCharged: true },
   // Barricades dismantle with a kit, or chop like a full hardwood (T4).

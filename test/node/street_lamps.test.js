@@ -384,13 +384,13 @@ test('street lamps: a ready tile stands one lamp per Streets.lampSpacingM() of s
     '…and a verge offset off the centreline, square to a way running due east');
 });
 
-test('street lamps: the post stands exactly on its vector road boundary', () => {
+test('street lamps: posts stand half a metre outside both road edges', () => {
   const lamps = P._streetLampsForTile.call({}, TX, TY, readyEntry());
   const halfBandM = WorldGen.roadOverlayWidthM({ class: 'residential' }) / 2;
   for (const lamp of lamps) {
     const off = Math.abs((lamp.y - TY * TILE_EDGE_M) - 178);
-    assert.inRange(off, halfBandM - 1e-6, halfBandM + 1e-6,
-      'the post follows the drawn road edge without a setback into the verge');
+    assert.inRange(off, halfBandM + 0.5 - 1e-6, halfBandM + 0.5 + 1e-6,
+      'the post follows the drawn road edge with a small verge setback');
   }
   const wide = Streets.lampOffsetM(WorldGen.roadOverlayWidthM({ class: 'motorway' }));
   const narrow = Streets.lampOffsetM(WorldGen.roadOverlayWidthM({ class: 'footway' }));

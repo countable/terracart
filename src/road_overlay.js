@@ -577,7 +577,7 @@
   // The study's 16×16 layout is drawn at two-thirds scale (8px grid, 128px
   // repeat): full-size stones read too large against 7m cells.
   const SPARSE_SCALE = 2 / 3;
-  function sparseRoadTile(source, restored) {
+  function sparseRoadTile(source, restored, formal = false) {
     const S = SPARSE_SCALE, size = 192 * S, spacing = 12 * S;
     const tile = document.createElement('canvas');
     tile.width = tile.height = size;
@@ -593,11 +593,16 @@
       // Consume the same random values before deciding whether a stone exists:
       // restoration adds missing stones without moving the surviving ones.
       const keep = rand();
-      const x = col * spacing + (row % 2) * spacing / 2 + (rand() - .5) * 3 * S;
-      const y = row * spacing + (rand() - .5) * 3 * S;
-      const w = (6 + rand() * 3) * S, h = (5 + rand() * 3) * S;
-      const cut = (1 + rand()) * S, bright = rand();
-      if (keep > (restored ? .97 : .72)) continue;
+      const jitterX = (rand() - .5) * 3 * S, jitterY = (rand() - .5) * 3 * S;
+      const randomW = (6 + rand() * 3) * S, randomH = (5 + rand() * 3) * S;
+      const randomCut = (1 + rand()) * S, bright = rand();
+      // Formal lanes use equal setts in straight staggered courses. Repair
+      // fills missing stones without shifting their shared world-space grid.
+      const x = col * spacing + (row % 2) * spacing / 2 + (formal ? 0 : jitterX);
+      const y = row * spacing + (formal ? 0 : jitterY);
+      const w = formal ? 7 : randomW, h = formal ? 6 : randomH;
+      const cut = formal ? .5 : randomCut;
+      if (keep > (formal ? (restored ? 1 : .88) : (restored ? .97 : .72))) continue;
       const points = [
         [-w/2+cut,-h/2], [w/2-1,-h/2], [w/2,-h/2+cut], [w/2,h/2-1],
         [w/2-cut,h/2], [-w/2+1,h/2], [-w/2,h/2-cut], [-w/2,-h/2+1],
@@ -616,17 +621,19 @@
         };
         cx.save();
         cx.translate(0, 1); path();
-        cx.fillStyle = 'rgba(23,27,22,.35)'; cx.fill();
+        cx.fillStyle = formal ? 'rgba(23,27,22,.16)' : 'rgba(23,27,22,.35)'; cx.fill();
         cx.restore();
         cx.save(); path(); cx.clip();
         cx.fillStyle = pattern; cx.fillRect(px - 6, py - 6, 12, 12);
-        cx.fillStyle = bright > .5 ? 'rgba(222,216,190,.13)' : 'rgba(35,32,29,.10)';
+        cx.fillStyle = formal
+          ? (bright > .5 ? 'rgba(222,216,190,.06)' : 'rgba(35,32,29,.04)')
+          : (bright > .5 ? 'rgba(222,216,190,.13)' : 'rgba(35,32,29,.10)');
         cx.fillRect(px - 6, py - 6, 12, 12);
         cx.restore();
         cx.beginPath();
         cx.moveTo(px + Math.round(points[0][0]), py + Math.round(points[0][1]));
         cx.lineTo(px + Math.round(points[1][0]), py + Math.round(points[1][1]));
-        cx.strokeStyle = 'rgba(227,223,200,.28)'; cx.lineWidth = 1; cx.stroke();
+        cx.strokeStyle = formal ? 'rgba(227,223,200,.18)' : 'rgba(227,223,200,.28)'; cx.lineWidth = 1; cx.stroke();
       }
     }
     return tile;
@@ -638,7 +645,7 @@
         || typeof document === 'undefined') return null;
     const id = roadMaterialFor(variant, restored);
     const key = id + ':' + !!restored + (variant === 'suppressed' ? ':rift' : '')
-      + (variant === 'burned' ? ':solid' : ':sparse');
+      + (variant === 'burned' ? ':solid' : variant === 'hedgerow' ? ':formal' : ':sparse');
     if (selectedRoadCanvases[key]) return selectedRoadCanvases[key];
     const tile = document.createElement('canvas'); tile.width = tile.height = STONE_TILE_PX;
     const cx = tile.getContext('2d');
@@ -662,7 +669,7 @@
     // Burned Row is a damaging surface: retain its existing ember warning
     // over the RA material, once per cached tile, in both restoration states.
     if (id === 'ROAD-charcoal') paintEmbers(cx, STONE_TILE_PX, '#ff6a20');
-    return (selectedRoadCanvases[key] = variant === 'burned' ? tile : sparseRoadTile(tile, restored));
+    return (selectedRoadCanvases[key] = variant === 'burned' ? tile : sparseRoadTile(tile, restored, variant === 'hedgerow'));
   }
 
   // Approved theme colours; weathering retains 35% saturation.
@@ -699,11 +706,14 @@
     "grassy_lane": "#92a087",
     "old_growth_path": "#777c68",
     "haunted_forest_path": "#5a5766",
-    "way_of_variety": "#a89d86"
+    "way_of_variety": "#a89d86",
+    "causeway": "#8c9c96"
 };
   // Mixed-stone themes: each cobble of the sparse layout takes one of these
   // approved theme colours (its primary colour above still tints the joints).
   const ROAD_THEME_MIXES = {
+    // Main clay colours sampled from the two shipping clay_pot frames.
+    pottery: ['#bf6f4a', '#c29c67'],
     way_of_variety: ['rocky_path', 'pottery', 'grassy_lane', 'toadstool', 'haunted_forest_path', 'golden', 'berry']
       .map(id => ROAD_THEME_COLORS[id]),
   };
@@ -724,7 +734,7 @@
   }
   function themeColor(id,restored,color=ROAD_THEME_COLORS[id] || ROAD_THEME_COLORS.plain) {
     const rgb=[1,3,5].map(i=>parseInt(color.slice(i,i+2),16));
-    if(id==='burned')return rgb;
+    if(id==='burned'||id==='pottery')return rgb;
     const light=.2126*rgb[0]+.7152*rgb[1]+.0722*rgb[2];
     return rgb.map(channel=>light+(channel-light)*(restored ? 1.15 : .55));
   }
@@ -777,7 +787,7 @@
     // Keep the existing light/dark stone distribution and texture. Match its
     // tonal spread to the approved applied Promenade, rather than flattening
     // both stone tones with a translucent solid-colour wash.
-    const scale=source.spread>0?contrast.spread/source.spread:1;
+    const scale=(source.spread>0?contrast.spread/source.spread:1) * (variant === 'hedgerow' ? .45 : 1);
     for(let i=0;i<data.length;i+=4) {
       if(!data[i+3])continue;
       const light=.2126*data[i]+.7152*data[i+1]+.0722*data[i+2];

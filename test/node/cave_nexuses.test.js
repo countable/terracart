@@ -1,6 +1,6 @@
 (function () {
   const W = WorldGen, T = W.T, N = 64, edge = N * W.CELL_M;
-  const kinds = ['spring_cave', 'goblin_warrens', 'mushroom_cavern', 'gemstone_cavern', 'mine_tunnels'];
+  const kinds = ['spring_cave', 'goblin_warrens', 'mushroom_cavern', 'gemstone_cavern', 'mine_tunnels', 'quicksand_cavern'];
   // Natural caves on L2 retain their no-warren profile; authored goblin
   // warrens are exercised on the relocated L3 city.
   const kindsAt = depth => kinds.filter(kind => depth !== 2 || kind !== 'goblin_warrens');
@@ -27,7 +27,7 @@
   const payload = p => JSON.stringify({ reserved: [...p.reserved], terrain: [...p.terrain],
     objects: p.objects, plants: p.wildplants, encounters: p.encounters });
 
-  test('cave nexuses: all five definitions select and place on both shallow floors', () => {
+  test('cave nexuses: all definitions select and place on both shallow floors', () => {
     assert.falsy(kindsAt(2).includes('goblin_warrens'), 'no warren fixture on natural L2');
     for (const depth of [2, 3]) for (const kind of kindsAt(depth)) {
       const f = fixture(kind, depth), p = CaveAreas.plan(f);
@@ -42,6 +42,26 @@
     for (const depth of [0, 1, 4, 10]) for (const kind of ['grove', 'quarry', 'seep'])
       assert.eq(CaveAreas.select({ kind, gx: 5, gy: 5 }, depth), null);
     for (const depth of [2, 3]) assert.eq(CaveAreas.select({ kind: 'seep', gx: 5, gy: 5 }, depth), null);
+  });
+
+  test('quicksand cavern: native sand and hazard mask stay inside owned dry-safe ground', () => {
+    for (const depth of [2, 3]) {
+      const f = fixture('quicksand_cavern', depth), protectedCell = (f.cy + 4) * N + f.cx + 4;
+      f.occupied.add(protectedCell);
+      f.routeLane = new Set([(f.cy - 4) * N + f.cx - 4]);
+      const plan = CaveAreas.plan(f);
+      assert.gt(plan.quicksand.size, 30);
+      assert.falsy(plan.quicksand.has(protectedCell), 'occupied cell remains dry');
+      assert.falsy(plan.quicksand.has([...f.routeLane][0]), 'route remains dry');
+      for (const i of plan.quicksand) {
+        assert.eq(plan.terrain.get(i), T.SAND);
+        assert.truthy(plan.reserved.has(i) && plan.areas[0].reserved.has(i));
+      }
+      assert.eq([...plan.quicksand].join(), [...CaveAreas.plan(f).quicksand].join(), 'deterministic pool');
+      CaveAreas.apply(plan, f.grid, f.objects, [], f.occupied);
+      for (const i of plan.quicksand) assert.eq(f.grid[i], T.SAND);
+      assert.falsy(plan.quicksand.has(f.cy * N + f.cx), 'central approach stays dry');
+    }
   });
 
   test('cave nexuses: immutable protected ground survives even if the visible surface was repainted', () => {
