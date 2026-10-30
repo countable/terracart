@@ -940,8 +940,9 @@ Render.roadSignBoards = function roadSignBoards(item) {
   let boards = ROAD_SIGN_BOARDS.get(o);
   if (!boards) {
     const listed = (o.directions || []).map(d => StreetSigns.vector(d.direction)).filter(Boolean);
+    // `_owner`: a tap on a board (Render.tallPropHit) is a tap on the sign.
     boards = listed.map((vec, i) => ({ kind: 'roadsign_board', id: `${o.id}:board${i}`, x: o.x, y: o.y,
-      _board: vec, _slot: i, _slots: listed.length, _street: o._street }));
+      _board: vec, _slot: i, _slots: listed.length, _street: o._street, _owner: o }));
     ROAD_SIGN_BOARDS.set(o, boards);
   }
   return boards.map(b => ({ o: b, dx, dy }));
@@ -3652,23 +3653,60 @@ Render.buildingHit = function(scene, sx, sy) {
     const object = sprite._staticObject, appearance = sprite._staticAppearance;
     if (!sprite.visible || sprite.alpha === 0 || !object || !isBuilding(object.kind) || !appearance) continue;
     const anchor = sprite._huAnchor || sprite;
-    const dx = sx - anchor.x, dy = sy - anchor.y;
-    const x = anchor.x + cos * dx - sin * dy, y = anchor.y + sin * dx + cos * dy;
-    const frame = appearance.spec.seatFrame ?? appearance.frameVal ?? 0;
-    const art = SpriteLayout.ART_BOUNDS[`${appearance.texKey}:${frame}`];
-    const fw = art?.fw ?? sprite.frame?.realWidth ?? sprite.width;
-    const fh = art?.fh ?? sprite.frame?.realHeight ?? sprite.height;
-    const x0 = sprite.x + ((art?.minX ?? 0) - sprite.originX * fw) * sprite.scaleX;
-    const x1 = sprite.x + ((art?.maxX ?? fw) - sprite.originX * fw) * sprite.scaleX;
-    const y0 = sprite.y + ((art?.minY ?? 0) - sprite.originY * fh) * sprite.scaleY;
-    const y1 = sprite.y + ((art?.maxY ?? fh) - sprite.originY * fh) * sprite.scaleY;
     const z = sin * anchor.x + cos * anchor.y;
-    if (x >= Math.min(x0, x1) && x <= Math.max(x0, x1)
-        && y >= Math.min(y0, y1) && y <= Math.max(y0, y1) && z >= depth) {
+    if (Render.spriteArtContains(sprite, appearance, sx, sy, sin, cos) && z >= depth) {
       key = object.id; depth = z;
     }
   }
   return key || backgroundKey;
+};
+// Does a pooled sprite's TRIMMED art (its ART_BOUNDS, else its frame) cover
+// the screen point? The body counterrotates around its ground anchor under
+// heading-up, so the point is turned back about that anchor first.
+Render.spriteArtContains = function spriteArtContains(sprite, appearance, sx, sy, sin, cos) {
+  const anchor = sprite._huAnchor || sprite;
+  const dx = sx - anchor.x, dy = sy - anchor.y;
+  const x = anchor.x + cos * dx - sin * dy, y = anchor.y + sin * dx + cos * dy;
+  const frame = appearance.spec.seatFrame ?? appearance.frameVal ?? 0;
+  const art = SpriteLayout.ART_BOUNDS[`${appearance.texKey}:${frame}`];
+  const fw = art?.fw ?? sprite.frame?.realWidth ?? sprite.width;
+  const fh = art?.fh ?? sprite.frame?.realHeight ?? sprite.height;
+  const x0 = sprite.x + ((art?.minX ?? 0) - sprite.originX * fw) * sprite.scaleX;
+  const x1 = sprite.x + ((art?.maxX ?? fw) - sprite.originX * fw) * sprite.scaleX;
+  const y0 = sprite.y + ((art?.minY ?? 0) - sprite.originY * fh) * sprite.scaleY;
+  const y1 = sprite.y + ((art?.maxY ?? fh) - sprite.originY * fh) * sprite.scaleY;
+  return x >= Math.min(x0, x1) && x <= Math.max(x0, x1)
+      && y >= Math.min(y0, y1) && y <= Math.max(y0, y1);
+};
+// A TAP ON THE TOP OF A TALL PROP. A prop owns the cell its feet stand in
+// (interact.js 'object'), but a tree, a fingerpost or a lamp rises a cell or
+// more above its feet, so a tap on its crown lands on the ground cell
+// screen-north of it. When that cell holds nothing of its own, the tap goes
+// to the prop whose DRAWN art it landed on: the frontmost visible pooled
+// sprite whose art contains the point and whose owner stands in a
+// NEIGHBOURING cell — never its own cell (that is the ordinary cell hit) and
+// never further (a wide canopy does not reach across the map). Buildings
+// keep their own path (Render.buildingHit); a drawn piece of a prop (a
+// fingerpost's board, `_owner`) answers for the prop. The caller decides
+// whether the tapped cell was bare; this only names what was drawn there.
+Render.tallPropHit = function tallPropHit(scene, sx, sy, wm) {
+  const angle = scene.mapRot || 0, sin = Math.sin(angle), cos = Math.cos(angle);
+  // The tap's cell is resolved only once a drawn candidate asks for it.
+  let tap = null, owner = null, depth = -Infinity;
+  for (const sprite of scene.objectPool || []) {
+    const piece = sprite._staticObject, appearance = sprite._staticAppearance;
+    if (!sprite.visible || sprite.alpha === 0 || !piece || !appearance || appearance.visible === false) continue;
+    const o = piece._owner || piece;
+    if (isBuilding(o.kind)) continue;
+    tap = tap || worldMetersToAbsCell(scene, wm.x, wm.y);
+    const foot = worldMetersToAbsCell(scene, o.x, o.y);
+    const d = absCellDelta(scene, foot.cellIX, foot.cellIY, tap.cellIX, tap.cellIY);
+    if ((!d.dx && !d.dy) || Math.max(Math.abs(d.dx), Math.abs(d.dy)) > 1) continue;
+    const anchor = sprite._huAnchor || sprite;
+    const z = sin * anchor.x + cos * anchor.y;
+    if (z >= depth && Render.spriteArtContains(sprite, appearance, sx, sy, sin, cos)) { owner = o; depth = z; }
+  }
+  return owner;
 };
 // Separating-axis test: unlike triangle bounds, this does not fade empty
 // corners beside a pitched roof or the empty middle of a concave footprint.

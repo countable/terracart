@@ -781,6 +781,14 @@ the surrounding grove’s shrub scale.
   buildings select the frontmost drawn owner, with no hits in empty corners of
   pitched roofs. The owner routes through the ordinary interaction registry and
   existing reach/visibility gates; ground-footprint taps remain supported.
+  A tall prop's crown (a tree, a fingerpost, a lamp) is drawn over the cell
+  screen-north of its feet. When the tapped cell holds no object of its own,
+  the 'object' handler passes the tap to the prop whose trimmed drawn art
+  contains the point (`Render.tallPropHit`): the frontmost visible pooled
+  sprite whose owner stands in a neighbouring cell, never its own cell and
+  never further, with a drawn piece (a fingerpost board, `_owner`) answering
+  for its prop. An occupied cell keeps its occupant, so a crown never steals
+  a tap from what stands under it. Wild plants stay cell-only.
   Creature taps test the drawn body box from the foot along screen-up
   (`HeadingUp.toScreenVec`), since bodies stay upright on a turned map; being
   off the cell grid, that padded box is grown 10% about the drawn centre.
