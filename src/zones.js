@@ -857,7 +857,7 @@
     // EVERY churchyard rock wears the one look (the frame and the drop follow
     // the explicit `rockVariant` — SpriteLayout.plainRockVariant reads it first).
     const rockLook = (root.SpriteLayout && root.SpriteLayout.CHURCHYARD_ROCK_VARIANT != null)
-      ? root.SpriteLayout.CHURCHYARD_ROCK_VARIANT : 3;
+      ? root.SpriteLayout.CHURCHYARD_ROCK_VARIANT : 1;
     // THE SPAWN GATE: each piece names its class — a headstone is a
     // 'headstone' spawn (a tap raises a ghost: never on sensitive ground, but
     // by the houses round a church is fine), the grove shrine an 'attractor'

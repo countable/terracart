@@ -192,7 +192,7 @@
               fix('starflower', 0.003, 0.009, S.STARFLOWER),
               fix('poisonberry', 0.003, 0.008, S.POISONBERRY)],
     },
-    [T.SAND]: { ...FAMILY_PROFILE.sand, staticObjects: { plainRockFrame: 34, plainRockVariant: 3 } },
+    [T.SAND]: { ...FAMILY_PROFILE.sand, staticObjects: { plainRockFrame: 34, plainRockVariant: 1 } },
     // Wild field-edge crops: five equal independent scatters, together about
     // 8% of eligible rim cells. The shared farm-interior gate removes the rest.
     // These are ground wildplants, with static stages, never player dirt beds.

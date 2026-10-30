@@ -838,8 +838,10 @@ the surrounding grove’s shrub scale.
   apart, and rounding each alone opens an intermittent 1px seam.
 - List actual crop `frames`, not sheet-cell counts. Hash the full id for
   per-cell variation (`wildplantFrame`); do not use id length or transient indices.
-  Legacy `PLAIN_ROCK_VARIANTS` retains rock yields independently of the neutral
-  material silhouettes; loot messages report the actual quantity rolled.
+  Legacy `PLAIN_ROCK_VARIANTS` (pair and single, reached through the four saved
+  `PLAIN_ROCK_SLOTS`) retains rock yields independently of the neutral material
+  silhouettes; loot messages report the actual quantity rolled. A larger
+  variant must be distinct art, never an existing frame at a bigger scale.
 - Map Apple and Worldpeach trees use recoloured RA rounded canopies from
   `tools/build_rogue_fruit_trees.py`: apple foliage is cool green with cream
   blossoms; Worldpeach foliage is warm olive with pink blossoms. Bark, roots
