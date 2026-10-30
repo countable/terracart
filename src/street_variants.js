@@ -823,6 +823,66 @@
     }
     return null;
   }
+  // The road a tap at a FRACTIONAL tile cell (fx, fy) actually lands on. A
+  // cell can be crossed by several bands (a junction, a path beside a road)
+  // or only clipped by one, so each way that reaches the cell is tested at
+  // the tap's own point against the band the overlay strokes (round-capped,
+  // WorldGen.roadOverlayWidthM wide; lot lanes are never drawn). The nearest
+  // centreline holding the point wins. Its name: an MD/LG road's story, else
+  // the themed dressing section drawn over it there (dressingLines, after any
+  // Nexus cut), else none. Returns { tier, row } on a band, null off every
+  // band, or undefined when the tile has no line geometry to test.
+  function roadAtPoint(entry, fx, fy) {
+    const WG = root.WorldGen, N = entry?.cellsPerEdge, E = entry?.tileEdgeM;
+    const layer = entry?.layers?.find(l => l.name === 'transportation');
+    if (!WG || !layer || !(N > 0) || !(E > 0)) return undefined;
+    const mvtToM = E / (layer.extent || 4096), px = fx * E / N, py = fy * E / N;
+    const distM = (line, k) => {
+      let best = Infinity;
+      for (let i = 1; i < line.length; i++) {
+        const ax = line[i - 1].x * k, ay = line[i - 1].y * k;
+        const dx = line[i].x * k - ax, dy = line[i].y * k - ay, len2 = dx * dx + dy * dy;
+        const u = len2 ? Math.max(0, Math.min(1, ((px - ax) * dx + (py - ay) * dy) / len2)) : 0;
+        best = Math.min(best, Math.hypot(px - ax - u * dx, py - ay - u * dy));
+      }
+      return best;
+    };
+    let hit = null;
+    for (let fi = 0; fi < layer.features.length; fi++) {
+      const f = layer.features[fi];
+      if (f.type !== 2 || !f.geom || WG.isLotLane(f.tags)) continue;
+      const tier = WG.classifyLine('transportation', f.tags || {});
+      const halfM = WG.roadOverlayWidthM(f.tags || {}) / 2;
+      if (tier == null || !(halfM > 0)) continue;
+      for (const line of f.geom) {
+        if (!line || line.length < 2) continue;
+        const d = distM(line, mvtToM);
+        if (d <= halfM && (!hit || d < hit.d)) hit = { d, fi, halfM, tier, tags: f.tags };
+      }
+    }
+    if (!hit) return null;
+    let row = roadStoryFor({ tags: hit.tags });
+    const idx = entry.streetIndex;
+    if (!row && idx?.dressingLines) {
+      // A dressing section is cut from the hit's own way: the same feature
+      // (fi, the index's own), or — a path rebuilt from several fragments —
+      // a band of the hit's width whose centreline agrees with it at the
+      // point. A themed neighbour's band that merely overlaps the point (a
+      // path at a junction's centre) names nothing on the road.
+      const k = E / (idx.extent || 4096);
+      let best = Infinity;
+      for (const rec of idx.dressingLines) {
+        const owned = VARIANT_BY_ID[rec.variant];
+        if (!owned) continue;
+        const d = distM(rec.line, k);
+        const same = rec.fi === hit.fi
+          || (Math.abs(rec.halfW - hit.halfM) < 1e-6 && Math.abs(d - hit.d) <= DRESSING_MATCH_M);
+        if (d <= rec.halfW && same && d < best) { best = d; row = owned; }
+      }
+    }
+    return { tier: hit.tier, row };
+  }
+  const DRESSING_MATCH_M = 0.5;
   // Per-cell marks (dress().marks): a variant's code 1..n, BANDIT_CODE for a
   // plain Major-and-Medium road cell (resolved from roadClass by the caller).
   function variantByCode(code) { return STREET_VARIANTS[code - 1] || null; }
@@ -3502,7 +3562,7 @@
     BERRY_LANE_BUSHES, BERRY_LANE_THORN_MAX, BERRY_LANE_GAP, BERRY_RUNT_STEP_M, BERRY_RUNT_CHANCE, BERRY_VARIANTS, POTTERY_GAP, POTTERY_BACK_GAP, TRADE_BARREL_GAP, TRADE_GRUNT_STEP_M, TRADE_GRUNT_CHANCE, HOUSE_BARREL_ODDS,
     HEDGE_GATE_EVERY_CELLS, HOUSE_BARRELS_MAX, HOUSE_FRONT_REACH_CELLS, HOUSE_FRONT_SPAN_CELLS, HOUSE_CRATE_SHARE, TERRAIN_VERGE_CELLS, OVERGROWN_STEP_M, OVERGROWN_MAX, ORCHARD_STEP_M,
     ORCHARD_MAX, TOADSTOOL_STEP_M, TOADSTOOL_MAX, MAX_VARIANT_LENGTH_M, MIN_VARIANT_LENGTH_M, LONG_ROAD_M, LONG_ROAD_SECTION_SHARE, LONG_PATCH_UNITS, sectionLimits, VARIANT_PATCH_UNITS, GOLDEN_STEP_M, BARRICADE_STEP_M, BARRICADE_MAX, BARRICADE_VERGE_MAX_CELLS, BURNED_STEP_M, BURNED_MAX, BURNED_TORCH_STEP_M, BURNED_GUARD_STEP_M, LANTERN_SPACING_DIV, HEDGE_LAMP_DENSITY, SLOW_KINDS,
-    THORNY_SHRINE_RADIUS_CELLS, THORNY_VERGE_MAX_CELLS, THORNY_CLUSTER_DENSITY, THORNY_SCATTER_CELLS, THORNY_SCATTER_DENSITY, SNARE_CHEST_TIER, DEAD_END_CRATE_TIER, DEAD_END_CRATES_PER_TILE, SNARE_TRAP_RADIUS_CELLS, SNARE_MIN_TRAPS, STREET_VARIANTS, VARIANT_BY_ID, EXTRA_ENCOUNTER_TIERS, BANDIT_STORY, HIGHWAY_STORY, roadStoryFor, roadStoryAt, streetStoryAt, streetNameAt, variantByCode, labelName,
+    THORNY_SHRINE_RADIUS_CELLS, THORNY_VERGE_MAX_CELLS, THORNY_CLUSTER_DENSITY, THORNY_SCATTER_CELLS, THORNY_SCATTER_DENSITY, SNARE_CHEST_TIER, DEAD_END_CRATE_TIER, DEAD_END_CRATES_PER_TILE, SNARE_TRAP_RADIUS_CELLS, SNARE_MIN_TRAPS, STREET_VARIANTS, VARIANT_BY_ID, EXTRA_ENCOUNTER_TIERS, BANDIT_STORY, HIGHWAY_STORY, roadStoryFor, roadStoryAt, streetStoryAt, streetNameAt, roadAtPoint, variantByCode, labelName,
     normName, streetKey, anonKey, parishOf, sizeOfTags, isVehicleTags, variantFor, rocksFor,
     boundSectionsSteps, PATH_SECTION_MIN_M, PATH_SECTION_TARGET_M, PATH_SECTION_MAX_M, PATH_FRAGMENT_MIN_M, buildPathSectionsSteps, applyPathScenicSteps, syncPathVariants, selectionWeights, applyAffinitiesSteps, nexusExitAffinitySteps, NEXUS_EXIT_AFFINITY_M, AFFINITY_SAMPLE_M, terrainFor, paintTerrainSteps,
     homeIndexSteps, indexFor, nameVote, lineName, sampleLine, canonicalPaths, variantAt, lineParts, displayLines, buildIndexSteps, buildIndex, areaSteps, area, suppressNexusRoadThemesSteps,
