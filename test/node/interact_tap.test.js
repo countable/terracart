@@ -1045,6 +1045,28 @@ test('bush harvest takes five seconds bare-handed and keeps equipped axe speeds'
   } finally { globalThis.WorldGen = original; }
 });
 
+test('medium mushroom bushes take shrub work and award wood and mushroom once without nests', () => {
+  const original=globalThis.WorldGen;
+  const plant={kind:'wildplant',crop:'mushroom_bush',_streetArt:'red_mushroom',id:'mushroom_bush_harvest',x:2.5,y:2.5};
+  try {
+    globalThis.WorldGen={...original,forEachItem:(layer,cb)=>{if(layer==='wildplants')cb(plant);}};
+    for(const tier of [0,1]) {
+      let award,duration,cost,relic;
+      const save={picked:[],energy:100,relics:{axe:{tier}}};
+      const scene=makeGridScene({save,startWorkProgress:(x,y,cb,ms,energy,tool)=>{award=cb;duration=ms;cost=energy;relic=tool;}});
+      assert.eq(TAP_HANDLERS.find(h=>h.name==='wildplant').try({scene,save,wm:{x:2.5,y:2.5},sx:0,sy:0}),true);
+      assert.eq(scene.invCount('mushroom'),0,'work must finish first');
+      assert.eq(relic,'axe');assert.eq(duration,tier?toolDurationMs(save.relics,'axe'):5000);
+      assert.eq(cost,tier?3:9);
+      award();award();
+      assert.eq(scene.invCount('mushroom'),1);assert.eq(scene.invCount('wood'),1);
+      assert.eq(scene.invCount('mushroom_bush'),0,'the plant is not an inventory item');
+      assert.eq(save.picked.filter(id=>id===plant.id).length,1);
+    }
+    assert.falsy(wildplantRule('mushroom_bush').nest,'mushroom bushes never roll nests');
+  } finally {globalThis.WorldGen=original;}
+});
+
 test('giant mushroom harvest awards wood and mushroom once through axe work', () => {
   const original=globalThis.WorldGen;
   let award, duration, cost, relic;

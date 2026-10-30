@@ -122,24 +122,30 @@
 
   test('dungeon maze: focus has one shrine or T3 treasure and enemies match the floor roster', () => {
     const rewardKinds = new Set();
-    for (const depth of [2, 3]) for (const start of [951001, 951101, 951201, 951301, 951401, 951501]) {
-      const f = fixture(depth, shapes.broad, start), p = CaveAreas.plan(f);
-      const rewards = p.objects.filter(o => o.kind === 'grove_shrine' || (o.kind === 'chest' && !o.barrel));
-      assert.eq(rewards.length, 1, 'one focus reward');
-      const reward = rewards[0]; rewardKinds.add(reward.kind);
-      assert.eq(idx(f, reward), f.cy * N + f.cx, 'reward sits at grove focus');
-      if (reward.kind === 'chest') assert.eq(chestTier(reward), 3, 'actual loot and art tier are T3');
-      CaveAreas.apply(p, f.grid, f.objects, [], f.occupied);
-      const reached = flood(f, p), used = new Set();
-      assert.gt(p.encounters.length, 0, 'maze has authored monsters');
-      for (const enemy of p.encounters) {
-        const row = EnemyRoster.get(enemy.kind), i = idx(f, enemy);
-        assert.truthy(row && row.cave, 'enemy has cave spawn data');
-        assert.lte(row.cave.minDepth, depth);
-        if (row.cave.maxDepth != null) assert.gte(row.cave.maxDepth, depth);
-        assert.truthy(reached.has(i), 'monster stands in reachable maze corridor');
-        assert.falsy(used.has(i), 'monster seats do not overlap'); used.add(i);
-        assert.falsy(i === idx(f, reward), 'reward seat stays clear');
+    // Sample distinct accepted mazes rather than a few starts that can resolve
+    // to the same anchors when cave-area weights change.
+    for (const depth of [2, 3]) {
+      let start = 951001;
+      for (let sample = 0; sample < 24; sample++) {
+        const f = fixture(depth, shapes.broad, start), p = CaveAreas.plan(f);
+        start = f.tx + 1;
+        const rewards = p.objects.filter(o => o.kind === 'grove_shrine' || (o.kind === 'chest' && !o.barrel));
+        assert.eq(rewards.length, 1, 'one focus reward');
+        const reward = rewards[0]; rewardKinds.add(reward.kind);
+        assert.eq(idx(f, reward), f.cy * N + f.cx, 'reward sits at grove focus');
+        if (reward.kind === 'chest') assert.eq(chestTier(reward), 3, 'actual loot and art tier are T3');
+        CaveAreas.apply(p, f.grid, f.objects, [], f.occupied);
+        const reached = flood(f, p), used = new Set();
+        assert.gt(p.encounters.length, 0, 'maze has authored monsters');
+        for (const enemy of p.encounters) {
+          const row = EnemyRoster.get(enemy.kind), i = idx(f, enemy);
+          assert.truthy(row && row.cave, 'enemy has cave spawn data');
+          assert.lte(row.cave.minDepth, depth);
+          if (row.cave.maxDepth != null) assert.gte(row.cave.maxDepth, depth);
+          assert.truthy(reached.has(i), 'monster stands in reachable maze corridor');
+          assert.falsy(used.has(i), 'monster seats do not overlap'); used.add(i);
+          assert.falsy(i === idx(f, reward), 'reward seat stays clear');
+        }
       }
     }
     assert.eq(rewardKinds.size, 2, 'deterministic world includes both reward alternatives');

@@ -169,7 +169,7 @@ test('cave mushrooms: deterministic per tile+depth, and a different level grows 
 test('cave mushrooms: the cave look is the crop\'s caveFrames, the item is still the Mushroom', () => {
   const ov = CROP_SPRITE.mushroom;
   assert.truthy(Array.isArray(ov.caveFrames) && ov.caveFrames.length >= 1, 'the crop declares its cave frames');
-  assert.truthy(Array.isArray(ov.frames) && ov.frames.length === 2, 'both selected surface mushrooms are available');
+  assert.eq(JSON.stringify(ov.frames), '[0]', 'surface mushrooms use A only');
   for (const f of ov.caveFrames) assert.truthy(!ov.frames.includes(f), 'cave caps remain distinct from surface mushrooms');
   // The frame pick itself is items.js' wildplantFrame (one resolver for every
   // custom sheet — see shell_variants.test.js); drive it rather than pin its

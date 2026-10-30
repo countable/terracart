@@ -2,6 +2,7 @@
 (function (root) {
   'use strict';
   const CONFIG = Object.freeze({ contactMs: 1000, damage: 8, maxStepMs: 100,
+    quicksand: Object.freeze({ sinkMs: 4000, riseMs: 2000, escapeMps: 1, hatPixels: 4, damage: 2, damageMs: 1000 }),
     vent: Object.freeze({ texture: 'vent_cycle', chance: .12, inactiveMs: 5000, gasInactiveMs: 20000, warningMs: 3000, activeMs: 3000,
       frameSize: 24, renderAnchor: [0.5, 18.5 / 24], widthCells: 1, heightCells: 1, maxPresent: 24, retainRadiusCells: 24 }),
     cavein: Object.freeze({ texture: 'cavein', chance: .08, warningMs: 5000, crackStages: 3, openTexture: 'cave_chasm', openFrame: 15, frameSize: 24, renderAnchor: [0.5, 0.5],
@@ -395,8 +396,48 @@
     }
   }
 
+  function quicksandAt(scene, cell) {
+    if (!(scene.depth > 0) || !cell?.loaded) return false;
+    const entry = root.WorldGen.tileCache.get(root.WorldGen.tileKey(cell.tx, cell.ty));
+    return entry?.depth === scene.depth && cell.type === root.WorldGen.T.SAND
+      && !!entry.caveAreas?.quicksand?.has(cell.iy * entry.cellsPerEdge + cell.ix);
+  }
+  function quicksandTick(scene, dt) {
+    if (!Number.isFinite(dt) || dt <= 0) return;
+    const point = playerWorldM(scene), cell = scene.cellAt(point.x, point.y);
+    const previous = scene._quicksand;
+    const airborne = root.Conditions.flying(scene.save) || scene.isDragonActive?.();
+    if (!quicksandAt(scene, cell) || airborne || root.Combat.playerDowned(scene.save.energy)
+        || scene._obstacleStep?.liftPx > 0) {
+      scene._quicksand = null;
+      return;
+    }
+    const sameFloor = previous?.depth === scene.depth;
+    const distance = sameFloor ? Math.hypot(point.x - previous.x, point.y - previous.y) : 0;
+    // Sample actual world feet after movement, so GPS, steering and blocked
+    // motion agree. Teleports reset exposure instead of becoming escape speed.
+    const teleported = sameFloor && distance >= scene.cellM;
+    const s = sameFloor && !teleported ? previous : { depth: scene.depth, amount: 0, damageMs: 0 };
+    s.x = point.x; s.y = point.y;
+    const cfg = CONFIG.quicksand, ms = Math.min(CONFIG.maxStepMs, dt * 1000);
+    const escaping = !teleported && sameFloor && distance / dt >= cfg.escapeMps - 1e-9;
+    s.amount = Math.max(0, Math.min(1, s.amount + (escaping ? -ms / cfg.riseMs : ms / cfg.sinkMs)));
+    if (s.amount < 1) s.damageMs = 0;
+    else {
+      s.damageMs += ms;
+      if (s.damageMs >= cfg.damageMs) {
+        s.damageMs -= cfg.damageMs;
+        const damage = root.Combat.incomingDamage(scene.save, cfg.damage);
+        const lost = damage > 0 ? scene._losePlayerEnergy(damage, { closeShop: true }) : 0;
+        if (lost > 0) scene._popEnergy?.(-lost);
+      }
+    }
+    scene._quicksand = root.Combat.playerDowned(scene.save.energy) ? null : s;
+  }
+
   function tick(scene, dt) {
     if (!scene.startWorldM || !scene.playerM || !Number.isFinite(dt) || dt <= 0) return;
+    quicksandTick(scene, dt);
     const s = state(scene), ms = Math.min(CONFIG.maxStepMs, dt * 1000);
     s.elapsedMs += ms; observe(scene);
     wildplantContact(scene, s);
@@ -458,5 +499,5 @@
     s.vents = s.vents.filter(h => !h.blocked);
     s.sinkholes = s.sinkholes.filter(h => h.phase !== 'closed');
   }
-  root.EnvironmentHazards = { CONFIG, VENTS, ventKinds, state, lists, footprint, suitable, eligible, create, update, erupt, overlaps, quarryVariant, caveInVariant, touch, exposure, observe, wildplantContact, tick };
+  root.EnvironmentHazards = { CONFIG, VENTS, ventKinds, state, lists, footprint, suitable, eligible, create, update, erupt, overlaps, quarryVariant, caveInVariant, touch, exposure, observe, wildplantContact, quicksandAt, quicksandTick, tick };
 })(typeof globalThis !== 'undefined' ? globalThis : this);

@@ -531,6 +531,7 @@ const PIECES = {
   street_golden: scene("A clear village road with many jade-green star coins scattered on BOTH verges, orange street lamps, warm dusk."),
   street_snare: scene("A single closed chest surrounded by a ring of iron jaw traps on the verge beside a clear road, warm orange lamps. Nothing blocks the road."),
   zone_shore: scene("An old shrine on a grassy rise overlooking a sandy beach and open sea, reeds, no enclosing forest. Peaceful sacred ground."),
+  street_causeway: scene("A dry raised cobblestone causeway between separate calm blue-green water pools on both sides, mossy rounded trees and warm iron lamps. Use the recorded Causeway master and approved grove style reference; docs/art/causeway-art.json."),
   street_greenway: scene("An inland walking path bordered by meadow and trees, green-glowing street lamps. No coast or sea wall."),
   street_parkpath: scene(
     "An inland park fifty years after the Breaking, its abandoned planting beds reclaimed by " +
@@ -546,6 +547,7 @@ const PIECES = {
 // Reference-edited masters must retain their established scene and character
 // designs. Re-export these masters; do not recreate them from a text prompt.
 const REFERENCE_SCENES = new Set([
+  'street_causeway',
   'booth_apothecary_intro',
   'booth_apothecary_used',
   'booth_bank_intro',

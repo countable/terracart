@@ -1,0 +1,20 @@
+{
+  "key": "street_causeway",
+  "tool": "built-in imagegen",
+  "master_path": "art-source/paintings/raw/street_causeway.png",
+  "sha256": "496beedf45c9bdd5be70fc508f88fa22aa2012c072a40c77b91158a4dfbeb405",
+  "reference": {
+    "path": "story-style-references/grove_shrine.webp",
+    "sha256": "ceb821073c00b705d3a0ac757a4446637bdff6a10aa522ec0d0b94a99f292041",
+    "role": "Approved mossy stone, olive foliage and painterly pixel treatment; exclude shrine content and lower text zone."
+  },
+  "composition": "Dry raised cobblestone road with distinct water pools on both sides, rounded mossy trees and warm iron lamps. No people, text or borders.",
+  "edit_prompt": "Image1 is the Causeway scene edit target. Keep its exact full-bleed4:3 composition, dry passable central cobbled road, visible calm water pools on BOTH sides, lamps and rounded trees. Image2 is the approved pixel-painterly STYLE reference ONLY: match its deliberate coarse irregular pixel clusters, restrained mossy olive stone/foliage colors and atmospheric warm light. Make Image1 read as a classic illustrated game scene with legible pixel clusters rather than a photorealistic finely textured landscape. Keep bluegreen water clearly distinct from the road and foliage. DO NOT introduce Image2's shrine, religious statue, composition, dark lower fade or blank text space. Entire4:3 frame remains filled with the Causeway scene. No people, text, watermark, border, UI.",
+  "export": {
+    "path": "assets/art/street_causeway.webp",
+    "width": 512,
+    "height": 384,
+    "quality": 85,
+    "command": "node tools/gen_story_art.js --reprocess street_causeway"
+  }
+}

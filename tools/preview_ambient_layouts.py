@@ -209,16 +209,16 @@ def _layout_panel(area, layer, name, number, helpers, mode):
         art = helpers['material_art']({'kind':kind})
         uri = helpers['sprite_png'](art['sheet'], art['frames'][0], False, art.get('tint',0xffffff))
         legend.append(f'<span><img src="{uri}" alt="">{html.escape(kind.replace("_"," "))}{" ×"+str(count) if count > 1 else ""}</span>')
-    algorithm = ('Tile · repeat_motif — ZoneVariants.sample · authored 12 × 9 motif'
-                 if mode == 'tile' else f"Generated · Hilbert fill — TerrainLayouts.generate + assign · seed {patterns['settings']['seed']}")
+    algorithm = ('Tile · authored 12 × 9 motif'
+                 if mode == 'tile' else f"Generated · Hilbert fill · seed {patterns['settings']['seed']}")
     detail = ('Authored floor footprint and prop seats.' if mode == 'tile'
-              else 'Generated ground accents and prop seats inside the same floor footprint.')
+              else 'Generated accents and props within the same footprint.')
     source = prop_art['source']
     source_label = Path(source).name if depth else source
     art_note = f'Art: {html.escape(prop_art["label"])} · {html.escape(source_label)}'
     if depth: art_note = f'<a href="http://localhost:8000/{quote(source)}">{art_note}</a>'
     if prop_art['proxy']: art_note += f' · material proxy for {html.escape(prop.replace("_", " "))}'
-    if depth == 1: art_note += '<br>Pushable crates: stand beside a crate and tap it to push one cell.'
+    if depth == 1: art_note += '<br>Tap an adjacent crate to push it one cell.'
     if theme and any('water' in row for row in cells): art_note += '<br>' + html.escape(theme['water_label'])
     ground_uri = theme['ground'] if theme else _swatch(palette)
     accent_uri = theme['road'] if theme and depth != 1 else _swatch(palette)
@@ -257,18 +257,18 @@ def ambient_floor_sections(helpers=None):
     result = {}
     for layer in data['layers']:
         parts = [f'<h2>{html.escape(layer["id"] + " · " + layer["name"])}</h2><p>{html.escape(layer["known"])}</p>',
-                 '<p class="ambient-caption">Compare authored Tile motifs with Generated Hilbert dressing using the shared layout methods. Creature seats illustrate the proposed candidates below; counts are for readability, not live density. L0 Nexus cards reuse the current Nexus review layouts unchanged; only the separate landcover cards are proposals. Gold dotted words change current behavior. Underground ground swatches are material studies; only L1 sewer channel water is integrated. L2 fixtures propose dressing only, preserving its existing terrain. L5 remains open.</p>']
+                 '<p class="ambient-caption">Compare authored motifs with generated Hilbert layouts. Creature counts are illustrative. L0 Nexus cards reuse the saved Nexus previews; other cards are proposals. Gold dotted text marks proposed changes.</p>']
         for area in data['areas']:
             idea = area['ideas'][layer['id']]
             if layer['id'] == 'L0' and area.get('surfaceVariants'):
-                current = ''.join(f'<div data-current-variant="{v["id"]}"><a href="#{v["id"]}">View current {html.escape(v["name"])} layout</a></div>' for v in area['surfaceVariants'])
-                parts.append(f'<section class="ambient-area" id="ambient-L0-{area["id"]}"><h3>{html.escape(area["name"])}</h3><p><b>Current Nexus layouts · retained.</b> These are the existing generated previews, not proposed replacements.</p><div class="cards">{current}</div></section>')
+                current = ''.join(f'<div data-current-variant="{v["id"]}"><a href="#{v["id"]}">View {html.escape(v["name"])} layout</a></div>' for v in area['surfaceVariants'])
+                parts.append(f'<section class="ambient-area" id="ambient-L0-{area["id"]}"><h3>{html.escape(area["name"])}</h3><p>Saved Nexus layouts.</p><div class="cards">{current}</div></section>')
                 continue
             names = []
             if not names:
                 names = [n.strip().removeprefix('Keep ').removesuffix(' identities') for n in idea['variants'].split(' / ')]
             spawn = _highlight(idea['spawn'], idea.get('changes',{}).get('spawn',[]))
             variants = _highlight(idea['variants'], idea.get('changes',{}).get('variants',[]))
-            parts.append(f'<section class="ambient-area" id="ambient-{layer["id"]}-{area["id"]}"><h3>{html.escape(area["name"])}</h3><p><b>Spawn direction:</b> {spawn}<br><b>Visual / layout direction:</b> {variants}</p><div class="ambient-cards">' + ''.join(_card(area, layer, name, i, helpers) for i,name in enumerate(names)) + '</div></section>')
+            parts.append(f'<section class="ambient-area" id="ambient-{layer["id"]}-{area["id"]}"><h3>{html.escape(area["name"])}</h3><p><b>Creatures:</b> {spawn}<br><b>Layouts:</b> {variants}</p><div class="ambient-cards">' + ''.join(_card(area, layer, name, i, helpers) for i,name in enumerate(names)) + '</div></section>')
         result[layer['id']] = ''.join(parts)
     return result

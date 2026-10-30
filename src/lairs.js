@@ -1155,18 +1155,9 @@
     // authored by its own ladder: the street's family (the nearest mark's
     // BUILDING_FAMILIES row) never re-themes it into the plant guard's kinds.
     const SVar = root.StreetVariants;
-    // The road theme owns every initial member seat, including the random
-    // formation and its fallback. Movement after spawning remains ordinary AI.
-    const streetIndex = entry.streetIndex;
-    let roadOwner = null;
-    if (cand._street && streetIndex && SVar?.variantOwner) {
-      const cached = entry._streetSpawnOwner;
-      if (cached?.index !== streetIndex || cached.N !== N
-          || cached.lines !== streetIndex.lines || cached.dressingLines !== streetIndex.dressingLines)
-        entry._streetSpawnOwner = { index: streetIndex, N, lines: streetIndex.lines,
-          dressingLines: streetIndex.dressingLines, at: SVar.variantOwner(streetIndex, N) };
-      roadOwner = entry._streetSpawnOwner.at;
-    }
+    // Initial members and fallback seats stay in their road theme and within
+    // its three-cell edge limit. Movement after spawning remains ordinary AI.
+    const roadOwner = cand._street ? SVar?.placementOwner(entry, N) : null;
     const pathAuthored = SVar?.VARIANT_BY_ID[cand._street]?.size === 'path';
     const ownLadder = !!SVar?.EXTRA_ENCOUNTER_TIERS?.has(cand.tier);
     const rawFamily = pathAuthored || ownLadder ? null : root.EnemyHabitats?.buildingKinds(entry, cand);

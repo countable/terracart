@@ -1,16 +1,27 @@
 // The generator samples the full area once. Changing the review dimensions
-// crops around its POI without stretching cells or changing their placement.
+// crops around each sample centre without stretching cells or moving objects.
 (() => {
   const widthInput = document.getElementById('zone-width');
   const heightInput = document.getElementById('zone-height');
   if (!widthInput || !heightInput) return;
 
   const previews = [...document.querySelectorAll('svg[data-zone-preview]')];
+  const streets = [...document.querySelectorAll('#streets article > figure > svg')].map(svg => {
+    const box = svg.viewBox.baseVal;
+    const road = svg.querySelector('path[stroke="#786955"]');
+    const roadStart = road.getPointAtLength(0), roadEnd = road.getPointAtLength(road.getTotalLength());
+    const caption = document.createElement('span');
+    svg.closest('figure').querySelector('figcaption')?.append(caption);
+    return { svg, caption, x: box.x, y: box.y, width: box.width, height: box.height,
+      road: { x: Math.min(roadStart.x, roadEnd.x), width: Math.abs(roadEnd.x - roadStart.x) },
+      focusX: svg.hasAttribute('data-focus-x') ? Number(svg.dataset.focusX) : box.x + box.width / 2,
+      label: svg.getAttribute('aria-label') };
+  });
   const status = document.getElementById('zone-size-status');
   const reset = document.getElementById('zone-size-reset');
   const defaults = {
-    width: Number(widthInput.defaultValue) || 29,
-    height: Number(heightInput.defaultValue) || 29,
+    width: Number(widthInput.defaultValue) || 20,
+    height: Number(heightInput.defaultValue) || 7,
   };
   let current = { ...defaults };
 
@@ -39,11 +50,25 @@
       const caption = svg.closest('figure')?.querySelector('[data-zone-dimensions]');
       if (caption) caption.textContent = `${columns} × ${rows} cells`;
     }
+    for (const p of streets) {
+      const metresWide = Math.min(width * 7, p.width);
+      const metresHigh = Math.min(height * 7, p.height);
+      const left = Math.max(p.x, Math.min(p.x + p.width - metresWide, p.focusX - metresWide / 2));
+      const visibleLength = Math.round(Math.max(0, Math.min(left + metresWide, p.road.x + p.road.width) - Math.max(left, p.road.x)) * 10) / 10;
+      p.svg.setAttribute('viewBox', `${left} ${p.y + (p.height - metresHigh) / 2} ${metresWide} ${metresHigh}`);
+      p.svg.setAttribute('preserveAspectRatio', 'xMidYMid meet');
+      p.svg.style.aspectRatio = `${metresWide} / ${metresHigh}`;
+      const dimensions = `${Math.round(metresWide * 10) / 10} × ${Math.round(metresHigh * 10) / 10} m`;
+      p.svg.setAttribute('aria-label', `${p.label} · ${dimensions} view · ${visibleLength} m visible length`);
+      p.caption.textContent = ` · ${dimensions} view · ${visibleLength} m visible length`;
+    }
     if (status) status.textContent = `${width} × ${height} cells · ${width * 7} × ${height * 7} m`;
     if (saveUrl) {
       const url = new URL(location.href);
       url.searchParams.set('zoneWidth', String(width));
       url.searchParams.set('zoneHeight', String(height));
+      url.searchParams.delete('roadLength');
+      url.searchParams.delete('pathLength');
       history.replaceState(history.state, '', url);
     }
   }
@@ -72,91 +97,65 @@
   readUrl();
 })();
 
-// Street fixtures remain deterministic; review a shorter central window without
-// stretching art or recomputing the full-fixture inventory printed on each card.
+// Keep controls together and show only settings for the selected review.
 (() => {
-  const section = document.getElementById('streets');
-  if (!section) return;
-  const controls = document.createElement('div');
-  controls.className = 'controls street-length-controls';
-  controls.setAttribute('aria-label', 'Road sample length');
-  const groups = [];
-  for (const [size, label, param, defaultLength] of [
-    ['minor', 'Road length (m)', 'roadLength', 100],
-    ['path', 'Path length (m)', 'pathLength', 60],
-  ]) {
-    const previews = [...section.querySelectorAll(`#roads-${size} article > figure > svg`)].map(svg => {
-      const box = svg.viewBox.baseVal;
-      const line = svg.querySelector('path[stroke="#786955"]');
-      // Keep the road centred while removing half the surrounding ground.
-      const height = box.height / 2;
-      return { svg, x: box.x, y: box.y + (box.height - height) / 2, width: box.width, height,
-        length: line.getTotalLength(), label: svg.getAttribute('aria-label') };
-    });
-    if (!previews.length) continue;
-    const maximum = Math.round(Math.min(...previews.map(p => p.length)) * 10) / 10;
-    const wrapper = document.createElement('label');
-    wrapper.textContent = `${label} `;
-    const input = document.createElement('input');
-    Object.assign(input, { id: `${size}-sample-length`, type: 'number', min: '21',
-      max: String(maximum), step: 'any', value: String(defaultLength) });
-    input.style.width = '7em';
-    wrapper.append(input);
-    controls.append(wrapper);
-    for (const preview of previews) {
-      preview.caption = document.createElement('span');
-      preview.svg.closest('figure').querySelector('figcaption').append(preview.caption);
-    }
-    groups.push({ input, previews, maximum, param, defaultLength, current: defaultLength });
-  }
-  if (!groups.length) return;
-  const reset = document.createElement('button');
-  reset.type = 'button';
-  reset.textContent = 'Reset length';
-  controls.append(reset);
-  const note = document.createElement('p');
-  note.textContent = 'Shorter lengths show the centre of each generated sample. Prop and lamp counts describe the full sample. Maximum length is the generated fixture; close-ups stay fixed.';
-  section.querySelector('.art-switch').after(controls, note);
+  const display = document.getElementById('show-art')?.closest('.controls');
+  if (!display) return;
+  const settings = document.createElement('section');
+  settings.className = 'review-settings';
+  settings.setAttribute('aria-label', 'Preview settings');
+  display.before(settings);
 
-  function normalise(value, group, fallback) {
-    if (value == null || String(value).trim() === '' || !Number.isFinite(Number(value))) return fallback;
-    return Math.max(Number(group.input.min), Math.min(group.maximum, Number(value)));
+  function group(title, nodes, view) {
+    const fieldset = document.createElement('fieldset');
+    const legend = document.createElement('legend');
+    legend.textContent = title;
+    fieldset.append(legend, ...nodes.filter(Boolean));
+    if (view) fieldset.dataset.settingsView = view;
+    settings.append(fieldset);
+    return fieldset;
   }
-  function show(group, length) {
-    group.current = length;
-    group.input.value = String(length);
-    for (const p of group.previews) {
-      const full = length === group.maximum;
-      const width = full ? p.width : length;
-      p.svg.setAttribute('viewBox', `${p.x + (p.width - width) / 2} ${p.y} ${width} ${p.height}`);
-      p.svg.style.aspectRatio = `${width} / ${p.height}`;
-      p.svg.setAttribute('aria-label', `${p.label} · ${length} m${full ? '' : ' central crop'}`);
-      p.caption.textContent = ` · ${length} m${full ? ' full sample' : ' central crop'}`;
+  group('Display', [display]);
+  const viewport = document.querySelector('.zone-size-controls');
+  viewport?.setAttribute('aria-label', 'Viewport size');
+  const viewportNote = document.createElement('p');
+  viewportNote.textContent = 'Roads and paths fit this window, up to the sample bounds.';
+  group('Viewport', [viewport, viewportNote], 'zones streets');
+
+  function roadSettings() {
+    const note = document.createElement('p');
+    note.textContent = 'Counts cover the full sample; close-ups stay fixed.';
+    const pavement = document.getElementById('restored-pavement')?.closest('label');
+    group('Road preview', [pavement, note], 'streets');
+    group('Road selection', [document.querySelector('.affinity-controls')], 'streets');
+    const floor = document.getElementById('ambient-floor')?.closest('label');
+    if (floor) group('Floor', [floor], 'ambient-layouts');
+    selectView();
+  }
+  function selectView() {
+    const active = document.querySelector('[data-view][aria-current="page"]')?.dataset.view || 'basic-zones';
+    for (const fieldset of settings.querySelectorAll('[data-settings-view]')) {
+      fieldset.hidden = !fieldset.dataset.settingsView.split(' ').includes(active);
     }
   }
-  function save() {
-    const url = new URL(location.href);
-    for (const group of groups) {
-      if (group.current === group.defaultLength) url.searchParams.delete(group.param);
-      else url.searchParams.set(group.param, String(group.current));
-    }
-    history.replaceState(history.state, '', url);
-  }
-  function readUrl() {
-    const params = new URL(location.href).searchParams;
-    for (const group of groups) show(group, normalise(params.get(group.param), group, group.defaultLength));
-  }
-  for (const group of groups) {
-    for (const event of ['input', 'change']) group.input.addEventListener(event, () => {
-      if (event === 'input' && (!group.input.validity.valid || group.input.value === '')) return;
-      show(group, normalise(group.input.value, group, group.current));
-      save();
-    });
-  }
-  reset.addEventListener('click', () => {
-    for (const group of groups) show(group, group.defaultLength);
-    save();
-  });
-  addEventListener('popstate', readUrl);
-  readUrl();
+  const style = document.createElement('style');
+  style.textContent = `
+    .review-settings{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,280px),1fr));gap:16px;margin:24px 0}
+    .review-settings fieldset{min-width:0;margin:0;padding:14px 16px;border:1px solid #405745;border-radius:10px;background:#172820}
+    .review-settings legend{padding:0 6px;font-weight:650;color:#b4c6b4}
+    .review-settings .controls{position:static;display:flex;flex-wrap:wrap;align-items:center;gap:12px 16px;margin:0;padding:0;background:none}
+    .review-settings label{display:inline-flex;align-items:center;gap:6px;max-width:100%}
+    .review-settings input[type=number]{width:6em}
+    .review-settings input[type=number],.review-settings select,.review-settings button{font:inherit;padding:6px 8px;border:1px solid #60836d;border-radius:6px;background:#263b2d;color:#e5ecdf}
+    .review-settings select{max-width:100%}
+    .review-settings button{cursor:pointer}
+    .review-settings p,.review-settings output{font-size:13px;line-height:1.5;color:#b4c6b4}
+    .review-settings p{margin:10px 0 0}
+    .review-settings output{flex-basis:100%}
+    .review-settings .art-switch{margin:12px 0 0}
+  `;
+  document.head.append(style);
+  addEventListener('hashchange', selectView);
+  selectView();
+  roadSettings();
 })();

@@ -25,6 +25,39 @@
     }
   }
   const advance = (s, ms) => { for (let t = 0; t < ms; t += 100) EnvironmentHazards.tick(s, Math.min(100, ms - t) / 1000); };
+  test('quicksand: standing and slow motion sink; actual speed at 1 m/s lifts the player', () => fixture((s, entries) => {
+    s.depth = 2; entries[0].depth = 2;
+    entries[0].grid[27] = WorldGen.T.SAND;
+    entries[0].caveAreas = { quicksand: new Set([27]) };
+    const step = (seconds, speed=0) => {
+      for(let t=0;t<Math.round(seconds*10);t++) {
+        s.playerM.x += speed*.1;
+        EnvironmentHazards.quicksandTick(s,.1);
+      }
+    };
+    step(2); assert.inRange(s._quicksand.amount,.499,.501); assert.eq(s.save.energy,100);
+    step(1,.5); assert.inRange(s._quicksand.amount,.749,.751);
+    step(1,1); assert.inRange(s._quicksand.amount,.249,.251, 'exact threshold rises');
+    step(1,1); assert.eq(s._quicksand.amount,0);
+    step(4); assert.eq(s._quicksand.amount,1); assert.eq(s.save.energy,100, 'no damage before fully sunk');
+    step(1); assert.lt(s.save.energy,100, 'full sink starts damage');
+    const energy=s.save.energy;
+    step(.2,1);assert.lt(s._quicksand.amount,1);assert.eq(s.save.energy,energy, 'rising stops damage');
+    s.playerM.y+=8;EnvironmentHazards.quicksandTick(s,.1);assert.eq(s._quicksand,null,'ordinary ground clears exposure');
+  }));
+  test('quicksand: mask, depth, flight and death gates prevent stale exposure', () => fixture((s, entries) => {
+    s.depth=entries[0].depth=2;entries[0].grid[27]=WorldGen.T.SAND;
+    entries[0].caveAreas={quicksand:new Set([27])};
+    EnvironmentHazards.quicksandTick(s,.1);assert.gt(s._quicksand.amount,0);
+    entries[0].caveAreas.quicksand.clear();EnvironmentHazards.quicksandTick(s,.1);assert.eq(s._quicksand,null,'ordinary sand is safe');
+    entries[0].caveAreas.quicksand.add(27);EnvironmentHazards.quicksandTick(s,.1);
+    s.depth=3;EnvironmentHazards.quicksandTick(s,.1);assert.eq(s._quicksand,null,'old floor mask cannot follow player');
+    s.depth=2;s.isDragonActive=()=>true;EnvironmentHazards.quicksandTick(s,.1);assert.eq(s._quicksand,null);
+    s.isDragonActive=()=>false;s.save.energy=0;EnvironmentHazards.quicksandTick(s,.1);assert.eq(s._quicksand,null);
+    s.save.energy=100;s._obstacleStep={liftPx:3};EnvironmentHazards.quicksandTick(s,.1);assert.eq(s._quicksand,null,'support stays above the sand');
+    s._obstacleStep=null;s.depth=0;EnvironmentHazards.quicksandTick(s,.1);assert.eq(s._quicksand,null,'surface is safe');
+  }));
+
   test('environment hazards: vent cycles repeat exact inactive warning active intervals', () => fixture(s => {
     s.depth = 3;   // poison, fire and paralysis vent from the third floor down
     const h = EnvironmentHazards.create(s, 'vent', { cellIX: 3, cellIY: 3 }, 'v', () => .5, 'fire');

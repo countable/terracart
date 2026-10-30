@@ -123,12 +123,23 @@ test('CROP_SPRITE: native 16px shrub retains its display footprint and clipped h
   assert.eq(CROP_SPRITE.shrub.looks.clipped.scale, 0.8);
 });
 
+test('saved red mushroom bushes use grove giant art and retain bush harvesting', () => {
+  const plant = { crop:'mushroom_bush', _streetArt:'red_mushroom', id:'existing-red-cap' };
+  const replacement = wildplantSprite(plant), grove = wildplantSprite({crop:'giant_mushroom'});
+  assert.eq(replacement.sheet, grove.sheet);
+  assert.eq(wildplantFrame(plant), wildplantFrame({crop:'giant_mushroom'}));
+  assert.eq(replacement.scale, grove.scale);
+  assert.eq(replacement.tint, grove.tint);
+  assert.eq(replacement.crop, 'mushroom_bush');
+  assert.eq(JSON.stringify(WILDPLANT_RULES.mushroom_bush.outputs), JSON.stringify([{id:'wood',qty:1},{id:'mushroom',qty:1}]));
+});
+
 test('selected plants expose valid surface frames and retain separate cave mushrooms', () => {
   assert.eq(CROP_SPRITE.longgrass.sheet, 'selected_longgrass');
   assert.eq(CROP_SPRITE.longgrass.frame, 0);
   assert.eq(CROP_SPRITE.longgrass.scale, 1.16 * 0.9);
   assert.eq(CROP_SPRITE.mushroom.sheet, 'selected_mushroom');
-  assert.eq(JSON.stringify(CROP_SPRITE.mushroom.frames), '[0,1]');
+  assert.eq(JSON.stringify(CROP_SPRITE.mushroom.frames), '[0]');
   assert.eq(JSON.stringify(CROP_SPRITE.mushroom.caveFrames), '[2,3]');
   const surface = new Set(), cave = new Set();
   for (let i = 0; i < 100; i++) {
@@ -137,7 +148,7 @@ test('selected plants expose valid surface frames and retain separate cave mushr
     surface.add(frame); cave.add(wildplantFrame({...p, _cave:true}));
     assert.eq(wildplantFrame(JSON.parse(JSON.stringify(p))), frame);
   }
-  assert.eq([...surface].sort().join(','), '0,1');
+  assert.eq([...surface].sort().join(','), '0');
   assert.eq([...cave].sort().join(','), '2,3');
 });
 

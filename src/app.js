@@ -6056,7 +6056,9 @@ class MapScene extends Phaser.Scene {
   // land on the fix; collapsed it is 0, because a body lying down has its
   // midsection where its feet were (see PLAYER_DOWNED_ROTATION).
   playerBodyDy() {
-    return Combat.playerDowned(this.save.energy) || this._playerSubmerged ? 0
+    if (Combat.playerDowned(this.save.energy)) return 0;
+    if (this._quicksandPose) return this._quicksandPose.dy;
+    return this._playerSubmerged ? 0
       : this.playerFeetNudgeY - Math.max(this._obstacleStep?.liftPx || 0,
         Conditions.flying(this.save) ? CONSUMABLE_SPEC.flight_potion.liftPx : 0);
   }
@@ -6067,8 +6069,8 @@ class MapScene extends Phaser.Scene {
     return Combat.playerDowned(this.save.energy) ? PLAYER_DOWNED_ROTATION : (this._obstacleLean || 0);
   }
 
-  // The waterline follows the body, not the camera. Only liquid sinks the
-  // body: long grass and hedges leave it standing (ObstacleStep's `covered`
+  // The waterline follows the body, not the camera. Liquid and quicksand sink
+  // the body: long grass and hedges leave it standing (ObstacleStep's `covered`
   // is foliage, not a waterline). Crop in frame coordinates
   // so walking directions and heading-up counterrotation keep the upper half.
   // This is a pose only: movement, reach and world sorting keep the same feet.
@@ -6091,12 +6093,27 @@ class MapScene extends Phaser.Scene {
           || (tar && (!fire || GroundFire.active(fire, Date.now())));
       }
     }
-    this._playerSubmerged = submerged;
+    const sand = this._quicksand;
+    const sinking = !airborne && !Combat.playerDowned(this.save.energy)
+      && !(this._obstacleStep?.liftPx > 0)
+      && sand?.amount > 0 && sand.depth === this.depth && this.startWorldM && this.playerM
+      && EnvironmentHazards.quicksandAt(this, this.cellAt(playerWorldM(this).x, playerWorldM(this).y));
+    this._quicksandPose = null;
+    if (sinking && this.player) {
+      const frame = this.player.frame;
+      // Four source rows retain the hat tip even in the lowest walking frame.
+      const ratio = Math.min(.5, EnvironmentHazards.CONFIG.quicksand.hatPixels / frame.realHeight);
+      const height = frame.realHeight * (1 - sand.amount * (1 - ratio));
+      const scaledHeight = this.player.displayHeight || frame.realHeight * (this.player.scaleY || 1);
+      this._quicksandPose = { height, dy: this.playerFeetNudgeY
+        + sand.amount * (scaledHeight * (.5 - ratio) - this.playerFeetNudgeY) };
+    }
+    this._playerSubmerged = submerged || !!this._quicksandPose;
     if (typeof Weather !== 'undefined') Weather.waterContact(this, weatherWater);
     if (!this.player) return;
-    if (submerged) {
+    if (submerged || this._quicksandPose) {
       const frame = this.player.frame;
-      this.player.setCrop(0, 0, frame.realWidth, frame.realHeight / 2);
+      this.player.setCrop(0, 0, frame.realWidth, this._quicksandPose?.height ?? frame.realHeight / 2);
     } else if (this.player.isCropped) this.player.setCrop();
   }
 

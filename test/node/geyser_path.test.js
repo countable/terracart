@@ -16,7 +16,12 @@
     for (const kind of kinds) {
       const a = dressing(kind), b = dressing(kind);
       assert.eq(JSON.stringify(a.vents), JSON.stringify(b.vents));
-      assert.gt(a.vents.length, 4);
+      assert.gt(a.vents.length, 1, kind+' retains multiple vents within occupied influence');
+      for(const p of [...a.vents,...a.objects.filter(o=>o.kind==='grove_shrine')]) {
+        const outsideX=Math.max(8*WorldGen.CELL_M-p.x,0,p.x-56*WorldGen.CELL_M);
+        assert.truthy(Math.hypot(outsideX,p.y-32*WorldGen.CELL_M)-1.5<=2*WorldGen.CELL_M,
+          kind+' hazards and shrine stay in the two-cell influence');
+      }
       assert.eq(new Set(a.vents.map(v => v.id)).size, a.vents.length);
       assert.truthy(a.vents.every(v => v.kind === kind && v._street === `${kind}_path`));
       const shrines = a.objects.filter(o => o.kind === 'grove_shrine');

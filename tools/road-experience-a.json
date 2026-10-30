@@ -1,0 +1,277 @@
+[
+  {
+    "id": "hedgerow",
+    "feeling": "A carefully kept lane feels reassuring until something moves behind the hedge.",
+    "arrival": "Straight hedge edges and white lamps frame clean paving, while rounded tree crowns hide the ground beyond.",
+    "art": [
+      "Keep the regular formal setts, clipped hedge row and white lamps just off the road.",
+      "Use rounded crowns on detected trees within three cells; keep the ground free of grass tufts.",
+      "Let the existing hedge art conceal the ambush approach without obscuring the road."
+    ],
+    "mechanics": [
+      {
+        "text": "A hedge ambush can emerge from behind the first verge row.",
+        "status": "existing"
+      },
+      {
+        "text": "Walking the route restores its paving.",
+        "status": "existing"
+      },
+      {
+        "text": "Give the occupied hedge a brief rustle before the ambush activates, so an attentive walker can prepare.",
+        "status": "proposed"
+      }
+    ],
+    "loop": "Enjoy the order, notice the rustle, clear the ambush, continue restoring."
+  },
+  {
+    "id": "overgrown",
+    "feeling": "Walking the road feels like moving through the life of a forest.",
+    "arrival": "Tiny seedlings give way to young pines, mature crowns, bare trunks and stumps, with a shrine beyond the last group.",
+    "art": [
+      "Keep one verge row with one empty cell between specimens and clearly distinct growth stages.",
+      "Use the existing pine, dead-tree and stump art; omit shrubs and extra tree rows.",
+      "Keep grass sparse and low so the sequence and final shrine remain readable."
+    ],
+    "mechanics": [
+      {
+        "text": "The generated row follows the growth-to-stump sequence and seats its shrine after the stumps.",
+        "status": "existing"
+      },
+      {
+        "text": "Plant guards and a wild-boar encounter interrupt the woodland walk; some streets also have a bear.",
+        "status": "existing"
+      },
+      {
+        "text": "Make the final shrine visibly brighten when the whole local sequence has been walked, using restoration progress as the trigger.",
+        "status": "proposed"
+      }
+    ],
+    "loop": "Follow the tree sequence, deal with wildlife, reach the shrine."
+  },
+  {
+    "id": "orchard",
+    "feeling": "Food within reach makes the lane inviting, but harvesting asks the player to lower their guard.",
+    "arrival": "Fruit catches the eye among rounded crowns immediately beside the road, with a farmer goblin farther along the row.",
+    "art": [
+      "Keep fruit trees and mature maples in the first verge row, with blocked seats left empty.",
+      "Make apples readable through foliage; reserve orange and Worldpeach colors for occasional trees.",
+      "Keep the current soft pink lamp glow restrained so it does not compete with the fruit colors."
+    ],
+    "mechanics": [
+      {
+        "text": "The lane supplies fruit trees, mostly apples with occasional oranges and Worldpeaches.",
+        "status": "existing"
+      },
+      {
+        "text": "Farmer-goblin guards make some harvesting stops contested.",
+        "status": "existing"
+      },
+      {
+        "text": "Use a brief fruit sparkle on harvestable trees, disappearing after collection, to make a worthwhile stop readable while walking.",
+        "status": "proposed"
+      }
+    ],
+    "loop": "Spot ripe fruit, check for a guard, harvest, move to the next tree."
+  },
+  {
+    "id": "pilgrim",
+    "feeling": "A quiet passage becomes a short, deliberate route-planning puzzle.",
+    "arrival": "A few smooth stones sit at uneven distances from the road, and the first lights when stepped on.",
+    "art": [
+      "Scatter the existing waystones across both two-cell verges instead of making a tidy border.",
+      "Keep churchyard ground, restrained conifers and pale lamps visually subdued.",
+      "Give active waystone glow enough contrast to read against the old stone ground."
+    ],
+    "mechanics": [
+      {
+        "text": "Step on the three to six waystones before their lights fade to complete the set.",
+        "status": "existing"
+      },
+      {
+        "text": "The completed set records its reward, so the same puzzle cannot be farmed repeatedly.",
+        "status": "existing"
+      },
+      {
+        "text": "Let active stones pulse faster as their remaining time runs low, communicating urgency without another timer panel.",
+        "status": "proposed"
+      }
+    ],
+    "loop": "Read the scattered layout, choose an order, keep every stone lit."
+  },
+  {
+    "id": "lantern",
+    "feeling": "The route feels like a continuous chain of small refuges after darker stretches.",
+    "arrival": "Closely spaced amber lamps lead the eye ahead before any other roadside object does.",
+    "art": [
+      "Use the existing dense lantern spacing and warm amber light as the main identity.",
+      "Keep paving and rounded trees muted so lamp silhouettes remain distinct.",
+      "Use the shipping lamp art consistently; avoid adding unrelated decorative props between every post."
+    ],
+    "mechanics": [
+      {
+        "text": "Lamps are placed more densely than on ordinary routes.",
+        "status": "existing"
+      },
+      {
+        "text": "Walking restores the route through the shared street-restoration system.",
+        "status": "existing"
+      },
+      {
+        "text": "Give each newly restored lamp a short warm ignition pulse, making forward progress visible down the chain.",
+        "status": "proposed"
+      }
+    ],
+    "loop": "Follow the lights and leave a visibly restored trail behind."
+  },
+  {
+    "id": "burned",
+    "feeling": "Every unnecessary pause feels costly on a road that is still burning.",
+    "arrival": "Orange seams glow between black stones, with tar, stakes and a fire-slime guard interrupting the way ahead.",
+    "art": [
+      "Preserve the ember cracks in dark paving so danger reads from the ground itself.",
+      "Use bare trees, scorched debris and sparse red-orange lights.",
+      "Keep ember brightness separate from ordinary lantern glow so the damaging surface is unmistakable."
+    ],
+    "mechanics": [
+      {
+        "text": "The hot road damages grounded players through the shared hazard system.",
+        "status": "existing"
+      },
+      {
+        "text": "Tar, stakes and a fire-slime guard create obstacles along the stretch.",
+        "status": "existing"
+      },
+      {
+        "text": "Place a small visibly cool rest pocket at each end, giving players a clear place to prepare and recover before crossing.",
+        "status": "proposed"
+      }
+    ],
+    "loop": "Prepare on safe ground, cross decisively, deal with the guard, recover beyond the heat."
+  },
+  {
+    "id": "barricade",
+    "feeling": "The road feels occupied, and opening it becomes a small act of reclamation.",
+    "arrival": "Upright torch flames reveal wooden barriers across the route, with scattered stakes in the broad dirt verges.",
+    "art": [
+      "Use upright open-flame torch posts, rough timber barriers and iron stakes.",
+      "Keep dirt three cells deep and scatter rocks and planks without creating neat rows.",
+      "Use bare trees and subdued paving so barriers and gaps remain the clearest shapes."
+    ],
+    "mechanics": [
+      {
+        "text": "Barricades cross the route and extend into its verges; goblins guard the area.",
+        "status": "existing"
+      },
+      {
+        "text": "A Trap Kit removes individual barrier pieces.",
+        "status": "existing"
+      },
+      {
+        "text": "Give the final piece blocking a continuous passage a distinct break sound and brief dust burst, marking the moment the road opens.",
+        "status": "proposed"
+      }
+    ],
+    "loop": "Assess the blockage, clear the defenders, open a passage."
+  },
+  {
+    "id": "toadstool",
+    "feeling": "The lane invites curious foraging while making every large clump a possible hiding place.",
+    "arrival": "Small caps lead toward thicker mushroom clumps and an occasional giant, with warm light catching their spots.",
+    "art": [
+      "Use the approved mushroom replacements 02→01 and 09→07.",
+      "Keep small pickups common, medium clumps clearly bush-sized, and giants occasional.",
+      "Retain damp ground and orange lamps; separate mushroom silhouettes from the rounded tree canopy."
+    ],
+    "mechanics": [
+      {
+        "text": "Small mushrooms can be collected; medium mushroom bushes use bush chopping and cover.",
+        "status": "existing"
+      },
+      {
+        "text": "Spider guards make dense fungal patches worth checking before entering.",
+        "status": "existing"
+      },
+      {
+        "text": "Let disturbed medium clumps shed a brief harmless spore puff, making harvesting and an approaching creature readable through the cover.",
+        "status": "proposed"
+      }
+    ],
+    "loop": "Collect small caps, inspect the cover, chop a clump or skirt the danger."
+  },
+  {
+    "id": "promenade",
+    "feeling": "The open water makes continuing along the path feel rewarding in itself.",
+    "arrival": "The land opens on one side, and warm paving leads along the visible shoreline toward a vista.",
+    "art": [
+      "Keep the water-facing edge open and reserve conifers for the landward side.",
+      "Use sandy-gold paving and warm lamps against the existing water art.",
+      "Place the vista chest where the shore remains visible rather than hiding it behind decorative clutter."
+    ],
+    "mechanics": [
+      {
+        "text": "Qualifying shoreline stretches grant double first-restoration credit.",
+        "status": "existing"
+      },
+      {
+        "text": "Eligible scenic stretches can place a one-time vista chest.",
+        "status": "existing"
+      },
+      {
+        "text": "Use a subtle glint from the vista chest when it first enters view, encouraging a short shoreward detour without a quest marker.",
+        "status": "proposed"
+      }
+    ],
+    "loop": "Follow the shoreline, restore new ground, step aside for the vista reward."
+  },
+  {
+    "id": "greenway",
+    "feeling": "A living corridor makes the player want to slow down and watch the verge.",
+    "arrival": "Low branches frame the path, and a deer appears between the rounded crowns and grass.",
+    "art": [
+      "Use rounded mossy trees and low hanging canopy shapes already in the theme.",
+      "Keep deer silhouettes visible through gaps rather than burying them in dense ground cover.",
+      "Use restrained green lamps and small grass patches without introducing shoreline scenery."
+    ],
+    "mechanics": [
+      {
+        "text": "Deer are seeded along qualifying greenway paths.",
+        "status": "existing"
+      },
+      {
+        "text": "Scenic greenway stretches grant increased first-restoration credit and can hold a one-time vista chest.",
+        "status": "existing"
+      },
+      {
+        "text": "Let nearby deer briefly look toward a slow or stationary player before resuming their existing behavior, rewarding attention without another collectible.",
+        "status": "proposed"
+      }
+    ],
+    "loop": "Follow the green corridor, notice wildlife, continue toward the next opening."
+  },
+  {
+    "id": "parkpath",
+    "feeling": "Small signs of former care make this path feel worth bringing back.",
+    "arrival": "Old paving remains visible beneath weeds and leaves, with a soft lamp marking the next bend.",
+    "art": [
+      "Keep the existing park ground, rounded shade trees and restrained green-white lamps.",
+      "Concentrate leaves and weeds at paving edges so the route remains legible.",
+      "Use the current white-flower accents sparingly to suggest a surviving garden rather than dense wild forest."
+    ],
+    "mechanics": [
+      {
+        "text": "Qualifying park paths grant increased first-restoration credit.",
+        "status": "existing"
+      },
+      {
+        "text": "Eligible scenic stretches can place a one-time vista chest.",
+        "status": "existing"
+      },
+      {
+        "text": "Fade the leaf-and-weed edge clutter back locally as paving is restored, giving this route a clear before-and-after payoff with existing art.",
+        "status": "proposed"
+      }
+    ],
+    "loop": "Follow the neglected path and watch its shape return as you walk."
+  }
+]

@@ -30,6 +30,20 @@
     assert.falsy(s._playerSubmerged); assert.falsy(s.player.isCropped);
     assert.eq(method('playerBodyDy').call(s), -9);
   }));
+  test('quicksand pose: crop and body descend progressively to the hat, then reset on exit', () => fixture((s,c,e,update) => {
+    s.depth=e.depth=2;c.type=WorldGen.T.SAND;e.caveAreas={quicksand:new Set([5])};
+    s.player.displayHeight=24;
+    let previousHeight=16,previousDy=-9;
+    for(const amount of [.25,.5,1]) {
+      s._quicksand={depth:2,amount};update.call(s);
+      assert.lt(s.player.crop[3],previousHeight);previousHeight=s.player.crop[3];
+      const dy=method('playerBodyDy').call(s);assert.gt(dy,previousDy);previousDy=dy;
+      assert.eq(s.playerM.x,2);assert.eq(s.playerM.y,3,'pose never changes world feet');
+    }
+    assert.eq(s.player.crop[3],4,'only four source rows remain at the hat tip');
+    e.caveAreas.quicksand.clear();update.call(s);assert.falsy(s.player.isCropped);assert.eq(method('playerBodyDy').call(s),-9);
+  }));
+
   test('sewer water: underground movement permits wading without relaxing spawn safety', () => {
     const blocked = method('_cellBlocked');
     for (const depth of [0, 1, 2, 7]) {

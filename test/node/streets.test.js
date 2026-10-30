@@ -142,8 +142,8 @@
     near(S.pointAtM(dup, MVT_TO_M, 0, 4).x, 10, 1e-9, 'a zero-length segment is not divided by');
   });
 
-  test('streets lamps: boundary offset is half the drawn road width', () => {
-    near(S.lampOffsetM(5.5), 5.5 / 2, 1e-9, 'the post stands on the boundary');
+  test('streets lamps: posts clear the drawn road edge by half a metre', () => {
+    near(S.lampOffsetM(5.5), 5.5 / 2 + 0.5, 1e-9, 'the post clears the boundary');
     assert.truthy(S.lampOffsetM(12) > S.lampOffsetM(2), 'wider roads put the boundary further out');
     for (const width of [0, undefined, NaN, -4]) assert.eq(S.lampOffsetM(width), 0);
   });

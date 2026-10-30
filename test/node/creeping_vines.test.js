@@ -39,4 +39,29 @@
     assert.eq(wildplantRule(p.crop).workRelic,'axe');assert.eq(wildplantRule(p.crop).output,'wood');
     assert.falsy(wildplantRule(p.crop).nest);
   }));
+  test('road-seeded vines stay on their influence and preserve its identity after regrowth',()=>fixture((s,e)=>{
+    const variant='paralysis_path';
+    e.wildplants[0]._street=variant;
+    e.streetIndex={extent:N,dressingLines:[{key:'vine-road',variant,size:'minor',halfW:cellM/2,
+      line:[{x:1.5,y:6.5},{x:14.5,y:6.5}]}]};
+    const painted=W.runSteps(StreetVariants.paintTerrainSteps({index:e.streetIndex,grid:e.grid,N,spawnWhy:e.spawnWhy}));
+    for(let i=0;i<12;i++)advance(s);
+    assert.gt(s.save.creepingVines.length,2,'growth continues along available influence cells');
+    for(const p of s.save.creepingVines) {
+      const at=worldMetersToTileCell(s,p.x,p.y);
+      assert.eq(p._street,variant,'descendants retain their source road');
+      assert.truthy(painted[at.iy*N+at.ix],'growth remains on the painted influence');
+    }
+    e.wildplants=e.wildplants.slice(0,1);delete e._vineSave;
+    CreepingVines.tick(s,.1);
+    assert.truthy(e.wildplants.every(p=>p._street===variant),'saved growth retains its road identity');
+  }));
+  test('road vine with blocked influence cannot grow into free land beyond its edge',()=>fixture((s,e)=>{
+    e.wildplants[0]._street='paralysis_path';
+    e.streetIndex={extent:N,dressingLines:[{key:'blocked-vine-road',variant:'paralysis_path',size:'minor',halfW:cellM/2,
+      line:[{x:1.5,y:6.5},{x:14.5,y:6.5}]}]};
+    for(const [x,y] of [[59.5,52.5],[66.5,59.5],[52.5,59.5]])e.objects.push({x,y,id:'blocked-'+x+'-'+y});
+    advance(s);
+    assert.eq(e.wildplants.length,1,'free cell outside the influence is refused');
+  }));
 })();

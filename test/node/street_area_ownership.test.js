@@ -54,7 +54,7 @@
       for (let d = -1; d <= 1; d++) assert.truthy(at(diagonal, x, x + d), `diagonal verge ${x},${x + d}`);
     }
     // Its centreline never enters this tile, but its band still owns rows
-    // 0-2: the claim reaches TERRAIN_VERGE_CELLS (two cells) past the band.
+    // 0-3: the hedged lane claims its three-cell influence past the band.
     const outside = StreetVariants.area(index(
       { x: p(0, 0).x, y: -0.4 * E / N },
       { x: p(N - 1, 0).x, y: -0.4 * E / N }), N);
@@ -62,7 +62,8 @@
       assert.truthy(at(outside, x, 0));
       assert.truthy(at(outside, x, 1));
       assert.truthy(at(outside, x, 2));
-      assert.falsy(at(outside, x, 3));
+      assert.truthy(at(outside, x, 3));
+      assert.falsy(at(outside, x, 4));
     }
   });
 
