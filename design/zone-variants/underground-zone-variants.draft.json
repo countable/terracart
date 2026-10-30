@@ -906,10 +906,10 @@
       "kind": "nexus",
       "name": "Underground Spring Cave",
       "slots": [],
-      "atmosphere": "The spring rises at the centre of a pool. A clear bank circles the water, followed by a ring of cave mushrooms and an outer ring of mineable stone. Four openings connect the rings to the surrounding cave.",
-      "poi": "Central source supplies one surrounding pool. Any surviving mirrored cache sits on dry ground.",
-      "connection": "Concentric water, clear bank, mushroom ring and outer stone ring, with four radial approaches. No bridge across the pool is required.",
-      "monsters": "Six hidden, dormant Skeletons in dry pockets around the spring. They appear and wake only when you walk within one cell. Authored spring encounters on levels 1 and 2; no visible slime patrol.",
+      "atmosphere": "A spring pool surrounded by a clear bank, mushrooms and mineable stone, with four open approaches.",
+      "poi": "One spring pool; surviving cache on dry ground.",
+      "connection": "Four approaches connect the bank, mushroom ring and stone ring.",
+      "monsters": "Six dormant skeletons in dry pockets; they reveal within one cell.",
       "source": "Beneath grove nexuses only; exclude surface seep and quarry regions. wet and wooded affinities.",
       "layout": {
         "type": "concentric_rings",
@@ -990,9 +990,9 @@
         "hidden": true,
         "dormant": true,
         "revealDistanceCells": 1,
-        "countPolicy": "Six fixed dormant skeleton seats in this reference spring; finite once per region and depth. Hidden seats are not extra ambient spawns.",
-        "activation": "Reveal and wake only when player distance is at most one cell (Euclidean world distance <= cellM). No movement, targeting, attack, visible body or health marker before proximity activation. Reveal remains latched; preserve defeated IDs and do not respawn on tile reload.",
-        "mechanicStatus": "Main pulled at f119a723. General hidden-until-proximity enemy mechanic is not present there; visible ghost proximityCells is not equivalent. Reuse the shared hidden/disguise mechanic when it lands, with revealDistanceCells=1 and no prop disguise, rather than adding a spring-specific AI path."
+        "countPolicy": "Six fixed, finite skeletons per region and depth.",
+        "activation": "Reveal within one cell; remain revealed and preserve defeats.",
+        "mechanicStatus": "Shared proximity reveal is implemented in HiddenObjects."
       }
     },
     {
@@ -1019,10 +1019,10 @@
           "material": "rock"
         }
       ],
-      "atmosphere": "Small 3\u00d73 stores, narrow 3\u00d75 rooms and larger 5\u00d75 chambers form an enclosed network. Barrel stacks occupy room corners, leaving door approaches and the Ember shrine clear.",
-      "poi": "Ember altar inside a small inner room grants the existing fireball boon. One surviving mirrored cache stays inside the warren; shrine boon replaces the shrine gift.",
-      "connection": "Vary room width and depth independently across offset rows: 3\u00d73 to 5\u00d75 interiors, including narrow rectangles. Connect shared-wall doors into loops; reserve entrance, exit, stairs and shrine approaches before fitting corner stores.",
-      "monsters": "A populated goblin den: about one goblin per two rooms on level 1 (12 in this sample), rising to 16 on level 2. Club goblins on level 1; club and spear goblins on level 2. Spread groups among rooms instead of piling them at the shrine.",
+      "atmosphere": "Rooms from 3 \u00d7 3 to 5 \u00d7 5 cells, with corner barrels, open doors and an Ember shrine.",
+      "poi": "Ember altar grants fireball instead of a shrine gift. Keep at most one surviving cache.",
+      "connection": "Connect varied rooms into loops. Keep entrances, stairs, doors and shrine approaches clear.",
+      "monsters": "Study: 12 club goblins on level 1; 16 club and spear goblins on level 2, spread among rooms.",
       "source": "Beneath grove nexuses only; exclude surface seep and quarry regions. worked and built-edge affinities.",
       "walls": {
         "sheet": "stronghold_wall",
@@ -2023,7 +2023,7 @@
           "1": 12,
           "2": 16
         },
-        "countPolicy": "Representative 25-room warren: 12 goblins on level 1 and 16 on level 2. Scale by usable room count, capped once per region and depth; omit blocked seats."
+        "countPolicy": "Study: 12 goblins on level 1; 16 on level 2. Scale by usable rooms, cap per region and omit blocked seats."
       }
     },
     {
@@ -2072,12 +2072,12 @@
         }
       ],
       "shrineKind": "toad_idol",
-      "atmosphere": "Beds of the two underground mushroom varieties surround a clear Toad shrine court. Open lanes divide the beds and connect to cave paths; no surface mushroom caps appear here.",
-      "poi": "Toad idol grants its existing Mending regeneration boon. At most one surviving mirrored cache; mushroom harvests replace ordinary cave mushroom seats.",
-      "connection": "Clear central court and four open approaches. Harvestable beds remain outside the walking lanes.",
-      "monsters": "Mushroom Monsters occupy the gaps between fungal beds: eight in this reference cavern, with a target of at least twice the surface mushroom-monster density for equal usable area. Both cave levels 1 and 2 use this authored encounter pool.",
+      "atmosphere": "Two cave mushroom varieties surround an open Toad shrine court and four walking lanes.",
+      "poi": "Toad idol grants Mending. Keep at most one surviving cache; harvests replace ordinary mushroom seats.",
+      "connection": "Four clear approaches; mushroom beds outside walking lanes.",
+      "monsters": "Study: eight Mushroom Monsters between beds; target at least twice the surface density for equal usable area.",
       "source": "Beneath grove nexuses only; exclude surface seep and quarry regions. wooded, shaded and damp affinities.",
-      "artNote": "Only the two caveFrames from the game mushroom registry; no surface mushroom or giant-mushroom sprites.",
+      "artNote": "Uses the two cave mushroom frames.",
       "depths": [
         1,
         2
@@ -2149,13 +2149,13 @@
         "surfaceReference": "mushroom_grove",
         "surfaceDensityMultiplier": 2,
         "minimumPerStandardRegion": 8,
-        "countPolicy": "At equal usable area, target max(8 per 25\u00d725-cell reference region, twice the configured surface mushroom-monster count). Eight shown; omit blocked seats. This is a proposed zone population, not measured surface density."
+        "countPolicy": "Study target: at least eight per 25 \u00d7 25 region, or twice the surface count at equal area. Omit blocked seats."
       }
     },
     {
-      "poi": "Each registered deposit yields exactly one pictured gem, using its shared pick requirement, mining energy and mined-rock ledger. Amethyst, Topaz and Rose Quartz now have item, icon, tier and price definitions. Zone placement remains a design proposal.",
+      "poi": "One pictured gem per deposit, using shared mining rules.",
       "monsters": "D1: cave slime / bat; D2: cave slime / bat / spider.",
-      "artNote": "Seven gem frames are catalogued; preview selection is restricted to gemTier <= depth. D1 uses rose quartz; D2 uses rose quartz and amethyst. Higher-tier palette slots resolve to eligible gems before rendering.",
+      "artNote": "Study gems: rose quartz on D1; rose quartz and amethyst on D2.",
       "id": "gemstone_cavern",
       "kind": "nexus",
       "name": "Gemstone Cavern",
@@ -2229,9 +2229,9 @@
         }
       ],
       "source": "Beneath grove nexuses only; exclude surface seep and quarry regions. exposed rock and stony-ground affinities.",
-      "atmosphere": "Depth-eligible gems gather among quarry stone around an open chamber: rose quartz on D1, rose quartz and amethyst on D2.",
-      "connection": "Four clear approaches and a central court. Mixed mineral pockets occupy the edges; preserve any surviving mirrored cache on reachable floor.",
-      "depthNote": "Cave levels 1 and 2 only. Only show and yield gems with gemTier <= depth: D1 rose quartz, D2 rose quartz and amethyst. Higher tiers remain unavailable until their matching depth; finite budgets and mining rules still need runtime integration.",
+      "atmosphere": "Gem pockets and quarry stone surround an open chamber.",
+      "connection": "Four clear approaches, edge deposits and a reachable surviving cache.",
+      "depthNote": "Study: levels 1 and 2, with gem tier capped at depth.",
       "depths": [
         1,
         2
@@ -2308,11 +2308,11 @@
       "showCache": false,
       "centralReserveCells": 0,
       "source": "Beneath surface quarry regions only, using their stable generated quarry anchor and original coverage.",
-      "atmosphere": "A simple ore-rich deposit cut by clear cave passages. Dense metal-ore pockets and quarry stone line the tunnels; there are no buildings or temple chambers.",
-      "poi": "Mine finite ore deposits appropriate to the floor tier; preview shows depth 2 copper. The quarry anchor owns one depth-qualified deposit budget. No added shrine, temple, cache or surface quarry first-rock reward.",
-      "connection": "Fit ore pockets around existing walkable cave routes and stairs within quarry coverage. House and md_road/lg_road footprints stay rock walls; eligible sm_road streets may connect deposits.",
-      "monsters": "Existing depth-legal cave encounters only; no additional authored guards.",
-      "artNote": "Game floor-tier ore plus the same broken and worked stone variants as the surface quarries. No new art required.",
+      "atmosphere": "Ore pockets and quarry stone line open cave passages.",
+      "poi": "One finite ore budget per quarry and depth; depth 2 copper shown. No extra shrine or cache.",
+      "connection": "Fit deposits around walkable routes and stairs. Preserve building and major-road walls.",
+      "monsters": "Depth-eligible cave encounters; no extra guards.",
+      "artNote": "Game ore and surface quarry stone.",
       "depths": [
         1,
         2
@@ -2342,12 +2342,12 @@
           "material": "game_mushroom"
         }
       ],
-      "atmosphere": "Harvestable mushroom pockets frame an uninterrupted walking lane.",
+      "atmosphere": "Mushroom pockets frame a clear walking lane.",
       "poi": "No extra nexus or cache per route segment.",
-      "connection": "One-cell clear centre; follows actual path bends and junctions.",
-      "monsters": "Level-1/2-legal spring family; reallocate existing ambient seats.",
+      "connection": "One-cell clear centre following path bends and junctions.",
+      "monsters": "Study: spring-family enemies from the existing ambient budget.",
       "source": "All path classes on cave levels 1\u20132; including eligible sm_road streets. Wooded or spring surroundings favor this theme.",
-      "depthNote": "Cave levels 1 and 2 only. Apply a theme to all paths; md_road, lg_road and levels 3+ are excluded.",
+      "depthNote": "Study: paths and eligible small roads on levels 1 and 2.",
       "depths": [
         1,
         2
@@ -2393,17 +2393,17 @@
           "material": "rock"
         }
       ],
-      "atmosphere": "A few rocks break the surface of the seep channel and lie along its edges, with occasional cave mushrooms. Dry banks follow both sides, and crossings stay clear.",
-      "poi": "Scattered rocks use game mineral-rock art and existing finite cave-rock allocations; water rocks can be mined from the adjacent dry bank. No extra daily reward or cache.",
-      "connection": "Replace underground route floor with actual WATER tiles; keep one-cell dry banks on both sides and two-cell crossings at junctions, stairs and nexus approaches. Omit water rocks at crossings and reserve bank walking lanes before scattering rocks.",
-      "monsters": "One Gelatinous Cube haunts the waterway, moving along a dry bank and crossing. Authored zone encounter on cave levels 1 and 2; it does not spawn in impassable water.",
+      "atmosphere": "Sparse rocks and cave mushrooms along a water channel with dry banks and clear crossings.",
+      "poi": "Mine water rocks from a dry bank; use existing finite rock allocations. No extra cache.",
+      "connection": "One-cell banks and two-cell crossings at junctions, stairs and nexuses. Keep crossings clear.",
+      "monsters": "Study: one Gelatinous Cube on a reachable bank per route and depth.",
       "source": "All path classes on cave levels 1\u20132; including eligible sm_road streets. Wet or spring surroundings favor this theme.",
       "waterChannel": {
         "widthCells": 2,
         "crossingEveryCells": 12,
         "crossingWidthCells": 2
       },
-      "depthNote": "Cave levels 1 and 2 only. Apply a theme to all paths; md_road, lg_road and levels 3+ are excluded.",
+      "depthNote": "Study: paths and eligible small roads on levels 1 and 2.",
       "depths": [
         1,
         2
@@ -2423,7 +2423,7 @@
             "kind": "gelatinous_cube"
           }
         ],
-        "countPolicy": "One gelatinous cube per qualifying connected seep route and depth, not one per motif or tile segment. Place on reachable cave floor beside the channel."
+        "countPolicy": "One cube on reachable floor per connected route and depth."
       },
       "shrineChance": 0.5,
       "shrineKind": "wayfarer_post"
@@ -2501,14 +2501,14 @@
           "material": "floor_ore"
         }
       ],
-      "atmosphere": "A clear two-cell mine path runs between two-cell-wide working verges. Floor-tier metal ore, broken quarry rock, worked stone and depth-eligible gemstone pockets fill the side space, with charred stakes and parked ore carts.",
-      "poi": "Bonus metal ore follows the floor level tier; the illustration shows depth 2 copper. Gem pockets obey gemTier <= depth: D1 rose quartz, D2 rose quartz/amethyst; no shallow sapphire. Count finite finds once per canonical route and depth; carts use the existing container budget.",
-      "connection": "Dress both cells on each side of the two-cell path: six cells across in total. Keep the path, junctions and stairs clear; carts and mineable rocks occupy reachable side pockets.",
-      "monsters": "Level-1/2 cave family; no extra guard budget from route length.",
+      "atmosphere": "A two-cell path between ore, quarry stone, gems, charred stakes and carts.",
+      "poi": "Finite floor-tier ore and gems per route and depth; carts share the container budget. Depth 2 copper shown.",
+      "connection": "Two-cell path with two-cell verges. Keep junctions and stairs clear; make deposits reachable.",
+      "monsters": "Depth-eligible cave enemies; route length adds no guards.",
       "source": "All path classes on cave levels 1\u20132; including eligible sm_road streets. Mineral surroundings favor this theme.",
-      "artNote": "Reuse quarry-abandoned stone, quarry-strip-mine stone directly from the game materialFrames table, with depth-eligible cave gem frames. Floor ore keeps its own tier art. The game handcart stands in for a dedicated minecart sprite.",
+      "artNote": "Game quarry stone, floor-tier ore and gems; handcart used as a minecart proxy.",
       "vergeWidthCells": 2,
-      "depthNote": "Cave levels 1 and 2 only. Apply a theme to all paths; md_road, lg_road and levels 3+ are excluded.",
+      "depthNote": "Study: paths and eligible small roads on levels 1 and 2.",
       "depths": [
         1,
         2
@@ -2549,10 +2549,10 @@
           "material": "rock"
         }
       ],
-      "atmosphere": "Stone walls line a two-cell passage. Open doorways lead into narrow sentry and storage alcoves; supplies and optional traps stay out of the through lane.",
-      "poi": "Containers spend the parent region / route finite budget.",
-      "connection": "Two-cell central passage with stone-walled side alcoves and two-cell door openings.",
-      "monsters": "Goblin patrols: three shown along the passage. Club goblins on level 1; club and spear goblins on level 2. Allocate patrols once per connected route and depth.",
+      "atmosphere": "Stone walls and storage alcoves beside a clear two-cell passage.",
+      "poi": "Containers share the parent route or region budget.",
+      "connection": "Two-cell passage and doorways, with side alcoves.",
+      "monsters": "Study: three goblins per route and depth. Level 1: clubs; level 2: clubs and spears.",
       "source": "All path classes on cave levels 1\u20132; including eligible sm_road streets. Goblin Warrens proximity favors this theme.",
       "wallSlots": [
         [
@@ -2650,7 +2650,7 @@
         "mechanic": "Proposed blocking cave structure; no item drop or extra reward. Reuse the stone wall art, with topology chosen from surviving cardinal neighbors.",
         "placement": "Preserve open doorways, stairs and the through route; walls are structural and counted separately from harvestable objects."
       },
-      "depthNote": "Cave levels 1 and 2 only. Apply a theme to all paths; md_road, lg_road and levels 3+ are excluded.",
+      "depthNote": "Study: paths and eligible small roads on levels 1 and 2.",
       "depths": [
         1,
         2
@@ -2684,15 +2684,15 @@
             "kind": "club_goblin"
           }
         ],
-        "countPolicy": "A three-goblin patrol in this passage example. Route-owned patrol budget, not a new group per repeated motif or tile fragment."
+        "countPolicy": "Study: three goblins per connected route and depth."
       },
       "shrineChance": 0.5,
       "shrineKind": "wayfarer_post"
     },
     {
-      "poi": "Each registered deposit yields exactly one pictured gem, using its shared pick requirement, mining energy and mined-rock ledger. Amethyst, Topaz and Rose Quartz now have item, icon, tier and price definitions. Zone placement remains a design proposal.",
+      "poi": "One pictured gem per deposit, using shared mining rules.",
       "monsters": "D1: cave slime / bat; D2: cave slime / bat / spider.",
-      "artNote": "Seven gem frames are catalogued; preview selection is restricted to gemTier <= depth. D1 uses rose quartz; D2 uses rose quartz and amethyst. Higher-tier palette slots resolve to eligible gems before rendering.",
+      "artNote": "Study gems: rose quartz on D1; rose quartz and amethyst on D2.",
       "id": "gemstone_path",
       "kind": "path",
       "name": "Gemstone Path",
@@ -2766,9 +2766,9 @@
         }
       ],
       "source": "All path classes on cave levels 1\u20132; including eligible sm_road streets. Stony surroundings favor this theme.",
-      "atmosphere": "Depth-eligible gemstone seams line the passage: rose quartz on D1; rose quartz and amethyst on D2, separated by broken and worked quarry stone.",
-      "connection": "Two-cell clear middle with accessible crystal pockets at the edges. No extra cache per segment; roll one shrine at 50% per canonical route and depth.",
-      "depthNote": "Cave levels 1 and 2 only. Only show and yield gems with gemTier <= depth: D1 rose quartz, D2 rose quartz and amethyst. Higher tiers remain unavailable until their matching depth; finite budgets and mining rules still need runtime integration.",
+      "atmosphere": "Gem seams alternate with broken and worked quarry stone.",
+      "connection": "Two-cell clear centre with reachable edge deposits. Study: 50% shrine chance per route and depth.",
+      "depthNote": "Study: levels 1 and 2, with gem tier capped at depth.",
       "depths": [
         1,
         2
@@ -2817,12 +2817,12 @@
       "shrineChance": 0.5,
       "shrineKind": "wayfarer_post",
       "source": "Eligible sm_road footprints on cave levels 1 and 2; buildings and md_road/lg_road remain walls.",
-      "atmosphere": "Compact inactive vents, stalagmites and separate open holes together cover about 10% of eligible street floor. Hidden pits appear only beside or under the player.",
-      "poi": "50% chance of one route-owned shrine. Hole: falling story panel, 25% maximum-energy fall damage, then safe landing one floor below. Pit: surface-snare damage without descending.",
-      "connection": "Carve sm_road streets while preserving building/water exclusions, stairs, a clear through lane and hazard bypasses.",
+      "atmosphere": "Study: vents, stalagmites and holes cover 10% of free floor. Hidden pits reveal adjacent or underfoot.",
+      "poi": "Study: 50% shrine chance per route. Holes cost 25% maximum energy and drop one floor; pits use snare damage.",
+      "connection": "Keep a clear lane and hazard bypasses; preserve buildings, water and stairs.",
       "monsters": "Existing depth-legal cave encounter budget.",
       "depthNote": "D1 and D2 street variants; a D2 hole may land on ordinary D3 cave floor.",
-      "artNote": "Registered ground_hole, stalagmites and pit frames; dedicated compact inactive vent proposal."
+      "artNote": "Game hole, stalagmite and pit frames; candidate inactive vent."
     },
     {
       "id": "depth2_rock_scatter",
@@ -2898,11 +2898,11 @@
         }
       ],
       "source": "Ordinary non-suppressed D2 rock-scatter areas; beaches, commercial landcover and sm_road receive the proposed 2x gem spawn bonus.",
-      "atmosphere": "Sparse rose quartz and amethyst mix into existing ordinary rocks. Illustration emphasizes both eligible gems; actual replacement is 8% baseline and 16% in bonus areas.",
-      "poi": "Finite gems replace ordinary rock seats. Suppression, occupied cells, stairs and reserved routes still exclude placement.",
-      "connection": "Use ordinary reachable cave floor; this is a scatter example, not a new nexus chamber.",
+      "atmosphere": "Study: gems replace 8% of ordinary rocks, or 16% in bonus areas. Both eligible gems are emphasized here.",
+      "poi": "Finite gems replace eligible rock seats; keep occupied cells, stairs and routes clear.",
+      "connection": "Reachable cave-floor scatter.",
       "monsters": "Unchanged ordinary D2 cave population.",
-      "depthNote": "Level 2 only. Gem tiers 1 and 2; never topaz, sapphire, ruby, emerald or diamond here."
+      "depthNote": "Study: level 2, with rose quartz and amethyst."
     },
     {
       "id": "bone_gallery",
@@ -2963,9 +2963,9 @@
       ],
       "source": "25% of eligible small-road cave routes on levels 1 and 2; excluded from ordinary walking paths.",
       "atmosphere": "The floor is littered with bones. Perhaps you should go another way...",
-      "poi": "Search each cache once: 50% empty; 40% torch, rope or trap-disarm kit; 10% Scroll of Bones. Independent 25% skeleton disturbance. Opened and defeated states persist.",
-      "connection": "A compact cluster of 3\u20136 passable caches; preserve stairs and chest approaches. One cluster and defender per canonical route.",
-      "monsters": "One elite strongest eligible monster for the cave level, plus the independent cache skeleton rolls.",
+      "poi": "Search once: 50% empty, 40% supplies, 10% Scroll of Bones. Independent 25% skeleton chance; opened and defeated states persist.",
+      "connection": "One cluster of 3\u20136 passable caches per route; keep stairs and chest approaches clear.",
+      "monsters": "One elite of the strongest depth-eligible kind, plus cache skeleton rolls.",
       "encounters": {
         "extentCells": [
           6,
@@ -2980,11 +2980,11 @@
             "kind": "bat"
           }
         ],
-        "countPolicy": "One elite strongest depth-eligible defender per route; ordinary Bat art represents the level-1 guard here."
+        "countPolicy": "One elite of the strongest eligible kind per route; bat art represents the level-1 guard."
       },
       "shrineChance": 0.5,
       "shrineKind": "wayfarer_post",
-      "artNote": "Accepted bone-pile art is shipped as bone_cache; runtime clusters and one-time rewards are implemented."
+      "artNote": "Shipped bone_cache art and one-time rewards."
     },
     {
       "id": "dungeon_maze",
@@ -3006,10 +3006,10 @@
         "seed": 2718,
         "fill": "CAVE_WALL"
       },
-      "atmosphere": "A braided maze of mineable cave rock walls. Open spaces wind between the walls, and mining can create new routes.",
-      "poi": "At the grove focus, place either the usual shrine or one T3 treasure, never both. Reserve the focus and its approach before cave-wall fill; reuse the existing POI identity.",
-      "connection": "Fits the eligible nexus footprint in game. Preserve boundary, tile-seam, route and landmark access; open connecting passages through the wall mask when clipping separates floor cells. Thin areas retain fewer walls. Protected ground is never carved.",
-      "monsters": "Uses the current floor enemy roster in open interior cells and the persistent defeat ledger. The two previews illustrate floor-appropriate examples; actual kinds and seats are seeded per world cell.",
+      "atmosphere": "Mineable cave walls form a braided maze. Mining opens new routes.",
+      "poi": "One shrine or T3 treasure at the grove focus. Reserve its approach and reuse the POI identity.",
+      "connection": "Fit walls to the nexus; preserve access and landmarks. Reconnect corridors after clipping.",
+      "monsters": "Current floor roster with seeded seats and persistent defeats. Preview creatures are illustrative.",
       "focus": {
         "at": [
           17,
@@ -3032,7 +3032,7 @@
         ]
       },
       "status": "runtime",
-      "runtimeNote": "In game on floors 1 and 2. These previews show the reference wall pattern; live generation clips it to the nexus, reserves existing landmarks and connects separated corridors."
+      "runtimeNote": "In-game maze reference. Live generation fits it to the nexus and preserves access."
     }
   ],
   "previewNote": "Design-only layouts. Registered game art supplies rocks, gems, walls, shrines, stalagmites, holes and pit traps. Compact inactive poison vent is a new proposal asset; spring source remains an archived candidate. Minecart uses labeled handcart placeholder. Hidden pits are shown revealed only in annotated design previews.",

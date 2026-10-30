@@ -9,7 +9,7 @@ const read = (name) => fs.readFileSync(path.join(root, 'src', name + '.js'), 'ut
 const ctx = { addEventListener() {} };
 ctx.window = ctx;
 vm.createContext(ctx);
-for (const name of ['enemy_roster', 'enemy_spawns', 'util', 'polygon_geometry', 'coords', 'sprite_layout', 'art_atlas', 'selected_world_atlas', 'selected_item_art', 'ground_materials', 'assets', 'items', 'placed_floor', 'crops', 'chest_themes', 'loot', 'zone_variant_data', 'terrain', 'zone_variants', 'shrines', 'streets', 'street_variants', 'street_lights', 'street_signs', 'biome_profiles', 'habitat_spawns', 'macros', 'obstacle_step', 'interactables', 'quarry_layout', 'gameplay_tiers', 'worldgen', 'road_overlay', 'lighting', 'lairs', 'zones', 'environment_hazards', 'rogue_object_bounds', 'rogue_prop_profile', 'street_decoration_art', 'rogue_objects']) {
+for (const name of ['enemy_roster', 'enemy_spawns', 'util', 'polygon_geometry', 'coords', 'sprite_layout', 'art_atlas', 'selected_world_atlas', 'selected_item_art', 'ground_materials', 'assets', 'items', 'placed_floor', 'crops', 'chest_themes', 'loot', 'zone_variant_data', 'terrain', 'zone_variants', 'shrines', 'streets', 'street_variants', 'street_lights', 'street_signs', 'biome_profiles', 'habitat_spawns', 'macros', 'obstacle_step', 'interactables', 'quarry_layout', 'gameplay_tiers', 'conditions', 'combat', 'creature_ai', 'worldgen', 'road_overlay', 'lighting', 'lairs', 'zones', 'environment_hazards', 'rogue_object_bounds', 'rogue_prop_profile', 'street_decoration_art', 'rogue_objects']) {
   vm.runInContext(read(name), ctx, { filename: name + '.js' });
 }
 // Resolve the same installed profile as index.html, including generated textures.
@@ -46,7 +46,7 @@ vm.runInContext(shrineFooting[0] + ';globalThis.CELL_PX=SpriteLayout.CELL_PX;', 
 // Representative inputs omit placement metadata and IDs. Actual quarry
 // records export their art directly, retaining their seeded rock shape.
 const materialArtFields = ['kind', 'yieldTier', 'requiredTier', 'rockMaterial', 'deposit', 'caveVariant',
-  'rockStyle', 'rockTheme', 'zoneVariant', '_zoneObjectFrame', '_plantArt', '_objectArt', '_streetArt', '_smashed', 'barrelStyle', 'barrel', 'tier', 'sightBlocking', 'species', 'size', 'variant'];
+  'rockStyle', 'rockTheme', 'zoneVariant', '_zoneObjectFrame', '_plantArt', '_objectArt', '_streetArt', '_smashed', 'barrelStyle', 'barrel', 'tier', 'sightBlocking', 'species', 'size', 'variant', 'directions'];
 const materialArtKey = object => JSON.stringify(materialArtFields.map(field => object[field] ?? null));
 vm.runInContext(`globalThis.previewMaterialArt = object => {
   const scene = {save:{}, depth:0, textures:{exists:key => !!ASSETS[key],
@@ -90,7 +90,9 @@ if (process.argv.includes('--resolve-plant-art')) {
   process.exit(0);
 }
 if (process.argv.includes('--resolve-material-art')) {
-  process.stdout.write(JSON.stringify(ctx.previewMaterialArt(JSON.parse(fs.readFileSync(0, 'utf8')))));
+  const object = JSON.parse(fs.readFileSync(0, 'utf8'));
+  const art = object.kind === 'roadsign' ? await require('./preview_roadsign_bake.cjs')(root, object) : ctx.previewMaterialArt(object);
+  process.stdout.write(JSON.stringify(art));
   process.exit(0);
 }
 const painters = slice(read('textures'), 'function seededRand(', 'function drawGrassTex(') + '\n'

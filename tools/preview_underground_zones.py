@@ -177,21 +177,21 @@ def _spring_card(row,data,helpers):
     mix=collections.Counter(s['material'] for s in _spring_slots(row))
     counts=', '.join(f'{n} {m.replace("_"," ")}' for m,n in mix.items())
     layout=row['layout']
-    detail_rows=[('Source region',row['source']),('Depth','Cave levels 1 and 2 only; deeper floors retain ordinary caves.'),
-        ('Pattern','One concentric composition around the spring, not a repeating motif. Pool radius 3 cells; mushroom ring at 5 cells; rock ring at 8 cells.'),
+    detail_rows=[('Source region',row['source']),('Depth','Cave levels 1 and 2.'),
+        ('Pattern','Pool radius: 3 cells. Mushroom ring: 5 cells. Rock ring: 8 cells.'),
         ('POI / rewards',row['poi']),('Connection',row['connection']),('Monsters',row['monsters']),
         ('Hidden encounters',row['encounters']['activation']),
         ('Mechanic status',row['encounters']['mechanicStatus']),
-        ('Water','Pool surrounds the source. The water is impassable; a reachable dry bank circles it.'),
-        ('Placement','The clear bank and four radial openings take precedence over ring pieces. Pool and source share one POI identity; the cache stays dry.'),
-        ('Lighting','Existing cave and player light; water does not add a new light source.'),
-        ('Art','Game cave-floor and water textures, cave mushroom sprites and ordinary mineral-rock sprites. Only the spring-source prop is an archived candidate; bank and island outlines are preview geometry.')]
+        ('Water','Impassable pool with a dry bank.'),
+        ('Placement','Clear bank and four approaches. One spring POI; cache on dry ground.'),
+        ('Lighting','Cave and player light.'),
+        ('Art','Game textures and sprites; candidate spring prop; schematic banks and islands.')]
     dl=''.join(f'<dt>{html.escape(k)}</dt><dd>{html.escape(v)}</dd>' for k,v in detail_rows)
     return (f'<article id="underground-{row["id"]}"><header><small>Underground nexus · draft · concentric rings</small><h2>{html.escape(row["name"])}</h2></header>'
-        f'<p class="mix"><b>Spring → pool → clear bank → mushrooms → stone</b><br>{counts} before terrain clipping; water and POI counted separately.</p>'
+        f'<p class="mix"><b>Spring → pool → clear bank → mushrooms → stone</b><br>{counts} before clipping; excludes water and POI.</p>'
         f'<div class="visual"><figure>{_spring_sample(row,data,helpers)}<figcaption>Concentric spring chamber · four open approaches</figcaption></figure>'
         f'<figure class="detail">{_spring_sample(row,data,helpers,True)}<figcaption>Spring, pool and bank close-up<br>1 cell = 7 m</figcaption></figure></div>'
-        f'<p>Click a dry cell in either spring view to move the preview marker. Skeletons reveal only within one cell. <button type="button" data-reset-spring>Reset hidden skeletons</button></p><p>{html.escape(row["atmosphere"])}</p><dl>{dl}</dl></article>')
+        f'<p>Click dry ground to move the marker and reveal adjacent skeletons. <button type="button" data-reset-spring>Reset hidden skeletons</button></p><p>{html.escape(row["atmosphere"])}</p><dl>{dl}</dl></article>')
 
 
 def _sample(row, data, helpers, detail=False):
@@ -403,12 +403,12 @@ def _maze_card(row, data, helpers):
         views.append('<figure>'+svg+f'<figcaption>Floor {depth} · '+('shrine example' if reward=='shrine' else 'T3 treasure example')+'</figcaption></figure>')
     settings = 'types=configured&gx=34&gy=33&count=429&structure=100&distortion=0&variation=34&grouping=100&a=tree&b=none&c=none&d=none&e=none&points=false&guides=false&selection=density&inverted=false&clusterSize=true&decimation=0&mazeStep=3&loops=77&seed=2718&layouts=maze_braid&focus=maze_braid'
     details = [('Source region',row['source']),('Depth','Cave levels 1 and 2.'),
-               ('Pattern',f'34 × 33 cells · spacing 3 · loops 77% · seed 2718. {len(rocks)} mineable cave-wall terrain cells after reserving a 3 × 3 focus clearing. Cave rock wall occupies the reference’s tree cells; the complementary spaces remain open. Mining can connect enclosed spaces.'),
+               ('Pattern',f'34 × 33 cells · spacing 3 · loops 77% · seed 2718. {len(rocks)} mineable wall cells; 3 × 3 reward clearing. Mining opens enclosed spaces.'),
                ('POI / rewards',row['poi']),('Connection',row['connection']),('Monsters',row['monsters'])]
     dl = ''.join(f'<dt>{html.escape(k)}</dt><dd>{html.escape(v)}</dd>' for k,v in details)
     return (f'<article id="underground-{row["id"]}"><header><small>Underground park nexus · {"in game" if row.get("status") == "runtime" else "draft"} · braided maze</small><h2>{row["name"]}</h2></header>'
-            + '<div class="visual underground-depths" style="grid-template-columns:1fr 1fr">'+''.join(views)+'</div><p>Either reward alternative can occur on either floor. Cave-wall fill uses the linked maze; the grove focus is reserved first.</p>'
-            + f'<p>{html.escape(row.get("runtimeNote", ""))}</p><p>{html.escape(row["atmosphere"])}</p><p><a href="layout-lab.html#{html.escape(settings,quote=True)}">Open the source maze in Layout Lab</a></p><dl>{dl}</dl></article>')
+            + '<div class="visual underground-depths" style="grid-template-columns:1fr 1fr">'+''.join(views)+'</div><p>Either floor can contain a shrine or T3 treasure.</p>'
+            + f'<p>{html.escape(row.get("runtimeNote", ""))}</p><p>{html.escape(row["atmosphere"])}</p><p><a href="layout-lab.html#{html.escape(settings,quote=True)}">Open maze in Layout Lab</a></p><dl>{dl}</dl></article>')
 
 
 def underground_section(helpers, out):
@@ -431,29 +431,28 @@ def underground_section(helpers, out):
         coverage = len(row['slots']) / (mw*mh) * 100
         wall_text = f'; {len(_wall_cells(row,25,25))/625*100:.2f}% structural stone-wall footprint in overview' if row.get('walls') and row['kind']=='nexus' else f'; {len(row.get("wallSlots", []))/(mw*mh)*100:.2f}% structural stone-wall footprint' if row.get('walls') else ''
         mix_text = ', '.join(f'{count} {key.replace("_", " ")}' for key,count in mix.items())
-        details = [('Source region / route',row['source']),('Depth',row.get('depthNote','Cave levels 1 and 2 only; deeper floors retain ordinary caves.')),
-                   ('Pattern',f'{mw} × {mh} cells; {mix_text}. Nominal occupancy before clipping and reserved approaches.'),
+        details = [('Source region / route',row['source']),('Depth',row.get('depthNote','Cave levels 1 and 2.')),
+                   ('Pattern',f'{mw} × {mh} cells; {mix_text}. Before clipping and clear approaches.'),
                    ('POI / rewards',row['poi']),('Connection',row['connection']),('Monsters',row['monsters']),
-                   ('Lighting','Existing cave torches and player light. Additional glowing water or crystal art is not an enabled light source.'),
-                   ('Fauna','No new surface fauna underground.'),
-                   ('Art',('Existing Stronghold stone wall set; ' if row.get('walls') else '') + 'game rock, cave mushroom, barrel, chest, shrine and enemy sprites. Layouts and interactions are proposals.')]
+                   ('Lighting','Cave torches and player light.'),
+                   ('Art',('Existing Stronghold stone wall set; ' if row.get('walls') else '') + 'game sprites in proposed layouts.')]
         if row.get('walls'):
-            details.append(('Stone walls', 'Stronghold stone wall set; connected straight, corner, junction and end frames. Structural cave walls, not reward-bearing props. Doorways and through lanes stay open.'))
+            details.append(('Stone walls', 'Connected Stronghold walls with open doors and passages.'))
         if row.get('encounters'):
             details.append(('Encounter population',row['encounters']['countPolicy']))
         if row.get('shrineKind'):
             shrine=helpers['art_registry']()['shrineKinds'][row['shrineKind']]
-            details.append(('Shrine', f'{shrine["name"]} · {shrine.get("boon", shrine.get("lever", "Blessing"))}; existing daily boon replaces the shrine gift. One stable shrine identity per region and depth.'))
+            details.append(('Shrine', f'{shrine["name"]} · {shrine.get("boon", shrine.get("lever", "Blessing"))}; daily boon, one shrine per region and depth.'))
         if row.get('shrineChance'):
-            details.append(('Route shrine chance', '50% once per canonical connected route and depth, including existing path themes. The preview shows a qualifying route.'))
+            details.append(('Route shrine chance', 'Draft: 50% per route and depth. Shown here with a shrine.'))
         if any(slot['material'] == 'hidden_pit' for slot in row['slots']):
-            details.append(('Hidden pit preview', 'Click a cell next to or on a pit to reveal it. Pits remain discovered in this preview until reload.'))
+            details.append(('Hidden pit preview', 'Click beside or on a pit to reveal it until reload.'))
         if row.get('scatterCoverage'):
-            details.append(('Hazard scatter', '10% combined coverage on eligible floor, after reserved lanes and occupied cells. Inactive poison vents, stalagmites and separate fall-through holes.'))
+            details.append(('Hazard scatter', 'Draft: 10% of free floor for poison vents, stalagmites and holes.'))
         if row.get('artNote'):
             details.append(('Art note', row['artNote']))
         if row.get('layout',{}).get('type') == 'rooms':
-            details[2] = ('Pattern','Room interiors range from 3 × 3 to 5 × 5 cells, excluding walls. This 25 × 25 cell sample fits 25 adjoining rooms with offset partitions, narrow rectangles and open door gaps. Barrels sit in room corners, clear of door approaches; the Ember shrine occupies an inner room.')
+            details[2] = ('Pattern','25 rooms in 25 × 25 cells; interiors 3 × 3 to 5 × 5. Open doorways, corner barrels and an inner Ember shrine.')
         dl=''.join(f'<dt>{html.escape(k)}</dt><dd>{html.escape(v)}</dd>' for k,v in details)
         views = [(depth,_sample(_at_depth(row,data,depth),data,helpers)) for depth in row.get('depths',[1,2])]
         overview = views[0][1]
@@ -465,20 +464,14 @@ def underground_section(helpers, out):
         close='Nexus close-up' if row['kind']=='nexus' else 'Passage close-up'
         motif_label = 'generated rooms' if row.get('layout',{}).get('type') == 'rooms' else f'{mw} × {mh} motif'
         coverage_label = '10% hazard scatter + ' + f'{coverage:.2f}% motif objects' if row.get('scatterCoverage') else f'{coverage:.2f}% object occupancy{wall_text}'
-        cards[row['kind']].append(f'<article id="underground-{row["id"]}"><header><small>Underground {row["kind"]} · draft · {motif_label}</small><h2>{html.escape(row["name"])}</h2></header>{story_panel(row, helpers)}<p class="mix"><b>{coverage_label}</b><br>{html.escape(mix_text)}; nexus and encounter seats counted separately.</p><div class="visual underground-depths" style="grid-template-columns:1fr 1fr">{depth_views}</div><p>{html.escape(row["atmosphere"])}</p><dl>{dl}</dl></article>')
+        cards[row['kind']].append(f'<article id="underground-{row["id"]}"><header><small>Underground {row["kind"]} · draft · {motif_label}</small><h2>{html.escape(row["name"])}</h2></header>{story_panel(row, helpers)}<p class="mix"><b>{coverage_label}</b><br>{html.escape(mix_text)}; excludes nexus and encounter seats.</p><div class="visual underground-depths" style="grid-template-columns:1fr 1fr">{depth_views}</div><p>{html.escape(row["atmosphere"])}</p><dl>{dl}</dl></article>')
     # Keep the reviewed design alongside the preview without enabling it in runtime data.
     (out/'underground-zone-variants.draft.json').write_text(json.dumps(data,indent=2)+'\n')
     (out/'underground-art-license.txt').write_text((ROOT/'docs/art/underground-proposals/LICENSE.txt').read_text())
-    checks=''.join(f'<li>{html.escape(item)}</li>' for item in data['checks'])
     return ('<section id="underground" data-view-panel hidden><h2>Underground · design proposals</h2>'
             '<nav class="page-nav" aria-label="Underground categories"><a href="#underground-nexus">Nexus and floor scatter</a><a href="#underground-paths">Paths and small roads</a></nav>'
-            '<p>On cave levels 1 and 2 only, grove nexuses become spring caves, goblin warrens, mushroom caverns or gemstone caverns. Beneath quarries, Mine Tunnels form simple ore-rich deposits. Seep regions do not select these nexus variants. Underground nexuses have no temple buildings; houses and medium/large roads remain rock walls; eligible small roads receive underground passages. The requested Ember altar and Toad idol are standalone cave shrines. All paths on cave levels 1 and 2 receive an underground path theme, including paths outside parks. Small-road variants join the path themes; nearby terrain and nexus regions influence theme choice. These authored patterns use the same card format and art controls as the surface designs; they are not live cave generation.</p>'
-            '<p>Level 2 mixes low-tier gems into unsuppressed rock scatter, with bonuses beneath beaches, commercial ground and small roads. Gemstone caverns and paths never exceed the current floor’s gem tier. Small-road hazards cover about 10% collectively. Holes show a falling story panel, cost 25% maximum energy and drop the player one floor; hidden pits reveal adjacent or underfoot and use surface-snare damage. All underground route variants have a 50% shrine chance.</p>'
-            '<p><a href="underground-zone-variants.draft.json">Draft data and implementation contract</a> · <a href="underground-art-license.txt">Candidate art license</a></p>'
-            '<details><summary>Placement, rewards and depth rules</summary><p>Path themes use the existing path geometry on cave levels 1 and 2 only. Cover all eligible paths; carve only explicitly eligible sm_road corridors, retaining medium/large roads and buildings as walls, and do not carry themes to level 3 or deeper. Preserve stairs, water and building provenance and excluded access; reserve clear lanes before dressing. Seep Passage replaces underground route tiles with water, preserving dry side banks and crossings at required connections.</p>'
-            '<p>Regions keep stable surface POI identities at each depth, even when chest mirrors are pruned. Style at most one surviving mirror as the nexus cache, with existing tier rules. Ordinary finds and stores replace existing cave allocations. Warrens and mushroom caverns have explicit denser encounter budgets; route patrols and cubes are owned once per route. Named-zone skeleton, mushroom-monster and cube placements are deliberate level-1/2 exceptions to ambient roster depth rules. Miners’ Way adds a sparse, finite bonus ore budget at the floor tier; route fragments do not multiply it. Junctions and tile fragments never mint another reward.</p>'
-            '<p>For grove anchors only, suggested spring : warren : mushroom : gemstone weights are 35 : 30 : 30 : 5 at depth 1, 20 : 45 : 25 : 10 at depth 2, before geographic affinities. Warrens and mushroom caverns have one daily shrine each, using the existing boon and ledger rules. Free healing is not part of this draft. Optional warren traps need a bypass and are not drawn as a repeating background slot.</p>'
-            '<ul>'+checks+'</ul></details>'
+            '<p>Saved cave layout studies using game art. Cards describe their study data, not live generation. The Dungeon Maze is marked in game; its preview shows the reference pattern.</p>'
+            '<p><a href="underground-zone-variants.draft.json">Study data and rules</a> · <a href="underground-art-license.txt">Candidate art license</a></p>'
             '<section id="underground-nexus"><h2>Underground nexus</h2><div class="cards">'+''.join(cards['nexus'])+'</div></section>'
             '<section id="underground-paths"><h2>Underground paths and small roads</h2><div class="cards">'+''.join(cards['path'])+'</div></section></section>' + _ambush_script() + _pit_script())
 
