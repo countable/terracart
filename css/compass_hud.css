@@ -154,8 +154,8 @@ body.compass-hud .compass-energy-needle {bottom:calc(29 * var(--compass-header-u
 body.compass-hud #energy-label {font:10px var(--font-ui)!important;margin-bottom:1px;color:#333b2f!important;}
 body.compass-hud #hud-row > #money {position:absolute;left:88.5%;right:1%;top:calc(79 * var(--compass-header-unit));display:flex;flex-direction:column;gap:0;font:italic bold calc(22 * var(--compass-header-unit))/1 var(--font-ui);color:#f3dfa0;text-shadow:0 2px 2px #161b16;}
 body.compass-hud #money .coin-ico {width:calc(35 * var(--compass-header-unit));height:calc(35 * var(--compass-header-unit));}
-/* The tutorial occupies the top banner. Keep its controls beneath the copy,
-   including on short screens, without moving the circular map. */
+/* The tutorial layers over the top banner; the instruments and circular map
+   keep their places beneath it. */
 body.compass-hud #objective {top:calc(6px + env(safe-area-inset-top,0px));}
 .compass-round .compass-aperture {outline:3px ridge #d2d0c4;box-shadow:inset 0 0 0 3px #33382f,0 0 0 1px #151c15,0 0 0 5px #9c9f95;}
 body.compass-hud #move-pad {right:calc(var(--phone-right,0px) + 13 * var(--compass-unit));bottom:auto;top:calc(var(--compass-map-top) + var(--compass-map-size) - 93 * var(--compass-unit));width:calc(125 * var(--compass-unit));height:calc(125 * var(--compass-unit));border:3px ridge #c5c5b9;background:#303832 url('../assets/ui/compass/joystick.webp') center/cover;box-shadow:0 0 0 2px #222922,0 0 0 5px #b0b3a5,0 3px 6px #132017;backdrop-filter:none;}
@@ -315,13 +315,6 @@ body.compass-hud #hud-row > #roadchip.compass-closed::after {font-size:10px;lett
 body.compass-hud #roadchip .road-num {font-size:16px;}
 body.compass-hud .compass-wheel-unit {flex-basis:22px;font-size:10px;}
 body.compass-hud #energy-label {font-size:11px!important;}
-
-/* Active guidance uses the top band; keep the normal instrument row compact
-   beneath it, with a full touch target for the menu and energy gauge. */
-body.compass-hud:has(#objective[style*="display: block"]) {--compass-hud-top:calc(82px + env(safe-area-inset-top,0px));}
-body.compass-hud:has(#objective[style*="display: block"]) #menu {top:var(--compass-hud-top);}
-body.compass-hud:has(#objective[style*="display: block"]) #hud-row {height:68px;grid-template-rows:44px 20px;}
-body.compass-hud:has(#objective[style*="display: block"]) #hud-row > #energy {height:44px;width:44px;justify-self:center;}
 
 /* Keep carving visible beneath the navigation; inventory has its own recess. */
 body.compass-hud #compass-body {filter:brightness(.8);}

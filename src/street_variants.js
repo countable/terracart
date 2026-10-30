@@ -202,10 +202,11 @@
   // How finely a burned row is walked for its one fire slime per stretch.
   const BURNED_GUARD_STEP_M = 10;
   // Lantern Row: NOT a prop of its own — the street lamps, denser. A lantern
-  // street stands its restoration lamps at Streets.lampSpacingM() / this
-  // (app.js _streetLampsForTile), same art, same lit-when-restored rule, one
-  // lane.
-  const LANTERN_SPACING_DIV = 4;
+  // street stands its restoration lamps at its way's usual spacing / this
+  // (road_overlay.js lampSitesForTile), same art, same lit-when-restored rule,
+  // one lane. On a path (16.7 m) that is one lamp every 8.3 m, just over a
+  // cell; at 4 they stood under a cell apart, post against post.
+  const LANTERN_SPACING_DIV = 2;
   // Normal lamp spacing leaves the hedges as the lane's defining feature.
   const HEDGE_LAMP_DENSITY = 1;
   // A variant's ownership claim reaches two cells past its road band.

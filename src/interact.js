@@ -281,6 +281,16 @@ const TERRAIN = {
 // `flavor` and consumes every water tap, bare-handed included, so that line
 // is unreachable in play — it exists because the non-tillable sweep in
 // interact_tap.test.js covers every code and a hole would read as a bug.)
+// The Nexus zone variant that owns a surface cell (WorldGen.zoneAnchorAt:
+// the coverage winner, never a Home, cave or discarded cell), by name.
+function zoneVariantNameAt(scene, cell) {
+  if ((scene.depth ?? 0) !== 0 || typeof ZoneVariants === 'undefined' || cell?.tx == null) return null;
+  const entry = WorldGen.tileCache.get(WorldGen.tileKey(cell.tx, cell.ty)), N = entry?.cellsPerEdge;
+  if (!(N > 0) || !(cell.ix >= 0) || !(cell.iy >= 0) || cell.ix >= N || cell.iy >= N) return null;
+  const anchor = WorldGen.zoneAnchorAt(entry, cell.iy * N + cell.ix);
+  return (anchor && ZoneVariants.pick(anchor)?.name) || null;
+}
+
 const TERRAIN_FLAVOR = {
   [TERRAIN.WATER]:          'Open water, cold and deep.',
   [TERRAIN.ROAD]:           'Hard road, packed and worn.',
@@ -1276,8 +1286,16 @@ const TAP_HANDLERS = [
     // sprites) had to be at least the cell half-diagonal to cover their own
     // cell, which necessarily spilled into the four neighbours — that is what
     // made a tall tree / turret / market stall tappable from the empty cell
-    // above it.
+    // above it from anywhere in that cell.
+    // The one deliberate exception is the DRAWN CROWN: when the tapped cell
+    // holds no object of its own, a tap that lands on the art a tall prop in
+    // a neighbouring cell draws over it (ctx.spill, Render.tallPropHit) goes
+    // to that prop — the top of a tree, a fingerpost's boards — instead of
+    // the bare ground or road behind them. An occupied cell keeps its own
+    // occupant, so the crown never steals a tap from what stands under it.
     const tapCell = worldMetersToAbsCell(scene, wm.x, wm.y);
+    const spill = ctx.spill && !allObjs.some(o => itemContainsTapCell(scene, o, tapCell)) ? ctx.spill : null;
+    const hits = o => itemContainsTapCell(scene, o, tapCell) || (spill != null && (o === spill || o.id === spill.id));
     // interactables.js › chestCellDedup — literally the predicate render.js
     // builds, so the tap-target set and the draw set can't disagree. One
     // instance per tap: it is stateful (first-seen-wins in this iteration).
@@ -1293,7 +1311,7 @@ const TAP_HANDLERS = [
       if (o.kind === 'chest' && isDupTapChest(o)) continue;
       // Ground-cell fallback. Buildings also accept their visible raised art
       // above, and the building-zone handler accepts the rest of the footprint.
-      if (!itemContainsTapCell(scene, o, tapCell)) continue;
+      if (!hits(o)) continue;
       if (typeof Visibility !== 'undefined' && Visibility.hidden(scene, o.x, o.y, true)) continue;
       if (tooFar(ctx, o.x, o.y)) return 'far';
       if (typeof PushBlocks !== 'undefined' && PushBlocks.isBlock(o)) return PushBlocks.interact(ctx, o);
@@ -1896,7 +1914,8 @@ const TAP_HANDLERS = [
   // reads as road, matching what the player is looking at. A road or path
   // cell of a street variant names it (StreetVariants.streetNameAt: the
   // feet story's row, or a themed path's own inside a Nexus) by title only;
-  // the feet tell the story.
+  // the feet tell the story. Other ground inside a Nexus names its zone
+  // variant (zoneVariantNameAt) instead of the generic terrain line.
   { name: 'flavor', try: (ctx) => {
     const { scene, sx, sy, cell } = ctx;
     if (isTillableCell(cell) || planterAt(ctx)) return false;
@@ -1904,6 +1923,11 @@ const TAP_HANDLERS = [
       ? StreetVariants.streetNameAt(WorldGen.tileCache.get(WorldGen.tileKey(cell.tx, cell.ty)), cell.ix, cell.iy) : null;
     if (street) {
       scene.flash(street.title, sx, sy);
+      return true;
+    }
+    const zone = zoneVariantNameAt(scene, cell);
+    if (zone) {
+      scene.flash(zone, sx, sy);
       return true;
     }
     const flavor = cell.underRoad ? TERRAIN_FLAVOR[TERRAIN.ROAD]
@@ -2076,6 +2100,15 @@ const TAP_HANDLERS = [
       }
     } });
   }},
+
+  // Bare tillable ground with no seed selected: inside a Nexus, name its
+  // zone variant (the same line non-tillable ground gives in `flavor`).
+  { name: 'zone-name', try: (ctx) => {
+    const name = ctx.cell && zoneVariantNameAt(ctx.scene, ctx.cell);
+    if (!name) return false;
+    ctx.scene.flash(name, ctx.sx, ctx.sy);
+    return true;
+  }},
 ];
 
 // Tap diagnostics. "Taps randomly stop working" is otherwise invisible — the
@@ -2128,7 +2161,11 @@ function interactTap(scene, sx, sy) {
   // tooFar → cellInReach (coords.js), which reads the player's feet cell off
   // the scene itself, so the handlers only need the tap.
   const building = buildingTapTarget(scene, sx, sy);
-  const ctx = { scene, save: scene.save, wm, sx, sy, building, dirty: false };
+  // The prop whose drawn crown the tap landed on from a neighbouring cell
+  // (Render.tallPropHit). The 'object' handler honours it only once the
+  // tapped cell itself has turned out to hold nothing.
+  const spill = typeof Render !== 'undefined' && Render.tallPropHit ? Render.tallPropHit(scene, sx, sy, wm) : null;
+  const ctx = { scene, save: scene.save, wm, sx, sy, building, spill, dirty: false };
   // Ground behind partial cover is still drawn (only what stands on it is
   // hidden, per-handler), so only FULL cover's darkness gates a ground tap.
   const coverPoint = building || wm;
