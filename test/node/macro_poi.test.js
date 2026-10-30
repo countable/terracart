@@ -138,7 +138,7 @@
   });
 
   // ── Inn ───────────────────────────────────────────────────────────────────
-  test('inn: the price is the Healing potion\'s coins per energy × INN_RATE, and it rests once a day', () => {
+  test('inn: the price is the Healing potion\'s coins per energy × INN_RATE, and it is a night\'s rest on the shared bed gate', () => {
     assert.eq(HEALING_POTION_ENERGY, 65, 'a Healing potion restores 65');
     assert.eq(Macros.innCoinsPerEnergy(), PRICES.healing_potion / HEALING_POTION_ENERGY * Macros.INN_RATE, 'derived');
     assert.eq(Macros.INN_RATE, 0.5, 'half the potion (the Book says "half")');
@@ -153,12 +153,16 @@
     assert.eq(save.energy, 100, 'to full');
     assert.eq(r.gain, 70);
     assert.eq(save.money, 100 - Macros.innPrice(70), 'paid');
-    assert.truthy(Macros.serviceUsedToday(save, o.id, T0), 'the inn spends the service lane');
+    assert.eq(save.restedAt, T0, 'the night arms the shared bed gate (Rest.waitMs), not a ledger of this inn');
+    assert.falsy(Macros.serviceUsedToday(save, o.id, T0), 'the service lane stays free');
     assert.falsy(Macros.usedToday(save, o.id, T0), 'the inn leaves the plain chest lane free');
     save.energy = 10;
-    assert.eq(Macros.innRest(save, o, 100, T0 + 60000).why, 'used', 'once a day');
+    const again = Macros.innRest(save, o, 100, T0 + 60000);
+    assert.eq(again.why, 'used', 'no bed for four hours');
+    assert.eq(again.wait, Rest.COOLDOWN_MS - 60000, 'and it says how long');
     assert.eq(save.energy, 10, 'nothing given the second time');
-    assert.truthy(Macros.innRest(save, o, 100, T0 + DAY).ok, 'again tomorrow');
+    assert.eq(Macros.innRest(save, o, 100, T0 + Rest.COOLDOWN_MS - 1).why, 'used', 'not at another inn either: the gate is the player\'s');
+    assert.truthy(Macros.innRest(save, o, 100, T0 + Rest.COOLDOWN_MS).ok, 'again four hours on');
     assert.eq(Macros.innRest({ energy: 100, money: 9 }, o, 100, T0).why, 'full', 'at full it refuses');
     assert.eq(Macros.innRest({ energy: 0, money: 0 }, o, 100, T0).why, 'money', 'and it is paid for');
   });
@@ -905,7 +909,7 @@
   });
 })();
 
-test('inn sleep: pays and restores once at black, retaining daily-use and failure checks', () => {
+test('inn sleep: pays and restores once at black, retaining bed-gate and failure checks', () => {
   for (const changed of ['none', 'money', 'used', 'full', 'locked']) {
     let black, receipts = 0;
     const scene = Object.assign(Object.create(SceneFurniture.prototype), {
@@ -921,7 +925,7 @@ test('inn sleep: pays and restores once at black, retaining daily-use and failur
     scene._presentInn(0, 0, inn, {}); scene.offer.onAccept();
     assert.eq(scene.save.energy, 30); assert.eq(scene.save.money, 1000);
     if (changed === 'money') scene.save.money = 0;
-    if (changed === 'used') Macros.markServiceToday(scene.save, inn.id);
+    if (changed === 'used') scene.save.restedAt = Date.now();
     if (changed === 'full') scene.save.energy = 100;
     if (changed === 'locked') scene.locked = true;
     black(); black();
@@ -929,7 +933,7 @@ test('inn sleep: pays and restores once at black, retaining daily-use and failur
     if (changed === 'none') {
       assert.eq(scene.save.energy, 100);
       assert.eq(scene.save.money, 1000 - Macros.innPrice(70));
-      assert.truthy(Macros.serviceUsedToday(scene.save, inn.id));
+      assert.truthy(Rest.waitMs(scene.save) > 0, 'the shared bed gate is armed');
     } else assert.eq(scene.save.money, changed === 'money' ? 0 : 1000);
   }
 });

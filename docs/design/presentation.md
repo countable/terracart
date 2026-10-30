@@ -813,9 +813,11 @@ Bed and Inn share `_presentSleep`: show the furniture frame or Inn booth art,
 fade the camera to black, run the source transaction exactly once, then fade
 back. `cameraBlackout` also supplies teleport's camera transition, without owning
 its particles or movement guard. Headless scenes commit immediately. Bed sleep
-rechecks the placed record, owned Home cell, lockout and missing energy at black.
-Inn sleep retains payment, daily-use and failure checks; only success queues its
-receipt. Both persist after the transaction.
+rechecks the placed record, owned Home cell, bed gate, lockout and missing energy
+at black. Inn sleep retains payment, bed-gate and failure checks; only success
+queues its receipt. Both run `Rest.sleep` ([combat](combat.md)), persist after
+the transaction, and refuse with "Rested. Back in <wait>." while the shared
+four-hour gate runs.
 
 ## Live weather
 
