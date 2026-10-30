@@ -64,6 +64,36 @@
     }
   });
 
+  test('tile bin: hedged lane restyles detected crowns only within its three-cell influence', () => {
+    const enabled = { GameplayTiers, location: { search: '?deepforest=on' } };
+    new Function('window', WORLDGEN_SRC)(enabled);
+    const line = [4.5, 27.5].map(x => ({ x: x * 4096 / N, y: 10.5 * 4096 / N }));
+    for (const source of ['gemini', 'deepforest']) {
+      const e = entry();
+      e.streetArea = StreetVariants.area({ extent: 4096, lines: [
+        { key: 'hedged-lane', variant: 'hedgerow', size: 'minor', halfW: 2.75, line },
+      ] }, N);
+      e.streetAreaVariants = e.streetArea.variants;
+      const crowns = [[10, 7], [10, 13], [15, 6], [15, 14]].map(([lix, liy]) => ({
+        kind: 'tree', species: 'pine', treeSpeciesFixed: true, crown_m: 8,
+        crown_color: '#998822', _treeSource: source, lix, liy,
+      }));
+      const bin = { trees: crowns }, before = JSON.stringify(bin);
+      enabled.WorldGen.injectTileBin(e, bin, 0, 0);
+      assert.eq(e.objects.length, crowns.length, 'restyling adds no trees');
+      for (let i = 0; i < crowns.length; i++) {
+        const tree = e.objects.find(o => o.x === point(crowns[i].lix, crowns[i].liy).x
+          && o.y === point(crowns[i].lix, crowns[i].liy).y);
+        assert.truthy(tree, 'each detected crown keeps its seat');
+        assert.eq(tree._objectArt, i < 2 ? 'mossy_tree' : undefined, 'three-cell boundary controls the look');
+        assert.eq(tree.crown_color, i < 2 ? undefined : '#998822');
+        assert.eq(tree.species, 'pine', 'appearance does not replace detected species');
+        assert.eq(tree.crown_m, 8); assert.eq(tree._treeSource, source);
+      }
+      assert.eq(JSON.stringify(bin), before, 'shared detections stay unchanged');
+    }
+  });
+
   test('tile bin: Nexus mapping wins over a road mapping without replacing player property', () => {
     const row = ZoneVariants.byId('meadow'), original = row.treeSpecies;
     row.treeSpecies = 'maple';

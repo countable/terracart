@@ -1316,8 +1316,6 @@ the reach rim within the existing player-light radius.
   remove the old base surface/decor while retaining
   its geometric mask for larger-road occlusion, so the scar and missing pieces
   cannot show through the restored surface. None of this repaints grid terrain.
-  Theme ground verges are disabled: source landcover remains beneath and beside
-  roads, while existing props, hazard rules and route identities remain in place.
   Commercial ground uses original square concrete, independently of road stone.
 - Opaque selected terrain supplies its dominant ink for existing fills,
   sampled once per material when the atlas loads. `SELECTED_TERRAIN` maps landcover
@@ -1371,7 +1369,9 @@ the reach rim within the existing player-light radius.
   restoration; only restored lamps emit light. `RENDER_SPEC._streetlamp`
   and `Lighting.collectLamps` share this table's scale and emitter offsets. Their source pixels and contact seating stay in
   the normal object renderer; there is no alternate foundation painter,
-  per-colour lamp bake or selected-streetlamp derivative. Road restoration
+  per-colour lamp bake or selected-streetlamp derivative. The hanging lantern
+  uses the shared palette bake to colour its bottom contact ink as wood;
+  its source alpha and contact bounds stay unchanged. Road restoration
   and brightness retain their existing site data and gameplay rules.
   Variant and Nexus colours tint emitted light through `Lighting`, not the
   lamp image. Screen-space emission anchors use `StreetLights.ART` per silhouette,
@@ -1379,8 +1379,8 @@ the reach rim within the existing player-light radius.
   `Lighting.liftPx` rotates the offsets into the map frame, keeping radiance
   aligned through camera rotation without depending on a retired canvas size.
   Collect/cache lamps about the camera anchor, only after tiles finish loading.
-  Lamp anchors sit exactly on the vector road boundary, half its width from
-  the centreline. Their continuous coordinates and arclength identities are
+  Lamp anchors sit 0.5 m outside the vector road boundary, using
+  `Streets.LAMP_EDGE_CLEARANCE_M` beyond half the drawn width. Their continuous coordinates and arclength identities are
   independent of the grid: lamps reserve no cells and add no planting or
   scenery exclusions. Existing terrain and access rules still apply.
 - Restoration ladder rewards use `Trail.PRIZE_CONTEXT`; the first reward offers the fixed
@@ -1789,4 +1789,5 @@ Mossy, conifer, bare and lavender tree families use the same silhouette at three
 growth sizes; bare trees share one family across burned, thorny and haunted routes.
 The small grass-clump variant retains the longgrass 3D blade material and root
 placement, with one third of blades and 65% blade dimensions. It stays harvestable
-longgrass. Mushroom imports use a muted warm tint to fit the existing caps.
+longgrass. The hedged lane adds white flowers but no grass clumps or trees. Detected trees
+in its three-cell roadside influence use the rounded mossy-tree look. Mushroom imports use a muted warm tint to fit the existing caps.

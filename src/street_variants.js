@@ -252,7 +252,7 @@
   // `story` is the _storySplashOnce key AND the painting stem (sceneArtUrl);
   // `flash` is the ≤30-char map line a later visit gets.
   const STREET_VARIANTS = [
-    { id: 'hedgerow', terrain: 'PARK', affinities: ['cultivated', 'formal'], size: 'minor', share: 0.08, nudge: 2, rung: 'find',
+    { id: 'hedgerow', terrain: 'PARK', influenceVergeCells: 3, materialLooks: { tree: 'mossy_tree' }, affinities: ['cultivated', 'formal'], size: 'minor', share: 0.08, nudge: 2, rung: 'find',
       stone: { weathered: '#77746a', restored: '#898a80' }, lampDensity: HEDGE_LAMP_DENSITY,
       words: /\b(lane|ln|close|court|ct|place|pl|mews|circle|cir|crescent|cres|cove|row|gasse|hecke|weg)\b/i,
       lampGlow: '#ffffff', fauna: { rabbit: [2, 5] },
@@ -573,8 +573,8 @@
   const APPROVED_DECORATIONS = [
     { art:'stump', variants:['overgrown','old_growth_path','orchard'], kind:'tree_stump', extra:{_streetArt:'stump'}, weight:.25 },
     {"art": "white_flower", "variants": ["parkpath", "greenway", "orchard", "hedgerow"], "extra": {"_streetArt": "white_flower"}, "crop": "white_flower"},
-    {"art": "mossy_tree", "variants": ["orchard", "old_growth_path", "hedgerow"], "extra": {"_streetArt": "mossy_tree", "species": "maple", "treeSpeciesFixed": true, "_objectArt": "mossy_tree"}, "kind": "tree"},
-    {"art": "grass_clump", "variants": ["grassy_lane", "hedgerow", "overgrown"], "extra": {"_streetArt": "grass_clump"}, "crop": "longgrass"},
+    {"art": "mossy_tree", "variants": ["orchard", "old_growth_path"], "extra": {"_streetArt": "mossy_tree", "species": "maple", "treeSpeciesFixed": true, "_objectArt": "mossy_tree"}, "kind": "tree"},
+    {"art": "grass_clump", "variants": ["grassy_lane", "overgrown"], "extra": {"_streetArt": "grass_clump"}, "crop": "longgrass"},
     {"art": "young_fern", "variants": ["overgrown", "grassy_lane", "old_growth_path"], "extra": {"_streetArt": "young_fern"}, "crop": "young_fern"},
     {"art": "conifer_tree", "variants": ["old_growth_path", "overgrown"], "extra": {"_streetArt": "conifer_tree", "species": "pine", "treeSpeciesFixed": true, "_objectArt": "conifer_tree"}, "kind": "tree"},
     {"art": "mossy_rock", "variants": ["rocky_path", "old_growth_path", "overgrown"], "extra": {"_streetArt": "mossy_rock", "requiredTier": 1, "yieldTier": 1}, "kind": "mineralrock"},
@@ -2121,7 +2121,7 @@
     for (const rec of (index.dressingLines || index.lines)) {
       if (!rec.variant) continue;
       yield 'street area';
-      const radius = rec.halfW / cellM + TERRAIN_VERGE_CELLS;
+      const radius = rec.halfW / cellM + (VARIANT_BY_ID[rec.variant]?.influenceVergeCells ?? TERRAIN_VERGE_CELLS);
       for (let j = 1; j < rec.line.length; j++) {
         if ((++segments & 127) === 0) yield 'street area segments';
         const a = rec.line[j - 1], b = rec.line[j];

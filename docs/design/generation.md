@@ -1229,6 +1229,9 @@ Higher-priority placements and their access space take precedence in this order:
    imported static/Overpass trees and ambient ordinary/yard timber. Detected crowns supersede generated scenery, including Nexus and street
    dressing. Explicit variant `treeSpecies`, tree material replacements and
    tree looks apply at the final seat; without a mapping, the detected type stays.
+   The hedged lane extends its influence three cells from the road edge and
+   applies the rounded mossy-tree look to detected trees without adding trees
+   or changing their detected species. Nexus and Home ownership still win.
    Mapped species are fixed against the near-home overlay and drop the source
    crown tint. Buildings, planted/player trees and hard placement gates remain
    authoritative. Outside coverage the existing sources remain. Conifer maps

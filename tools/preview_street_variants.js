@@ -158,7 +158,7 @@ const rules = {
   slime_trail: `One slime species per section. Two guards per eligible post, spaced ${SV.VARIANT_BY_ID.slime_trail.enemyStepM} m apart; short sections use the midpoint.`,
   spider_path: `Permanent webs on ${SV.VARIANT_BY_ID.spider_path.webDensity * 100}% of eligible samples. Webs paralyse grounded actors. One two-spider garrison per section.`,
   golden_path: 'Either end shrine starts the same daily coin run along the path.',
-  hedgerow: `Hedge rows at ${cellM} m spacing behind the lamps. One two-slime encounter where space permits.`,
+  hedgerow: `Hedge rows at ${cellM} m spacing behind the lamps. White flowers fill the verges. Detected trees within 3 cells of the road edge use rounded crowns; no extra trees. One ambush where space permits.`,
   thorny: `Bramble clusters cross the road and extend up to ${SV.THORNY_VERGE_MAX_CELLS} cells beyond it, with sparse strays farther out. Some streets enclose a moss cairn. Brambles burn and drain energy on contact.`,
   overgrown: `Trees every ${SV.OVERGROWN_STEP_M} m, up to ${SV.OVERGROWN_MAX} per line piece, progressing from saplings to mature trees.`,
   orchard: `Fruit trees and mature maples alternate on both sides every ${SV.ORCHARD_STEP_M} m, up to ${SV.ORCHARD_MAX} per line piece. Flowers and stumps fill available verge cells.`,

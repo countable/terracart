@@ -39,6 +39,7 @@ const RogueObjects = (() => {
   // keeps its plum canopy and conifers remain cooler than the olive hedge.
   // Explicit source colours leave transparency, shadows and shape untouched.
   const streetPalettes = Object.freeze({
+    hanging_lantern: Object.freeze({ 0x262222:0x463429 }),
     mossy_tree: Object.freeze({
       0x314a14:0x4c4d2b, 0x42631b:0x66663d, 0x42631a:0x66663d,
       0x557827:0x7f7f46, 0x527b20:0x7f7f46, 0x719828:0x99994c,
@@ -72,6 +73,12 @@ const RogueObjects = (() => {
     for (let i=0; i<data.length; i+=4) {
       // Soft source shadows are not foliage or bark, and retain their ink.
       if (data[i+3] !== 255) continue;
+      // Let the wooden post meet the ground without a dark contact underline.
+      // The lantern and side outlines keep their source ink.
+      if (name === 'hanging_lantern') {
+        const { fw, maxY } = STREET_DECORATION_ART[name].bounds;
+        if (Math.floor(i / 4 / fw) !== maxY - 1) continue;
+      }
       const value=palette[(data[i]<<16)|(data[i+1]<<8)|data[i+2]];
       if (value == null) continue;
       data[i]=value>>>16; data[i+1]=(value>>>8)&255; data[i+2]=value&255;

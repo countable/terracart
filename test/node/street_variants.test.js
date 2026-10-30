@@ -314,6 +314,8 @@ test('hedgerow: fully hedged on both verges, no gaps, and tidy around obstacles'
   });
   const draw = (...args) => build(...args).wildplants.filter(p => /^hedge_/.test(p.id));
   const rows = draw();
+  assert.falsy(build().wildplants.some(p => p.crop === 'longgrass'), 'the hedged lane has no grass clumps');
+  assert.falsy(build().objects.some(o => o.kind === 'tree'), 'the hedged lane only restyles detected trees');
   const signs = build().objects.filter(o => o.kind === 'roadsign');
   const north = rows.filter(p => cellOf(p.y,TY) < 30).map(p => cellOf(p.x,TX));
   const south = rows.filter(p => cellOf(p.y,TY) > 30).map(p => cellOf(p.x,TX));
@@ -2367,7 +2369,7 @@ test('approved decorations retain collectible identities and one shared bare-tre
   assert.eq(byArt.healing_mushrooms.extra.gasKind,'healing');
   assert.eq(byArt.dark_urn.extra.barrelStyle,'street_decor_dark_urn');
   assert.truthy(byArt.healing_mushrooms.weight<.1,'healing clusters remain rare among ordinary fungi');
-  for(const variant of ['hedgerow','orchard','old_growth_path'])
+  for(const variant of ['orchard','old_growth_path'])
     assert.truthy(byArt.mossy_tree.variants.includes(variant),'approval reaches every suggested route');
 });
 
