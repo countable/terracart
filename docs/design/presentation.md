@@ -704,6 +704,11 @@ pixels and decorative details do not define additional tap cells.
   (`StreetVariants.streetNameAt`). That is the feet story's row, except
   inside a Nexus: the Nexus clears the dressing marks, but a path keeps its
   theme, so the tap still names it while the feet story stays with the Nexus.
+  Other surface ground inside a Nexus flashes its zone variant's name
+  (`zoneVariantNameAt`, the `WorldGen.zoneAnchorAt` winner): non-tillable
+  ground through `flavor`, bare tillable ground with no seed selected through
+  the last handler, `zone-name`. Home, cave and discarded cells, and
+  underground taps, keep their own lines.
 - Story panels use a direct second-person narrator focused on the current
   experience: what happens, what the Hood notices, and how people respond.
   Keep them to one or two short sentences with occasional sensory detail.

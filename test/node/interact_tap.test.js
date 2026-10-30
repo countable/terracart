@@ -271,6 +271,40 @@ test('flavor handler: boundary lamps leave neighbouring grass tillable', () => {
   assert.truthy(isTillableCell(ctx.cell));
 });
 
+// Ground inside a Nexus names its zone variant: non-tillable ground through
+// `flavor`, bare tillable ground through the terminal `zone-name` handler.
+function withZoneTile(fn) {
+  const prior = [...WorldGen.tileCache.entries()], N = 8, i = 3 * N + 2;
+  const coverage = new Uint8Array(N * N); coverage[i] = 1;
+  const entry = { cellsPerEdge: N, grid: new Uint8Array(N * N),
+    zone: { coverage, anchors: [{ kind: 'grove', variant: 'meadow', key: 'tap-zone' }] } };
+  WorldGen.tileCache.clear();
+  WorldGen.tileCache.set(WorldGen.tileKey(0, 0), entry);
+  try { fn(entry, i, ZoneVariants.byId('meadow').name); }
+  finally { WorldGen.tileCache.clear(); for (const [k, v] of prior) WorldGen.tileCache.set(k, v); }
+}
+test('zone tap: ground inside a Nexus names its zone variant', () => withZoneTile((entry, i, name) => {
+  const seen = [], scene = makeScene({ flash: (msg) => seen.push(msg) });
+  const cell = (type) => ({ type, tx: 0, ty: 0, ix: 2, iy: 3 });
+  const ctx = makeCtx(scene, {}); ctx.cell = cell(TERRAIN.ROCK);
+  assert.truthy(TAP_HANDLERS.find(h => h.name === 'flavor').try(ctx));
+  assert.eq(seen.pop(), name, 'non-tillable ground names the zone, not the terrain');
+  ctx.cell = cell(TERRAIN.GRASS);
+  assert.falsy(TAP_HANDLERS.find(h => h.name === 'flavor').try(ctx), 'tillable ground still reaches till');
+  const zoneName = TAP_HANDLERS.find(h => h.name === 'zone-name');
+  assert.truthy(zoneName.try(ctx));
+  assert.eq(seen.pop(), name, 'bare tillable ground names the zone');
+  entry.homeVariant = new Uint8Array(64); entry.homeVariant[i] = 1;
+  assert.falsy(zoneName.try(ctx), 'Home owns its cell');
+  delete entry.homeVariant;
+  ctx.cell = { ...cell(TERRAIN.GRASS), ix: 3 };
+  assert.falsy(zoneName.try(ctx), 'outside the coverage there is no zone');
+  ctx.cell = cell(TERRAIN.ROCK);
+  scene.depth = 1;
+  TAP_HANDLERS.find(h => h.name === 'flavor').try(ctx);
+  assert.eq(seen.pop(), TERRAIN_FLAVOR[TERRAIN.ROCK], 'underground keeps the terrain line');
+}));
+
 test('pet placement: animal inventory stacks have no release tap handler', () => {
   assert.falsy(TAP_HANDLERS.some(h => h.name === 'release'));
 });
@@ -674,6 +708,7 @@ test('TAP_HANDLERS: full handler-name list matches the known snapshot', () => {
     'flavor',
     'plant',
     'till',
+    'zone-name',
   ];
   assert.eq(HANDLER_NAMES.length, EXPECTED.length,
     `handler count: expected ${EXPECTED.length}, got ${HANDLER_NAMES.length}. ` +
