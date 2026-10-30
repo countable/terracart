@@ -1123,6 +1123,9 @@ the reach rim within the existing player-light radius.
   `Lighting.KINDS` row. It takes visual precedence while both lights burn;
   neither expands interaction reach. Its stock carryable-lantern icon comes from
   Medieval Furniture and uses the shared inventory/offer/toast renderer.
+- A held Starflower (`starlight`) is the same collector at the torch's radius
+  with a paler, colder, lower-peak row that barely shimmers; a burning Torch
+  or Lantern takes precedence over it.
 
 - The GPS ring is ground paint under the lightmap, so the fix carries a small
   paint-only `gps` row of `Lighting.KINDS` (`collectGps`): a warm-white pool at

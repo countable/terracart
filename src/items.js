@@ -1804,6 +1804,21 @@ const CONSUMABLE_SPEC = {
     used: { title: 'You light the Lantern',
       body: 'A steady blue flame takes hold behind the glass. You lift the handle and carry its light into the dark.' },
   },
+  // Starflower — the rare glowing bloom, held up like a torch: the Torch's
+  // own minutes and reach (DERIVED off its row, never retyped), but a softer,
+  // colder light — the `starlight` row of Lighting.KINDS, in memory like the
+  // torch (Buffs.starlight). No flame: it ignites nothing (app.js melee).
+  starflower: {
+    get durationMs() { return CONSUMABLE_SPEC.torch.durationMs; },
+    get radiusMul() { return CONSUMABLE_SPEC.torch.radiusMul; },
+    buff: 'starlight',
+    verb: 'Hold', title: 'Hold up the Starflower?',
+    get: scene => scene.isStarlightActive?.()
+      ? 'Fresh petals feed the pale light already around you.'
+      : 'A cold, gentle glow opens the dark around you.',
+    used: { title: scene => (scene.isStarlightActive?.() ? '✨ You hold up another Starflower' : '✨ You hold up the Starflower'),
+      body: 'Starlight spills from its petals, pale and cool. The dark draws back a little, without a sound.' },
+  },
   sapphire: {
     returnMs: 60 * 1000,
     verb: 'Portal', method: 'useSapphirePortal', title: 'Open a portal down?',
@@ -2205,7 +2220,7 @@ const ITEM_EFFECTS = {
   forgetmenot: 'A blue bloom whose scent stills restless foes.',
   marigold: 'Its golden petals brighten the dullest windowsill.',
   wildrose: 'Its fragrant bloom softens even a hostile heart.',
-  starflower: 'Its pale glow lingers long after the sun has gone.',
+  starflower: 'Its pale glow lingers long after the sun has gone. Held high, it lights the dark, softer than any flame.',
   copper_bar: 'A smith could draw a sturdy tool from this warm metal.',
   iron_bar: 'The smith’s hammer rings clearly against its dark face.',
   gold_bar: 'Sunflower light seems to linger on its yellow surface.',
