@@ -184,9 +184,9 @@ const RogueObjects = (() => {
     }
   }
   // Zones whose plain stone keeps its themed rock_variants block
-  // (ZONE_ROCK_THEMES) instead of the shared Rogue stone: the strip mine's
-  // cut cubes.
-  const ZONE_ROCK_ART = new Set(['quarry-strip-mine']);
+  // (ZONE_ROCK_THEMES) instead of the shared Rogue stone: the quarries' cut
+  // cubes.
+  const ZONE_ROCK_ART = new Set(['quarry-strip-mine', 'quarry-abandoned']);
   function spec(o,scene,original) {
     const street = streetSpec(o, original);
     if (street) return street;

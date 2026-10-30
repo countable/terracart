@@ -130,15 +130,16 @@
     }
   });
   test('quarry and reef signatures: themes need no legacy neutral pair and preserve mining and cover', () => {
-    const zones = ['quarry-strip-mine', 'quarry-stronghold', 'quarry-crater', 'quarry-abandoned', 'mystic_reef'];
-    for (const [index, zoneVariant] of zones.entries()) for (const sightBlocking of [false, true]) {
+    // The abandoned quarry shares the strip mine's cut cube (frame 60).
+    const zones = { 'quarry-strip-mine': 60, 'quarry-stronghold': 61, 'quarry-crater': 62, 'quarry-abandoned': 60, mystic_reef: 64 };
+    for (const [zoneVariant, frame] of Object.entries(zones)) for (const sightBlocking of [false, true]) {
       const o = rock('signature', { zoneVariant, sightBlocking }), before = JSON.stringify(o);
       assert.eq(zonePlainRockFrame(o), null, 'new signatures do not duplicate neutral pairs');
-      assert.eq(mineralRockArtFrame(o), 60 + index);
+      assert.eq(mineralRockArtFrame(o), frame);
       assert.eq(mineralRockArtScale(o), ROCK_VARIANT_ART.themedScale);
       assert.eq(mineralRockTint(o), 0xffffff);
       assert.eq(Visibility.objectCover(o), sightBlocking ? Visibility.PARTIAL : Visibility.CLEAR);
-      assert.eq(wildplantFrame({ ...o, kind: 'wildplant', crop: 'rubble' }), 60 + index);
+      assert.eq(wildplantFrame({ ...o, kind: 'wildplant', crop: 'rubble' }), frame);
       const shared = mineralRockArtFrame({ ...o, rockStyle: 'shared' });
       assert.eq(mineralRockArtFrame({ ...o, rockStyle: 'plain' }), shared, 'plain falls back to shared shapes');
       assert.eq(mineralRockArtFrame({ ...o, yieldTier: 2 }), 18 + Number(sightBlocking));

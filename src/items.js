@@ -161,7 +161,7 @@ const ZONE_ROCK_THEMES = Object.freeze({
   'quarry-strip-mine': { frame: 60, tint: 0xe8d6b6 },
   'quarry-stronghold': { frame: 61, tint: 0xd5d8df },
   'quarry-crater': { frame: 62, tint: 0xcac5d3 },
-  'quarry-abandoned': { frame: 63, tint: 0xcdd9bd },
+  'quarry-abandoned': { frame: 60, tint: 0xcdd9bd }, // the strip mine's cut cube
   mystic_reef: { frame: 64, tint: 0xc1e0dd },
 });
 // One neutral stone palette everywhere; material pairs are adjacent small/large frames.
