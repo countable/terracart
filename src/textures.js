@@ -1062,16 +1062,19 @@ function makeCastleSkullFlagTexture(scene) {
 // are retained solids (StreetSigns.mesh, render.js Render.drawRoadSignMeshes);
 // this post alone stands in where that path is unavailable, baked at 1 px per
 // mesh px from the same StreetSigns.ART rows: a square-section pole straight
-// into the ground with no footing, its lit west edge and shaded east edge.
+// into the ground with no footing, in the sheet's flat wood, a step darker
+// for each lower band like the mesh.
 function makeRoadSignTextures(scene) {
-  const { post, colours } = StreetSigns.ART;
-  const hex = c => '#' + c.toString(16).padStart(6, '0');
+  const { post, bands, wood, ink } = StreetSigns.ART;
+  const shade = (c, f) => '#' + [16, 8, 0].map(sh => Math.round(((c >>> sh) & 255) * f).toString(16).padStart(2, '0')).join('');
   const w = post.side + 2, h = post.height;
   bakeCanvas(scene, 'roadsign_post', w, h, (ctx) => {
-    ctx.fillStyle = hex(colours.ink); ctx.fillRect(0, 0, w, h);
-    ctx.fillStyle = hex(colours.post.lit); ctx.fillRect(1, 1, post.side, h - 1);
-    ctx.fillStyle = hex(colours.post.mid); ctx.fillRect(2, 1, post.side - 1, h - 1);
-    ctx.fillStyle = hex(colours.post.shade); ctx.fillRect(post.side, 1, 1, h - 1);
+    ctx.fillStyle = shade(ink, 1); ctx.fillRect(0, 0, w, h);
+    bands.forEach((f, i) => {
+      const y0 = 1 + Math.round((h - 1) * i / bands.length), y1 = 1 + Math.round((h - 1) * (i + 1) / bands.length);
+      ctx.fillStyle = shade(wood.side, f); ctx.fillRect(1, y0, post.side, y1 - y0);
+      ctx.fillStyle = shade(wood.side, f * .8); ctx.fillRect(post.side, y0, 1, y1 - y0);
+    });
   });
 }
 

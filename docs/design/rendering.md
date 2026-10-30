@@ -1302,16 +1302,19 @@ the reach rim within the existing player-light radius.
   standing straight on the ground with no footing, about a cell tall, and one
   thin vertical board per listed heading, an elongated pentagon with a pointed
   end, never an arrowhead, that points along its road in world space. Boards
-  hang from the post top a row at a time (`StreetSigns.rows`): headings at
-  least a right angle apart share a row off their own post faces, boards that
-  would cross stack, and rows compress so the lowest stays above the ground
+  hang one under another from the post top, a board height apart, the sign's
+  own id choosing which heading takes the top (`StreetSigns.rows`), and the
+  stack compresses so the lowest stays above the ground
   (`StreetSigns.rowTop`). Each board roots on the post's own face (its corner
   for a diagonal), so no solid reaches inside another and draw order never
   shows a root. One part per solid, every part supported at the post's foot,
   so a board pointing at the camera draws over the post, one pointing away
-  draws behind it, and the sign sorts against the player as one. Face colour
-  is a cel step by outward normal (`StreetSigns.faceColour`, a west light);
-  heights project straight up like every low-poly solid, and a compass turn
+  draws behind it, and the sign sorts against the player as one. The wood is
+  the cel wall sheet's own wood slots (`WallMaterials.texel`), grain up the
+  pole and along each plank, under a grey tint per face: a cel step by
+  outward normal (`StreetSigns.faceTint`, a west light) and, on the post, a
+  step darker for each lower third (`ART.bands`); heights project straight
+  up like every low-poly solid, and a compass turn
   reveals a board's other faces instead of turning a flat picture. The foot
   keeps its sub-cell seat in the junction corner (`StreetSigns.cornerSeats`). The
   sign record alone owns the tap, the cell and the shadow; a tap on its drawn
