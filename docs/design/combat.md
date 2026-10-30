@@ -221,6 +221,16 @@ mechanics.
   a burst of leaves), and return to the same hide once they give up. A bush or
   hedge with any live foe on its cell wiggles on `LURK_BUSH_BEAT` (render.js
   `Render.foeCells`), the nest bush's wiggle on a quicker beat.
+  THE SNAKE'S HIDE: a row whose `ambush` is `{ hide: 'grass' }` lurks in a
+  LONG-GRASS cell instead (`Visibility.grassHide`, the grid's `GRASS_HIDE`
+  bit; `concealingCellNear`'s `hide` argument, `ambushHide`). Long grass
+  conceals nobody, so the snake stays drawn and only the grass's shiver over
+  it (`Render.lurkBush`) gives it away; its slow pursuit (under a walk) and
+  poisoning bite (its row's `condition`) are the row's. A CLAY POT can hold a
+  snake too (interactables.js `potHidesSnake`: one surface clay pot in five,
+  on its own stream): the smash rolls the pot's take as ever and seats the
+  snake through the chest mimic's reveal ledger (`_revealMimic(o, 'snake')`,
+  `save.revealedMimics` records carrying `kind`).
   Traps check `Combat.playerDowned` directly:
   concealment does not stop them. Downed players have no reach and are not hunted.
 - A status effect is a row of `Conditions.DEFINITIONS` (poison, burning, a trap's pin): the

@@ -512,7 +512,9 @@
       s.chest('shelter', 'Sandbox Mimic Chest', 2, 18, { _sandboxProbe: 'mimic' });
       s.chest('bus', 'Sandbox Repeatable Crate', 5, 18, { tierSeed: 1, _sandboxProbe: 'daily-crate' });
       s.chest('bus', 'Sandbox Barrel', 8, 18, { barrel: true });
-      s.chest('bus', 'Sandbox Clay Pot', 11, 18, { barrel: true, barrelStyle: 'clay_pot' });
+      s.chest('bus', 'Sandbox Clay Pot', 11, 18, { barrel: true, barrelStyle: 'clay_pot', _sandboxProbe: 'plain_pot' });
+      s.chest('bus', 'Sandbox Snake Pot', 14, 18, { barrel: true, barrelStyle: 'clay_pot', _sandboxProbe: 'snake' });
+      s.creature('snake', 14, 21, 1, {});
       ['mushroom_monster', 'treant', 'fire_elemental', 'mimic', 'wurm', 'zombie'].forEach((kind, i) =>
         s.creature(kind, 3 + (i % 2) * 8, 22 + Math.floor(i / 2) * 7, 1,
           kind === 'zombie' ? { emergeFromGround: true, _burrowed: true }
@@ -798,6 +800,12 @@
         if (extra?._sandboxProbe === 'mimic') {
           const id = chest.id;
           for (let n = 0; !chestHidesMimic(chest); n++) chest.id = `${id}_mimic_${n}`;
+        }
+        // The snake pot's id passes the real snake roll; the plain pot's
+        // id is one that fails it, so the two compare the pot alone.
+        if (extra?._sandboxProbe === 'snake' || extra?._sandboxProbe === 'plain_pot') {
+          const id = chest.id, want = extra._sandboxProbe === 'snake';
+          for (let n = 0; potHidesSnake(chest) !== want; n++) chest.id = `${id}_${extra._sandboxProbe}_${n}`;
         }
         objects.push(chest);
       },

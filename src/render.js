@@ -4518,10 +4518,12 @@ Render.foeCells = function foeCells(scene) {
   return cells;
 };
 // A plant that shivers when a foe stands in it: a bush or a hedge
-// (ObstacleStep's bush / hedge profiles — the shrubs and berry bushes).
+// (ObstacleStep's bush / hedge profiles — the shrubs and berry bushes), and
+// long grass (Visibility.grassHide — the snake's hide, the one tell it has).
 Render.lurkBush = function lurkBush(p) {
-  const prof = ObstacleStep.profile(p.kind ? p : { kind: 'wildplant', crop: p.crop, _plantArt: p._plantArt });
-  return prof === ObstacleStep.PROFILES.bush || !!prof?.cover;
+  const plant = p.kind ? p : { kind: 'wildplant', crop: p.crop, _plantArt: p._plantArt };
+  const prof = ObstacleStep.profile(plant);
+  return prof === ObstacleStep.PROFILES.bush || !!prof?.cover || Visibility.grassHide(plant);
 };
 // Cull before building sprite, label, shadow and effect lists. Any cover
 // removes an actor behind it; scenery (`scenery` true) goes only behind full
