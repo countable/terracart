@@ -247,6 +247,7 @@ test('map copy: nothing else reaches flash() through a variable unmeasured', () 
     'row',                             // a page stone's `read` line, measured below
     'itemName', 'fav', 'Pets', 'foeName', // the creature tap's name / favourite / offer lines, measured below
     'street',                          // a road tap's street title, measured below
+    'zone',                            // a ground tap's zone variant name, measured below
   ]);
   const seen = new Set();
   for (const src of [SCENE_SRC, INTERACT_SRC, INTERACTABLES_SRC]) {
@@ -261,6 +262,10 @@ test('map copy: nothing else reaches flash() through a variable unmeasured', () 
 test('map copy: a road tap names its street within a map line', () => {
   const rows = [...StreetVariants.STREET_VARIANTS, StreetVariants.BANDIT_STORY, StreetVariants.HIGHWAY_STORY];
   for (const row of rows) assert.lte([...row.title].length, MAP_MSG_MAX, `street title: ${row.title}`);
+});
+
+test('map copy: a ground tap names its zone variant within a map line', () => {
+  for (const row of ZoneVariantData.variants) assert.lte([...row.name].length, MAP_MSG_MAX, `zone variant: ${row.name}`);
 });
 
 test('map copy: the name-bearing loot toasts fit at their widest', () => {

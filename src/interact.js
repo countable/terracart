@@ -281,6 +281,16 @@ const TERRAIN = {
 // `flavor` and consumes every water tap, bare-handed included, so that line
 // is unreachable in play — it exists because the non-tillable sweep in
 // interact_tap.test.js covers every code and a hole would read as a bug.)
+// The Nexus zone variant that owns a surface cell (WorldGen.zoneAnchorAt:
+// the coverage winner, never a Home, cave or discarded cell), by name.
+function zoneVariantNameAt(scene, cell) {
+  if ((scene.depth ?? 0) !== 0 || typeof ZoneVariants === 'undefined' || cell?.tx == null) return null;
+  const entry = WorldGen.tileCache.get(WorldGen.tileKey(cell.tx, cell.ty)), N = entry?.cellsPerEdge;
+  if (!(N > 0) || !(cell.ix >= 0) || !(cell.iy >= 0) || cell.ix >= N || cell.iy >= N) return null;
+  const anchor = WorldGen.zoneAnchorAt(entry, cell.iy * N + cell.ix);
+  return (anchor && ZoneVariants.pick(anchor)?.name) || null;
+}
+
 const TERRAIN_FLAVOR = {
   [TERRAIN.WATER]:          'Open water, cold and deep.',
   [TERRAIN.ROAD]:           'Hard road, packed and worn.',
@@ -1896,7 +1906,8 @@ const TAP_HANDLERS = [
   // reads as road, matching what the player is looking at. A road or path
   // cell of a street variant names it (StreetVariants.streetNameAt: the
   // feet story's row, or a themed path's own inside a Nexus) by title only;
-  // the feet tell the story.
+  // the feet tell the story. Other ground inside a Nexus names its zone
+  // variant (zoneVariantNameAt) instead of the generic terrain line.
   { name: 'flavor', try: (ctx) => {
     const { scene, sx, sy, cell } = ctx;
     if (isTillableCell(cell) || planterAt(ctx)) return false;
@@ -1904,6 +1915,11 @@ const TAP_HANDLERS = [
       ? StreetVariants.streetNameAt(WorldGen.tileCache.get(WorldGen.tileKey(cell.tx, cell.ty)), cell.ix, cell.iy) : null;
     if (street) {
       scene.flash(street.title, sx, sy);
+      return true;
+    }
+    const zone = zoneVariantNameAt(scene, cell);
+    if (zone) {
+      scene.flash(zone, sx, sy);
       return true;
     }
     const flavor = cell.underRoad ? TERRAIN_FLAVOR[TERRAIN.ROAD]
@@ -2075,6 +2091,15 @@ const TAP_HANDLERS = [
         scene.flashLoot(`+1 ${ITEM_BY_ID[find.id]?.name || find.id}`, '#a7ffb0', 1, find.id);
       }
     } });
+  }},
+
+  // Bare tillable ground with no seed selected: inside a Nexus, name its
+  // zone variant (the same line non-tillable ground gives in `flavor`).
+  { name: 'zone-name', try: (ctx) => {
+    const name = ctx.cell && zoneVariantNameAt(ctx.scene, ctx.cell);
+    if (!name) return false;
+    ctx.scene.flash(name, ctx.sx, ctx.sy);
+    return true;
   }},
 ];
 
