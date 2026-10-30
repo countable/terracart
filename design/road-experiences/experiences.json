@@ -10,11 +10,7 @@
     ],
     "mechanics": [
       {
-        "text": "A hedge ambush can emerge from behind the first verge row.",
-        "status": "existing"
-      },
-      {
-        "text": "Walking the route restores its paving.",
+        "text": "Two goblin runts hide in the clipped hedge. One ambush is attempted per hedged street per map tile, where a valid spawn spot exists.",
         "status": "existing"
       }
     ],
@@ -112,10 +108,6 @@
     "mechanics": [
       {
         "text": "Lamps are placed more densely than on ordinary routes.",
-        "status": "existing"
-      },
-      {
-        "text": "Walking restores the route through the shared street-restoration system.",
         "status": "existing"
       }
     ],
