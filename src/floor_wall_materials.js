@@ -87,8 +87,10 @@
     const pick = avalanche32(fnv1a(`sewer-ground:${x},${y}`)) & 15;
     return pick === 0 ? 'groundBroken' : pick === 1 ? 'groundGrate' : 'ground';
   }
+  // The floor profile's `channelWater` row (the sewer's) says whose lanes are
+  // water; worldgen reads the same flag to keep every spawn out of them.
   function isSewerChannel(entry, index, type = entry?.grid?.[index]) {
-    return entry?.depth === 1 && type === global.WorldGen.T.CAVE_FLOOR
+    return !!global.WorldGen.floorProfile?.(entry?.depth)?.channelWater && type === global.WorldGen.T.CAVE_FLOOR
       && !!entry.underground?.lane?.has(index);
   }
   // Material roles are derived only from existing generated masks. No extra
