@@ -1225,3 +1225,78 @@ test('flavor: a tapped road cell names its street variant, as the feet story rea
     if (prev) WorldGen.tileCache.set(key, prev); else WorldGen.tileCache.delete(key);
   }
 });
+
+// A road tap is read at the tap's own point inside the cell
+// (StreetVariants.roadAtPoint): each band that reaches the cell is tested
+// there, the nearest centreline holding the point names it, and a tap on the
+// cell's ground beside every band is no road tap at all.
+(() => {
+  const N = 8, E = N * 7, unit = 4096 / N;
+  // A minor road along row 4.5 and a footway down column 2.5 cross in cell
+  // (2, 4); a park-path section is dressed over the footway, and the road
+  // carries a themed section of its own only east of column 5.
+  const road = { type: 2, tags: { class: 'minor' }, geom: [[{ x: 0, y: 4.5 * unit }, { x: 4096, y: 4.5 * unit }]] };
+  const path = { type: 2, tags: { class: 'path', subclass: 'footway' }, geom: [[{ x: 2.5 * unit, y: 0 }, { x: 2.5 * unit, y: 4096 }]] };
+  const park = StreetVariants.VARIANT_BY_ID.parkpath, themed = StreetVariants.VARIANT_BY_ID.burned;
+  const entry = () => ({ cellsPerEdge: N, tileEdgeM: E, layers: [{ name: 'transportation', extent: 4096, features: [road, path] }],
+    streetIndex: { extent: 4096, lines: [], dressingLines: [
+      { fi: 1, size: 'path', variant: park.id, halfW: WorldGen.roadOverlayWidthM(path.tags) / 2, line: path.geom[0] },
+      { fi: 0, size: 'minor', variant: themed.id, halfW: WorldGen.roadOverlayWidthM(road.tags) / 2,
+        line: [{ x: 5 * unit, y: 4.5 * unit }, { x: 4096, y: 4.5 * unit }] }] } });
+
+  test('road tap: the band under the tap point names the road, not the cell', () => {
+    const e = entry(), at = (x, y) => StreetVariants.roadAtPoint(e, x, y);
+    assert.eq(at(4.2, 4.5)?.tier, TERRAIN.ROAD, 'on the road');
+    assert.eq(at(4.2, 4.5).row, null, 'a plain stretch names no theme');
+    assert.eq(at(6.2, 4.6).row, themed, 'its themed section names itself');
+    assert.eq(at(4.2, 4.95), null, 'the same cell, beside the band: off the road');
+    assert.eq(at(4.2, 4.05), null, 'and beside it on the other kerb');
+  });
+
+  test('road tap: in a cell two ways cross, the tap picks the one it is on', () => {
+    const e = entry(), at = (x, y) => StreetVariants.roadAtPoint(e, x, y);
+    const onPath = at(2.5, 4.05);
+    assert.eq(onPath?.tier, TERRAIN.PATH, 'north of the road, on the footway');
+    assert.eq(onPath.row, park, 'which keeps its park-path name');
+    const onRoad = at(2.9, 4.5);
+    assert.eq(onRoad?.tier, TERRAIN.ROAD, 'east of the footway, on the road');
+    assert.eq(onRoad.row, null, 'the footway\'s theme does not leak onto it');
+    assert.eq(at(2.55, 4.5).row, null, 'nor at the crossing\'s centre, where the road\'s centreline is nearer');
+    assert.eq(at(2.9, 4.05), null, 'the cell\'s corner beside both bands is ground');
+  });
+
+  test('road tap: without line geometry the cell still decides', () => {
+    assert.eq(StreetVariants.roadAtPoint({ cellsPerEdge: N, tileEdgeM: E }, 1, 1), undefined);
+  });
+
+  test('flavor: a tap on a road cell but off every band reads as the ground beside the road', () => {
+    const handler = TAP_HANDLERS.find(h => h.name === 'flavor');
+    const said = [];
+    const scene = { depth: 0, flash: text => said.push(text), neighborNonRoadType: () => TERRAIN.GRASS };
+    const base = { scene, sx: 0, sy: 0, save: {}, at: { furnitureIdx: -1 }, cellIX: 4, cellIY: 4,
+      cell: { tx: 7, ty: 9, ix: 4, iy: 4, type: TERRAIN.ROAD, loaded: true } };
+    assert.truthy(handler.try({ ...base, _roadUnderTap: null }));
+    assert.eq(said.pop(), ROADSIDE_FLAVOR, 'the grass verge beside the band');
+    assert.truthy(handler.try({ ...base, _roadUnderTap: { tier: TERRAIN.PATH, row: null } }));
+    assert.eq(said.pop(), TERRAIN_FLAVOR[TERRAIN.PATH], 'a plain footway the tap is on reads as one, whatever the cell');
+    assert.truthy(handler.try({ ...base, _roadUnderTap: { tier: TERRAIN.ROAD, row: StreetVariants.VARIANT_BY_ID.burned } }));
+    assert.eq(said.pop(), StreetVariants.VARIANT_BY_ID.burned.title, 'a themed road names its variant');
+    const underBand = { ...base, cell: { ...base.cell, type: TERRAIN.ROCKY_GROUND, underRoad: true }, _roadUnderTap: null };
+    assert.truthy(handler.try(underBand));
+    assert.eq(said.pop(), TERRAIN_FLAVOR[TERRAIN.ROCKY_GROUND], "a band cell's own ground when the tap misses the band");
+  });
+
+  test('road-repair: a tap beside the band is not a road tap', () => {
+    const handler = TAP_HANDLERS.find(h => h.name === 'road-repair');
+    let offered = 0;
+    const scene = { depth: 0, save: {}, _offerRoadRepair: () => ++offered };
+    const cell = { tx: 7, ty: 9, ix: 4, iy: 4, type: TERRAIN.ROAD, loaded: true };
+    const was = Trail.repairEnabled;
+    Trail.repairEnabled = () => false;
+    try {
+      assert.falsy(handler.try({ scene, cell, _roadUnderTap: null }), 'off the band: falls through');
+      assert.truthy(handler.try({ scene, cell, _roadUnderTap: { tier: TERRAIN.ROAD, row: null } }), 'on it: offered');
+      assert.eq(offered, 1);
+    } finally { Trail.repairEnabled = was; }
+  });
+})();

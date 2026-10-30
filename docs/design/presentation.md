@@ -700,10 +700,20 @@ pixels and decorative details do not define additional tap cells.
   Highway story. Their identities come from the mapped road class and have
   separate first-visit records, without assigning a street variant. The
   existing Old Trade Road record remains valid for returning players.
-- Tapping a road or path flashes its street's title only
-  (`StreetVariants.streetNameAt`). That is the feet story's row, except
-  inside a Nexus: the Nexus clears the dressing marks, but a path keeps its
-  theme, so the tap still names it while the feet story stays with the Nexus.
+- Tapping a road or path flashes its street's title only. The tap is read
+  at its own point inside the cell (`StreetVariants.roadAtPoint`, through
+  interact.js `roadUnderTap`), because most road cells are only partly
+  covered by their band and some are crossed by two ways. Each band that
+  reaches the cell (the overlay's stroke, `WorldGen.roadOverlayWidthM`
+  wide) is tested at that point, and the nearest centreline holding it
+  wins. That way names an MD/LG road's story, the themed dressing section
+  cut from it there, or its tier's ground line. A tap that misses every
+  band reads as the ground beside the road and offers no road repair.
+  Without line geometry the cell decides (`StreetVariants.streetNameAt`).
+  That cell rule is the feet story's row, except inside a Nexus: the Nexus
+  clears the dressing marks, but a path keeps its theme, so the tap still
+  names it while the feet story stays with the Nexus. Point and cell agree
+  there, because both read `dressingLines`.
 - Story panels use a direct second-person narrator focused on the current
   experience: what happens, what the Hood notices, and how people respond.
   Keep them to one or two short sentences with occasional sensory detail.
