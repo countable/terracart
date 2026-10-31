@@ -33,61 +33,84 @@
   const occupied = (list, p) => list.some(o => same(o, p));
   function enemy(id, x, y, hp, elite = false) { return { id, x, y, hp, maxHp: hp, elite, frost: 0 }; }
   // ── THE GORGON'S MAZE ──────────────────────────────────────────────────
-  // A perfect maze carved on the odd lattice of the square (walls on every
-  // even row and column and round the rim, so nothing falls off it), seeded
-  // off the plan like every trial. The player starts bottom-left, the golden
-  // ladder waits top-right, and Medusa stands in the lattice cell farthest
-  // from the start, stalking a step down the maze toward the player on her
-  // own cadence (mazeStep). HER GAZE (gazeTick): while the player's facing —
-  // the compass heading the scene hands tick() — lies within her row's
-  // `halfAngleDeg` of the line to her, within `cells` and with no wall
+  // The maze is THE BRAID — the one maze layout generator (cave_areas.js
+  // mazeBraid, the dungeon maze's), never a carver of its own — drawn small
+  // and read the other way round: the dungeon reads the braid's lines as its
+  // WALLS (corridors two wide between them); the trial reads them as its
+  // PASSAGES, one cell wide, over a lattice two cells apart (MAZE_BRAID)
+  // inside the rim of the square (an even square keeps its last row and
+  // column as wall, so the lattice always sits on odd cells and the corners
+  // stay open) — `loops` of its dead ends joined, so there is more than one
+  // way round, as in the dungeon. The
+  // plan's seed numbers the draws (MAZE_DRAWS, deterministic): the player
+  // starts bottom-left, the golden ladder waits top-right, and a draw is
+  // kept when the walk between them is at least MAZE_DETOUR_CELLS longer
+  // than the straight way (a braid that blocks nothing is no maze); the
+  // longest-walking draw stands in otherwise. Medusa takes the open cell
+  // farthest down the walk from BOTH the start and the ladder (the greatest
+  // nearer-of-the-two distance — a dead end off the way, never a guard on
+  // the exit; never within MEDUSA_START_CELLS of the player) and stalks a
+  // step toward the player on her own cadence (mazeStep). HER GAZE
+  // (gazeTick): while the player's
+  // facing — the compass heading the scene hands tick() — lies within her
+  // row's `halfAngleDeg` of the line to her, within `cells` and with no wall
   // between, the player is PETRIFIED (conditions.js: the row's duration,
   // topped up, never stacked — and landed at most once per
-  // APPLY_DEBOUNCE_MS, the one dose-a-second rule every status keeps).
-  // Stone can neither step nor strike; the ladder wins the trial.
-  function mazeRandom(seed) {
-    let t = (seed >>> 0) + 0x9e3779b9;
-    return () => {
-      t = (t + 0x6d2b79f5) >>> 0;
-      let r = Math.imul(t ^ (t >>> 15), 1 | t);
-      r = (r + Math.imul(r ^ (r >>> 7), 61 | r)) ^ r;
-      return ((r ^ (r >>> 14)) >>> 0) / 4294967296;
-    };
+  // APPLY_DEBOUNCE_MS, the one dose-a-second rule every status keeps). Stone
+  // can neither step nor strike; the ladder wins the trial.
+  const MAZE_BRAID = Object.freeze({ step: 2, origin: 1, loops: .35 });
+  const MAZE_DRAWS = 24, MAZE_DETOUR_CELLS = 2, MEDUSA_START_CELLS = 3;
+  // One draw of the braid in an n-cell square: every cell off its lines is
+  // wall — the rim and an even square's spare last row and column included.
+  function mazeWindow(n, seed) {
+    const w = n % 2 ? n : n - 1;
+    const braid = root.CaveAreas.mazeBraid({ ...MAZE_BRAID, width: w, height: w, seed }), walls = [];
+    for (let y = 0; y < n; y++) for (let x = 0; x < n; x++) {
+      if (x >= w || y >= w || !braid.has(y * w + x)) walls.push({ x, y });
+    }
+    return { w, walls };
   }
   function mazeBoard(s) {
-    // The lattice: odd rows and columns from 1 to `last` (n - 2 when the
-    // square is odd; one short of it, behind a double wall, when it is even).
-    const n = s.size, last = (n - 2) % 2 ? n - 2 : n - 3;
-    const random = mazeRandom(s.seed), open = new Set(), key = (x, y) => `${x},${y}`;
-    const start = { x: 1, y: last };
-    const stack = [start]; open.add(key(start.x, start.y));
-    while (stack.length) {
-      const at = stack[stack.length - 1];
-      const next = [[2, 0], [-2, 0], [0, 2], [0, -2]]
-        .map(([dx, dy]) => ({ x: at.x + dx, y: at.y + dy, wx: at.x + dx / 2, wy: at.y + dy / 2 }))
-        .filter(p => p.x >= 1 && p.y >= 1 && p.x <= last && p.y <= last && !open.has(key(p.x, p.y)));
-      if (!next.length) { stack.pop(); continue; }
-      const to = next[Math.floor(random() * next.length)];
-      open.add(key(to.wx, to.wy)); open.add(key(to.x, to.y));
-      stack.push({ x: to.x, y: to.y });
+    const n = s.size, w = n % 2 ? n : n - 1;
+    const start = { x: 1, y: w - 2 }, ladder = { x: w - 2, y: 1 }, straight = (w - 3) * 2;
+    let best = null;
+    for (let draw = 0; draw < MAZE_DRAWS; draw++) {
+      const { walls } = mazeWindow(n, s.seed * MAZE_DRAWS + draw);
+      const probe = { ...s, walls, enemies: [] };
+      const walk = mazeDistances(probe, start).get(`${ladder.x},${ladder.y}`);
+      if (walk == null) continue;
+      if (!best || walk > best.walk) best = { draw, walk, walls };
+      if (walk >= straight + MAZE_DETOUR_CELLS) break;
     }
-    s.walls = [];
-    for (let y = 0; y < n; y++) for (let x = 0; x < n; x++) if (!open.has(key(x, y))) s.walls.push({ x, y });
+    s.walls = best.walls; s.mazeDraw = best.draw;
     s.player.x = start.x; s.player.y = start.y;
     // `gazeAt`: the trial second the gaze last landed (null: never) — the
     // state is JSON, so no -Infinity here.
     s.player.petrified = 0; s.player.gazeAt = null;
-    s.ladder = { x: last, y: 1 };
-    // Medusa's seat: the lattice cell farthest down the maze from the start
-    // that is not the ladder's.
-    const distance = mazeDistances(s, start);
+    s.ladder = ladder;
+    // Medusa's seat: the open cell farthest from both the start and the
+    // ladder — the greatest nearer-of-the-two walk (mazeSeatRank), ties to
+    // the farther-from-start, then the first in reading order.
     let seat = null;
-    for (const [k, d] of distance) {
+    for (const [k, rank] of mazeSeatRank(s, start, ladder)) {
       const [x, y] = k.split(',').map(Number);
-      if (x % 2 === 0 || y % 2 === 0 || same({ x, y }, s.ladder) || same({ x, y }, start)) continue;
-      if (!seat || d > seat.d || (d === seat.d && (y < seat.y || (y === seat.y && x < seat.x)))) seat = { x, y, d };
+      if (!seat || rank.apart > seat.apart || (rank.apart === seat.apart && (rank.fromStart > seat.fromStart
+          || (rank.fromStart === seat.fromStart && (y < seat.y || (y === seat.y && x < seat.x)))))) seat = { x, y, ...rank };
     }
+    if (!seat) seat = ladder;
     s.enemies = [enemy('medusa', seat.x, seat.y, 45)];
+  }
+  // Every open cell a seat may be — off the ladder, at least MEDUSA_START_CELLS
+  // down the walk from the start — with its walk from the start and `apart`,
+  // the nearer of its walks from the start and from the ladder.
+  function mazeSeatRank(s, start, ladder) {
+    const fromStart = mazeDistances(s, start), fromLadder = mazeDistances(s, ladder), out = new Map();
+    for (const [k, d] of fromStart) {
+      const [x, y] = k.split(',').map(Number);
+      if (d < MEDUSA_START_CELLS || same({ x, y }, ladder)) continue;
+      out.set(k, { fromStart: d, apart: Math.min(d, fromLadder.get(k) ?? 0) });
+    }
+    return out;
   }
   // Breadth-first walking distances from `from` through the open cells.
   function mazeDistances(s, from) {
@@ -341,5 +364,5 @@
     }
     return finish(s);
   }
-  root.TemplePuzzles = { KINDS, SIZE_RANGES, TRIAL_FOE, foeKind, PATH_REVEAL_SECONDS, WIN_CONDITIONS, winCondition, create, move, tick, attack, gazeMeets, mazeDistances };
+  root.TemplePuzzles = { KINDS, SIZE_RANGES, TRIAL_FOE, foeKind, PATH_REVEAL_SECONDS, WIN_CONDITIONS, MAZE_BRAID, MAZE_DRAWS, MAZE_DETOUR_CELLS, MEDUSA_START_CELLS, winCondition, create, move, tick, attack, gazeMeets, mazeWindow, mazeDistances, mazeSeatRank };
 })(typeof window !== 'undefined' ? window : globalThis);

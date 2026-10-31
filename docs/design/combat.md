@@ -28,9 +28,13 @@ mechanics.
   floor ([floors](floors.md#sky-floor-depth--1)). Awakening remains permanent and winning grants the
   temple gift only once, even after re-entry or reload.
 - THE GORGON'S MAZE (`TemplePuzzles` kind `maze`, one of the grove trials
-  `TempleLayout.plan` draws): a perfect maze seeded off the plan, the golden
-  ladder at the far corner, and MEDUSA (`TRIAL_FOE`; her roster row prices,
-  paces and draws her) in its farthest cell, stalking a step toward the player
+  `TempleLayout.plan` draws): the one maze generator, the cave braid
+  (`CaveAreas.mazeBraid` — the dungeon maze reads its lines as walls between
+  wide corridors; the trial reads them as one-cell passages, `MAZE_BRAID`),
+  drawn off the plan's seed until the walk from the player's corner to the
+  golden ladder detours (`MAZE_DETOUR_CELLS`), and MEDUSA (`TRIAL_FOE`; her
+  roster row prices, paces and draws her) in the cell farthest from both ends
+  (`mazeSeatRank`), stalking a step toward the player
   on her attack cadence and striking when adjacent. Her GAZE is the row's
   `gaze`: the player's facing (`this.aim` — the compass heading, or the way
   the body last stepped or was turned by Q / E without one) within

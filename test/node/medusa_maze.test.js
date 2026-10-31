@@ -36,30 +36,38 @@
     assert.truthy(P.winCondition({ kind: 'maze' }).includes('ladder'));
   });
 
-  test('maze: seeded, rimmed, solvable at every size, Medusa in the farthest lattice cell', () => {
+  test('maze: the shared braid read as passages, rimmed, solvable at every size, Medusa farthest from both ends', () => {
+    let detours = 0, draws = 0;
     for (let size = 7; size <= 9; size++) for (let seed = 0; seed < 25; seed++) {
       const s = P.create({ kind: 'maze', size, seed });
+      draws++;
       assert.eq(JSON.stringify(s), JSON.stringify(P.create({ kind: 'maze', size, seed })), 'deterministic');
-      for (let i = 0; i < size; i++) for (const p of [{ x: i, y: 0 }, { x: i, y: size - 1 }, { x: 0, y: i }, { x: size - 1, y: i }]) {
-        assert.truthy(s.walls.some(w => w.x === p.x && w.y === p.y), `${size}/${seed}: the rim is wall`);
+      const w = size % 2 ? size : size - 1;
+      const braid = CaveAreas.mazeBraid({ ...P.MAZE_BRAID, width: w, height: w, seed: seed * P.MAZE_DRAWS + s.mazeDraw });
+      for (let y = 0; y < size; y++) for (let x = 0; x < size; x++) {
+        const passage = x < w && y < w && braid.has(y * w + x);
+        assert.eq(s.walls.some(c => c.x === x && c.y === y), !passage,
+          `${size}/${seed}: the braid's lines are the passages, everything else wall`);
       }
-      const last = (size - 2) % 2 ? size - 2 : size - 3;
-      assert.eq(s.player.x, 1); assert.eq(s.player.y, last);
-      assert.eq(s.ladder.x, last); assert.eq(s.ladder.y, 1);
-      assert.falsy(s.walls.some(w => (w.x === s.player.x && w.y === s.player.y) || (w.x === s.ladder.x && w.y === s.ladder.y)));
-      assert.truthy(route(s, s.player, s.ladder) > 0, `${size}/${seed}: the ladder can be reached`);
+      for (let i = 0; i < size; i++) for (const p of [{ x: i, y: 0 }, { x: i, y: size - 1 }, { x: 0, y: i }, { x: size - 1, y: i }]) {
+        assert.truthy(s.walls.some(c => c.x === p.x && c.y === p.y), `${size}/${seed}: the rim is wall`);
+      }
+      assert.eq(s.player.x, 1); assert.eq(s.player.y, w - 2);
+      assert.eq(s.ladder.x, w - 2); assert.eq(s.ladder.y, 1);
+      const walk = route(s, s.player, s.ladder);
+      assert.truthy(walk > 0, `${size}/${seed}: the ladder can be reached`);
+      if (walk >= (w - 3) * 2 + P.MAZE_DETOUR_CELLS) detours++;
       const m = s.enemies[0];
       assert.eq(m.id, 'medusa'); assert.eq(s.enemies.length, 1);
-      assert.truthy(m.x % 2 === 1 && m.y % 2 === 1, 'a lattice cell');
+      assert.falsy(s.walls.some(c => c.x === m.x && c.y === m.y), 'on open floor');
       assert.falsy(m.x === s.ladder.x && m.y === s.ladder.y);
-      const far = route(s, s.player, m);
-      assert.truthy(far > 0);
-      for (let y = 1; y <= last; y += 2) for (let x = 1; x <= last; x += 2) {
-        if ((x === s.ladder.x && y === s.ladder.y) || (x === s.player.x && y === s.player.y)) continue;
-        assert.lte(route(s, s.player, { x, y }), far, `${size}/${seed}: no lattice cell lies farther`);
-      }
+      assert.gte(route(s, s.player, m), P.MEDUSA_START_CELLS, 'never on top of the player at the start');
+      const ranks = P.mazeSeatRank({ ...s, enemies: [] }, s.player, s.ladder), hers = ranks.get(`${m.x},${m.y}`);
+      assert.truthy(hers);
+      for (const rank of ranks.values()) assert.lte(rank.apart, hers.apart, `${size}/${seed}: no open cell is farther from both ends`);
       assert.eq(s.player.petrified, 0);
     }
+    assert.gt(detours, draws * 0.7, `most draws find a braid with a real detour (${detours}/${draws})`);
   });
 
   test('maze: the gaze needs facing within the cone, within reach and in clear sight', () => {
