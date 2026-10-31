@@ -298,6 +298,10 @@ mechanics.
   spend; silent combat drains retain their ordinary cost. The `work`
   (Hardworking) `Buffs.KINDS` row cancels the multiplier while active. Surface
   water entry at or below 0°C applies the shared `frozen` condition row.
+- A wild animal can be `hidden` the way a shiny one is: still and unseen
+  until the feet reach a neighbouring cell (`HiddenObjects`, remembered in
+  `save.hiddenDiscoveries`). A Grassy Lane hides one such pet in its grass
+  ([generation](generation.md)); `hidden` wins over a kind's own stealth.
 - `Pets` owns individual pet records in `save.released` (`pet: true`), including
   carried animals. Every animal and enemy has a FAVOURITE (`favouriteItems`,
   items.js: an animal's `ANIMAL_FOOD`, else an enemy's roster-tier gem from

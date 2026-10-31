@@ -2630,8 +2630,13 @@ test('Grassy Lane fills its road and both verges with unique harvestable grass',
   const dressed = build(), plants = dressed.wildplants, grass = plants.filter(p => p.crop === 'longgrass');
   const signs = dressed.objects.filter(o => o.kind === 'roadsign');
   const cells = new Set(grass.map(p => Math.floor(p.x / 7) + ',' + Math.floor(p.y / 7)));
+  // The lane's hidden pet (street_hidden_pets.test.js) keeps its one grass
+  // cell bare; it is seated before the grass rows walk.
+  const pet = dressed.guards.map(g => Math.floor(g.x / 7) + ',' + Math.floor(g.y / 7));
+  assert.eq(pet.length, 1, 'one hidden pet');
   for (let x = 1; x < 10; x++) for (let y = 4; y <= 8; y++) {
     if (x === 5) continue; // an occupied centre stops this cross-section
+    if (pet.includes(x + ',' + y)) continue;
     if (signs.some(o => Math.floor(o.x / 7) === x
       && (y >= 6 ? Math.floor(o.y / 7) >= 6 && Math.floor(o.y / 7) <= y
         : Math.floor(o.y / 7) <= 6 && Math.floor(o.y / 7) >= y))) continue;

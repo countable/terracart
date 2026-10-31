@@ -464,8 +464,16 @@
       stone: { weathered: '#929088', restored: '#929088' }, lampGlow: '#d8cf9c',
       story: 'street_rocky_path', art: 'street_rocky_path', title: 'Rocky Road / Path', label: 'Rocky Road',
       body: 'Loose stones and low rocks line this simple route.', flash: 'Rocky Road / Path.' },
+    // GRASSY LANE: long grass over the road and two verge cells a side
+    // (VERGE_ROWS.grassy_lane), and ONE PET HIDING IN IT per street and owning
+    // tile (`hiddenPets`: the species off the street key — a slow one, since
+    // the verge is Passing ground and the spawn gate refuses fast fauna
+    // there), seated in the grass before the grass rows walk, and HIDDEN
+    // (HiddenObjects: still and invisible) until the feet reach a
+    // neighbouring cell. Caught, its seat stays empty (save.caught).
     { id: 'grassy_lane', materialLooks: { tree: 'mossy_tree' }, baseline: true, size: 'minor', share: 0.28, pathWeight: 0.28, rung: 'common',
       terrain: 'GRASS', pathTerrainInfluence: true, affinities: ["cultivated"],
+      hiddenPets: ['cat', 'dog', 'chicken'],
       stone: { weathered: '#83916c', restored: '#83916c' }, lampGlow: '#d8cf9c',
       story: 'street_grassy_lane', art: 'street_grassy_lane', title: 'Grassy Lane',
       body: 'Grass covers the road and its grassy verges.', flash: 'Grassy Lane.' },
@@ -2590,8 +2598,9 @@
   //        (roadMask + occupied + pois [+ roadClass] — occupied GROWS: each
   //        placed piece claims its cell, so later spawners and later pieces
   //        see it; roadClass, when absent, is read off index.roadClass) }
-  // Returns { objects, wildplants, treasures, lairs, slowCells (Map cell
-  // index → 'tar' | 'stakes'), marks } —
+  // Returns { objects, wildplants, treasures, lairs, guards (authored
+  // residents — a row's `hiddenPets` — laid by spawnInTile on the zone
+  // guards' lane), slowCells (Map cell index → 'tar' | 'stakes'), marks } —
   // marks is a Uint8Array (N*N) of variant codes on each dressed line's band
   // and verge (the story trigger reads it), or null when nothing is dressed.
   function dress(ctx) { return root.WorldGen.runSteps(dressSteps(ctx)); }
@@ -2600,7 +2609,7 @@
   // never in the unsliced spawn pass (CLAUDE.md, the worst-block rule).
   function* dressSteps(ctx) {
     const WG = root.WorldGen, S = root.Streets;
-    const res = { objects: [], wildplants: [], treasures: [], coinSeats: new Map(), traps: [], webs: [], vents: [], lairs: [], slowCells: new Map(), marks: null };
+    const res = { objects: [], wildplants: [], treasures: [], coinSeats: new Map(), traps: [], webs: [], vents: [], lairs: [], guards: [], slowCells: new Map(), marks: null };
     const idx = ctx && ctx.index;
     if (!idx || !WG || !S) return res;
     const { tx, ty, N, grid, spawnOpts } = ctx;
@@ -2859,6 +2868,45 @@
             break;
           }
         });
+      }
+      // A HIDDEN PET (the row's `hiddenPets` — Grassy Lane): one per themed
+      // street and owning tile, shared by the street's fragments here. Its
+      // SPECIES is the street's (off rec.key, the same for every player) and
+      // its SEAT one of the OUTER grass cells (the second verge cell either
+      // side — the grass cross-section stops at an occupant, so a pet in the
+      // inner cell would bare the cell behind it too; the inner cell only
+      // when no outer one seats) picked off the street and tile, on the
+      // species' own fauna gate. Seated BEFORE the verge rows walk, so the
+      // grass leaves it just its one cell. A `guards` record — spawnInTile
+      // lays it like a zone guard; `hidden` keeps it still and unseen until
+      // the feet reach a neighbouring cell (HiddenObjects).
+      if (row.hiddenPets?.length) {
+        const sid = `street_pet_${tx}_${ty}_${rec.key}`;
+        if (!habitatSeats.has(sid)) {
+          const kind = row.hiddenPets[Math.floor(hash01(`street-pet|${rec.key}`) * row.hiddenPets.length)];
+          const petCls = root.creatureSpawnClass ? root.creatureSpawnClass(kind) : 'fauna';
+          const petOk = (ix, iy) => ix >= 0 && iy >= 0 && ix < N && iy < N
+            && spawnCell(grid, N, N, ix, iy, spawnOpts, petCls)
+            && (!root.BiomeProfiles || root.BiomeProfiles.faunaAllows(kind, grid[iy * N + ix]));
+          const outer = [], inner = [], seen = new Set();
+          sampleLine(rec.line, gM, CELL_M, CELL_M / 2, (s, x, y, nx, ny) => {
+            if (!S.covers(spans, s)) return;
+            for (const side of [1, -1]) for (const [k, list] of [[2, outer], [1, inner]]) {
+              const c = vergeCell(rec, x, y, nx, ny, side, k);
+              const key = c.iy * N + c.ix;
+              if (seen.has(key) || !petOk(c.ix, c.iy)) continue;
+              seen.add(key); list.push(c);
+            }
+          });
+          const seats = outer.length ? outer : inner;
+          if (seats.length) {
+            const c = seats[Math.floor(hash01(`street-pet-seat|${rec.key}|${tx},${ty}`) * seats.length)];
+            claim(c.ix, c.iy); habitatSeats.add(sid);
+            res.guards.push({ kind, id: WG.cellId('street_pet', tx, ty, c.ix, c.iy),
+              x: cx(c.ix), y: cy(c.iy), homeX: cx(c.ix), homeY: cy(c.iy),
+              hidden: true, _street: v, _ix: c.ix, _iy: c.iy });
+          }
+        }
       }
       if (BERRY_VARIANTS.has(v)) {
         // THE RUNTS BEHIND THE BUSHES: a post every BERRY_RUNT_STEP_M, held at
