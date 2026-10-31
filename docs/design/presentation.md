@@ -58,7 +58,10 @@ pixels and decorative details do not define additional tap cells.
   their original art. Variant colours and item badges still identify composed
   items when their underlying portrait is shared. Loot reward cards default to
   96px portraits; tapping an item for its description shows its portrait at
-  96px above the item details.
+  96px above the item details. An item with no painted portrait yet (a new
+  catch, a fresh item) never shows a blank: `renderItemIcon` and
+  `gearIconHTML` scale its 16px inventory icon to the slot, pixel-sharp, until
+  a portrait is painted into the masters.
 
 - Shop recipes use compact rows, selector spacing and a shared ingredient/count
   heading so shortfalls and receipts fit with the actions as artwork contracts.
