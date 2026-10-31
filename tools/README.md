@@ -401,6 +401,9 @@ running them:
 - `gen_story_art.js` calls the image API using `OPENAI_API_KEY`, uses Python
   Pillow to resize outputs, and retains full-resolution painting masters locally.
 - `art_thumbs.js` rebuilds the inline thumbnail data in `src/art_thumbs.js`.
+- `build_serpent_idol_icons.cjs` paints the per-tier Serpent Idol icons from
+  `assets/Icons/Items/SerpentIdol.png` in the roster's serpent palettes
+  (`--check` verifies them; rebuild the DOM icon atlas afterwards).
 - `apply_map_art.py`, `apply_map_art.js`, `apply_nature_recolours.py`,
   `nature_recolour.js`, `cook_icons.js` and `gen_coin_piles.py` prepare or apply art.
 - `zone_variant_data.js --write` regenerates `src/zone_variant_data.js` from

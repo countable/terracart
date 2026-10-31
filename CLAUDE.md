@@ -92,7 +92,8 @@ implementation rationale lives beside the code.
   one writer — never a fixed schedule or the OSM address).
   Creature variants inherit through `baseKind`; hostility uses `Combat.isEnemy`.
   A boss fight (its clock, resets and win) is a `BossEncounters.KINDS` row
-  ([combat](docs/design/combat.md)) — never a timer of its own.
+  ([combat](docs/design/combat.md)) — never a timer of its own; a serpent's
+  rung (its rows, idol, colour and chest) is an `EnemyRoster.SERPENT_TIERS` row.
   An authored garrison (a horde, a decoy, an elite with minions) is a row of
   `Lairs.GROUPS` — members, placement (`seatPolar`) and what each is told
   (`aggroCells`, `proximityCells`, `elite`) — never a branch in

@@ -694,11 +694,13 @@
     return !!c && !c._disguiseRevealed && !!root.EnemyRoster?.get(c.kind)?.disguise;
   }
   // Out of reach of every strike, tap and shot (and dealt no damage): hidden,
-  // burrowed, disguised — or a roster row that is never struck at all (the
-  // serpent's head and tail tip, `untargetable`).
+  // burrowed, disguised, a roster row that is never struck at all (the
+  // serpent's tail tip, `untargetable`) — or a boss piece already BEATEN
+  // (`_beaten`: the serpent's head struck to zero, scene_boss.js
+  // _bossPieceFelled), which stays on the map but takes nothing more.
   function isConcealed(c) {
     return !!((c?.hidden || c?.stealthy) && !c._discovered) || isBurrowed(c) || isDisguised(c)
-      || !!root.EnemyRoster?.get(c?.kind)?.untargetable;
+      || !!root.EnemyRoster?.get(c?.kind)?.untargetable || !!c?._beaten;
   }
   // What a status may land on: a HOSTILE instance whether or not it is
   // charmed right now (isEnemy, with the charm's clock pushed past every

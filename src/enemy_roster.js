@@ -149,14 +149,16 @@
     {"id":"treant","eliteDrops":[{"kind":"item","id":"acorn"},{"kind":"item","id":"wood"},{"kind":"relic","slot":"axe"}],"name":"Treant","tier":2,"hp":60,"armor":2,"dmg":12,"range":0.6,"attackType":"melee","damageIntervalSeconds":3,"windupSeconds":0.6,"attackHits":1,"visionCells":6,"movement":{"pattern":"pursue","speedMetersPerSecond":1.5},"surface":{"biomes":[],"minDistance":250,"maxDistance":null,"time":"any","weight":0},"cave":null,"art":{"path":"assets/Enemy/spr_mini_monsters_spritesheet.png","frameWidth":16,"frameHeight":16,"directions":{"down":{"idle":[483,484,485],"move":[483,484,485]},"left":{"idle":[513,514,515],"move":[513,514,515]},"right":{"idle":[543,544,545],"move":[543,544,545]},"up":{"idle":[573,574,575],"move":[573,574,575]}},"directionSideFacing":"right","bounds":[0,16],"frameMs":180},"artScale":0.8,"eliteEligible":true,"disguise":{"crop":"shrub","look":"bramble","revealCells":1,"wiggleRadians":0.045,"wigglePeriodMs":1100}},
     {"id":"fire_elemental","eliteDrops":[{"kind":"item","id":"ruby"},{"kind":"item","id":"fireflower_seed"},{"kind":"item","id":"comet_ring"}],"name":"Fire Elemental","tier":4,"hp":60,"armor":0,"dmg":10,"range":0.6,"attackType":"melee","damageIntervalSeconds":2.5,"windupSeconds":0.4,"attackHits":1,"visionCells":7,"movement":{"pattern":"pursue","speedMetersPerSecond":2.4},"surface":null,"cave":{"minDepth":6,"maxDepth":6,"weight":3,"depthRule":"any"},"art":{"path":"assets/Enemy/spr_mini_monsters_spritesheet.png","frameWidth":16,"frameHeight":16,"directions":{"down":{"idle":[726,727,728],"move":[726,727,728]},"left":{"idle":[756,757,758],"move":[756,757,758]},"right":{"idle":[786,787,788],"move":[786,787,788]},"up":{"idle":[816,817,818],"move":[816,817,818]}},"directionSideFacing":"right","bounds":[0,15],"frameMs":180},"artScale":1,"eliteEligible":true,"lavaImmune":true,"condition":"burning"},
     // THE SERPENT (a Serpent Idol's boss — scene_boss.js): one creature per
-    // piece of a chain the head drags along its own trail. Only the body
-    // coils (10 hp each) can be struck; the head and the tail tip are
-    // `untargetable` (Combat.isConcealed). Every coil touching the player
-    // bites for `dmg` (attackType touch: the boss tick lands it, never the
-    // roster attack). `octantRow` is the row of the eight-way parts atlas.
-    {"id":"serpent_head","name":"Serpent","tier":4,"hp":10,"armor":0,"dmg":4,"range":0.5,"attackType":"touch","damageIntervalSeconds":1.5,"windupSeconds":0,"attackHits":1,"visionCells":8,"movement":{"pattern":"serpent","speedMetersPerSecond":3.9,"leashCells":8},"surface":null,"cave":null,"board":false,"boss":"serpent","eliteEligible":false,"artScale":0.5,"art":{"path":"assets/Enemy/SegmentedSerpent/parts.png","frameWidth":32,"frameHeight":32,"bounds":[11,27],"octantRow":0},"untargetable":true},
-    {"id":"serpent_body","name":"Serpent Coil","tier":4,"hp":10,"armor":0,"dmg":4,"range":0.5,"attackType":"touch","damageIntervalSeconds":1.5,"windupSeconds":0,"attackHits":1,"visionCells":8,"movement":{"pattern":"serpent","speedMetersPerSecond":3.9,"leashCells":8},"surface":null,"cave":null,"board":false,"boss":"serpent","eliteEligible":false,"artScale":0.5,"art":{"path":"assets/Enemy/SegmentedSerpent/parts.png","frameWidth":32,"frameHeight":32,"bounds":[11,27],"octantRow":1}},
-    {"id":"serpent_tail","name":"Serpent Tail","tier":4,"hp":10,"armor":0,"dmg":4,"range":0.5,"attackType":"touch","damageIntervalSeconds":1.5,"windupSeconds":0,"attackHits":1,"visionCells":8,"movement":{"pattern":"serpent","speedMetersPerSecond":3.9,"leashCells":8},"surface":null,"cave":null,"board":false,"boss":"serpent","eliteEligible":false,"artScale":0.5,"art":{"path":"assets/Enemy/SegmentedSerpent/parts.png","frameWidth":32,"frameHeight":32,"bounds":[11,27],"octantRow":3,"octantFlip":true},"untargetable":true},
+    // piece of a chain the head drags along its own trail, three roster rows
+    // for each rung of SERPENT_TIERS (below, pushed after this literal): the
+    // HEAD (`bossPart` head), the COILS (`bossPart` coil) and the TAIL TIP
+    // (`bossPart` tail, `untargetable` — Combat.isConcealed). Coils and the
+    // head are struck like any foe; a beaten head is not a kill (scene_boss.js
+    // _bossPieceFelled: the serpent slows, BossEncounters headBeatenSpeedMul).
+    // Every coil touching the player bites for `dmg` (attackType touch: the
+    // boss tick lands it, never the roster attack). `octantRow` is the row of
+    // the eight-way parts atlas; a tier's `palette` recolours the one atlas
+    // at load (assets.js recolorEnemyPixels).
     // Approved large directional sheets; sizes and combat values share these rows.
     {"id":"bugbear","name":"Bugbear","tier":3,"hp":70,"armor":2,"dmg":14,"range":1,"attackType":"melee","damageIntervalSeconds":3,"windupSeconds":0.8,"attackHits":1,"visionCells":6,"movement":{"pattern":"pursue","speedMetersPerSecond":2},"surface":null,"cave":null,"art":{"path":"assets/Enemy/LargeDirectionalV2/bugbear.png","frameWidth":32,"frameHeight":32,"directions":{"up":{"idle":[0],"move":[0,1,2,3],"attack":[4,5,6,7]},"right":{"idle":[8],"move":[8,9,10,11],"attack":[12,13,14,15]},"down":{"idle":[16],"move":[16,17,18,19],"attack":[20,21,22,23]},"left":{"idle":[24],"move":[24,25,26,27],"attack":[28,29,30,31]}},"directionSideFacing":"right","bounds":[8,30],"frameMs":140},"artScale":0.8,"eliteEligible":false},
     {"id":"troll","name":"Troll","tier":2,"hp":60,"armor":1,"dmg":10,"range":1,"attackType":"melee","damageIntervalSeconds":4,"windupSeconds":0.8,"attackHits":1,"visionCells":6,"movement":{"pattern":"lumber","speedMetersPerSecond":1.5},"surface":null,"cave":{"minDepth":4,"maxDepth":4,"weight":1,"depthRule":"any"},"art":{"path":"assets/Enemy/LargeDirectionalV2/troll.png","frameWidth":32,"frameHeight":32,"directions":{"up":{"idle":[0],"move":[0,1,2,3],"attack":[4,5,6,7]},"right":{"idle":[8],"move":[8,9,10,11],"attack":[12,13,14,15]},"down":{"idle":[16],"move":[16,17,18,19],"attack":[20,21,22,23]},"left":{"idle":[24],"move":[24,25,26,27],"attack":[28,29,30,31]}},"directionSideFacing":"right","bounds":[6,28],"frameMs":140},"artScale":0.8,"eliteEligible":false},
@@ -164,6 +166,41 @@
     {"id":"ogre","name":"Ogre","tier":3,"hp":90,"armor":1,"dmg":16,"range":1,"attackType":"melee","damageIntervalSeconds":4,"windupSeconds":0.8,"attackHits":1,"visionCells":6,"movement":{"pattern":"lumber","speedMetersPerSecond":1.1},"surface":{"biomes":["RESIDENTIAL"],"minDistance":750,"maxDistance":null,"time":"any","weight":1},"cave":null,"art":{"path":"assets/Enemy/LargeDirectionalV2/ogre.png","frameWidth":32,"frameHeight":32,"directions":{"up":{"idle":[0],"move":[0,1,2,3],"attack":[4,5,6,7]},"right":{"idle":[8],"move":[8,9,10,11],"attack":[12,13,14,15]},"down":{"idle":[16],"move":[16,17,18,19],"attack":[20,21,22,23]},"left":{"idle":[24],"move":[24,25,26,27],"attack":[28,29,30,31]}},"directionSideFacing":"right","bounds":[8,29],"frameMs":140},"artScale":0.8,"eliteEligible":false},
     {"id":"giant_reaper","undead":true,"name":"Giant Reaper","tier":3,"hp":65,"armor":1,"dmg":16,"range":1,"attackType":"melee","damageIntervalSeconds":3,"windupSeconds":0.8,"attackHits":1,"visionCells":6,"movement":{"pattern":"pursue","speedMetersPerSecond":1.6},"surface":{"biomes":[],"minDistance":750,"maxDistance":null,"time":"any","weight":0},"cave":null,"art":{"path":"assets/Enemy/LargeDirectionalV2/giant-reaper.png","frameWidth":32,"frameHeight":32,"directions":{"up":{"idle":[0],"move":[0,1,2,3],"attack":[4,5,6,7]},"right":{"idle":[8],"move":[8,9,10,11],"attack":[12,13,14,15]},"down":{"idle":[16],"move":[16,17,18,19],"attack":[20,21,22,23]},"left":{"idle":[24],"move":[24,25,26,27],"attack":[28,29,30,31]}},"directionSideFacing":"right","bounds":[4,27],"frameMs":140},"artScale":0.8,"eliteEligible":false},
   ];
+  // THE SERPENT LADDER (owner, Oct 2026): one serpent per material tier,
+  // raised by that tier's idol (items.js SERPENT_IDOLS) and paid with a chest
+  // of the same tier (scene_boss.js). The Wood serpent is the original
+  // tuning (ten-hp coils biting for four at 3.9 m/s); each rung up adds
+  // coil hp, bite and pace, and the head carries SERPENT_HEAD_HP_MUL coils'
+  // worth. `material` keys the idol id and the row ids; `palette` is the
+  // tier's colour as the atlas recolour (shadow / mid / highlight) and the
+  // one table tools/build_serpent_idol_icons.cjs paints the idol icons from.
+  const SERPENT_TIERS = [
+    { tier: 1, material: 'wood',     name: 'Wood',     hp: 10, dmg: 4,  speed: 3.9, palette: { shadow: '#3a2614', mid: '#b5834f', highlight: '#f0d8a8', gamma: 0.6 } },
+    { tier: 2, material: 'copper',   name: 'Copper',   hp: 14, dmg: 6,  speed: 4.1, palette: { shadow: '#4a2410', mid: '#e08a4c', highlight: '#ffd9b0', gamma: 0.6 } },
+    { tier: 3, material: 'iron',     name: 'Iron',     hp: 19, dmg: 8,  speed: 4.3, palette: { shadow: '#2e353d', mid: '#9aa5b1', highlight: '#e6edf3', gamma: 0.6 } },
+    { tier: 4, material: 'gold',     name: 'Gold',     hp: 26, dmg: 11, speed: 4.5, palette: { shadow: '#4d3a08', mid: '#f4cc4a', highlight: '#fff2b8', gamma: 0.6 } },
+    { tier: 5, material: 'platinum', name: 'Platinum', hp: 35, dmg: 14, speed: 4.7, palette: { shadow: '#3f3a5e', mid: '#c9a6f2', highlight: '#f6f0ff', gamma: 0.6 } },
+    { tier: 6, material: 'crimson',  name: 'Crimson',  hp: 46, dmg: 18, speed: 4.9, palette: { shadow: '#4a0c18', mid: '#e0384f', highlight: '#ffc0c8', gamma: 0.6 } },
+    { tier: 7, material: 'frost',    name: 'Frost',    hp: 60, dmg: 23, speed: 5.1, palette: { shadow: '#1a3f66', mid: '#8fdcff', highlight: '#f0fbff', gamma: 0.6 } },
+  ];
+  const SERPENT_HEAD_HP_MUL = 3;
+  const SERPENT_PARTS = {
+    head: { suffix: 'head', label: '', art: { octantRow: 0 } },
+    coil: { suffix: 'body', label: ' Coil', art: { octantRow: 1 } },
+    tail: { suffix: 'tail', label: ' Tail', art: { octantRow: 3, octantFlip: true }, untargetable: true },
+  };
+  function serpentTier(tier) { return SERPENT_TIERS.find(t => t.tier === tier) || SERPENT_TIERS[0]; }
+  function serpentKind(tier, part) { return `${serpentTier(tier).material}_serpent_${SERPENT_PARTS[part].suffix}`; }
+  for (const t of SERPENT_TIERS) for (const [part, p] of Object.entries(SERPENT_PARTS)) {
+    ROWS.push({ id: serpentKind(t.tier, part), name: `${t.name} Serpent${p.label}`, tier: t.tier,
+      hp: part === 'head' ? t.hp * SERPENT_HEAD_HP_MUL : t.hp, armor: 0, dmg: t.dmg, range: 0.5, attackType: 'touch',
+      damageIntervalSeconds: 1.5, windupSeconds: 0, attackHits: 1, visionCells: 8,
+      movement: { pattern: 'serpent', speedMetersPerSecond: t.speed, leashCells: 8 },
+      surface: null, cave: null, board: false, boss: 'serpent', bossPart: part, bossTier: t.tier,
+      eliteEligible: false, artScale: 0.5, palette: t.palette,
+      art: { path: 'assets/Enemy/SegmentedSerpent/parts.png', frameWidth: 32, frameHeight: 32, bounds: [11, 27], ...p.art },
+      ...(p.untargetable ? { untargetable: true } : {}) });
+  }
   const ALL = Object.fromEntries(ROWS.map(row => [row.id, row]));
   const SURFACE_TIERS = [{"minDistance":0,"maxDistance":250,"tierWeights":{"1":1}},{"minDistance":250,"maxDistance":750,"tierWeights":{"1":0.6,"2":0.4}},{"minDistance":750,"maxDistance":1500,"tierWeights":{"1":0.3,"2":0.5,"3":0.2}},{"minDistance":1500,"maxDistance":null,"tierWeights":{"1":0.2,"2":0.4,"3":0.4}}];
   const GHOST_SCALING = {"cadenceSeconds":300,"jitterSeconds":60,"minCryptDepth":4,"rows":[{"zone":"surface_night","minDepth":0,"maxDepth":0,"groupMin":1,"groupMax":3,"nearMax":6,"sizeMultiplier":1},{"zone":"dungeon","minDepth":3,"maxDepth":4,"groupMin":1,"groupMax":3,"nearMax":6,"sizeMultiplier":1},{"zone":"dungeon","minDepth":5,"maxDepth":6,"groupMin":2,"groupMax":4,"nearMax":8,"sizeMultiplier":1},{"zone":"dungeon","minDepth":7,"maxDepth":null,"groupMin":2,"groupMax":4,"nearMax":8,"sizeMultiplier":1.5,"powerMultiplier":2}],"stats":"Crypt pockets select dungeon ghosts from depth 4; bands apply to odd and even depths. Enlarged ghosts have double HP and touch damage from depth 7; speed and contact range stay unchanged. White:pink weight 2:1 from depth 7. Both colours receive the size multiplier. No additional unlimited growth below depth 7.","multiplayer":"Same group count and visible size for all players; Hard does not alter ghost spawns."};
@@ -175,7 +212,8 @@
   function ghostProfile(depth) {
     return GHOST_SCALING.rows.find(r => depth >= r.minDepth && (r.maxDepth == null || depth <= r.maxDepth)) || null;
   }
-  const api = { ALL, ROWS, SURFACE_TIERS, GHOST_SCALING, get, baseKind, isRooted, ghostProfile, GIANT_SCALE: 1.6, MINI_SCALE: 0.65 };
+  const api = { ALL, ROWS, SURFACE_TIERS, GHOST_SCALING, SERPENT_TIERS, get, baseKind, isRooted, ghostProfile,
+    serpentTier, serpentKind, GIANT_SCALE: 1.6, MINI_SCALE: 0.65 };
   root.EnemyRoster = api;
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
 })(typeof window !== 'undefined' ? window : globalThis);

@@ -192,7 +192,7 @@ class SceneConsumables {
     if (row.tome) return this._readTome(id);
     if (row.buff) return this._useTimedBuff(id);
     if (CAST_ROWS[id]) return this._castOnFoes(id);
-    return typeof this[row.method] === 'function' ? this[row.method]() : false;
+    return typeof this[row.method] === 'function' ? this[row.method](id) : false;
   }
 
   // Set out the Sugar Potion: every animal within radiusM is drawn toward you

@@ -525,26 +525,50 @@ Tests: `combat`, `armor`, `energy_int`, `downed_pursuit`, `rest_work`, `home_war
   side is `_tickBossEncounters` (`src/scene_boss.js`), every frame; each live
   fight shows its clock as a status-row chip.
 - WINNING spends the trigger for good: a citadel is claimed; the idol is
-  consumed and leaves a T4 boss chest (`chestThemeFor` → the `boss` theme:
-  equipment or a unique relic), kept as `save.bossChests` until opened.
-- THE SERPENT: one creature per piece (`serpent_head` / `_body` / `_tail`
-  roster rows, `boss: 'serpent'`), moved and biting only by its encounter's
-  tick, never `rosterEnemyMove`. The head snakes about the player within the
-  row's `leashCells`, cycling through eight seconds each of viewport roaming,
-  circling the player, and charging through the player's position. Roaming and
-  circling use 3.9 m/s; charges use 1.6 times that pace and commit to a target
-  that the player can dodge. The saved encounter clock preserves the phase
-  across reloads; shared copies follow the owner's poses. Coils and tail follow its trail,
-  spaced one display pixel closer than 0.55 cells at the standard cell scale. Trail samples
-  accumulate distance from a fixed anchor while the live head moves, so turns
-  remain in the path at every frame rate. Each coil touching the player bites
-  for the row's `dmg` (4 base damage) once a `damageIntervalSeconds`
-  through `foeBlowLands`. Only coils can be struck (the head and tail are
-  `untargetable`, read by `Combat.isConcealed`); a slain coil shortens it, and
-  with only head and tail left it dies. Body and gait numbers are the
-  `KINDS.serpent` row. The Serpent Idol is the road ladder's fifth prize, alone
-  (`Trail.FIXED_PRIZES`), `progressionOnly` (no loot pool or sale), and cannot
-  be raised on the Major-and-Medium road group's kerb or junctions.
+  consumed and leaves a boss chest of the serpent's tier (`chestThemeFor` →
+  the `boss` theme: equipment or a unique relic), kept as `save.bossChests`
+  until opened. The chest is plain — no `name`, no `poiClass` — so it carries
+  no map label and is never a point of interest.
+- THE SERPENT LADDER: one serpent per material tier, a row of
+  `EnemyRoster.SERPENT_TIERS` (tier, material, coil hp, bite, pace, and the
+  `palette` that recolours the one parts atlas at load) expanded into three
+  roster rows a rung (`EnemyRoster.serpentKind(tier, part)`: `bossPart` head /
+  coil / tail, `boss: 'serpent'`). Each rung has its idol (`items.js
+  SERPENT_IDOLS`, `<material>_serpent_idol`, `bossTier`): the fight record's
+  `tier` is the idol's, the chest left is that tier, and the multiplayer feed
+  carries it. The Wood serpent is the original tuning (ten-hp coils biting for
+  four at 3.9 m/s); every rung up is tougher, harder-biting and faster. The
+  idols are ordinary magic finds kept scarce by `dropWeight` and off every
+  shelf, barter list and fort reel by `findOnly`; the Wood idol is also the
+  road ladder's fifth prize, alone (`Trail.FIXED_PRIZES`). A save from before
+  the ladder holding `serpent_idol` is rewritten to the Wood one
+  (`save.js migrateSave`). `tools/build_serpent_idol_icons.cjs` paints the
+  idol icons from the same palettes.
+- THE SERPENT: one creature per piece, moved and biting only by its
+  encounter's tick, never `rosterEnemyMove`. The head snakes about the player
+  within the row's `leashCells`, cycling through eight seconds each of
+  viewport roaming, circling the player, and charging through the player's
+  position. Charges use 1.6 times the rung's pace and commit to a target that
+  the player can dodge. The saved encounter clock preserves the phase across
+  reloads; shared copies follow the owner's poses. Coils and tail follow its
+  trail, spaced one display pixel closer than 0.55 cells at the standard cell
+  scale. Trail samples accumulate distance from a fixed anchor while the live
+  head moves, so turns remain in the path at every frame rate. Each coil
+  touching the player bites for the row's `dmg` once a `damageIntervalSeconds`
+  through `foeBlowLands`. Coils and the HEAD can be struck (only the tail tip
+  is `untargetable`, read by `Combat.isConcealed`); a slain coil shortens it.
+  The head's fall is not a kill: `_damageEnemy` offers a felled piece to
+  `_bossPieceFelled` before `resolveDefeat`, which marks the head `_beaten`
+  (concealed from every further strike, never caught, never announced) and
+  halves the serpent's pace (`KINDS.serpent.headBeatenSpeedMul`) for the rest
+  of the fight; the record's `headBeaten` restores it on a reload. With only
+  the head and tail left it dies. Body and gait numbers are the
+  `KINDS.serpent` row. An idol cannot be raised on the Major-and-Medium road
+  group's kerb or junctions.
+- THE SERPENT'S DRAW ORDER (`Render.sortWorldDepth`): each piece takes its own
+  ground slot against the world, but a run of one chain's pieces with nothing
+  between them is laid head-most on top (the head over the first coil, each
+  coil over the one behind it, the tail beneath), whichever way it heads.
 - SHARED: once one player starts a boss fight, every nearby player is in it.
   A citadel battle travels as `battle` frames (below). A serpent's starter
   drives its head and sends the pose as `boss` frames every `feedMs`; a

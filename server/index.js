@@ -20,7 +20,7 @@
 //     { t:'seen', ids:[id...], d }                    these enemies are alive here │ ≤ MAX_ENEMY_FRAMES_PER_S
 //     { t:'dead', ids:[id...], d }                    these enemies are dead (reply)│ together; extras
 //     { t:'battle', key, startedAt, d }               my castle battle is on       │ dropped, not fatal
-//     { t:'boss', key, startedAt, d, x, y, h }        my boss's head pose (feed)   │
+//     { t:'boss', key, startedAt, d, tier, x, y, h }  my boss's head pose (feed)   │
 //     { t:'aggro', eid, pid, d }                      enemy `eid` is after player `pid` │
 //     { t:'group', groups:[{id,p}...], d }            encounter party-size high-water marks ┘
 //   server → client
@@ -34,7 +34,7 @@
 //     { t:'seen',  id, ids, d }                       a peer has these enemies loaded, alive (within INTEREST_PX)
 //     { t:'dead',  id, ids, d }                       a peer knows these enemies are dead (within INTEREST_PX)
 //     { t:'battle', id, key, startedAt, d }           a peer's castle battle (within INTEREST_PX)
-//     { t:'boss', id, key, startedAt, d, x, y, h }    a peer's boss head pose (within INTEREST_PX)
+//     { t:'boss', id, key, startedAt, d, tier, x, y, h }  a peer's boss head pose (within INTEREST_PX)
 //     { t:'aggro', id, eid, pid, d }                  a peer's copy of `eid` targets `pid` (within INTEREST_PX)
 //     { t:'group', id, groups, d }                   a peer's encounter sizes (within INTEREST_PX)
 //     { t:'leave', id }                               a peer's socket closed
@@ -182,12 +182,16 @@ function cleanBattle(msg) {
 // A well-formed boss feed's relayed fields, or null to drop it.
 function cleanBoss(msg) {
   const { key, startedAt, d, x, y, h } = msg;
+  // `tier` is the serpent's rung (1..7, src/enemy_roster.js SERPENT_TIERS);
+  // a feed from before the ladder names none and means the first.
+  const tier = msg.tier === undefined ? 1 : msg.tier;
   const coordinate = n => Number.isFinite(n) && n >= 0 && n <= 4194304;
   if (typeof key !== 'string' || !BOSS_KEY_RE.test(key)) return null;
   if (!Number.isSafeInteger(startedAt) || startedAt <= 0) return null;
   if (!Number.isInteger(d) || d < 0) return null;
+  if (!Number.isInteger(tier) || tier < 1 || tier > 7) return null;
   if (!coordinate(x) || !coordinate(y) || !Number.isFinite(h) || Math.abs(h) > 1000) return null;
-  return { key, startedAt, d, x, y, h };
+  return { key, startedAt, d, x, y, h, tier };
 }
 // A well-formed aggro's relayed fields, or null to drop it.
 function cleanAggro(msg) {

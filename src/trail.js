@@ -189,9 +189,10 @@
       { kind: 'item', id: 'pairy', qty: 3, tier: itemTierOf('pairy'), cls: 'fruit', jackpot: 0, consolation: 0 },
     ];
   }
-  // Rung five offers the Serpent Idol alone: it cannot be picked past.
+  // Rung five offers the Wood Serpent Idol alone (the first rung of the
+  // serpent ladder, items.js SERPENT_IDOLS): it cannot be picked past.
   const FIXED_PRIZES = {
-    5: { kind: 'item', id: 'serpent_idol', qty: 1, tier: 4, cls: 'magic', jackpot: 0, consolation: 0, sole: true },
+    5: { kind: 'item', id: 'wood_serpent_idol', qty: 1, tier: 1, cls: 'magic', jackpot: 0, consolation: 0, sole: true },
   };
   function fixedPrize(n, save) {
     // The third choice supplies the first pick; a better pick also counts.

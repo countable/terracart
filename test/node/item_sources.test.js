@@ -60,6 +60,6 @@ test('item sources: a dropWeight of 0 keeps an item out of every roll', () => {
   assert.gt(seen.size, 30, 'the rolls covered real variety');
   // The fort's slot machine keeps the same gates as the rolls.
   const slots = ALL_SRC['scene_venues.js'].slice(ALL_SRC['scene_venues.js'].indexOf('fortSlotMachine('));
-  assert.truthy(/&& !it\.progressionOnly && !it\.caveOnly && !it\.shiny\s*&& it\.dropWeight !== 0\)/.test(slots),
-    'no progression ware, nothing cave-only, no shiny, no opted-out item on the reels');
+  assert.truthy(/&& !it\.progressionOnly && !it\.findOnly && !it\.caveOnly && !it\.shiny\s*&& it\.dropWeight !== 0\)/.test(slots),
+    'no progression ware, nothing find-only, nothing cave-only, no shiny, no opted-out item on the reels');
 });
