@@ -27,6 +27,19 @@ mechanics.
   share this fall behavior, except the hidden way, which is walked on the sky
   floor ([floors](floors.md#sky-floor-depth--1)). Awakening remains permanent and winning grants the
   temple gift only once, even after re-entry or reload.
+- THE GORGON'S MAZE (`TemplePuzzles` kind `maze`, one of the grove trials
+  `TempleLayout.plan` draws): a perfect maze seeded off the plan, the golden
+  ladder at the far corner, and MEDUSA (`TRIAL_FOE`; her roster row prices,
+  paces and draws her) in its farthest cell, stalking a step toward the player
+  on her attack cadence and striking when adjacent. Her GAZE is the row's
+  `gaze`: the player's facing (`this.aim` — the compass heading, or the way
+  the body last stepped or was turned by Q / E without one) within
+  `halfAngleDeg` of the line to her, within `cells`, with no wall between
+  (`gazeMeets`), lands PETRIFIED on the trial's player: stone for the
+  `petrified` row's duration, topped up while the gaze holds, never stacked,
+  no step and no blow; the trial draws the body in the row's grey. The trial's
+  petrify is trial state, like its health, read off the same row and the same
+  one-dose-a-second clock as a surface status.
 
 - Confusing gas scales each `confused` dose with local density: a full
   0.3-density puff applies five seconds; thinner gas applies proportionally less
@@ -240,7 +253,12 @@ mechanics.
   it inflicts (a `refresh: false` row such as frozen keeps its first clock, and
   burning also grows with exposure). They do not bank like a repeated timed
   consumable, whose epoch writer is `Buffs.extend` / `extendField`. A new status is a row there, never a timer,
-  colour or label of its own. BLINDED (a ghost's touch,
+  colour or label of its own. ONE DOSE A SECOND: a status landing again within
+  `Conditions.APPLY_DEBOUNCE_MS` of its last landing on the same body is
+  ignored (`apply` returns false, nothing stamps), so a gaze, a web walked cell
+  by cell or a cloud stood in tops a status up at most once a second.
+  PETRIFIED (the gorgon's gaze, the grove temple's maze trial) is the
+  paralysis rule in stone grey. BLINDED (a ghost's touch,
   its roster row's `condition`) carries `lightMul`: `Conditions.lightMul`
   halves the base reach before Inner Light upgrade steps (`reachRadiusM`,
   never under one cell), the light ramp's and a carried torch's radius

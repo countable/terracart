@@ -102,6 +102,8 @@
     delete s.save.conditions.paralysis;
     SpiderWebs.tick(s, 0.01, NOW + 6000);
     assert.falsy(s.save.conditions.paralysis, 'remaining on the cell does not trap forever');
+    // The condition clock is play time (one dose a second — Conditions.APPLY_DEBOUNCE_MS): the eight seconds pass.
+    Conditions.tick(s.save, 8000);
     s.playerM = { x: 44, y: 28 }; SpiderWebs.tick(s, 0.01, NOW + 7000);
     s.playerM = { x: 28, y: 28 }; SpiderWebs.tick(s, 0.01, NOW + 8000);
     assert.eq(s.save.conditions.paralysis.remainingMs, 6000);
