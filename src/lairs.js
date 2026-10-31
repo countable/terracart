@@ -135,7 +135,7 @@
   // StreetVariants.BANDIT_STRETCH_UNITS) are the same reason again: one guard
   // each, always held, every mode. (There is no 'wagon' tier: a bus stop is on
   // the kerb by definition.)
-  const STREET_TIER_GUARDS = { cafe: 1, barricade: 1, burned: 1, street_hedgerow: 2, street_overgrown: 1, street_wild_boar: 2, street_forest_bear: 1, street_orchard: 1, street_toadstool: 1, street_goblin_gang: 5, street_spider_path: 2, street_berry: 1, street_trade: 2 };
+  const STREET_TIER_GUARDS = { cafe: 1, barricade: 1, burned: 1, street_hedgerow: 2, street_overgrown: 1, street_wild_boar: 2, street_forest_bear: 1, street_orchard: 1, street_toadstool: 1, street_goblin_gang: 5, street_spider_path: 2, street_berry: 1, street_trade: 3 };
   const SLIME_TRAIL = root.StreetVariants.VARIANT_BY_ID.slime_trail;
   for (const kind of SLIME_TRAIL.enemyKinds) STREET_TIER_GUARDS[`street_slime_trail_${kind}`] = SLIME_TRAIL.guardsPerPost;
   Object.assign(TIER_GUARDS, STREET_TIER_GUARDS);
@@ -233,7 +233,7 @@
     // 'close' tier's ladder; there is no 'wagon' tier — the safety pass.)
     cafe: ['skeleton_soldier', 'orc'],
     street_berry: ['goblin_runt'],                 // a Berry Lane's bush runt (GROUPS.street_berry)
-    street_trade: ['goblin_runt'],                 // a Trade Row's pair of grunts (GROUPS.street_trade)
+    street_trade: ['thief', 'goblin_runt'],        // a Trade Row's thief and pair of grunts (GROUPS.street_trade)
     // A tar yard: fire slimes (the enemy_roster.js fire_slime row).
     tar: ['fire_slime'],
     // A barricade: the goblin who holds it.
@@ -336,10 +336,14 @@
     street_goblin_gang: { label: 'Street goblin gang', tiers: ['street_goblin_gang'], modeCap: false,
       story: 'Five weak goblin grunts gather beside the street, with barrel stacks nearby.',
       members: [{ kind: 'goblin_runt', n: 5, place: 'ring' }] },
-    // A Trade Row's grunts: a pair at every held post along the barrel row.
-    street_trade: { label: 'Trade Row grunts', tiers: ['street_trade'], modeCap: false,
-      story: 'Two weak goblin grunts pick through the barrels of goods beside the road.',
-      members: [{ kind: 'goblin_runt', n: 2, place: 'ring' }] },
+    // A Trade Row's post: a THIEF among the goods (owner, Oct 2026 — the
+    // market street is where purses are cut; its hitAndRun snatch and flight
+    // are the roster row's) and the pair of grunts picking through the
+    // barrels, at every held post along the row. The thief leads so what
+    // matters most wakes first.
+    street_trade: { label: 'Trade Row thief and grunts', tiers: ['street_trade'], modeCap: false,
+      story: 'A thief waits among the barrels of goods beside the road, two weak goblin grunts picking through them.',
+      members: [{ kind: 'thief', n: 1, place: 'ring' }, { kind: 'goblin_runt', n: 2, place: 'ring' }] },
     // ── A wrecked house: small ──
     grunt_gang: { label: 'Goblin grunt gang', tiers: [9], minT: 0, chance: .1, modeCap: false,
       story: 'Three to eight weak goblins crowd around the wreck. Each falls quickly; the gang comes together.',

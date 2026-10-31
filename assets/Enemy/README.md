@@ -25,6 +25,12 @@ when idle they hold the first pose. Their sheet has no separate attack cycle.
 Purple and fire slimes retain their existing hop/cycle and horizontal mirroring:
 no directional layout is assumed for art that has not been verified.
 
+`Rat.png` (the sewer rat) is generated, not imported: `tools/gen_sewer_art.py`
+paints it in the mini monsters idiom (dark outline, three browns, pink ears,
+nose and tail) as a 48×64 sheet, three 16px frames by four rows in the order
+down, left, right, up; each row is one walk cycle and doubles as the idle.
+Rerun the script after editing its pixel maps rather than retouching the PNG.
+
 Unused imported packs are still candidates, not part of the runtime roster.
 Run `node tools/asset_inventory.js` to see references and unreferenced files.
 

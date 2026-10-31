@@ -13,7 +13,7 @@
       && !(scene.save.burnedObjects || []).includes(p.id)
       && !root.HomeVariant?.contains(scene,p.x,p.y) && !root.HomeVariant?.discardedAt(scene,p.x,p.y);
   }
-  function seat(scene, x, y, street) {
+  function seat(scene, x, y, street, allowCut = false) {
     const W = root.WorldGen, at = worldMetersToTileCell(scene,x,y);
     const e = W.tileCache.get(W.tileKey(at.tx,at.ty));
     if (!e || e.status !== 'ready' || e.depth > 0) return null;
@@ -24,11 +24,35 @@
     if (root.HomeVariant?.contains(scene,x,y) || root.HomeVariant?.discardedAt(scene,x,y)) return null;
     let occupied = false;
     for (const prop of ['objects','wildplants']) W.forEachItemInBox(e,prop,x-scene.cellM/2,y-scene.cellM/2,x+scene.cellM/2,y+scene.cellM/2,o => {
+      if (allowCut && o._creepingVine && (o.picked || o.burned || (scene.save.picked || []).includes(o.id)
+          || (scene.save.burnedObjects || []).includes(o.id))) return;
       if (Math.abs(o.x-x)<scene.cellM/2 && Math.abs(o.y-y)<scene.cellM/2) occupied = true;
     });
-    for (const key of ['barricades','furniture','fires','fruittrees','scarecrows'])
-      if ((scene.save[key] || []).some(o => Math.abs(o.x-x)<scene.cellM/2 && Math.abs(o.y-y)<scene.cellM/2)) occupied = true;
+    for (const key of ['barricades','furniture','fires','fruittrees','scarecrows','planted','magicTraps'])
+      if ((scene.save[key] || []).some(o => !(o.depth > 0) && Math.abs(o.x-x)<scene.cellM/2 && Math.abs(o.y-y)<scene.cellM/2)) occupied = true;
     return occupied ? null : {e,ix,iy};
+  }
+  const plantSeat = (scene, x, y) => scene.depth ? null : seat(scene, x, y, null, true);
+  // Planting starts the same saved overlay as natural growth, with one live cell.
+  function plant(scene, x, y) {
+    if (scene.depth || !scene.save) return null;
+    const target = plantSeat(scene, x, y); if (!target) return null;
+    const save = scene.save;
+    save.creepingVines ||= []; save.vineGrowth ||= {};
+    const at = worldMetersToTileCell(scene, x, y);
+    // Saved vine records are append-only; cleared records remain as regrowth barriers.
+    let serial = save.creepingVines.length;
+    const prefix = `planted_vine:${at.tx}:${at.ty}:${target.ix}:${target.iy}:`;
+    while (save.vineGrowth[prefix + serial] || (save.picked || []).includes(prefix + serial)
+        || (save.burnedObjects || []).includes(prefix + serial)) serial++;
+    const id = prefix + serial;
+    const p = root.WorldGen.makeWildplant('creeping_vine', x, y, id, {
+      _creepingVine: true, _vineColony: id, _plantArt: 'creeping_vine',
+      _ix: target.ix, _iy: target.iy, depth: 0 });
+    target.e.wildplants ||= [];
+    target.e.wildplants.push(p); save.creepingVines.push({ ...p });
+    save.vineGrowth[id] = { elapsedMs: 0, count: 1 };
+    return p;
   }
   function tick(scene, dt) {
     if (scene.depth || !scene.save || !(dt > 0) || !(scene.viewSize > 0)) return;
@@ -89,5 +113,5 @@
     }
     if (changed && typeof persistSave === 'function') persistSave(save);
   }
-  root.CreepingVines = Object.freeze({CONFIG,tick,visible,seat});
+  root.CreepingVines = Object.freeze({CONFIG,tick,visible,seat,plantSeat,plant});
 })(typeof window !== 'undefined' ? window : globalThis);

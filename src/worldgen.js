@@ -749,7 +749,7 @@
   // player; a build before the bin lands is the same transient the bin's own
   // chests are). A changed count drops the chest's memoised look.
   function isDensityChest(o) {
-    return !!o && o.kind === 'chest' && !!o.poiClass && !o.crate && !o.fixedLoot && !o.chestTopUp && !(o.depth > 0) && !o.caveOf;
+    return !!o && o.kind === 'chest' && !!o.poiClass && !o.cache && !o.crate && !o.fixedLoot && !o.chestTopUp && !(o.depth > 0) && !o.caveOf;
   }
   function poiDensityCounts(objects) {
     const counts = new Map();
@@ -818,7 +818,7 @@
     // chestTier) so deeper levels concentrate the high tiers.
     const cave = !!(opts && opts.cave);
     const inPool = cave
-      ? (o) => o.kind === 'chest' && !!o.poiClass && !o.crate && !o.fixedLoot && o.depth > 0
+      ? (o) => o.kind === 'chest' && !!o.poiClass && !o.cache && !o.crate && !o.fixedLoot && o.depth > 0
       : (o) => isDensityChest(o) && !o.vista;
     const pool = [];
     for (const o of objects || []) {
@@ -9506,6 +9506,8 @@
   //                absent, the floor strews none
   //   channelWater the projected route lanes are drawn as channel water
   //                (FloorWallMaterials.isSewerChannel) and seat nothing
+  //   fishPool     the items.js FISH_POOLS table this floor's water (channels
+  //                and pools) is fished from; absent, the surface table
   //   arrivalStory story ID for the one-time floor arrival splash
   //   entryKey     save key required to enter (null for ungated floors)
   //   pressureTraps runtime pressure-plate encounters
@@ -9524,7 +9526,7 @@
     // heap up here (the sewer is the town's bin cellar).
     Object.freeze({ depth: 1, trapDensityMul: 1, arrivalStory: 'cave', entryKey: null, vents: Object.freeze(['confusion']),
       pressureTraps: false, caveAreas: null, streetGems: null, biome: 'sewer', terrain: 'city', streetMirror: true,
-      channelWater: true, barrels: Object.freeze({ min: 30, span: 12 }),
+      channelWater: true, fishPool: 'sewer', barrels: Object.freeze({ min: 30, span: 12 }),
       fallLandings: false, chestSource: 'above', quarryProvenance: false, lava: false }),
     // The original natural cave geology reads the surface directly, so adding
     // the sewer above cannot change its Small-road/building/water wall mask.

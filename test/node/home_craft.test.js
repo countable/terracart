@@ -212,7 +212,7 @@ test('craft stations: recipe picker jumps directly among learned recipes without
   s.presentWorkshop(0, 0, s.workshop);
   const items = last(s).items;
   assert.eq(items.map(o => o.label).join('|'),
-    ['throwing_spear', 'scarecrow', 'fireball_scroll'].map(itemName).join('|'),
+    ['throwing_spear', 'bed_quilted', 'scarecrow', 'fireball_scroll'].map(itemName).join('|'),
     'grid shows known recipes only: possession and a wild scroll find do not teach the scroll');
   items.find(o => o.label === itemName('fireball_scroll')).onSelect();
   assert.includes(last(s).get, itemName('fireball_scroll'), 'any recipe can be picked directly');
@@ -284,7 +284,7 @@ test('craft stations: Home opens selling and workshop taps route to crafting', (
   assert.truthy(body.includes('this.presentWorkshop(sx, sy, house)'));
 });
 
-test('craft stations: every mode starts with only Spear and hides undiscovered recipes from the grid', () => {
+test('craft stations: every mode starts with only the Spear and the Cot and hides undiscovered recipes from the grid', () => {
   const was = Difficulty.mode();
   try {
     for (const mode of [Difficulty.EASY, Difficulty.HARD]) {
@@ -292,11 +292,12 @@ test('craft stations: every mode starts with only Spear and hides undiscovered r
       const s = scene([['rubble', 8], ['wood', 8], ['trap_disarm_kit', 1], ['berry', 8]]);
       s.presentWorkshop(0, 0, s.workshop, 'trap_disarm_kit');
       let m = last(s);
-      assert.includes(m.get, 'Spear', 'a locked target falls back to the one known recipe');
-      assert.eq(m.back, undefined, 'one recipe needs no grid to go back to');
-      assert.falsy(/Trap Disarm Kit|Find a|locked/i.test(m.get + m.blurb));
+      assert.truthy(m.grid, 'a locked target falls back to the grid of known recipes');
+      assert.eq(m.items.map(i => i.label).join('|'), ['throwing_spear', 'bed_quilted'].map(itemName).join('|'),
+        'the Spear and the Cot are known from the start (HOME_RECIPES `known`)');
+      assert.falsy(/Trap Disarm Kit|Find a|locked/i.test(m.items.map(i => i.label + i.note).join()));
       s.save.foundWild = { trap_disarm_kit: 1 };
-      assert.eq(known(s).join('|'), ['throwing_spear', 'trap_disarm_kit'].map(itemName).join('|'),
+      assert.eq(known(s).join('|'), ['throwing_spear', 'bed_quilted', 'trap_disarm_kit'].map(itemName).join('|'),
         'a wild find exposes only its own recipe');
       s.presentWorkshop(0, 0, s.workshop, 'trap_disarm_kit');
       m = last(s);
@@ -351,13 +352,12 @@ test('craft stations: scrolls require prior use in both modes and spend blank sc
         s.save.foundWild = { [id]: 1 };
         s.presentWorkshop(0, 0, s.workshop, id);
         const locked = last(s);
-        assert.falsy(locked.canAfford, `${id}: possession and a wild find do not teach it`);
-        assert.falsy(locked.get.includes(itemName(id)), 'an explicit unknown target is not offered');
+        assert.truthy(locked.grid, `${id}: possession and a wild find do not teach it — the grid of known recipes opens instead`);
+        assert.falsy(locked.items.some(i => i.label === itemName(id)), 'an explicit unknown target is not offered');
         const knownCount = known(s).length;
         assert.falsy(known(s).includes(itemName(id)), 'unused scroll is absent from the recipes');
-        locked.onAccept(1);
-        assert.eq(Inventory.count(s.save, 'blank_scroll'), 3, 'locked craft preserves blanks');
-        assert.eq(Inventory.count(s.save, id), 1, 'locked craft makes nothing');
+        assert.eq(Inventory.count(s.save, 'blank_scroll'), 3, 'nothing was spent');
+        assert.eq(Inventory.count(s.save, id), 1, 'nothing was made');
         s.save.usedScrolls = [id];
         s.save.foundWild = {};
         s.presentWorkshop(0, 0, s.workshop, id);

@@ -280,4 +280,23 @@
     assert.falsy(HabitatSpawns.allows('deer', WorldGen.T.ORCHARD), 'the Deer terrain restriction remains intact');
   });
 
+  test('habitat populations: Variety snakes stay inside their corridor and remain ordinary enemies', () => {
+    const make=()=>{
+      const entry=fixture();entry.streetArea=new Uint8Array(4096);entry.streetAreaVariants=new Uint8Array(4096);
+      for(let y=20;y<25;y++)for(let x=2;x<62;x++){
+        const i=y*64+x;entry.streetArea[i]=1;entry.streetAreaVariants[i]=StreetVariants.VARIANT_BY_ID.way_of_variety.code;
+      }
+      return entry;
+    };
+    const varietySnake=c=>c.kind==='snake'&&c._habitatSpawn?.key==='street:way_of_variety';
+    const a=make(), first=generate(a).filter(varietySnake), second=generate(make()).filter(varietySnake);
+    assert.eq(first.length,3,'three safe corridor slots per tile');
+    assert.eq(signature(first),signature(second),'stable snake identities and positions');
+    for(const c of first){const i=Math.floor(c.y/10)*64+Math.floor(c.x/10);assert.eq(a.streetArea[i],1,'inside winning corridor');}
+    const row=EnemyRoster.ROWS.find(r=>r.id==='snake');
+    assert.falsy(row.boss);assert.falsy(row.untargetable);assert.eq(row.movement.pattern,'pursue');
+    assert.eq(generate(fixture()).filter(varietySnake).length,0,'no Variety-owned snake outside its corridor');
+    assert.includes(row.surface.biomes,'GRASS','the corridor uses the shared native snake');
+  });
+
 })();

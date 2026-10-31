@@ -11,6 +11,13 @@ const Visibility = (() => {
   // bit marks a CONCEALING cell — a bush, a hedge, a mid-to-large tree — whose
   // occupant is hidden from every viewer that is not directly adjacent.
   const CONCEAL = 4;
+  // A GRASS HIDE: a long-grass cell. It covers and conceals nobody (the grass
+  // is knee-high), but a grass lurker (a snake's roster row `ambush.hide`
+  // 'grass' — creature_ai.js lurkSpot) waits in one; concealingCellNear reads
+  // this bit for that hide and CONCEAL for the ordinary one.
+  const GRASS_HIDE = 8;
+  const HIDE_BITS = { cover: CONCEAL, grass: GRASS_HIDE };
+  function grassHide(o) { return !!o && o.kind === 'wildplant' && o.crop === 'longgrass'; }
   const states = new WeakMap();
   const REFRESH_MS = 1000;
   function objectCover(o) {
@@ -40,10 +47,11 @@ const Visibility = (() => {
     const g = s.grid, x = ix - g.x0, y = iy - g.y0;
     return x >= 0 && y >= 0 && x < g.w && y < g.h ? g.data[y * g.w + x] & 3 : CLEAR;
   }
-  function concealAt(s, ix, iy) {
+  function hideBitsAt(s, ix, iy) {
     const g = s.grid, x = ix - g.x0, y = iy - g.y0;
-    return x >= 0 && y >= 0 && x < g.w && y < g.h && (g.data[y * g.w + x] & CONCEAL) !== 0;
+    return x >= 0 && y >= 0 && x < g.w && y < g.h ? g.data[y * g.w + x] & (CONCEAL | GRASS_HIDE) : 0;
   }
+  function concealAt(s, ix, iy) { return (hideBitsAt(s, ix, iy) & CONCEAL) !== 0; }
   function ready(scene) {
     return !!(scene?.originPx && scene.startWorldM && scene.playerM && scene.mPerPx > 0 && scene.cellsPerTile > 0);
   }
@@ -90,12 +98,12 @@ const Visibility = (() => {
     let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
     const sets = spentSets(scene, scene.save);
     const add = o => {
-      const cover = objectCover(o);
-      if (!cover || Math.abs(o.x - p.x) > radius || Math.abs(o.y - p.y) > radius) return;
+      const cover = objectCover(o), grass = grassHide(o) ? GRASS_HIDE : 0;
+      if ((!cover && !grass) || Math.abs(o.x - p.x) > radius || Math.abs(o.y - p.y) > radius) return;
       if (isSpent(o, sets) || (o.kind === 'wildplant' && sets.picked.has(o.id))) return;
       if (typeof HiddenObjects !== 'undefined' && HiddenObjects.isHidden(scene.save, o)) return;
       const c = worldMetersToAbsCell(scene, o.x, o.y);
-      cells.push(c.cellIX, c.cellIY, cover | (objectConceals(o) ? CONCEAL : 0));
+      cells.push(c.cellIX, c.cellIY, cover | (objectConceals(o) ? CONCEAL : 0) | grass);
       if (c.cellIX < minX) minX = c.cellIX; if (c.cellIX > maxX) maxX = c.cellIX;
       if (c.cellIY < minY) minY = c.cellIY; if (c.cellIY > maxY) maxY = c.cellIY;
     };
@@ -111,7 +119,7 @@ const Visibility = (() => {
       for (let i = 0; i < cells.length; i += 3) {
         const at = (cells[i + 1] - minY) * w + cells[i] - minX;
         const v = cells[i + 2];
-        data[at] = Math.max(data[at] & 3, v & 3) | ((data[at] | v) & CONCEAL);
+        data[at] = Math.max(data[at] & 3, v & 3) | ((data[at] | v) & (CONCEAL | GRASS_HIDE));
       }
       grid = { x0: minX, y0: minY, w, h, data };
     }
@@ -256,17 +264,19 @@ const Visibility = (() => {
   // hide — creature_ai.js lurkSpot), as its centre in world metres, or null.
   // Ties fall to `salt`'s hash so two lurkers spread over a hedge; `taken`
   // (abs-cell keys) is skipped. Reads the local grid, so it answers near the
-  // player only — where creatures think at all.
-  function concealingCellNear(scene, x, y, radiusCells, salt = '', taken = null) {
+  // player only — where creatures think at all. `hide` names the kind of
+  // cell: 'cover' (the default — a concealing bush, hedge or tree) or
+  // 'grass' (a long-grass cell, GRASS_HIDE — the snake's).
+  function concealingCellNear(scene, x, y, radiusCells, salt = '', taken = null, hide = 'cover') {
     if (!ready(scene)) return null;
     const s = state(scene), c = worldMetersToAbsCell(scene, x, y);
-    const r = Math.ceil(radiusCells);
+    const r = Math.ceil(radiusCells), bit = HIDE_BITS[hide] || CONCEAL;
     let best = null, rank = Infinity;
     for (let dy = -r; dy <= r; dy++) for (let dx = -r; dx <= r; dx++) {
       const d2 = dx * dx + dy * dy;
       if (d2 > radiusCells * radiusCells) continue;
       const ix = c.cellIX + dx, iy = c.cellIY + dy;
-      if (!concealAt(s, ix, iy) || taken?.has(ix + '_' + iy)) continue;
+      if (!(hideBitsAt(s, ix, iy) & bit) || taken?.has(ix + '_' + iy)) continue;
       const score = d2 + (fnv1a(salt + ':' + ix + '_' + iy) % 1000) / 2000;
       if (score < rank) { rank = score; best = { ix, iy }; }
     }
@@ -279,7 +289,7 @@ const Visibility = (() => {
     if (s) { s.frame = undefined; s.signature = null; s.rays.clear(); s.revision++; }
   }
   const api = { CLEAR, PARTIAL, FULL, HEAR_CELLS, PARTIAL_DARKNESS, FULL_DARKNESS,
-    objectCover, objectConceals, coverBetween, sightCover, playerCover, hidden, concealingCellNear,
+    objectCover, objectConceals, grassHide, coverBetween, sightCover, playerCover, hidden, concealingCellNear,
     revision: scene => ready(scene) ? state(scene).revision : 0, invalidate };
   return api;
 })();

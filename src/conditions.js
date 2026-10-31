@@ -18,7 +18,7 @@
   //             away from fire. Each second costs floor(remaining seconds / 10),
   //             never under energyLoss: fire on the body always burns at
   //             least 1 a second (owner, Oct 2026) (burnTickLoss).
-  //   poison  — a purple slime or spider's bite: 1 energy every 2 s for a minute; an
+  //   poison  — a purple slime's or a snake's bite: 1 energy every 2 s for a minute; an
   //             Antidote or Elixir draws it out.
   //   pinned  — a sprung trap's jaw (app.js _tickTraps): the body holds still
   //             (_bodyHold) for the row's duration; no drain of its own (the

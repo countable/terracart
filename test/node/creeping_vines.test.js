@@ -64,4 +64,67 @@
     advance(s);
     assert.eq(e.wildplants.length,1,'free cell outside the influence is refused');
   }));
+  test('Toxic Seed is a T2 seed with seed-bag art, poison badge and ordinary seed acquisition', () => {
+    assert.eq(ITEM_BY_ID.toxic_seed.kind, 'seed');
+    assert.eq(itemTierOf('toxic_seed'), 2);
+    assert.eq(itemValue('toxic_seed'), 5);
+    assert.eq(inventoryIconSource('toxic_seed').sheet, 'crops');
+    assert.eq(iconBadgeItem('toxic_seed'), 'poisonberry');
+    assert.truthy(BUY_LIST.includes('toxic_seed'));
+    assert.truthy(ChestThemes.eligible('parkSeeds', 2).includes('toxic_seed'));
+    assert.falsy(ChestThemes.eligible('parkSeeds', 1).includes('toxic_seed'));
+  });
+  test('Toxic Seed planting consumes one seed, saves one live cell, then grows after visible time', () => fixture((s,e) => {
+    e.wildplants = [];
+    SaveState.defaults(s.save); s.save.planted = [];
+    s.save.inv = [{id:'toxic_seed',count:2}]; s.save.selSlot = 0;
+    s.tilledSet = new Set(['8_8']);
+    s.spendEnergy = () => {s.spent = (s.spent || 0) + 1; return true;};
+    s.buildInventoryDOM = () => {}; s.flash = () => {};
+    const ctx = {scene:s,save:s.save,sx:0,sy:0,cellKey:'8_8',cwmx:59.5,cwmy:59.5,
+      at:{furnitureIdx:-1,plantedIdx:-1}};
+    assert.truthy(TAP_HANDLERS.find(h=>h.name==='plant').try(ctx));
+    assert.eq(Inventory.count(s.save,'toxic_seed'),1); assert.eq(s.spent,1);
+    assert.eq(e.wildplants.length,1); assert.eq(s.save.creepingVines.length,1);
+    assert.eq(s.save.planted.length,0,'this is a live vine, not a watered farm crop');
+    assert.falsy(s.tilledSet.has('8_8')); assert.truthy(ctx.dirty);
+    const seed = e.wildplants[0];
+    assert.eq(seed._vineColony,seed.id); assert.eq(seed._ix,8); assert.eq(seed._iy,8);
+    assert.eq(walkHazardDamageRate(seed),1);
+    assert.eq(s.save.vineGrowth[seed.id].count,1);
+    s.save = JSON.parse(JSON.stringify(s.save));
+    e.wildplants=[]; delete e._vineSave;
+    CreepingVines.tick(s,.1);
+    assert.eq(e.wildplants.length,1,'the seed rehydrates after tile/save reload');
+    advance(s); assert.eq(e.wildplants.length,2,'one adjacent growth cell after20visible seconds');
+  }));
+  test('Toxic Seed can replace a harvested vine without reusing its spent identity', () => fixture((s,e) => {
+    e.wildplants=[];SaveState.defaults(s.save);s.save.planted=[];
+    s.save.inv=[{id:'toxic_seed',count:2}];s.save.selSlot=0;s.tilledSet=new Set(['8_8']);
+    s.spendEnergy=()=>true;s.buildInventoryDOM=()=>{};s.flash=()=>{};
+    const ctx={scene:s,save:s.save,sx:0,sy:0,cellKey:'8_8',cwmx:59.5,cwmy:59.5,
+      at:{furnitureIdx:-1,plantedIdx:-1}};
+    const plant=TAP_HANDLERS.find(h=>h.name==='plant');
+    plant.try(ctx);const first=s.save.creepingVines[0];
+    s.save.picked.push(first.id);
+    assert.falsy(CreepingVines.seat(s,59.5,59.5),'natural growth still respects the cut barrier');
+    s.tilledSet.add('8_8');plant.try(ctx);
+    const second=s.save.creepingVines[1];assert.truthy(second);
+    assert.falsy(first.id===second.id);assert.falsy(s.save.picked.includes(second.id));
+    assert.eq(Inventory.count(s.save,'toxic_seed'),0);
+    assert.eq(s.save.vineGrowth[second.id].count,1);
+  }));
+  test('Toxic Seed refuses blocked ground before charging or consuming and cannot start underground', () => fixture((s,e) => {
+    e.wildplants=[]; SaveState.defaults(s.save);
+    s.save.inv=[{id:'toxic_seed',count:1}];s.save.selSlot=0;s.tilledSet=new Set(['8_8']);
+    s.spendEnergy=()=>{throw Error('blocked planting must not charge energy');};s.flash=()=>{};
+    const ctx={scene:s,save:s.save,sx:0,sy:0,cellKey:'8_8',cwmx:59.5,cwmy:59.5,
+      at:{furnitureIdx:-1,plantedIdx:-1}};
+    e.grid.fill(W.T.WATER);
+    assert.truthy(TAP_HANDLERS.find(h=>h.name==='plant').try(ctx));
+    assert.eq(Inventory.count(s.save,'toxic_seed'),1);assert.eq(s.save.creepingVines.length,0);
+    e.grid.fill(W.T.PARK);s.depth=1;
+    assert.truthy(TAP_HANDLERS.find(h=>h.name==='plant').try(ctx));
+    assert.eq(Inventory.count(s.save,'toxic_seed'),1);assert.eq(s.save.creepingVines.length,0);
+  }));
 })();

@@ -158,13 +158,17 @@ test('the crop stage badge shows a unit, not a bare number', () => {
 
 test('the day-gated messages name the wait to the UTC roll', () => {
   const src = SCENE_SRC;
-  // Daily visits share Macros.beginDailyVisit; the inn and guildhall keep
-  // their service dialogs. Each is keyed on a UTC day stamp,
-  // each saying how long that is. (A fed delivery house is no longer
-  // day-gated: one delivery per house, ever. The castle favour left the day
-  // key for its own twelve-hour clock, Houses.CASTLE_SERVICE_MS.)
+  // Daily visits share Macros.beginDailyVisit; the guildhall keeps its
+  // service dialog, keyed on a UTC day stamp and saying how long that is.
+  // (A fed delivery house is no longer day-gated: one delivery per house,
+  // ever. The castle favour left the day key for its own twelve-hour clock,
+  // Houses.CASTLE_SERVICE_MS; the inn for the shared four-hour bed gate,
+  // Rest.waitMs, which the cot shares.)
   const n = (src.match(/msToNextUtcDay\(\)/g) || []).length;
-  assert.gte(n, 2, `expected the 2 service day-gated messages, found ${n}`);
+  assert.gte(n, 1, `expected the guildhall's day-gated message, found ${n}`);
+  const inn = src.slice(src.indexOf('  _presentInn('), src.indexOf('  _presentGuildhall('));
+  assert.truthy(/shortDuration\(wait\)/.test(inn) && /Rest\.waitMs\(this\.save\)/.test(inn), 'the inn names its wait off the bed gate');
+  assert.falsy(/msToNextUtcDay/.test(inn), 'and no longer counts to the UTC roll');
   assert.truthy(/waitLine\(row\?\.spent \|\| SPENT_DEFAULT, msToNextUtcDay\(\)\)/.test(Macros.beginDailyVisit.toString()),
     'shared daily visits show the wait to the UTC roll');
   assert.eq(Macros.waitLine('Already visited', 90 * 60 * 1000), 'Already visited — 2h', 'the one refusal shape, shortDuration');

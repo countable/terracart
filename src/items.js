@@ -384,6 +384,8 @@ const COOKED_FOODS = {
   trout:      { id: 'grilled_trout',     name: 'Grilled Trout' },
   salmon:     { id: 'grilled_salmon',    name: 'Grilled Salmon' },
   goldenfish: { id: 'grilled_goldenfish', name: 'Grilled Goldenfish' },
+  blind_cavefish: { id: 'grilled_blind_cavefish', name: 'Grilled Blind Cavefish' },
+  sewer_eel:  { id: 'grilled_sewer_eel',  name: 'Grilled Sewer Eel' },
 };
 
 // Resolve the same icon source the inventory uses for an item id.
@@ -605,6 +607,9 @@ const MINERAL_ICON_SHEET = {
   trout:      { sheet: 'icon_trout',      frame: 0 },
   salmon:     { sheet: 'icon_salmon',     frame: 0 },
   goldenfish: { sheet: 'icon_goldenfish', frame: 0 },
+  // The sewer's own catch — Icons/Fish/Sewer/<*>.png, one 16×16 frame each.
+  blind_cavefish: { sheet: 'icon_blind_cavefish', frame: 0 },
+  sewer_eel:      { sheet: 'icon_sewer_eel',      frame: 0 },
   // Junk pull from fishing — brown leather boot at row 6 col 4 of
   // 7_Pickup_Items_16x16 (renamed Pickup_Items.png in Objects/). Frame =
   // 6 * 14 + 4 = 88.
@@ -695,6 +700,8 @@ const MINERAL_ICON_SHEET = {
   vampire_ring:      { sheet: 'icon_rings',   frame: 18 },
   // The banded ring with its pale blue lens (Rings.png row 2).
   xray_ring:         { sheet: 'icon_rings',   frame: 12 },
+  // The rose band trailing a flaming star (Rings.png row 3).
+  comet_ring:        { sheet: 'icon_rings',   frame: 14 },
   regeneration_amulet:      { sheet: 'icon_amulets', frame: 10 },
   vigor_amulet:      { sheet: 'icon_amulets', frame: 17 },
   sleep_powder:  { sheet: 'icon_potions', frame: 3 }, // scoop of violet dream dust
@@ -795,6 +802,7 @@ function inventoryIconSource(itemId) {
   if (MINERAL_ICON_SHEET[itemId]) return MINERAL_ICON_SHEET[itemId];
   const item = ITEM_BY_ID[itemId];
   if (!item) return null;
+  if (item.plants === 'creeping_vine') return { sheet: 'crops', frame: 15 * CROPS_SHEET_COLS + SEEDBOX_COL };
   const cropKey = item.grows || item.crop;
   if (!cropKey) return null;
   const ov = CROP_SPRITE[cropKey];
@@ -833,7 +841,7 @@ function inventoryIconSource(itemId) {
 const PLANTS_YIELD = { tree: 'wood' };
 // Both potions use the approved ALT-0603 flask. Their pet and renewal charms
 // distinguish the effects without recolouring or replacing that shared artwork.
-const SHARED_ICON_BADGES = { taming_potion: 'pet_fang_charm', resurrection_potion: 'regeneration_amulet' };
+const SHARED_ICON_BADGES = { toxic_seed: 'poisonberry', taming_potion: 'pet_fang_charm', resurrection_potion: 'regeneration_amulet' };
 function iconBadgeItem(itemId) {
   if (Object.hasOwn(SHARED_ICON_BADGES, itemId)) return SHARED_ICON_BADGES[itemId];
   const item = ITEM_BY_ID[itemId];
@@ -893,6 +901,8 @@ const BASE_TIER = {
   egg: 2, milk: 3,
   // Fish span the loot ladder, with gaps of at most two tiers.
   minnow: 1, bass: 2, trout: 4, salmon: 5, goldenfish: 7,
+  // The sewer's own two (FISH_POOLS.sewer): a pale cave fish and the eel.
+  blind_cavefish: 3, sewer_eel: 5,
   // Ordinary orchard fruit share T2; mango keeps its rarity premium.
   // Mango is no longer an orchard tree — it is a rare fruit
   // (see interact.js) — but still carries a rarity tier for loot/pricing.
@@ -945,7 +955,7 @@ const BASE_TIER = {
   poison_flask: 2,
   // Unique jewelry is intrinsically magical, never a metal rung.
   portal_stone: 3, depth_key: 4,
-  stealth_ring: 2, perception_ring: 2, coin_ring: 2, invisibility_ring: 4, ember_ring: 3, vampire_ring: 4, xray_ring: 3, regeneration_amulet: 3, vigor_amulet: 5,
+  stealth_ring: 2, perception_ring: 2, coin_ring: 2, invisibility_ring: 4, ember_ring: 3, vampire_ring: 4, xray_ring: 3, comet_ring: 5, regeneration_amulet: 3, vigor_amulet: 5,
   // Tomes: a tome's tier is one above the potion it channels (the books
   // group's top-tier pick makes each tier's chest hand its own tome).
   tome_reach: 3, tome_raven: 4, tome_thunder: 5, tome_fire_wall: 4,
@@ -1039,6 +1049,7 @@ const ITEMS = [
   { id: 'smiths_guild_badge', name: 'Smiths’ Guild Badge', kind: 'unique_relic' },
   { id: 'marketeers_guild_badge', name: 'Shopkeepers’ Guild Badge', kind: 'unique_relic' },
   { id: 'traders_guild_badge', name: 'Traders’ Guild Badge', kind: 'unique_relic' },
+  { id: 'toxic_seed', name: 'Toxic Seed', kind: 'seed', plants: 'creeping_vine', grows: 'creeping_vine', baseTier: 2 },
   ...Object.keys(CROP_ROW).map(c => ({
     id: `${c}_seed`, name: `${CROP_NAMES[c]} Seed`, kind: 'seed', grows: c,
     baseTier: BASE_TIER[c] || 1,
@@ -1210,6 +1221,7 @@ const ITEMS = [
   { id: 'ember_ring',        name: 'Ember Ring',            kind: 'unique_relic', uniqueJewelry: true },
   { id: 'vampire_ring',      name: 'Vampire Ring',          kind: 'unique_relic', uniqueJewelry: true },
   { id: 'xray_ring',         name: 'X-Ray Ring',            kind: 'unique_relic', uniqueJewelry: true },
+  { id: 'comet_ring',        name: 'Comet Ring',            kind: 'unique_relic', uniqueJewelry: true },
   { id: 'regeneration_amulet',      name: 'Amulet of Regeneration', kind: 'unique_relic', uniqueJewelry: true },
   { id: 'vigor_amulet',      name: 'Amulet of Vigour',        kind: 'unique_relic', uniqueJewelry: true },
   // Rope: use it (Use button with it selected) and the dialog asks which way —
@@ -1282,6 +1294,9 @@ const ITEMS = [
   { id: 'trout',      name: 'Trout',      kind: 'produce', crop: 'trout',      dropWeight: 0.4 },
   { id: 'salmon',     name: 'Salmon',     kind: 'produce', crop: 'salmon',     dropWeight: 0.4 },
   { id: 'goldenfish', name: 'Goldenfish', kind: 'produce', crop: 'goldenfish', dropWeight: 0.4 },
+  // Caught only in the sewer's channels (FISH_POOLS.sewer); never a drop.
+  { id: 'blind_cavefish', name: 'Blind Cavefish', kind: 'produce', dropWeight: 0 },
+  { id: 'sewer_eel',      name: 'Sewer Eel',      kind: 'produce', dropWeight: 0 },
   // Fruit from fruit trees in orchard tiles
   { id: 'syrup', name: 'Syrup', kind: 'produce', dropWeight: 0 },
   { id: 'apple',   name: 'Apple',   kind: 'produce', crop: 'apple' },
@@ -1891,7 +1906,7 @@ const PRICES = {
   // A seed's price is also its roll-budget divisor (chest_themes.js
   // quantity): ~TIER_VALUE[baseTier] / 5, so a same-tier roll with no
   // brackets (BUDGET_SHARE.seed of the budget) holds about four.
-  rainberry_seed: 63, pairy_seed: 63, nut_seed: 5, potato_seed: 1,
+  toxic_seed: 5, rainberry_seed: 63, pairy_seed: 63, nut_seed: 5, potato_seed: 1,
   berry_seed: 5, cress_seed: 1, onion_seed: 5, starfruit_seed: 15,
   gemfruit_seed: 15, rubble_seed: 8, coffee_seed: 12,
   sunflower_seed: 30, fireflower_seed: 40, iceflower_seed: 50, dawnfruit_seed: 480,
@@ -1996,7 +2011,7 @@ const PRICES = {
                        //      effect, not the tier: the T2 butterfly is 100 too)
   frost_powder:  100,  // T3 — every enemy in reach chilled (slowed) for 30 s
   // Initial entries are replaced by fixed-tier equipment values after gearPrice is defined.
-  stealth_ring: 0, perception_ring: 0, coin_ring: 0, invisibility_ring: 0, ember_ring: 0, vampire_ring: 0, xray_ring: 0, regeneration_amulet: 0, vigor_amulet: 0,
+  stealth_ring: 0, perception_ring: 0, coin_ring: 0, invisibility_ring: 0, ember_ring: 0, vampire_ring: 0, xray_ring: 0, comet_ring: 0, regeneration_amulet: 0, vigor_amulet: 0,
   rope:          15,   // T2 — one climb up or down a level, in place (cheaper than a sapphire's brief round trip); crafted from 5 long grass, so not a money pump
   trap_disarm_kit:      20,   // T2 — permanently removes a trap; situational, not a staple
   magic_trap:    40,   // T3 — one tier-3 shot and a staff beat's hold on one foe
@@ -2037,6 +2052,7 @@ const PRICES = {
   goldenberry: 60,
   // ── Fish ─────────────────────────────────────────────────
   minnow: 3,    bass: 18,   trout: 60,   salmon: 150, goldenfish: 450,
+  blind_cavefish: 35, sewer_eel: 140,
   // ── Orchard fruit ────────────────────────────────────────
   apple: 8, cherry: 12, worldpeach: 250, banana: 14, orange: 10, mango: 18, coconut: 16, apricot: 10,
 };
@@ -2076,7 +2092,7 @@ for (const k of BABY_KINDS) PRICES[babyItemId(k)] = itemValue(k) * 3;
 // bought on tap at any house.
 const BUY_LIST = Object.keys(CROP_ROW)
   .filter(c => (BASE_TIER[c] || 1) <= 3)
-  .map(c => `${c}_seed`);
+  .map(c => `${c}_seed`).concat('toxic_seed');
 const STARTING_MONEY = 0;
 
 // === Energy / food ===
@@ -2115,6 +2131,7 @@ const TRAP_KIT_KEEP_CHANCE = 0.8;
 
 const ITEM_GUIDE_TIPS = {
   workshop: 'I restored a ruined building as a Workshop. Tools, supplies and remembered scrolls take shape here.',
+  bed_quilted: 'Seven lengths of timber became a cot at the workshop. I slept the afternoon through at home and woke whole, the seedlings a little taller. No bed would have me again before evening.',
   growth_powder: 'At the workshop I ground nettles with long grass into a green powder. The seedlings stirred before I had finished sprinkling it.',
   psychosis_powder: 'At the workshop I crushed yellow meadow flowers with young fern. The dust made the room tilt. I opened every window.',
   sleep_powder: 'I ground golden flowers with white ones into a fine dust. One breath of it and I woke at the bench at dusk.',
@@ -2152,7 +2169,7 @@ const EGG_HATCH_SPEC = Object.freeze({
 });
 
 const ITEM_EFFECTS = {
-  bed_quilted: "A soft quilt and a wooden cot promise a quiet night.",
+  bed_quilted: "A soft quilt and a wooden cot promise a quiet night. Sleep in it inside your Home to wake with your strength restored, four hours on. No bed or inn will take you again until four more have passed.",
   washtub: "A round wooden washing tub offers a quiet place to freshen up.",
   mirror_brass: "A brass-framed looking glass waits on its own little stand.",
   table_oak: "A compact oak table makes a useful corner feel like home.",
@@ -2235,6 +2252,8 @@ const ITEM_EFFECTS = {
   ember_ring: 'Its banked ember drinks the heat before it reaches your skin.',
   xray_ring: 'Leaves and branches thin to glass. Whatever crouches in the hedge is plain to see.',
   vampire_ring: 'Each blow you strike by hand sends a fifth of its wound back into you. The dead have nothing left to give.',
+  // The numbers live on UNIQUE_JEWELRY.comet_ring.cometAura; the Snuffed chip quotes them.
+  comet_ring: 'Fire rides at your heels and never touches you. The faster you run, the wider and hotter it burns. Outrun the wind and it snuffs the flame for a while.',
   invisibility_ring: 'The eye forgets the hand it almost saw.',
   regeneration_amulet: 'A slow warmth mends what the day takes.',
   vigor_amulet: 'A quickened warmth mends what the day takes.',
@@ -2319,7 +2338,9 @@ for (const raw of Object.keys(COOKED_FOODS)) {
 for (const item of ITEMS.filter(item => item.kind === 'seed')) {
   Object.defineProperty(ITEM_EFFECTS, item.id, {
     enumerable: true,
-    get: () => 'A small promise of green, waiting for a soft bed of earth.',
+    get: () => item.plants === 'creeping_vine'
+      ? 'Plant in open soil to start one toxic creeping vine. It spreads while nearby and stings on contact.'
+      : 'A small promise of green, waiting for a soft bed of earth.',
   });
 }
 
@@ -2356,6 +2377,7 @@ const FOOD_ENERGY = {
   goldenberry: 4,   // a mouthful; its charm is for a foe's mouth
   apple:      16, cherry: 18, worldpeach: 16, banana: 23, orange: 16, mango: 26, coconut: 23, apricot: 13,
   minnow:      7, bass: 20, trout: 60, salmon: 100, goldenfish: 180,
+  blind_cavefish: 45, sewer_eel: 110,
   meat:       59,   // hunted from deer; dog favourite
 };
 FOOD_ENERGY.grilled_meat = Math.round(FOOD_ENERGY.meat * GRILL_ENERGY_MUL);
@@ -2394,7 +2416,7 @@ const ANIMAL_FOOD = {
   cow:     ['pairy'],      // pears to munch
   horse:   ['pairy'],      // the cow's favourite
   // Cats love milk AND any kind of fish.
-  cat:     ['milk', 'minnow', 'bass', 'trout', 'salmon', 'goldenfish'],
+  cat:     ['milk', 'minnow', 'bass', 'trout', 'salmon', 'goldenfish', 'blind_cavefish', 'sewer_eel'],
   dog:     ['meat'],       // raw meat — hunt a deer with the bug net
   // A shore crab favours a shell (owner, Oct 2026). (Fed plant produce once
   // tame, it sheds a shell — its CREATURE_BEHAVIOUR `produce` row.)
@@ -2833,7 +2855,23 @@ const FISH_SPECIES = [
   { id: 'salmon',     w: 1 },
   { id: 'goldenfish', w: 1 },
 ];
-for (const { id } of FISH_SPECIES) {
+// OTHER WATERS, OTHER FISH (Oct 2026): a floor whose profile names a
+// `fishPool` (WorldGen.FLOOR_PROFILES — the sewer's channel water and pools)
+// draws its spots from that pool instead of the surface table, through the
+// same stock policy (`stock.pool`, spotFish). The sewer's is deliberately
+// narrow: two surface fish that would wash down a drain and two of its own,
+// found nowhere else.
+const FISH_POOLS = {
+  sewer: [
+    { id: 'minnow',         w: 3 },
+    { id: 'blind_cavefish', w: 3 },
+    { id: 'bass',           w: 1 },
+    { id: 'sewer_eel',      w: 1 },
+  ],
+};
+// Every fish there is, whatever water it swims in (the regen rule, the eat copy).
+const FISH_KINDS = [...new Set([...FISH_SPECIES, ...Object.values(FISH_POOLS).flat()].map(f => f.id))];
+for (const id of FISH_KINDS) {
   ITEM_EFFECTS[id] = 'Its nourishment returns your strength little by little.';
   ITEM_EFFECTS[COOKED_FOODS[id].id] = 'Warm from the fire, it restores your strength little by little.';
 }
@@ -2864,8 +2902,10 @@ function fishCatchChance(id, rodTier, shiny) {
 // guaranteed initial fish, with a minimum species tier. Caught spot IDs still
 // use the ordinary permanent depletion ledger.
 const FISH_STOCK_CHANCE = 1 / 3;
-function fishSpotId(tx, ty, ix, iy) {
-  return `fish_${tx}_${ty}_${ix}_${iy}`;
+// A spot below ground carries its depth: the sewer channel under a pond is
+// not the pond's spot, and fishing one out never empties the other.
+function fishSpotId(tx, ty, ix, iy, depth = 0) {
+  return depth ? `fish_d${depth}_${tx}_${ty}_${ix}_${iy}` : `fish_${tx}_${ty}_${ix}_${iy}`;
 }
 function fishSpotStocked(id, stock) {
   return !!stock?.guaranteed || fnv1a(id + '#stock') / 4294967296 < FISH_STOCK_CHANCE;
@@ -2895,12 +2935,15 @@ function shinyFishSpots(entry, tx, ty, untilMs) {
   let job = entry._shinyFishScan;
   if (!job || job.grid !== entry.grid) job = entry._shinyFishScan = { grid: entry.grid, row: 0, out: [] };
   const until = untilMs > 0 ? untilMs : Infinity;
-  const grid = entry.grid, W = WorldGen.T.WATER, out = job.out;
+  const grid = entry.grid, W = WorldGen.T.WATER, out = job.out, depth = entry.depth || 0;
+  // A floor with its own catch pool fishes its channel water too.
+  const channels = depth > 0 && WorldGen.floorProfile(depth).fishPool && typeof FloorWallMaterials !== 'undefined';
   while (job.row < N) {
     const iy = job.row++;
     for (let ix = 0; ix < N; ix++) {
-      if (grid[iy * N + ix] !== W) continue;
-      const id = fishSpotId(tx, ty, ix, iy);
+      const i = iy * N + ix;
+      if (grid[i] !== W && !(channels && FloorWallMaterials.isSewerChannel(entry, i))) continue;
+      const id = fishSpotId(tx, ty, ix, iy, depth);
       if (fishSpotShiny(id, entry.zoneDress?.fishStock?.[iy * N + ix])) out.push({ ix, iy, id });
     }
     if ((iy & 7) === 7 && until !== Infinity && performance.now() >= until) break;
@@ -2909,14 +2952,16 @@ function shinyFishSpots(entry, tx, ty, untilMs) {
   entry._shinyFishScan = null;
   return (entry._shinyFish = out);
 }
-// The species living in a stocked spot — same for every player. Restrict the
-// weighted species pool before drawing when the spot declares a minimum tier.
+// The species living in a stocked spot — same for every player. The spot's
+// water names its pool (`stock.pool`, else the surface table); restrict the
+// weighted pool before drawing when the spot declares a minimum tier.
 function spotFish(id, stock) {
-  const species = stock?.minTier > 1 ? FISH_SPECIES.filter(f => fishTier(f.id) >= stock.minTier) : FISH_SPECIES;
+  const pool = (stock?.pool && FISH_POOLS[stock.pool]) || FISH_SPECIES;
+  const species = stock?.minTier > 1 ? pool.filter(f => fishTier(f.id) >= stock.minTier) : pool;
   const total = species.reduce((a, f) => a + f.w, 0);
   let r = fnv1a(id + '#species') / 4294967296 * total;
   for (const f of species) { r -= f.w; if (r < 0) return f.id; }
-  return species[species.length - 1]?.id || FISH_SPECIES[FISH_SPECIES.length - 1].id;
+  return species[species.length - 1]?.id || pool[pool.length - 1].id;
 }
 // Fishing Rod: the shared 9/3/1 tool curve × FISH_COST_MULT, so a bare-handed
 // cast expects 18, a Wood rod 6 and a Frost rod 2. The multiplier is fishing's
@@ -3011,11 +3056,32 @@ const UNIQUE_JEWELRY = Object.freeze({
   // X-RAY: sees through partial cover and into concealing cells (bushes,
   // hedges, trees — Visibility.hidden); cave rock still hides. Not Perception.
   xray_ring: Object.freeze({ xray: true }),
+  // THE COMET RING: a burning aura round the feet whose reach and bite grow
+  // with the wearer's own PACE (comet_ring.js CometRing.shape is the one
+  // reader of these numbers; scene_consumables.js _tickCometAura burns with
+  // it). The wearer is never inside their own fire. Faster than `maxMps` for
+  // `overspeedMs` running snuffs it for `snuffedMs` (the `cometSnuffed` row
+  // of Buffs.KINDS); then it relights by itself. `texture` is the ground
+  // disc scene_create.js bakes and render.js draws exactly as wide as it burns.
+  // `equippable`: worn by choice — the Equip / Unequip button under the
+  // Relics tab (app.js syncEquipButton, Gear.wearJewelry); a ring just found
+  // is worn until it is taken off (jewelryWorn).
+  comet_ring: Object.freeze({ equippable: true, cometAura: Object.freeze({
+    maxMps: 8, minRadiusCells: 0.75, maxRadiusCells: 3, restIntensity: 0.15, maxDps: 6,
+    overspeedMs: 3000, snuffedMs: 10000, texture: 'aura_comet' }) }),
   regeneration_amulet: Object.freeze({ regenMs: 4000 }),
   vigor_amulet: Object.freeze({ regenMs: 2000 }),
 });
 function carriesItem(save, id) {
   return Inventory.count(save, id) > 0;
+}
+// Whether unique jewelry `id` works right now: carried, and — for an
+// `equippable` row — not taken off (save.wornJewelry[id] === false, written
+// by Gear.wearJewelry; a piece just found counts as worn). The other rows
+// work while carried, as they always have.
+function jewelryWorn(save, id) {
+  if (!carriesItem(save, id)) return false;
+  return !(UNIQUE_JEWELRY[id]?.equippable && save?.wornJewelry?.[id] === false);
 }
 // The fraction a carried guild badge takes off deals with `role` (a
 // Houses.houseShopRole key), 0 without one. Read from CARRIED_ITEM_SPEC.
@@ -3056,6 +3122,14 @@ function jewelryMeleeLifesteal(save) {
     if (row.meleeLifesteal && carriesItem(save, id)) frac = Math.max(frac, row.meleeLifesteal);
   }
   return frac;
+}
+// The carried Comet Ring's aura spec (UNIQUE_JEWELRY.comet_ring.cometAura),
+// null without one. A second ring is the same fire: nothing stacks.
+function jewelryCometAura(save) {
+  for (const [id, row] of Object.entries(UNIQUE_JEWELRY)) {
+    if (row.cometAura && jewelryWorn(save, id)) return row.cometAura;
+  }
+  return null;
 }
 function jewelryRegenIntervalMs(save) {
   let interval = Infinity;
@@ -3104,7 +3178,12 @@ function trailerSellPrice(baseValue) {
 const HOME_RECIPES = [
   // The starter-known spear is the first cave trip's throw. Torches are found
   // on cave floors and sold at the first Supply Shop, never crafted.
-  { id: 'throwing_spear', station: 'workshop', cost: [{ id: 'rubble', qty: 1 }, { id: 'wood', qty: 1 }] },
+  // `known: true`: offered without ever having found one (the starter spear;
+  // the cot, which no field drops — homeRecipeLocked).
+  { id: 'throwing_spear', station: 'workshop', cost: [{ id: 'rubble', qty: 1 }, { id: 'wood', qty: 1 }], known: true },
+  // The Quilted Cot (T1 furniture): seven wood. Placed inside Home it is a
+  // night's rest — Rest.sleep, the Inn's own routine (src/rest.js).
+  { id: 'bed_quilted', station: 'workshop', cost: [{ id: 'wood', qty: 7 }], known: true },
   { id: 'scarecrow', station: 'workshop', cost: [{ id: 'wood', qty: 3 }] },
   { id: 'barricade', station: 'workshop', cost: [{ id: 'wood', qty: 3 }] },
   { id: 'rope', station: 'workshop', cost: [{ id: 'longgrass', qty: 5 }] },
@@ -3136,9 +3215,10 @@ const BREW_RECIPES = [
 // are learned by first finding their output in the wild, never by buying,
 // bartering, forging or crafting it. addToInv owns the foundWild ledger.
 // Scrolls require previous use instead: their words must be remembered.
+const HOME_RECIPE_BY_ID = Object.fromEntries(HOME_RECIPES.map(r => [r.id, r]));
 function homeRecipeLocked(save, id) {
   if (ITEM_BY_ID[id]?.scroll) return !Array.isArray(save?.usedScrolls) || !save.usedScrolls.includes(id);
-  return id !== 'throwing_spear' && !save?.foundWild?.[id];
+  return !HOME_RECIPE_BY_ID[id]?.known && !save?.foundWild?.[id];
 }
 // How many times a recipe can be made from what is held: the fewest times
 // any one ingredient covers its share. `count(id)` reads the bag. An empty

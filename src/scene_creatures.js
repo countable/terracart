@@ -91,17 +91,21 @@ class SceneCreatures {
       { depth: o.depth, shiny: false, _hunting: true })));
   }
 
-  _revealMimic(o) {
+  // A foe that was a container until tapped: the chest's mimic
+  // (interactables.js chestHidesMimic) or the clay pot's snake
+  // (potHidesSnake). One ledger, save.revealedMimics, keyed `<kind>:<chest
+  // id>`; a record without `kind` is a mimic from before the snake.
+  _revealMimic(o, kind = 'mimic') {
     if (this.depth > 0 || !(this.tileEdgeM > 0)) return false;
     const tx = Math.floor(o.x / this.tileEdgeM), ty = Math.floor(o.y / this.tileEdgeM);
     const entry = WorldGen.tileCache.get(WorldGen.tileKey(tx, ty));
     if (!entry?.creatures) return false;
-    if (!CreatureSpawns.gateAtEntry(this, entry, o.x, o.y, 'mimic', { occupied: null })) return false;
-    const id = 'mimic:' + o.id;
+    if (!CreatureSpawns.gateAtEntry(this, entry, o.x, o.y, kind, { occupied: null })) return false;
+    const id = kind + ':' + o.id;
     const revealed = (this.save.revealedMimics ||= []);
-    if (!revealed.some(c => c.id === id)) revealed.push({ id, chestId: o.id, x: o.x, y: o.y });
+    if (!revealed.some(c => c.id === id)) revealed.push({ id, chestId: o.id, kind, x: o.x, y: o.y });
     if (!entry.creatures.some(c => c.id === id)) {
-      entry.creatures.push(EnemySpawns.markShared(WorldGen.makeCreature('mimic', o.x, o.y, id, {
+      entry.creatures.push(EnemySpawns.markShared(WorldGen.makeCreature(kind, o.x, o.y, id, {
         depth: 0, shiny: false, _hunting: true,
       })));
     }
@@ -115,8 +119,9 @@ class SceneCreatures {
       if (!Number.isFinite(c.x) || !Number.isFinite(c.y) || !c.id
           || Math.floor(c.x / this.tileEdgeM) !== tx || Math.floor(c.y / this.tileEdgeM) !== ty
           || caught.has(c.id) || liveIds.has(c.id)) continue;
-      if (!CreatureSpawns.gateAtEntry(this, entry, c.x, c.y, 'mimic', { occupied: null })) continue;
-      entry.creatures.push(EnemySpawns.markShared(WorldGen.makeCreature('mimic', c.x, c.y, c.id, {
+      const kind = c.kind || 'mimic';
+      if (!CreatureSpawns.gateAtEntry(this, entry, c.x, c.y, kind, { occupied: null })) continue;
+      entry.creatures.push(EnemySpawns.markShared(WorldGen.makeCreature(kind, c.x, c.y, c.id, {
         depth: 0, shiny: false, _hunting: true,
       })));
       liveIds.add(c.id);

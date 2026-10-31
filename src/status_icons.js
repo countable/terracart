@@ -24,6 +24,7 @@ globalThis.StatusIcons = Object.freeze({
     "torch": 15,
     "frostAura": 16,
     "blight": 17,
+    "cometSnuffed": 6,
     "speed": 18,
     "protection": 19,
     "immortal": 20,

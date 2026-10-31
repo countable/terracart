@@ -20,7 +20,7 @@
     assert.falsy(EnemyRoster.get('bat').surface, 'bats live underground only');
     assert.eq(pool('COMMERCIAL'), 'club_goblin,goblin,goblin_archer,sword_spirit,thief');
     assert.eq(pool('INDUSTRIAL'), 'ash_zombie,marsh_zombie,zombie');
-    assert.eq(pool('FARMLAND'), 'farmer_goblin');
+    assert.eq(pool('FARMLAND'), 'farmer_goblin,snake', 'the snake lurks in the farm\'s long grass');
     assert.eq(pool('PARK'), '', 'parks receive their enemies from their Nexus variant');
     assert.eq(pool('RESIDENTIAL'), 'ogre,thief,zombie');
     assert.eq(pool('RESIDENTIAL'), EnemySpawns.surfaceRows('RESIDENTIAL', { nearMinorRoad: true }).map(row => row.id).sort().join(','), 'ordinary road proximity does not choose species');

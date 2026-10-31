@@ -742,11 +742,14 @@ function houseArtScale(area, frameW, role, cellM, cellPx) {
   return buildingCellsToScale(cells, frameW, cellPx);
 }
 
-// ── GPS SPEED — one lane, two readers ─────────────────────────────────────
+// ── GPS SPEED — one lane, three readers ───────────────────────────────────
 // What a RELIABLE leg of the player's real GPS track looks like, and how fast
 // it went. Read by the egg's hatch walk (egg_hatch.js — only a walked leg
-// counts) and by the PASSENGER GATE below (a sustained ride switches rewards
-// and foes off). Raw WGS84 fixes only, never playerM or the stick.
+// counts), by the PASSENGER GATE below (a sustained ride switches rewards
+// and foes off) and by the Comet Ring's pace (comet_ring.js gpsPace reads
+// the gate state's last sample). Raw WGS84 fixes only, never playerM or the
+// stick: a stick walk away from the fix, the walk home after it and a
+// catch-up chase are not the player moving.
 //   GPS_MAX_WALK_MPS  4.5 m/s ≈ 16 km/h: a brisk run. Above it the player is
 //                     riding something (Niantic's speed lock sits about here).
 //   GPS_MAX_ACCURACY_M / GPS_MAX_GAP_MS: a fix blurrier than this, or a gap
@@ -786,6 +789,9 @@ function gpsLegMps(prev, fix) {
 // reports one (coords.speed), else the leg from the last reliable fix; an
 // unreliable fix neither trips nor clears. No fix for SPEED_GATE_STALE_MS
 // clears it (the phone stopped reporting: nothing left to judge by).
+// The last sample read is kept on the state (`mps`, at `mpsAt`, the fix's
+// own clock) for the other readers of the lane; `lastT` is when the last
+// reliable fix was judged, on the caller's clock.
 // Pure: state in, state out — the scene keeps it (never the save).
 const SPEED_GATE_TRIP_MS = 8000;
 const SPEED_GATE_CLEAR_MS = 20000;
@@ -802,6 +808,7 @@ function speedGateStep(state, fix, now = Date.now()) {
   s.lastT = now;
   if (mps == null) return s;
   const t = fix.timestamp;
+  s.mps = mps; s.mpsAt = t;
   if (mps > GPS_MAX_WALK_MPS) {
     s.slowSince = null;
     if (s.fastSince == null) s.fastSince = t;
