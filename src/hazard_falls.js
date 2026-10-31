@@ -89,7 +89,6 @@
       if (!h.blocked && h.phase === 'open'
           && (h.footprintCells || []).some(c => c.cellIX === at.cellIX && c.cellIY === at.cellIY)) return h;
     }
-    if (!(depth > 0)) return null;
     const entry = W.tileCache.get(W.tileKey(at.tx, at.ty));
     if (!entry) return null;
     const centre = absCellCenterMeters(scene, at.cellIX, at.cellIY), half = scene.cellM / 2;

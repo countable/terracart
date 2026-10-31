@@ -246,8 +246,16 @@ class SceneFurniture {
     return false;
   }
 
+  // The cot's refusals, in the inn's order (_presentInn): the shared bed gate
+  // (Rest.waitMs — an inn within the last four hours refuses the cot too),
+  // the empty-tank lockout, a full tank.
   _bedSleepAllowed(record) {
     if (!this._furnitureAbilityAllowed(record)) return false;
+    const wait = Rest.waitMs(this.save);
+    if (wait > 0) {
+      this.flashAtPlayer(`Rested. Back in ${shortDuration(wait)}.`);
+      return false;
+    }
     if (this._zeroEnergyLocked()) {
       this.flashAtPlayer('Too far gone for a bed.');
       return false;
@@ -257,6 +265,25 @@ class SceneFurniture {
       return false;
     }
     return true;
+  }
+
+  // The scene's half of a night (after Rest.sleep, from the cot or the inn):
+  // the "+N" on the player's own cell, the HUD, and what the passed hours
+  // grew — a live planted tree carries its own planted_t (re-seated, as
+  // completeStagesWithin does after the Growth Powder) and every mover gets
+  // the leaf-fleck cue advanceGrowth throws.
+  _afterRest(gained, moved) {
+    if (gained > 0) this._popEnergy?.(gained);
+    this.updateEnergyDOM?.();
+    this.syncEatButton?.();
+    const live = new Map();
+    for (const entry of WorldGen.tileCache.values()) {
+      for (const o of entry.objects || []) if (o.planted) live.set(o.id, o);
+    }
+    for (const p of moved || []) {
+      if (p.planted_t != null && live.has(p.id)) live.get(p.id).planted_t = p.planted_t;
+      this._burstAtWorld?.('sprout', p.x, p.y);
+    }
   }
 
   // The item or booth is visible before the blackout. The modal holds input
@@ -302,7 +329,9 @@ class SceneFurniture {
       if (!this._bedSleepAllowed(record)) return false;
       return this._presentSleep({ itemId: record.itemId, commit: () => {
         if (!this._bedSleepAllowed(record)) return;
-        this._restoreEnergy(this.getMaxEnergy() - (this.save.energy ?? 0));
+        const moved = [];
+        const gained = Rest.sleep(this.save, this.getMaxEnergy(), Date.now(), moved);
+        this._afterRest(gained, moved);
         persistSave(this.save);
       } });
     }

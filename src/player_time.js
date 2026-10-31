@@ -25,6 +25,7 @@
     scene._conditionLastT = null;
 
     delete save.eatReadyAt;
+    delete save.restedAt;   // the bed gate (src/rest.js)
     delete save.tomeDays;
     delete save.tomeReadyAt;
     delete save.tomeMagicCd;

@@ -103,8 +103,9 @@ test('coin icon: the shop modal category glyph is the coin asset', () => {
 test('coin icon: the HUD chip writes a bare number into #money-num', () => {
   assert.truthy(/document\.getElementById\('money-num'\) \|\| this\.moneyEl/.test(app),
     'the update targets #money-num, falling back to the chip itself');
-  assert.truthy(/const money = `\$\{this\.save\.money \?\? 0\}`;/.test(app),
-    'the number carries no $ - the icon is the symbol');
+  assert.truthy(/const balance = this\.save\.money \?\? 0;/.test(app)
+    && /const money = `\$\{roll \? roll\.value : balance\}`;/.test(app),
+    'the number carries no $ - the icon is the symbol (rolling up on a gain, money_chip.test.js)');
   assert.falsy(/const money = `\$\$\{this\.save\.money/.test(app),
     'the old "$N" chip text is gone');
 });

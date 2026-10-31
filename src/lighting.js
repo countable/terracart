@@ -13,7 +13,8 @@
 //   Lighting.radiusCells(kind)    — a row's radius, resolving the fire's
 //   Lighting.sourceKind(scene, o) — which row a world object lights as, or null
 //   Lighting.playerKind(scene)    — which row the PLAYER lights as: 'player',
-//                                   or 'handtorch' while a Torch burns
+//                                   'handtorch' while a Torch burns, or
+//                                   'starlight' while a Starflower is held up
 //   Lighting.beginFrame(scene)    — empty the frame's light list
 //   Lighting.consider(scene, o, dx, dy, halfM) — offer a scanned object
 //   Lighting.blast(scene, wmx, wmy, opts) — fire a transient restoration flash
@@ -144,6 +145,11 @@
     // the ramp, so the plateau is untouched and only the dark around it lifts.
     evertorch: { radiusCells: () => radiusCells('player') * CONSUMABLE_SPEC.evertorch.radiusMul, colour: 0x75cfff, peak: 0.95, flicker: 0.12 },
     handtorch: { radiusCells: () => radiusCells('player') * TORCH_RADIUS_MUL, colour: 0xffffff, peak: 0.95, flicker: 0.12 },
+    // The player holding a Starflower up (`starlight`): the torch's reach
+    // (CONSUMABLE_SPEC.starflower derives it off the torch row) in a softer,
+    // colder light — a pale blue-white at a lower peak, barely a shimmer
+    // since there is no flame. A burning torch outshines it (playerKind).
+    starlight: { radiusCells: () => radiusCells('player') * CONSUMABLE_SPEC.starflower.radiusMul, colour: 0xb8c6ff, peak: 0.6, flicker: 0.04 },
     // Home: the starter trailer, or the house adopted as Home in its place
     // (both are save.starterShopId). Wider and warmer than a plain restored
     // house — it is the one light the player always comes back to, and the lit
@@ -810,9 +816,16 @@
   // (the player's own light); 'handtorch' is the row the collector ADDS on top
   // of it while app.js's Torch timer runs (scene.isTorchActive — in memory,
   // never on the save, like the dragon's minute).
+  // The rows the PLAYER lights as (playerKind), and the Comet Ring's fire
+  // at the feet (collectCometAura): stamped at the feet, never scanned off a
+  // tile — so the object-light pad, the cookie cache and the boot counts
+  // leave them out through this one predicate.
+  const CARRIED_KINDS = new Set(['player', 'handtorch', 'evertorch', 'starlight', 'comet_aura']);
+  const isCarriedKind = kind => CARRIED_KINDS.has(kind);
   function playerKind(scene) {
     if (scene?.isEvertorchActive?.()) return 'evertorch';
-    return (scene && typeof scene.isTorchActive === 'function' && scene.isTorchActive()) ? 'handtorch' : 'player';
+    if (scene && typeof scene.isTorchActive === 'function' && scene.isTorchActive()) return 'handtorch';
+    return scene?.isStarlightActive?.() ? 'starlight' : 'player';
   }
 
   function beginFrame(scene) {
@@ -906,7 +919,7 @@
   function objectLightPadCells() {
     let m = 0;
     for (const k in KINDS) {
-      if (k === 'player' || k === 'handtorch' || k === 'evertorch') continue;
+      if (isCarriedKind(k)) continue;
       m = Math.max(m, radiusCells(k));
     }
     return m;
@@ -1215,7 +1228,7 @@
   //     list — the scan has not looked there.
   // Each cookie is its baked shape: peak · (1 - r/R)² times the row's flicker
   // or pulse and the entry's own alpha / scale, at the colour's luminance.
-  const COLLECTED_KINDS = new Set(['player', 'handtorch', 'evertorch', 'comet_aura', 'fire', 'ground_fire', 'magic_trap', 'cobble', 'blast', 'bolt', 'gps']);
+  const COLLECTED_KINDS = new Set([...CARRIED_KINDS, 'fire', 'ground_fire', 'magic_trap', 'cobble', 'blast', 'bolt', 'gps']);
   function cookieLevel(L, qx, qy, cellM, now, pulseNow) {
     const row = KINDS[L.kind];
     if (!row || !(row.peak > 0)) return 0;
@@ -1598,7 +1611,7 @@
   // their shape/point changes independently of the camera.
   function cacheableWorldLight(L) {
     const row = KINDS[L.kind];
-    return L.kind !== 'handtorch' && L.kind !== 'evertorch' && L.kind !== 'bolt' && L.kind !== 'blast'
+    return !isCarriedKind(L.kind) && L.kind !== 'bolt' && L.kind !== 'blast'
       && row && !row.flicker && !row.pulse && L.a == null && L.s == null;
   }
   function cookiePhase(scene, L, ax, ay) {
@@ -1905,7 +1918,7 @@
       for (const L of cookies.excluded) paintLight(ctx, scene, L, crit, now, pnow, ox, oy);
     }
     scene._boot_lightExcludedStamps = cookies.excluded.length;
-    scene._boot_lightWorldStamps = cookies.excluded.reduce((n, L) => n + (L.kind === 'handtorch' || L.kind === 'evertorch' ? 0 : 1), 0);
+    scene._boot_lightWorldStamps = cookies.excluded.reduce((n, L) => n + (isCarriedKind(L.kind) ? 0 : 1), 0);
     scene._boot_lightCachedCookies = cookies.cached;
     if (!gpuPainted) {
       ctx.globalAlpha = 1;

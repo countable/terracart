@@ -85,6 +85,9 @@ exports into asset, icon and seating registries. Inventory/offer icons use these
 same sheets; atlas aliases and old palette callbacks are replaced, not layered.
 `ArtAtlas.register` respects the current asset owner, so a shared atlas finishing
 first cannot recreate an obsolete alias while a replacement sheet is loading.
+The revealed mimic uses an exact runtime palette matching the T2 chest’s
+orange wood and dark metal, with pale teeth. Its roster `artScaleRef: chest`
+uses `SpriteLayout.CHEST_SCALE`, so opening the disguise does not enlarge it.
 Elevators retain their broken/repaired behavior in a separate 24×36 sheet; the
 grove votive uses the same 36px frame and display scale as other shrines.
 Waystone frames (both states) and the scope clip only their bottom ink row at
@@ -308,8 +311,8 @@ wall cell keeps its rubble sprite; a lone clipped hedge cell joins the batch as
 its core block, so it turns with the ground like the runs beside it.
 `wall_materials.js` owns the shared cel-pixel atlas: connected hedges paint a
 leaf-clump mottle (`paintLeafClumps`, 2px texels on a jittered lattice that
-wraps at the slot edges) in the approved clipped-hedge ramp, the side faces one
-step darker, across tops and bevels without a pale coping band. Tiling a
+wraps at the slot edges) in a juniper ramp (the approved clipped-hedge greens
+shifted toward blue-green), the side faces one step darker, across tops and bevels without a pale coping band. Tiling a
 cropped strip carried its sawtooth divider into every repeat and read as stripes.
 Creeping vines reuse the former procedural green leaf material, with a broad
 24px footprint and a low 4px crown; cardinal masks join neighboring vine cells.
@@ -336,7 +339,10 @@ beneath pier decking, and existing underground route centre lanes through
 that selection and its prebuilt texture, replacing the ordinary animated water
 texture in the same ground slot. Terrain and collision stay unchanged: actual
 water remains water, piers retain their decking, and decorative channels remain
-walkable cave-floor cells. Both actual water and L1 route channels use the normal
+walkable cave-floor cells (which worldgen nevertheless reserves, so nothing is
+seated in them; the profile's `channelWater` row names the floor). A tap on one
+casts a line like a tap on water, and the shiny glints list channel spots on a
+floor with a `fishPool`. Both actual water and L1 route channels use the normal
 waist-up player crop; pier decking stays dry. Flight, dragon riding and raised prop
 support clear the crop as on surface water. Dry L1 cells use one cool-grey 16px stone slab enlarged to a 32px cell, with stable world-cell
 selection of 14/16 plain slabs, 1/16 cracked slabs and 1/16 grates. Planning
@@ -1123,6 +1129,9 @@ the reach rim within the existing player-light radius.
   `Lighting.KINDS` row. It takes visual precedence while both lights burn;
   neither expands interaction reach. Its stock carryable-lantern icon comes from
   Medieval Furniture and uses the shared inventory/offer/toast renderer.
+- A held Starflower (`starlight`) is the same collector at the torch's radius
+  with a paler, colder, lower-peak row that barely shimmers; a burning Torch
+  or Lantern takes precedence over it.
 
 - The GPS ring is ground paint under the lightmap, so the fix carries a small
   paint-only `gps` row of `Lighting.KINDS` (`collectGps`): a warm-white pool at
@@ -1285,19 +1294,37 @@ the reach rim within the existing player-light radius.
   use their dominant material color; Home, cave and discarded cells receive no
   road tint. It samples only visible cells, caches nearest-road queries, and is
   hidden underground without changing generated terrain or spawn ownership.
-- Roadside directions are a fingerpost drawn from `StreetSigns.ART`: a baked
-  post (`roadsign_post`) with its feet beside the vector road edge, and one
-  baked board (`roadsign_board`) per listed heading, hung from the top of the
-  post (`StreetSigns.boardRow`) and turned to point along its road
-  (`Render.poseRoadSignBoard`). A board is a horizontal plank, so it takes the
-  flat ground marks' projection (`StreetSigns.boardPose`, `GROUND_MARK.tilt`):
-  full length east/west, foreshortened north/south, the heading turned for
-  heading-up before projecting. Only the centre line is exact; a sprite cannot
-  skew the plank's width. Boards are drawn pieces derived once per sign
-  (`Render.roadSignBoards`), never world objects: the sign record alone owns
-  the tap, the cell and the shadow, and the boards name its contact
-  (`RENDER_SPEC.footFromCentre`) so they sort with it and stay stacked on it
-  as the map turns. Tapping still lists the headings and route names.
+- Roadside directions are a fingerpost at every junction where two streets
+  meet (`StreetSigns.candidates`: either end of a road, one sign per junction
+  point, none at a dead end or where a street only meets its own next
+  section), its post planted in the verge cell at the corner between the two
+  roads (`StreetSigns.cornerSeats`, stepping outward when that cell is taken).
+  It is drawn as retained solids from `StreetSigns.ART`, on the mesh path the crates take
+  (`Render.drawRoadSignMeshes`, `WallPerspective.prism`, one group of its own
+  on the wall sheet's white texel so flat cel colours tint it): a square post
+  standing straight on the ground with no footing, about a cell tall, and one
+  thin vertical board per listed heading, an elongated pentagon with a pointed
+  end, never an arrowhead, that points along its road in world space. Boards
+  hang one under another from the post top, a board height apart, the sign's
+  own id choosing which heading takes the top (`StreetSigns.rows`), and the
+  stack compresses so the lowest stays above the ground
+  (`StreetSigns.rowTop`). Each board roots on the post's own face (its corner
+  for a diagonal), so no solid reaches inside another and draw order never
+  shows a root. One part per solid, every part supported at the post's foot,
+  so a board pointing at the camera draws over the post, one pointing away
+  draws behind it, and the sign sorts against the player as one. The wood is
+  the cel wall sheet's own wood slots (`WallMaterials.texel`), grain up the
+  pole and along each plank, under a grey tint per face: a cel step by
+  outward normal (`StreetSigns.faceTint`, a west light) and, on the post, a
+  step darker for each lower third (`ART.bands`); heights project straight
+  up like every low-poly solid, and a compass turn
+  reveals a board's other faces instead of turning a flat picture. The foot
+  keeps its sub-cell seat in the junction corner (`StreetSigns.cornerSeats`). The
+  sign record alone owns the tap, the cell and the shadow; a tap on its drawn
+  triangles from a neighbouring cell names it (`Render.tallPropHit`) and still
+  lists the headings and route names. `RENDER_SPEC.roadsign` keeps the
+  contact-shadow flag and the sprite fallback: the post alone, baked from the
+  same rows (`makeRoadSignTextures`) where the mesh path is unavailable.
 - Small-road and path vector bands carry a variant-coloured 20% tint beneath
   their cobbles. The base pavement tile compensates for the road image alpha;
   restored tiles add no second tint. It follows exact road widths, larger-road
@@ -1538,7 +1565,8 @@ The legacy `assets/Objects/Hedges/` sheet remains the flat-renderer fallback.
 by map and popup art. Barrels use only the cylindrical frame 3; the square
 variants are excluded. Crate popup icons and intact pots retain their stable ID-selected
 variants. On the map, box containers use closed low-poly meshes from
-`prop_lowpoly.js`, retained by `Render.drawLowPolyProps`. Mineral rocks always
+`prop_lowpoly.js`, retained by `Render.drawLowPolyProps`; roadside fingerposts
+(`StreetSigns.mesh`) take the same path in their own group. Mineral rocks always
 use 2D sprites, above and below ground; the Rogue profile uses its reference
 stone with colored ore veins and gem crystals. Rocks never enter the loose-prop
 mesh batch. Crates retain all four frame variants in the active
@@ -1816,5 +1844,6 @@ Road experience briefs live in `design/road-experiences/`.
 `tools/road-experience-*.json` with shipped story paintings and current 20 × 7
 captures from `tools/capture_road_variant_views.cjs`. Regenerate the variant
 dashboard before capturing, then rebuild the gallery. Each brief describes the
-intended feeling, art cues and player actions; proposed mechanics are labelled
-separately from existing behavior. These briefs do not change runtime behavior.
+intended feeling with three adjectives, art cues and existing player actions.
+Review comments supply requested changes; the briefs contain no unsolicited
+mechanic proposals. These briefs do not change runtime behavior.

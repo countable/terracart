@@ -76,8 +76,8 @@ test('#1 reward grant: the interact path equips the same way', () => {
 // gear outside the cultural and protective lanes rides one cross-theme lane
 // (ChestThemes.CHEST_GEAR). These are surface group probabilities before
 // quality eligibility/fallbacks.
-test('chest themes: every chest carries the equipment lane, 7 points per tier up to 28', () => {
-  for (const theme of Object.keys(ChestThemes.themes).filter(t => t !== 'boss')) for (let tier = 1; tier <= 7; tier++) {
+test('chest themes: ordinary chests carry the equipment lane, dedicated caches do not', () => {
+  for (const theme of Object.keys(ChestThemes.themes).filter(t => t !== 'boss' && !ChestThemes.themes[t].cache)) for (let tier = 1; tier <= 7; tier++) {
     const row = ChestThemes.weights(theme, tier);
     assert.eq(row.bonusGear, Math.min(28, 7 * tier), `${theme} T${tier}`);
     if (['roadside', 'commerce', 'food', 'health', 'park', 'farm', 'flora', 'worship', 'civic', 'school'].includes(theme)) {
@@ -85,6 +85,13 @@ test('chest themes: every chest carries the equipment lane, 7 points per tier up
         .filter(([group]) => group !== 'bonusGear' && ChestThemes.groups[group].kind === 'gear')
         .reduce((sum, [, weight]) => sum + weight, 0);
       assert.eq(themeGear, 0, `${theme}: no themed gear lane`);
+    }
+  }
+  for (const [theme, definition] of Object.entries(ChestThemes.themes).filter(([, row]) => row.cache)) {
+    for (let tier = 1; tier <= 3; tier++) {
+      const weights = ChestThemes.weights(theme, tier);
+      assert.eq(weights.bonusGear, undefined, `${theme} T${tier} has no injected equipment lane`);
+      assert.eq(JSON.stringify(weights), JSON.stringify(definition.weights), 'cache keeps its dedicated roll');
     }
   }
   assert.eq(ChestThemes.weights('boss', 4).bonusGear, undefined, 'a hoard that is all gear has nothing to give up');

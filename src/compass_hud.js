@@ -127,6 +127,36 @@ const CompassHUD = {
     });
     this.update(scene);
   },
+  // ── The coin gadget's rise ──────────────────────────────────────────────
+  // Coins EARNED lift the money chip (#money): the number rolls up from the
+  // old balance to the new over COIN_ROLL_MS, and the chip hops once — a rise,
+  // a brighter glint, a settle (el.animate, COIN_HOP_MS). A spend paints flat
+  // and at once: losing coins is not a reward. The roll is a tween that
+  // updateHUD (app.js) reads every frame through coinRoll, so no timer owns
+  // the number and the chip can never be left mid-count. Reduced motion
+  // keeps the roll (a number changing is information) and skips the hop.
+  COIN_ROLL_MS: 650,
+  COIN_HOP_MS: 520,
+  coinRoll(tween, now) {
+    if (!tween) return null;
+    const k = Math.min(1, Math.max(0, (now - tween.t0) / tween.ms));
+    const eased = 1 - (1 - k) ** 3;
+    return { value: Math.round(tween.from + (tween.to - tween.from) * eased), done: k >= 1 };
+  },
+  moneyGain(scene, from, to, now = Date.now()) {
+    // A roll still running restarts from the number on screen, not the old
+    // balance, so two quick pickups read as one climb.
+    const live = this.coinRoll(scene._coinRoll, now);
+    scene._coinRoll = { from: live && !live.done ? live.value : from, to, t0: now, ms: this.COIN_ROLL_MS };
+    const el = typeof document !== 'undefined' ? document.getElementById('money') : null;
+    if (!el || typeof el.animate !== 'function' || scene._reducedMotion) return;
+    scene._coinHop?.cancel?.();
+    scene._coinHop = el.animate([
+      { transform: 'translateY(0) scale(1)', filter: 'brightness(1)' },
+      { transform: 'translateY(-7px) scale(1.08)', filter: 'brightness(1.45)', offset: 0.3, easing: 'ease-in' },
+      { transform: 'translateY(0) scale(1)', filter: 'brightness(1)' },
+    ], { duration: this.COIN_HOP_MS, easing: 'ease-out' });
+  },
   update(scene) {
     if (!scene._compassHUD) return;
     const money = document.getElementById('money');

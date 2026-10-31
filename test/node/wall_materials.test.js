@@ -153,7 +153,7 @@
       globalThis.RogueObjects = { enabled: false };
       assert.eq(WallMaterials.prepare(scene), baseline, 'baseline/Dreamland reuse the original atlas');
       assert.eq(creates, 2, 'one atlas per distinct palette');
-      assert.eq(crown(WallMaterials.geometry('hedge', points, 5)).flatColor, 0x4f813b);
+      assert.eq(crown(WallMaterials.geometry('hedge', points, 5)).flatColor, 0x418161, 'baseline hedge crown uses the juniper ramp');
     } finally {
       if (previous) Object.defineProperty(globalThis, 'RogueObjects', previous);
       else delete globalThis.RogueObjects;

@@ -1612,6 +1612,9 @@ const ICON_SHEETS = {
   icon_trout:      { url: 'assets/Icons/Fish/River/Tiger Trout.png',      cols: 4, srcW: 64, srcH: 16 },
   icon_salmon:     { url: 'assets/Icons/Fish/Sea/Salmon.png',             cols: 4, srcW: 64, srcH: 16 },
   icon_goldenfish: { url: 'assets/Icons/Fish/River/Golden Fish.png',      cols: 4, srcW: 64, srcH: 16 },
+  // The sewer's own catch — generated 16×16 single frames.
+  icon_blind_cavefish: { url: 'assets/Icons/Fish/Sewer/Blind Cavefish.png', cols: 1, srcW: 16, srcH: 16 },
+  icon_sewer_eel:      { url: 'assets/Icons/Fish/Sewer/Sewer Eel.png',      cols: 1, srcW: 16, srcH: 16 },
   // Consumables + wilderness drops.
   icon_thunder_scroll: { url: 'assets/Icons/Items/ThunderScroll.png', cols: 1, srcW: 16, srcH: 16 },
   icon_raven_scroll: { url: 'assets/Icons/Items/RavenScroll.png', cols: 1, srcW: 16, srcH: 16 },
@@ -4000,6 +4003,7 @@ class MapScene extends Phaser.Scene {
     // never the camera anchor: a peek drag must not spring a trap two cells
     // away, nor stop one under you from biting).
     PressureTraps.tick(this, dt);
+    ExplosiveBarrels.tick(this, dt);
     Waystones.tick(this);
     EnvironmentHazards.tick(this, dt);
     MushroomGas.tick(this, dt);
@@ -9140,7 +9144,16 @@ class MapScene extends Phaser.Scene {
     });
     // The compass reveals its money badge after the first earned-coin story.
     if (this.moneyEl) {
-      const money = `${this.save.money ?? 0}`;
+      const balance = this.save.money ?? 0;
+      // Coins earned lift the chip and roll the number up to the new balance
+      // (CompassHUD.moneyGain / coinRoll); the first paint and a spend paint
+      // flat. _moneyShown is the last balance seen, _coinRoll the live climb.
+      if (this._moneyShown != null && balance > this._moneyShown) CompassHUD.moneyGain(this, this._moneyShown, balance);
+      else if (this._moneyShown != null && balance < this._moneyShown) this._coinRoll = null;
+      this._moneyShown = balance;
+      const roll = CompassHUD.coinRoll(this._coinRoll, Date.now());
+      if (roll?.done) this._coinRoll = null;
+      const money = `${roll ? roll.value : balance}`;
       this._paintIfChanged('_moneyDOM', money, () => {
         // The chip is a coin icon plus a bare number span (#money-num); the
         // icon is the symbol, so the number carries no `$`. Fall back to the

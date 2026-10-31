@@ -57,7 +57,8 @@ test('TAP_HANDLERS: work-progress is the FIRST handler (priority guard)', () => 
 
 test('TAP_HANDLERS: grass cover precedes concealed rewards after the work guard', () => {
   assert.eq(HANDLER_NAMES[1], 'grass-cover');
-  assert.eq(HANDLER_NAMES[2], 'treasure');
+  assert.eq(HANDLER_NAMES[2], 'concealed');
+  assert.eq(HANDLER_NAMES[3], 'treasure');
 });
 
 test('TAP_HANDLERS: creature precedes wildplant (animals eat taps near plants)', () => {
@@ -679,6 +680,7 @@ test('TAP_HANDLERS: full handler-name list matches the known snapshot', () => {
   const EXPECTED = [
     'work-progress',
     'grass-cover',
+    'concealed',
     'treasure',
     'coindrop',
     'building-art',

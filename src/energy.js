@@ -187,10 +187,11 @@
   }
 
   // A fish's FOOD_ENERGY is its total over three minutes, never an instant
-  // restore. Fishing's species table also owns which grilled dishes are fish.
+  // restore. Fishing's species tables (every pool: FISH_KINDS) also own which
+  // grilled dishes are fish.
   const FISH_REGEN_MS = 3 * 60 * 1000;
   function fishRegenTotal(id) {
-    return FISH_SPECIES.some(f => f.id === id || COOKED_FOODS[f.id]?.id === id)
+    return FISH_KINDS.some(fish => fish === id || COOKED_FOODS[fish]?.id === id)
       ? FOOD_ENERGY[id] : 0;
   }
   function fishRegenWait(save, id, now = Date.now()) {

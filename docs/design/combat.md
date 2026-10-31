@@ -140,6 +140,9 @@ mechanics.
 - Lantern (saved item id `evertorch`) is a T6 timed supply: two hours of blue light, with expiry
   saved through `Buffs.evertorch`. Another extends that expiry. Ordinary
   Torches keep their short, scene-local timer; either flame ignites melee foes.
+  A Starflower held up (`CONSUMABLE_SPEC.starflower`, the `starlight` buff) is a
+  torch with the torch's duration and reach derived off its row, in a softer,
+  colder light; it has no flame and ignites nothing.
 - KNOCKBACK has one owner, `Whirlwinds.impulse` / `pushStep`: a whirlwind's
   contact (GRASS, PITCH and SCHOOL cells only, surface only) and the T1 Scroll of Wind
   (`CAST_ROWS.wind_scroll`: every foe in reach takes 5 and is blown
@@ -233,6 +236,16 @@ mechanics.
   a burst of leaves), and return to the same hide once they give up. A bush or
   hedge with any live foe on its cell wiggles on `LURK_BUSH_BEAT` (render.js
   `Render.foeCells`), the nest bush's wiggle on a quicker beat.
+  THE SNAKE'S HIDE: a row whose `ambush` is `{ hide: 'grass' }` lurks in a
+  LONG-GRASS cell instead (`Visibility.grassHide`, the grid's `GRASS_HIDE`
+  bit; `concealingCellNear`'s `hide` argument, `ambushHide`). Long grass
+  conceals nobody, so the snake stays drawn and only the grass's shiver over
+  it (`Render.lurkBush`) gives it away; its slow pursuit (under a walk) and
+  poisoning bite (its row's `condition`) are the row's. A CLAY POT can hold a
+  snake too (interactables.js `potHidesSnake`: one surface clay pot in five,
+  on its own stream): the smash rolls the pot's take as ever and seats the
+  snake through the chest mimic's reveal ledger (`_revealMimic(o, 'snake')`,
+  `save.revealedMimics` records carrying `kind`).
   Traps check `Combat.playerDowned` directly:
   concealment does not stop them. Downed players have no reach and are not hunted.
 - A status effect is a row of `Conditions.DEFINITIONS` (poison, burning, a trap's pin): the
@@ -376,6 +389,11 @@ mechanics.
   enemies inside Home's ring. Campfires burn for 24 real hours, including offline
   time (`Campfires.active`, saved `litAt`). After expiry their smoking pits give
   no rest, ward, light or burning contact; flint relights them for another day.
+- Explosive barrels arm on tap with a saved five-second foreground fuse.
+  They flash and show a countdown, then become permanently spent. The blast
+  deals 20 base damage within one cell, applies six seconds of burning and
+  ignites eligible ground cells for ten seconds. It reuses normal damage,
+  immunity, ground-fire and explosion effects; unloaded floors pause the fuse.
 - Fire slimes resist burning and fireball damage through their roster row. Each accepted cell
   exit lights the cell left behind through `GroundFire`, including while
   wandering or retreating. The occupied destination stays unlit until they
@@ -413,12 +431,23 @@ mechanics.
   Gifts reset by UTC day without accumulating missed days. A partly full bag
   retains today's uncollected portion; successful collection fixes today's
   allowance so furniture changes cannot repeat a gift.
-- The Quilted Cot restores all missing energy through `_restoreEnergy` and
-  `Energy.set`, with no coin or daily-use cost. It works only on an owned Home
-  building cell and refuses full energy or `_zeroEnergyLocked()`, both before
-  sleeping and when the shared sleep fade commits. The Inn uses that same fade
-  with its existing paid, once-per-day transaction. Washing Tub clears only
-  `Conditions` debuffs; buffs, energy, food cooldown and terrain remain unchanged.
+- A night's rest is `Rest.sleep` (`src/rest.js`), the one routine behind the
+  Quilted Cot and the Inn: all missing energy at once through `Energy.set`,
+  then `Rest.PASS_MS` (four hours) of the world's clocks passed, then no bed
+  anywhere until `Rest.COOLDOWN_MS` (four hours) has run, on `save.restedAt`;
+  `Rest.waitMs` is the one gate and both refuse on it. The hours move a watered
+  crop's stamp and advance it one stage if its hold has run (as the growth tick
+  would; a slower crop only comes closer), age planted trees, fruit picks and
+  cleared grass, and bring the bite and tome gates closer; nothing else, so a
+  potion drunk before bed keeps its clock. The scene's half (`_afterRest`) pops
+  the gain and re-seats live planted trees. The cot is a workshop recipe
+  (seven wood, `known` from the start) that works only on an owned Home
+  building cell and refuses the gate, `_zeroEnergyLocked()` and full energy,
+  both before sleeping and when the shared sleep fade commits. The Inn is the
+  same night for coin (`Macros.innRest`, the Healing potion's coins per energy
+  × `INN_RATE`) with no ledger of its own. The Potion of Time clears the gate
+  with the other action gates. Washing Tub clears only `Conditions` debuffs;
+  buffs, energy, food cooldown and terrain remain unchanged.
 - Home is `save.starterShopId`: the player's house, placed by `_placeHome`
   centred one cell north of the player (`HomeArea.WAGON_OFFSET` — the anchor
   keeps the save's old name) so they start in its doorway row, with an empty

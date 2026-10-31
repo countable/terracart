@@ -809,6 +809,11 @@ class SceneConsumables {
   isTorchActive() {
     return (this._torchUntil ?? 0) > Date.now();
   }
+  // A held Starflower (the `starlight` buff): the same in-memory timer as the
+  // torch, read by Lighting.playerKind for its softer, colder row.
+  isStarlightActive() {
+    return (this._starlightUntil ?? 0) > Date.now();
+  }
 
   // The ENEMIES (Combat.isEnemy, never a caught one) `where` accepts, over
   // the loaded tiles round the player.

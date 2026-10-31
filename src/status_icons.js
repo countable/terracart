@@ -53,6 +53,7 @@ globalThis.StatusIcons = Object.freeze({
     "fortune": 42,
     "work": 43,
     "regen": 44,
-    "wand": 45
+    "wand": 45,
+    "starlight": 46
   }
 });

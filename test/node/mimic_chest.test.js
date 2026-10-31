@@ -54,7 +54,7 @@
   });
 
   test('mimic: reveal seats one hostile at its chest and refuses missing tiles', () => {
-    const method = SCENE_CREATURES_SRC.match(/  _revealMimic\(o\) \{[\s\S]*?\n  \}/)[0];
+    const method = SCENE_CREATURES_SRC.match(/  _revealMimic\(o, kind = 'mimic'\) \{[\s\S]*?\n  \}/)[0];
     const reveal = new Function('WorldGen', 'performance', 'return function ' + method.trim())(WorldGen, { now: () => 100 });
     const scene = { depth: 0, tileEdgeM: 100, save: { caught: [] } }, o = chest('mimic_scene');
     const key = WorldGen.tileKey(0, 0), previous = WorldGen.tileCache.get(key);

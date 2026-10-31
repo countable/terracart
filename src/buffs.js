@@ -52,6 +52,9 @@
       effect: () => `Your light reaches ${CONSUMABLE_SPEC.evertorch.radiusMul}× as far in the dark.` },
     torch:   { icon: 'torch', name: 'Torch',   color: '#ffb347', stroke: '#3a1600', scene: '_torchUntil',
       effect: () => `Your light reaches ${CONSUMABLE_SPEC.torch.radiusMul}× as far in the dark.` },
+    // A held Starflower: the torch's reach in a paler, colder light.
+    starlight: { icon: 'starlight', name: 'Starlight', color: '#cfd9ff', stroke: '#141a3a', scene: '_starlightUntil',
+      effect: () => `Your light reaches ${CONSUMABLE_SPEC.starflower.radiusMul}× as far in the dark, pale and cool.` },
     frostAura: { icon: 'frostAura', name: 'Frost aura', color: '#9ad8ff', stroke: '#10233c', save: 'frostAuraUntil',
       effect: 'Cold spreads from you and chills every creature that comes near.' },
     // The Comet Ring's fire put out by its wearer's own speed (comet_ring.js
