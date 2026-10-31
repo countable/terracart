@@ -21,13 +21,20 @@
       if (!entry) continue;
       // Keep the same coarse chunk query and order as the object stream,
       // but only index plates. Their live pressed state is resolved below.
-      if (!derivedObjects(entry, '_grovePlates', o => o.kind === 'pressure_plate').length) continue;
+      if (!derivedObjects(entry, '_grovePlates', o => o.kind === 'pressure_plate' || o.kind === 'headstone' && o.graveGhostRadiusCells != null).length) continue;
       root.WorldGen.forEachItemInBox(entry, '_grovePlates', p.x - radius, p.y - radius, p.x + radius, p.y + radius, o => {
         if ((o.depth || 0) !== (scene.depth || 0)) return;
-        Object.assign(o, worldMetersToAbsCell(scene, o.x, o.y));
-        o.pressed = !!scene.save.pressedPlates?.[o.id];
-        o.frame = o.pressed ? 3 : 2;
-        plates.push(o);
+        // A grave supplies a hidden trigger proxy; its ordinary headstone art
+        // and tap behaviour remain untouched.
+        const plate = o.kind === 'headstone' ? {
+          id: 'graveghost:' + o.id, kind: 'pressure_plate', effect: 'ghost',
+          x: o.x, y: o.y, depth: o.depth || 0,
+          graveProxy: true, triggerRadiusCells: o.graveGhostRadiusCells,
+        } : o;
+        Object.assign(plate, worldMetersToAbsCell(scene, plate.x, plate.y));
+        plate.pressed = !!scene.save.pressedPlates?.[plate.id];
+        plate.frame = plate.pressed ? 3 : 2;
+        plates.push(plate);
       });
     }
     return plates;
@@ -169,6 +176,7 @@
     trap.state = 'moving';
   }
   function plateVisible(scene, plate) {
+    if (plate.graveProxy) return false;
     if (plate.effect === 'ghost') return true;
     const p = feet(scene), cell = scene.cellAt(p.x, p.y);
     return Math.max(Math.abs(plate.cellIX - cell.cellIX), Math.abs(plate.cellIY - cell.cellIY)) <= CONFIG.plateRevealCells;
@@ -208,7 +216,9 @@
     observe(scene);
     const s = lists(scene), p = feet(scene), cell = scene.cellAt(p.x, p.y);
     for (const plate of s.plates) {
-      if (!root.Conditions.flying(scene.save) && plate.cellIX === cell.cellIX && plate.cellIY === cell.cellIY && !plate.pressed) {
+      const delta = absCellDelta(scene, cell.cellIX, cell.cellIY, plate.cellIX, plate.cellIY);
+      const radius = plate.graveProxy ? plate.triggerRadiusCells : 0;
+      if (!root.Conditions.flying(scene.save) && Math.max(Math.abs(delta.dx), Math.abs(delta.dy)) <= radius && !plate.pressed) {
         if (plate.effect === 'ghost') { pressGrove(scene, plate); continue; }
         if (!ground(scene, plate.x, plate.y)) continue;
         plate.pressed = true;

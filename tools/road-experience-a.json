@@ -10,19 +10,15 @@
     ],
     "mechanics": [
       {
-        "text": "A hedge ambush can emerge from behind the first verge row.",
+        "text": "Two goblin runts hide in the clipped hedge. One ambush is attempted per hedged street per map tile, where a valid spawn spot exists.",
         "status": "existing"
-      },
-      {
-        "text": "Walking the route restores its paving.",
-        "status": "existing"
-      },
-      {
-        "text": "Give the occupied hedge a brief rustle before the ambush activates, so an attentive walker can prepare.",
-        "status": "proposed"
       }
     ],
-    "loop": "Enjoy the order, notice the rustle, clear the ambush, continue restoring."
+    "adjectives": [
+      "Orderly",
+      "Reassuring",
+      "Watchful"
+    ]
   },
   {
     "id": "overgrown",
@@ -31,7 +27,8 @@
     "art": [
       "Keep one verge row with one empty cell between specimens and clearly distinct growth stages.",
       "Use the existing pine, dead-tree and stump art; omit shrubs and extra tree rows.",
-      "Keep grass sparse and low so the sequence and final shrine remain readable."
+      "Keep the ground free of grass and shrubs so the tree sequence and final shrine remain readable.",
+      "Leave scattered water puddles on the verge opposite the tree sequence."
     ],
     "mechanics": [
       {
@@ -43,11 +40,15 @@
         "status": "existing"
       },
       {
-        "text": "Make the final shrine visibly brighten when the whole local sequence has been walked, using restoration progress as the trigger.",
-        "status": "proposed"
+        "status": "existing",
+        "text": "Concealed seed cache, with its own themed T1\u2013T3 loot roll."
       }
     ],
-    "loop": "Follow the tree sequence, deal with wildlife, reach the shrine."
+    "adjectives": [
+      "Reflective",
+      "Wild",
+      "Weathered"
+    ]
   },
   {
     "id": "orchard",
@@ -68,11 +69,15 @@
         "status": "existing"
       },
       {
-        "text": "Use a brief fruit sparkle on harvestable trees, disappearing after collection, to make a worthwhile stop readable while walking.",
-        "status": "proposed"
+        "status": "existing",
+        "text": "Concealed fruit cache, with its own themed T1\u2013T3 loot roll."
       }
     ],
-    "loop": "Spot ripe fruit, check for a guard, harvest, move to the next tree."
+    "adjectives": [
+      "Inviting",
+      "Fruitful",
+      "Vulnerable"
+    ]
   },
   {
     "id": "pilgrim",
@@ -93,11 +98,15 @@
         "status": "existing"
       },
       {
-        "text": "Let active stones pulse faster as their remaining time runs low, communicating urgency without another timer panel.",
-        "status": "proposed"
+        "status": "existing",
+        "text": "Concealed sacred cache, with its own themed T1\u2013T3 loot roll."
       }
     ],
-    "loop": "Read the scattered layout, choose an order, keep every stone lit."
+    "adjectives": [
+      "Quiet",
+      "Deliberate",
+      "Contemplative"
+    ]
   },
   {
     "id": "lantern",
@@ -112,17 +121,13 @@
       {
         "text": "Lamps are placed more densely than on ordinary routes.",
         "status": "existing"
-      },
-      {
-        "text": "Walking restores the route through the shared street-restoration system.",
-        "status": "existing"
-      },
-      {
-        "text": "Give each newly restored lamp a short warm ignition pulse, making forward progress visible down the chain.",
-        "status": "proposed"
       }
     ],
-    "loop": "Follow the lights and leave a visibly restored trail behind."
+    "adjectives": [
+      "Warm",
+      "Sheltered",
+      "Welcoming"
+    ]
   },
   {
     "id": "burned",
@@ -141,13 +146,13 @@
       {
         "text": "Tar, stakes and a fire-slime guard create obstacles along the stretch.",
         "status": "existing"
-      },
-      {
-        "text": "Place a small visibly cool rest pocket at each end, giving players a clear place to prepare and recover before crossing.",
-        "status": "proposed"
       }
     ],
-    "loop": "Prepare on safe ground, cross decisively, deal with the guard, recover beyond the heat."
+    "adjectives": [
+      "Scorching",
+      "Urgent",
+      "Hostile"
+    ]
   },
   {
     "id": "barricade",
@@ -166,38 +171,38 @@
       {
         "text": "A Trap Kit removes individual barrier pieces.",
         "status": "existing"
-      },
-      {
-        "text": "Give the final piece blocking a continuous passage a distinct break sound and brief dust burst, marking the moment the road opens.",
-        "status": "proposed"
       }
     ],
-    "loop": "Assess the blockage, clear the defenders, open a passage."
+    "adjectives": [
+      "Occupied",
+      "Defiant",
+      "Liberating"
+    ]
   },
   {
     "id": "toadstool",
     "feeling": "The lane invites curious foraging while making every large clump a possible hiding place.",
     "arrival": "Small caps lead toward thicker mushroom clumps and an occasional giant, with warm light catching their spots.",
     "art": [
-      "Use the approved mushroom replacements 02→01 and 09→07.",
+      "Use the approved mushroom replacements 02\u219201 and 09\u219207.",
       "Keep small pickups common, medium clumps clearly bush-sized, and giants occasional.",
       "Retain damp ground and orange lamps; separate mushroom silhouettes from the rounded tree canopy."
     ],
     "mechanics": [
       {
-        "text": "Small mushrooms can be collected; medium mushroom bushes use bush chopping and cover.",
+        "text": "Small mushrooms can be collected; medium mushroom bushes use bush chopping and cover. Candidate caps are reduced by 30%.",
         "status": "existing"
       },
       {
         "text": "Spider guards make dense fungal patches worth checking before entering.",
         "status": "existing"
-      },
-      {
-        "text": "Let disturbed medium clumps shed a brief harmless spore puff, making harvesting and an approaching creature readable through the cover.",
-        "status": "proposed"
       }
     ],
-    "loop": "Collect small caps, inspect the cover, chop a clump or skirt the danger."
+    "adjectives": [
+      "Curious",
+      "Lush",
+      "Secretive"
+    ]
   },
   {
     "id": "promenade",
@@ -216,13 +221,13 @@
       {
         "text": "Eligible scenic stretches can place a one-time vista chest.",
         "status": "existing"
-      },
-      {
-        "text": "Use a subtle glint from the vista chest when it first enters view, encouraging a short shoreward detour without a quest marker.",
-        "status": "proposed"
       }
     ],
-    "loop": "Follow the shoreline, restore new ground, step aside for the vista reward."
+    "adjectives": [
+      "Open",
+      "Restful",
+      "Expansive"
+    ]
   },
   {
     "id": "greenway",
@@ -241,13 +246,13 @@
       {
         "text": "Scenic greenway stretches grant increased first-restoration credit and can hold a one-time vista chest.",
         "status": "existing"
-      },
-      {
-        "text": "Let nearby deer briefly look toward a slow or stationary player before resuming their existing behavior, rewarding attention without another collectible.",
-        "status": "proposed"
       }
     ],
-    "loop": "Follow the green corridor, notice wildlife, continue toward the next opening."
+    "adjectives": [
+      "Alive",
+      "Gentle",
+      "Attentive"
+    ]
   },
   {
     "id": "parkpath",
@@ -266,12 +271,12 @@
       {
         "text": "Eligible scenic stretches can place a one-time vista chest.",
         "status": "existing"
-      },
-      {
-        "text": "Fade the leaf-and-weed edge clutter back locally as paving is restored, giving this route a clear before-and-after payoff with existing art.",
-        "status": "proposed"
       }
     ],
-    "loop": "Follow the neglected path and watch its shape return as you walk."
+    "adjectives": [
+      "Neglected",
+      "Peaceful",
+      "Hopeful"
+    ]
   }
 ]

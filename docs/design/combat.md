@@ -180,6 +180,31 @@ mechanics.
   and a charmed bat's bite); the Vampire Ring (`UNIQUE_JEWELRY.vampire_ring`,
   `jewelryMeleeLifesteal`) returns 20% of a melee blow as banked whole energy,
   capped at the bar.
+- THE COMET RING (`UNIQUE_JEWELRY.comet_ring.cometAura`, read by
+  `CometRing` in `comet_ring.js`; the Fire Elemental's rare elite drop): while
+  worn, a ring of fire round the feet grows with the player's REAL pace —
+  the GPS speed lane (`util.js speedGateStep` keeps its last sample;
+  `CometRing.gpsPace` reads it, stale after `PACE_STALE_MS`), never the body
+  on the map: a stick walk off the fix, the walk home after it and a
+  catch-up chase light nothing, and without GPS the ring is an ember.
+  `CometRing.shape` turns the smoothed metres-per-second into the disc's
+  radius and intensity, an ember at a standstill and a comet's tail at
+  `maxMps`. `_tickCometAura` (scene_consumables.js) sets
+  every enemy inside alight as the player's kill (`Combat.ignite`, the lit
+  torch's call) and burns the aura's `dps × dt` through `_damageEnemy`; the
+  wearer and their allies are never targets. Faster than `maxMps` for
+  `overspeedMs` running and `CometRing.step` snuffs it: the tick lends the
+  `cometSnuffed` Buffs row `snuffedMs` (its chip is the only sign) and the
+  fire relights when that ends. The ground disc (render.js) and the warmth on
+  the lightmap (`Lighting.KINDS.comet_aura`) read the same state, so the
+  edge the player sees is the edge that burns. A sample past
+  `CometRing.TELEPORT_MPS` is a GPS jump, never running.
+  It is the one `equippable` jewelry row: found, it is worn at once; the
+  Equip / Unequip button under the inventory bar (`syncEquipButton`, the
+  weapons' button) takes it off and puts it on through `Gear.wearJewelry`,
+  the one writer of `save.wornJewelry`, which `jewelryWorn` reads. Off, it
+  is a plain carried stack with no fire; the choice survives a reload. The
+  other unique jewelry works while carried, as before.
 - BOOK CLUB LENDING: lifetime Books collected provide one reusable credit
   each. The existing value-ordered tome shelf unlocks one new title every
   three Books; unlocks do not repeat. Each borrowed copy reserves its item
@@ -396,6 +421,11 @@ mechanics.
   enemies inside Home's ring. Campfires burn for 24 real hours, including offline
   time (`Campfires.active`, saved `litAt`). After expiry their smoking pits give
   no rest, ward, light or burning contact; flint relights them for another day.
+- Explosive barrels arm on tap with a saved five-second foreground fuse.
+  They flash and show a countdown, then become permanently spent. The blast
+  deals 20 base damage within one cell, applies six seconds of burning and
+  ignites eligible ground cells for ten seconds. It reuses normal damage,
+  immunity, ground-fire and explosion effects; unloaded floors pause the fuse.
 - Fire slimes resist burning and fireball damage through their roster row. Each accepted cell
   exit lights the cell left behind through `GroundFire`, including while
   wandering or retreating. The occupied destination stays unlit until they
@@ -433,12 +463,23 @@ mechanics.
   Gifts reset by UTC day without accumulating missed days. A partly full bag
   retains today's uncollected portion; successful collection fixes today's
   allowance so furniture changes cannot repeat a gift.
-- The Quilted Cot restores all missing energy through `_restoreEnergy` and
-  `Energy.set`, with no coin or daily-use cost. It works only on an owned Home
-  building cell and refuses full energy or `_zeroEnergyLocked()`, both before
-  sleeping and when the shared sleep fade commits. The Inn uses that same fade
-  with its existing paid, once-per-day transaction. Washing Tub clears only
-  `Conditions` debuffs; buffs, energy, food cooldown and terrain remain unchanged.
+- A night's rest is `Rest.sleep` (`src/rest.js`), the one routine behind the
+  Quilted Cot and the Inn: all missing energy at once through `Energy.set`,
+  then `Rest.PASS_MS` (four hours) of the world's clocks passed, then no bed
+  anywhere until `Rest.COOLDOWN_MS` (four hours) has run, on `save.restedAt`;
+  `Rest.waitMs` is the one gate and both refuse on it. The hours move a watered
+  crop's stamp and advance it one stage if its hold has run (as the growth tick
+  would; a slower crop only comes closer), age planted trees, fruit picks and
+  cleared grass, and bring the bite and tome gates closer; nothing else, so a
+  potion drunk before bed keeps its clock. The scene's half (`_afterRest`) pops
+  the gain and re-seats live planted trees. The cot is a workshop recipe
+  (seven wood, `known` from the start) that works only on an owned Home
+  building cell and refuses the gate, `_zeroEnergyLocked()` and full energy,
+  both before sleeping and when the shared sleep fade commits. The Inn is the
+  same night for coin (`Macros.innRest`, the Healing potion's coins per energy
+  × `INN_RATE`) with no ledger of its own. The Potion of Time clears the gate
+  with the other action gates. Washing Tub clears only `Conditions` debuffs;
+  buffs, energy, food cooldown and terrain remain unchanged.
 - Home is `save.starterShopId`: the player's house, placed by `_placeHome`
   centred one cell north of the player (`HomeArea.WAGON_OFFSET` — the anchor
   keeps the save's old name) so they start in its doorway row, with an empty

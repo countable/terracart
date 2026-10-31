@@ -43,7 +43,8 @@
   // The ledger keeps pickups and services independent at a shared place.
   // usedToday / markToday own plain `<id><day>` keys for coin bursts, shrines,
   // crates and barrels. serviceUsedToday / markServiceToday own
-  // `macro:<id><day>` keys for inns, chapels and guildhalls. Both lanes share
+  // `macro:<id><day>` keys for chapels and guildhalls (the inn's gate is
+  // Rest.waitMs, src/rest.js). Both lanes share
   // one pruning pass. A write
   // prunes every entry older than LEDGER_KEEP_DAYS, so a take is remembered
   // for a week: long enough for a crate that restocks after several days
@@ -326,11 +327,14 @@
     return pool.length ? pool[fnv1a(String(o && o.id) + '|' + salt) % pool.length] : null;
   }
 
-  // ── INN: rest to full for money, once a day per inn ───────────────────────
-  // The price per point of energy is the Potion of Healing's own
+  // ── INN: a night's rest for money ─────────────────────────────────────────
+  // The night is Rest.sleep (src/rest.js — the Quilted Cot's own: full
+  // energy, four hours of the world's clocks passed, then no bed anywhere
+  // for four hours; Rest.waitMs is the gate, shared with the cot). The price
+  // per point of energy is the Potion of Healing's own
   // (PRICES.healing_potion / HEALING_POTION_ENERGY) × INN_RATE: cheaper than
-  // carrying a potion, but you walk to it and it is once a day. Not Home's
-  // passive rest (free, on HOME_R, gated on `working`): a one-shot purchase.
+  // carrying a potion, but you walk to it and the gate is four hours. Not
+  // Home's passive rest (free, on HOME_R, gated on `working`): a purchase.
   const INN_RATE = 0.5;
   function innCoinsPerEnergy() {
     return PRICES.healing_potion / HEALING_POTION_ENERGY * INN_RATE;
@@ -339,19 +343,20 @@
     const m = Math.max(0, Math.floor(missing || 0));
     return m > 0 ? Math.max(1, Math.ceil(m * innCoinsPerEnergy())) : 0;
   }
-  // Rest `save` to `maxE` at inn `o`. Returns { ok, gain, price, why }:
-  // why ∈ 'used' | 'full' | 'money'. Energy goes through Energy.set.
-  function innRest(save, o, maxE, now) {
-    if (serviceUsedToday(save, o.id, now)) return { ok: false, why: 'used' };
-    const cur = save.energy ?? 0;
-    const missing = Math.max(0, maxE - cur);
+  // Rest `save` to `maxE` at inn `o`. Returns { ok, gain, price, why, wait }:
+  // why ∈ 'used' (a bed within the last four hours — `wait` ms to go) |
+  // 'full' | 'money'. `moved` is Rest.passTime's (what grew). Energy goes
+  // through Energy.set inside Rest.sleep.
+  function innRest(save, o, maxE, now = Date.now(), moved = null) {
+    const wait = Rest.waitMs(save, now);
+    if (wait > 0) return { ok: false, why: 'used', wait };
+    const missing = Math.max(0, maxE - (save.energy ?? 0));
     if (missing <= 0) return { ok: false, why: 'full' };
     const price = innPrice(missing);
     if ((save.money ?? 0) < price) return { ok: false, why: 'money', price };
     addMoney(save, -price);
-    Energy.set(save, maxE, maxE);
-    markServiceToday(save, o.id, now);
-    return { ok: true, gain: (save.energy ?? 0) - cur, price };
+    const gain = Rest.sleep(save, maxE, now, moved);
+    return { ok: true, gain, price };
   }
 
   // ── CHAPEL: a daily blessing, a tier humbler than the chest it replaced ──
@@ -806,7 +811,7 @@
   // One introduction per physical booth, followed by its live offer. State
   // the input and promised effect here; exact prices come from the offer.
   const KIND_STORY = {
-    inn: { title: 'An inn', body: 'Fresh blankets cover a bed beneath the green awning. Pay coins to restore all missing HP, once a day at this inn.' },
+    inn: { title: 'An inn', body: 'Fresh blankets cover a bed beneath the green awning. Pay coins to sleep four hours through: every missing HP restored and your crops that much nearer ripe. No bed will take you again until four hours have passed.' },
     chapel: { title: 'A chapel', body: 'A small bell hangs beneath the blue canopy. Receive a free blessing gift here once a day; nothing is asked in return.' },
     apothecary: { title: 'An apothecary', body: 'The keeper grows herbs among the old foundations. Pay coins for a potion or antidote from the shelf.' },
     scriptorium: { title: 'A scriptorium', body: 'The scribe repairs pages salvaged after the Breaking. Each scribe will part with one Book for coins, and every scriptorium asks four times what the last was paid. Torches to carry are always for sale.' },
