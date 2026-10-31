@@ -10,8 +10,8 @@ mechanics.
   owns their HP, sprite and spawning rules. The Mushroom House has 120 HP
   and births one Mushroom Monster per foreground minute, up to four living
   children per house. Births obey the ordinary enemy spawn gate and live
-  collision checks. Only nearby, loaded surface hives advance; leaving the
-  area restarts the minute, and background time never produces catch-up waves.
+  collision checks, including clearance from the player. Only nearby, loaded
+  surface hives advance; leaving the area restarts the minute, and background time never produces catch-up waves.
   Player swings use their ordinary weapon damage and cooldown. Damage and
   destruction persist in `save.hives`; zero HP reveals the original repairable
   wreck permanently. Existing children remain after the house falls. Claimed,

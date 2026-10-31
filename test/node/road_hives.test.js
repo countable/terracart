@@ -60,4 +60,10 @@
     s.save=JSON.parse(JSON.stringify(s.save));e.creatures=[];
     const next=Hives.spawn(s,h);assert.truthy(next);assert.eq(s.save.hives[h.id].serial,savedSerial+1);
   }));
+  test('hives: births leave clearance around the player at the first legal seat',()=>fixture(({scene:s,house:h})=>{
+    s.playerM={x:44,y:44};
+    const child=Hives.spawn(s,h);
+    assert.truthy(child,'another legal seat is available');
+    assert.truthy(Math.hypot(child.x-44,child.y-44)>=s.cellM*Hives.CONFIG.spawnClearanceCells,'a birth cannot overlap the player');
+  }));
 })();

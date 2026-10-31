@@ -6,7 +6,7 @@
     mushroom: Object.freeze({ name: 'Mushroom House', texture: 'hive_mushroom', frame: 0,
       hp: 120, enemy: 'mushroom_monster', intervalMs: 60000, maxAlive: 4 }),
   });
-  const CONFIG = Object.freeze({ activeCells: 24, spawnRadiusCells: 4, observeMs: 1000, maxFrameMs: 100 });
+  const CONFIG = Object.freeze({ activeCells: 24, spawnRadiusCells: 4, spawnClearanceCells: .7, observeMs: 1000, maxFrameMs: 100 });
   function isActive(save, house) {
     return !!(save && house?.kind === 'house' && KINDS[house.hive]
       && root.Houses.isHouseWreck(save, house) && !root.Houses.isClaimedKey(save, house.id)
@@ -52,6 +52,7 @@
     const W = root.WorldGen, edge = scene.tileEdgeM || scene.cellsPerTile * scene.cellM;
     if (!(edge > 0)) return false;
     const caught = new Set(scene.save.caught || []);
+    const player = playerWorldM(scene), clearance = CONFIG.spawnClearanceCells * scene.cellM;
     // Cell centres, expanding in a fixed order: never materialize in the
     // house, another creature, private land or an excluded road band.
     const centre = worldMetersToAbsCell(scene, house.x, house.y);
@@ -64,10 +65,11 @@
         const entry = W.tileCache.get(W.tileKey(tx, ty));
         if (!entry?.creatures || entry.status !== 'ready' || (entry.depth || 0) !== (scene.depth || 0)
             || !root.CreatureSpawns.gateAt(scene, x, y, row.enemy, W.spawnOptsOf(entry))
-            || scene._cellBlocked?.(x, y)) continue;
+            || scene._cellBlocked?.(x, y)
+            || Math.hypot(player.x - x, player.y - y) < clearance) continue;
         let blocked = false;
         W.forEachItemNear('creatures', tx, ty, c => {
-          if (!c._spent && !caught.has(c.id) && Math.hypot(c.x - x, c.y - y) < scene.cellM * .7) blocked = true;
+          if (!c._spent && !caught.has(c.id) && Math.hypot(c.x - x, c.y - y) < clearance) blocked = true;
         });
         if (blocked) continue;
         const state = record(scene.save, house);
