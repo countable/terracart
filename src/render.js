@@ -1220,7 +1220,7 @@ Render.renderAuras = function renderAuras(scene, pool, list, project) {
     const diameter = 2 * auraRadiusCells(item.aura) * CELL_PX;
     setTextureIfDifferent(s, item.aura.texture || 'aura_blight');
     s.setOrigin(0.5, 0.5).setDisplaySize(diameter, diameter)
-      .setPosition(x, y).setAlpha(0.9);
+      .setPosition(x, y).setAlpha(item.aura.alpha ?? 0.9);
     if (item.aura.tint != null) s.setTintFill(item.aura.tint);
   });
 };
@@ -6210,6 +6210,16 @@ Render.drawObjects = function drawObjects(scene) {
       const player = playerWorldM(scene);
       playerAuras.push({ dx: player.x - pWorldX, dy: player.y - pWorldY,
         aura: CONSUMABLE_SPEC.tome_frost_aura.aura });
+    }
+    // The Comet Ring's fire (scene_consumables.js _tickCometAura —
+    // scene._cometAura): the disc is exactly as wide as the aura burns this
+    // frame, and brighter the more it is stoked.
+    const comet = scene._cometAura;
+    if (comet?.lit && comet.radiusCells > 0) {
+      const player = playerWorldM(scene);
+      playerAuras.push({ dx: player.x - pWorldX, dy: player.y - pWorldY,
+        aura: { texture: UNIQUE_JEWELRY.comet_ring.cometAura.texture, radiusCells: comet.radiusCells,
+          alpha: 0.55 + 0.4 * comet.intensity } });
     }
     Render.renderAuras(scene, scene.playerAuraPool, playerAuras, project);
   }

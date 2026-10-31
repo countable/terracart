@@ -1,7 +1,7 @@
 // Unique carried jewelry: intrinsic effects, no material-tier gear slot.
 
 (function () {
-  const ids = ['coin_ring', 'stealth_ring', 'invisibility_ring', 'ember_ring', 'regeneration_amulet', 'vigor_amulet'];
+  const ids = ['coin_ring', 'stealth_ring', 'invisibility_ring', 'ember_ring', 'comet_ring', 'regeneration_amulet', 'vigor_amulet'];
 
   test('coin ring: carrying it attracts coins without consumption or stacking', () => {
     assert.eq(Gear.coinMagnetCells({}), 0);

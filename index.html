@@ -10,7 +10,7 @@
   <meta name="theme-color" content="#111" />
   <script>
     // Derived with sw.js SHELL_VERSION by tools/cachebust.js.
-    window.__shellVersion = 'shell-057181ab';
+    window.__shellVersion = 'shell-57817a4b';
     // Sandbox local reset must run before any saved setting or slot is read.
     (function () {
       const params = new URLSearchParams(location.search);
@@ -105,7 +105,7 @@
        the preload only removes its later network wait. cachebust.js owns both
        versions, just as it owns the matching script and APP_SRC URLs. -->
   <link rel="preload" as="script" fetchpriority="high" href="vendor/phaser.js?v=3fa1b12c" />
-  <link rel="preload" as="script" fetchpriority="high" href="src/app.js?v=9cceb141" />
+  <link rel="preload" as="script" fetchpriority="high" href="src/app.js?v=712bdba4" />
   <script>
     // ── Boot profiler ────────────────────────────────────────────────────
     // FIRST thing on the page, so it is recording before a single byte of the
@@ -3234,7 +3234,7 @@
   <script>window.__boot?.mark('scripts start');</script>
   <script src="vendor/phaser.js?v=3fa1b12c"></script>
   <script src="src/mvt.js?v=d6d1990a"></script>
-  <script src="src/enemy_roster.js?v=86cd980c"></script>
+  <script src="src/enemy_roster.js?v=1be890ec"></script>
 
   <script src="src/enemy_spawns.js?v=3305df09"></script>
   <script src="src/creature_spawns.js?v=eca089d3"></script>
@@ -3253,8 +3253,8 @@
   <script src="src/terrain.js?v=c89a463c"></script>
   <script src="src/zone_variants.js?v=30f0e0de"></script>
   <script src="src/shrines.js?v=938fd367"></script>
-  <script src="src/status_icons.js?v=229d3571"></script>
-  <script src="src/buffs.js?v=771b71c0"></script>
+  <script src="src/status_icons.js?v=8b3b6498"></script>
+  <script src="src/buffs.js?v=6a5c032b"></script>
   <script src="src/zone_coverage.js?v=b0afa5bb"></script>
   <script src="src/quarry_layout.js?v=bbbcbd3e"></script>
   <script src="src/zone_dressing.js?v=b2c5f247"></script>
@@ -3300,7 +3300,7 @@
   <script src="src/save.js?v=5d02b05e"></script>
   <script src="src/dialog_item_art.js?v=4a38a3c5"></script>
   <script src="src/selected_item_art.js?v=dfb32a93"></script>
-  <script src="src/items.js?v=08ace412"></script>
+  <script src="src/items.js?v=737e1e13"></script>
   <script src="src/inventory.js?v=f8d057a5"></script>
   <script src="src/energy.js?v=10dc51a3"></script>
   <script src="src/conditions.js?v=cbe179fa"></script>
@@ -3310,6 +3310,7 @@
   <script src="src/delivery.js?v=66bf194d"></script>
   <script src="src/save_state.js?v=c64b1d34"></script>
   <script src="src/gear.js?v=058d1790"></script>
+  <script src="src/comet_ring.js?v=51c4a7e0"></script>
   <script src="src/rewards.js?v=3ff8a6ee"></script>
   <script src="src/shops_math.js?v=d1009ae2"></script>
   <script src="src/shops.js?v=49946170"></script>
@@ -3351,9 +3352,9 @@
   <script src="src/interact.js?v=57877cfa"></script>
   <script src="src/play_tips.js?v=9720f8af"></script>
   <script src="src/lighting_gpu.js?v=ad54fc09"></script>
-  <script src="src/lighting.js?v=00b002ea"></script>
+  <script src="src/lighting.js?v=bd7cf3eb"></script>
   <script src="src/safety.js?v=7972cffc"></script>
-  <script src="src/render.js?v=a2c69af3"></script>
+  <script src="src/render.js?v=f45fec24"></script>
   <script src="src/gas_render.js?v=968b9603"></script>
   <script src="src/enemy_protocol.js?v=d431fb24"></script>
   <script src="src/weather_codes.js?v=d29f48ce"></script>
@@ -3411,11 +3412,11 @@
   <script src="src/heading_up.js?v=1781dbf7"></script>
   <script src="src/compass_modules.js?v=e8e1834b"></script>
   <script src="src/compass_hud.js?v=73bc6d2d"></script>
-  <script src="src/scene_create.js?v=91531273"></script>
+  <script src="src/scene_create.js?v=060e5a22"></script>
   <script src="src/scene_elevators.js?v=38e0b3e9"></script>
   <script src="src/scene_arena.js?v=f444910f"></script>
   <script src="src/scene_sky.js?v=4d74ca34"></script>
-  <script src="src/scene_consumables.js?v=237780aa"></script>
+  <script src="src/scene_consumables.js?v=c1a2db72"></script>
   <script src="src/scene_pets.js?v=b0c58511"></script>
   <script src="src/scene_venues.js?v=5151623f"></script>
   <script src="src/scene_furniture.js?v=16a790f0"></script>
@@ -3490,7 +3491,7 @@
     // tracking joins that same watch — one watchPosition per page, one prompt.
     (function () {
       if (window.__bootRecovery.failed) return;
-      const APP_SRC = 'src/app.js?v=9cceb141';
+      const APP_SRC = 'src/app.js?v=712bdba4';
       // How long the gate waits for that first fix before giving up and
       // booting at the default origin. A cold GPS start can take far longer
       // than this indoors, so app.js keeps its capture-then-reload path as a

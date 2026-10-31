@@ -3987,6 +3987,7 @@ class MapScene extends Phaser.Scene {
     this._combatTick(dt);
     this._tickBlightAura();
     this._tickFrostAura();
+    this._tickCometAura();
     this._tickMoonbeam();
     Companions.tickAll(this);
     tickGroundCoins(this);
