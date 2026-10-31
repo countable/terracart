@@ -336,6 +336,10 @@ class SceneCreatures {
       entry.wildplants = entry.wildplants || [];
       for (const wp of dressing.wildplants) if (lay(wp)) entry.wildplants.push(wp);
       for (const trap of (dressing.traps || [])) if (lay(trap, 'hazard')) zoneTraps.push({ ...trap });
+      // A street's authored residents (StreetVariants `guards` — the grassy
+      // lane's hidden pet) take the zone guards' lane below: the same gate,
+      // the same seat reservation, the same shiny, caught and hidden handling.
+      for (const guard of (dressing.guards || [])) if (lay(guard, creatureSpawnClass(guard.kind))) zoneGuards.push(guard);
       entry.spiderPathWebs = (dressing.webs || []).filter(p => lay(p, 'hazard'));
       entry.pathVents = (dressing.vents || []).filter(p => lay(p, 'hazard'));
       streetTreasures = dressing.treasures.filter(p => lay(p, 'reward'));

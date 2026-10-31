@@ -40,7 +40,7 @@
         const grid=new Uint8Array(N*N).fill(WorldGen.T.GRASS);
         const result=StreetVariants.dress({index,N,grid,tx:0,ty:0,tileEdgeM:N*cellM,
           spawnOpts:{roadMask:new Uint8Array(N*N),spawnWhy:new Uint16Array(N*N),occupied:new Set()}});
-        for(const type of ['objects','wildplants','traps','webs','vents','lairs']) {
+        for(const type of ['objects','wildplants','traps','webs','vents','lairs','guards']) {
           for(const p of result[type]) {
             const variant=p._street || p._shrineStreet;
             assert.truthy(variant,type+' identifies its source theme');
