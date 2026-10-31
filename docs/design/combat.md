@@ -165,7 +165,7 @@ mechanics.
   capped at the bar.
 - THE COMET RING (`UNIQUE_JEWELRY.comet_ring.cometAura`, read by
   `CometRing` in `comet_ring.js`; the Fire Elemental's rare elite drop): while
-  carried, a ring of fire round the feet grows with the player's own pace —
+  worn, a ring of fire round the feet grows with the player's own pace —
   `CometRing.shape` turns the smoothed metres-per-second the feet actually
   moved into the disc's radius and intensity, an ember at a standstill and a
   comet's tail at `maxMps`. `_tickCometAura` (scene_consumables.js) sets
@@ -178,6 +178,12 @@ mechanics.
   the lightmap (`Lighting.KINDS.comet_aura`) read the same state, so the
   edge the player sees is the edge that burns. A jump past
   `CometRing.TELEPORT_MPS` or a floor change never counts as running.
+  It is the one `equippable` jewelry row: found, it is worn at once; the
+  Equip / Unequip button under the inventory bar (`syncEquipButton`, the
+  weapons' button) takes it off and puts it on through `Gear.wearJewelry`,
+  the one writer of `save.wornJewelry`, which `jewelryWorn` reads. Off, it
+  is a plain carried stack with no fire; the choice survives a reload. The
+  other unique jewelry works while carried, as before.
 - BOOK CLUB LENDING: lifetime Books collected provide one reusable credit
   each. The existing value-ordered tome shelf unlocks one new title every
   three Books; unlocks do not repeat. Each borrowed copy reserves its item

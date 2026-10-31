@@ -3063,7 +3063,10 @@ const UNIQUE_JEWELRY = Object.freeze({
   // `overspeedMs` running snuffs it for `snuffedMs` (the `cometSnuffed` row
   // of Buffs.KINDS); then it relights by itself. `texture` is the ground
   // disc scene_create.js bakes and render.js draws exactly as wide as it burns.
-  comet_ring: Object.freeze({ cometAura: Object.freeze({
+  // `equippable`: worn by choice — the Equip / Unequip button under the
+  // Relics tab (app.js syncEquipButton, Gear.wearJewelry); a ring just found
+  // is worn until it is taken off (jewelryWorn).
+  comet_ring: Object.freeze({ equippable: true, cometAura: Object.freeze({
     maxMps: 8, minRadiusCells: 0.75, maxRadiusCells: 3, restIntensity: 0.15, maxDps: 6,
     overspeedMs: 3000, snuffedMs: 10000, texture: 'aura_comet' }) }),
   regeneration_amulet: Object.freeze({ regenMs: 4000 }),
@@ -3071,6 +3074,14 @@ const UNIQUE_JEWELRY = Object.freeze({
 });
 function carriesItem(save, id) {
   return Inventory.count(save, id) > 0;
+}
+// Whether unique jewelry `id` works right now: carried, and — for an
+// `equippable` row — not taken off (save.wornJewelry[id] === false, written
+// by Gear.wearJewelry; a piece just found counts as worn). The other rows
+// work while carried, as they always have.
+function jewelryWorn(save, id) {
+  if (!carriesItem(save, id)) return false;
+  return !(UNIQUE_JEWELRY[id]?.equippable && save?.wornJewelry?.[id] === false);
 }
 // The fraction a carried guild badge takes off deals with `role` (a
 // Houses.houseShopRole key), 0 without one. Read from CARRIED_ITEM_SPEC.
@@ -3116,7 +3127,7 @@ function jewelryMeleeLifesteal(save) {
 // null without one. A second ring is the same fire: nothing stacks.
 function jewelryCometAura(save) {
   for (const [id, row] of Object.entries(UNIQUE_JEWELRY)) {
-    if (row.cometAura && carriesItem(save, id)) return row.cometAura;
+    if (row.cometAura && jewelryWorn(save, id)) return row.cometAura;
   }
   return null;
 }

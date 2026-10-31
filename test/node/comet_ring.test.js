@@ -181,6 +181,32 @@
     } finally { Date.now = oldNow; }
   });
 
+  test('comet ring: worn by choice — Equip / Unequip through Gear.wearJewelry, found rings worn at once, the choice kept', () => {
+    const save = bag('comet_ring', 'ember_ring');
+    assert.truthy(UNIQUE_JEWELRY.comet_ring.equippable);
+    assert.truthy(jewelryWorn(save, 'comet_ring'), 'a ring just found is worn');
+    assert.eq(jewelryCometAura(save), S);
+    assert.truthy(Gear.wearJewelry(save, 'comet_ring', false), 'taken off');
+    assert.eq(save.wornJewelry.comet_ring, false);
+    assert.falsy(jewelryWorn(save, 'comet_ring'));
+    assert.eq(jewelryCometAura(save), null, 'off, no fire');
+    const reloaded = SaveState.defaults(JSON.parse(JSON.stringify(save)));
+    assert.falsy(jewelryWorn(reloaded, 'comet_ring'), 'a reload keeps it off');
+    assert.truthy(Gear.wearJewelry(reloaded, 'comet_ring', true), 'put back on');
+    assert.falsy('comet_ring' in reloaded.wornJewelry, 'worn is the absent default');
+    assert.eq(jewelryCometAura(reloaded), S);
+    assert.falsy(Gear.wearJewelry(save, 'ember_ring', false), 'the other jewelry has no Unequip');
+    assert.eq(jewelryFireDamageMul(save), UNIQUE_JEWELRY.ember_ring.fireDamageMul, 'and works while carried');
+    assert.truthy(jewelryWorn(save, 'ember_ring'));
+    assert.falsy(Gear.wearJewelry({ inv: [] }, 'comet_ring', false), 'nothing to take off');
+    assert.falsy(jewelryWorn({ inv: [], wornJewelry: {} }, 'comet_ring'));
+    // The button under the bar and the "E" badge: source pins on the scene.
+    const btn = SCENE_SRC.slice(SCENE_SRC.indexOf('syncEquipButton() {'), SCENE_SRC.indexOf('_makeEatButton() {'));
+    assert.truthy(/UNIQUE_JEWELRY\[jewel\]\?\.equippable/.test(btn), 'a highlighted equippable piece shows the button');
+    assert.truthy(/Gear\.wearJewelry\(this\.save, ring, !jewelryWorn\(this\.save, ring\)\)/.test(btn), 'the press toggles it through the one writer');
+    assert.truthy(/jewelryWorn\(this\.save, item\.id\)\) slot\.appendChild\(this\._equippedBadge\('Equipped'\)\)/.test(SCENE_SRC), 'worn jewelry wears the E badge');
+  });
+
   test('comet ring: the snuffed chip is a Buffs row with an icon; the fire is a light row and a baked disc', () => {
     const row = Buffs.KINDS.cometSnuffed;
     assert.truthy(row && row.scene === '_cometSnuffedUntil', 'an in-memory row like the torch');
