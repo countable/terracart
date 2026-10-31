@@ -75,9 +75,10 @@
   });
   test('conditions: an additional hit keeps the greater of remaining and inflicted duration', () => {
     const save = { energy: 100 };
-    // Burning is the `stack` row: a hit banks instead (its own test below);
-    // contact with fire (`stack: false`) takes this top-up rule.
-    for (const id of ['confused', 'jellyfish_stun', 'poison', 'paralysis', 'pinned', 'blinded', 'burning']) {
+    // Burning and poison are the `stack` rows and paralysis the `hold` row
+    // (condition_repeat.test.js); contact with fire (`stack: false`) takes
+    // this top-up rule, so burning stays in the sweep that way.
+    for (const id of ['confused', 'jellyfish_stun', 'pinned', 'blinded', 'burning']) {
       const def = Conditions.DEFINITIONS[id];
       // Each later hit lands past the one-dose-a-second window.
       const hit = (now) => Conditions.apply(save, id, now, id === 'burning' ? { stack: false } : {});
@@ -94,30 +95,32 @@
     Conditions.apply(save, 'frozen', 0);
     Conditions.tick(save, 4000);
     Conditions.apply(save, 'frozen', 5000);
-    assert.eq(save.conditions.frozen.remainingMs, 6000, 'frozen keeps its first clock');
+    assert.eq(save.conditions.frozen.remainingMs, 10000, 'frozen refills like the rest (an aura keeps a body chilled)');
   });
   test('conditions: one dose a second — a repeat landing inside a second of play is ignored, the next tops up', () => {
     assert.eq(Conditions.APPLY_DEBOUNCE_MS, 1000);
+    // On a top-up row (confusion); the stacking rows bank past the window
+    // (condition_repeat.test.js), the window itself is the same.
     const save = { energy: 100 };
-    assert.truthy(Conditions.apply(save, 'poison'));
+    assert.truthy(Conditions.apply(save, 'confused'));
     Conditions.tick(save, 400);
-    assert.falsy(Conditions.apply(save, 'poison'), 'inside the window: ignored');
-    assert.eq(save.conditions.poison.remainingMs, 59600, 'and no top-up');
+    assert.falsy(Conditions.apply(save, 'confused'), 'inside the window: ignored');
+    assert.eq(save.conditions.confused.remainingMs, 9600, 'and no top-up');
     Conditions.tick(save, 599);
-    assert.falsy(Conditions.apply(save, 'poison'));
-    assert.eq(save.conditions.poison.remainingMs, 59001);
+    assert.falsy(Conditions.apply(save, 'confused'));
+    assert.eq(save.conditions.confused.remainingMs, 9001);
     Conditions.tick(save, 1);
-    assert.falsy(Conditions.apply(save, 'poison'), 'not fresh, so false');
-    assert.eq(save.conditions.poison.remainingMs, 60000, 'but a second of play on, it tops up');
+    assert.falsy(Conditions.apply(save, 'confused'), 'not fresh, so false');
+    assert.eq(save.conditions.confused.remainingMs, 10000, 'but a second of play on, it tops up');
     Conditions.tick(save, 500);
-    assert.falsy(Conditions.apply(save, 'poison'));
-    assert.eq(save.conditions.poison.remainingMs, 59500, 'the window restarts from the last landing');
+    assert.falsy(Conditions.apply(save, 'confused'));
+    assert.eq(save.conditions.confused.remainingMs, 9500, 'the window restarts from the last landing');
     assert.truthy(Conditions.apply(save, 'paralysis'), 'another status keeps its own clock');
-    assert.truthy(Conditions.apply({ energy: 100 }, 'poison'), 'and another body its own');
-    assert.truthy(Conditions.cure(save, 'poison'));
-    assert.truthy(Conditions.apply(save, 'poison'), 'a cure clears the stamp: the next bite lands at once');
+    assert.truthy(Conditions.apply({ energy: 100 }, 'confused'), 'and another body its own');
+    assert.truthy(Conditions.cure(save, 'confused'));
+    assert.truthy(Conditions.apply(save, 'confused'), 'a cure clears the stamp: the next dose lands at once');
     // Time is play, never the wall: a later wall-clock `now` alone changes nothing.
-    assert.falsy(Conditions.apply(save, 'poison', Date.now() + 60000));
+    assert.falsy(Conditions.apply(save, 'confused', Date.now() + 60000));
     // A refused dose leaves no stamp: the first real landing is not debounced by it.
     const immune = { energy: 100, immortalPotionUntil: 2000 };
     assert.falsy(Conditions.apply(immune, 'burning', 1000), 'immune');
@@ -135,12 +138,12 @@
     assert.truthy(Conditions.describe('petrified').includes('stone'));
     assert.truthy(StatusIcons.frames[stone.icon] != null, 'its chip has an icon frame');
   });
-  test('poison: refresh extends duration without postponing the next tick', () => {
+  test('poison: a repeat banks its minute without postponing the next tick', () => {
     const save = { energy: 100 };
     assert.truthy(Conditions.apply(save, 'poison', 0));
     Conditions.tick(save, 1500);
     assert.falsy(Conditions.apply(save, 'poison', 1500));
-    assert.eq(save.conditions.poison.remainingMs, 60000);
+    assert.eq(save.conditions.poison.remainingMs, 118500, 'banked on the 58.5 s left (the repeat rule)');
     assert.eq(Conditions.tick(save, 500).ticks, 1);
     assert.eq(save.energy, 99);
   });
@@ -244,7 +247,7 @@
     const save = { energy: 100 };
     Conditions.apply(save, 'poison');
     Conditions.tick(save, 1000);
-    Conditions.apply(save, 'poison'); // Duration ends 1s after the final tick.
+    Conditions.apply(save, 'poison', Date.now(), { stack: false }); // a top-up: duration ends 1 s after the final tick.
     Conditions.tick(save, 59000);
     assert.eq(save.conditions.poison.remainingMs, 1000);
     assert.eq(save.conditions.poison.nextTickMs, 2000);
@@ -289,7 +292,7 @@
   });
   test('burning: a hit banks on top of what is left, capped at sixty seconds; contact only tops up', () => {
     const def = Conditions.DEFINITIONS.burning;
-    assert.truthy(def.stack, 'the one stacking row');
+    assert.eq(def.repeat.mode, 'stack', 'a stacking row');
     // A second of play between hits: the one-dose-a-second window applies to
     // banking too, so a per-frame source can never pile a burn up.
     const save = { energy: 100 };
@@ -317,11 +320,11 @@
     assert.eq(save.conditions.burning.remainingMs, def.maxDurationMs, 'capped');
     second();
     assert.eq(save.conditions.burning.nextTickMs, 1000, 'the tick phase is kept across hits');
-    const poison = { energy: 100 };
-    Conditions.apply(poison, 'poison'); poison.conditions.poison.remainingMs = 30000;
-    Conditions.tick(poison, 1000);
-    Conditions.apply(poison, 'poison');
-    assert.eq(poison.conditions.poison.remainingMs, 60000, 'the other rows still top up, never bank');
+    const other = { energy: 100 };
+    Conditions.apply(other, 'confused'); other.conditions.confused.remainingMs = 3000;
+    Conditions.tick(other, 1000);
+    Conditions.apply(other, 'confused');
+    assert.eq(other.conditions.confused.remainingMs, 10000, 'a row with no repeat rule still tops up, never banks');
   });
   test('burning: exposure grows five seconds per second, caps at sixty and preserves cadence', () => {
     const save = { energy: 100 };

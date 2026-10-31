@@ -11,6 +11,8 @@
     assert.falsy(Conditions.movementBlocked(save));
     assert.falsy(Conditions.attacksBlocked(save));
     assert.eq(save.energy, 100);
+    assert.falsy(Conditions.apply(save, 'paralysis'), 'the paralysis row holds: nothing lands for three seconds of recovery');
+    Conditions.tick(save, 3000);
     Conditions.apply(save, 'paralysis');
     assert.eq(save.conditions.paralysis.remainingMs, 5000, 'other paralysis sources keep their existing duration');
   });

@@ -640,10 +640,12 @@
     return !!c && !!row && (c[row.field] || 0) > statusNow(row, now);
   }
   // LAND status `id` on `c` for `durationMs`: the row's field, on the row's
-  // clock, EXTENDED (the later of what it holds and now + duration — a second
-  // dose never shortens the first), its cancel and its turn, and the flick
-  // and the word (flagStatus). Only a flower target — a hostile kind, never a
-  // pet, a concealed foe or one hidden from this player. False when refused.
+  // clock, by THE REPEAT RULE (Conditions.repeatDose — the Conditions row of
+  // the same name where there is one: paralysis holds and recovers, frozen
+  // tops up; the rest top up — a second dose never shortens the first), its
+  // cancel and its turn, and the flick and the word (flagStatus). Only a
+  // flower target — a hostile kind, never a pet, a concealed foe or one
+  // hidden from this player. False when refused.
   function applyStatus(c, id, durationMs, now) {
     const row = STATUS_LOOKS[id];
     if (!row || !flowerTarget(c)) return false;
@@ -653,7 +655,11 @@
   function landStatus(c, id, durationMs, now) {
     const row = STATUS_LOOKS[id];
     const t = statusNow(row, now);
-    c[row.field] = Math.max(c[row.field] || 0, t + durationMs);
+    const until = c[row.field] || 0;
+    const next = Conditions.repeatDose(Conditions.DEFINITIONS[id], until - t, durationMs,
+      { sinceEndedMs: until > 0 && until <= t ? t - until : Infinity });
+    if (next == null) return false;
+    c[row.field] = t + next;
     if (row.cancels) cancelCreatureAction(c);
     if (row.turnsNow && c._nextChooseT != null) c._nextChooseT = t;
     flagStatus(c, row, row.clock === 'perf' ? t : undefined);
@@ -745,10 +751,12 @@
   function applyFear(c, durationMs, now) { return applyStatus(c, 'fear', durationMs, now); }
   function isChilled(c, now = Date.now()) { return hasStatus(c, 'frozen', now); }
   function applyFrost(c, durationMs, now) { return applyStatus(c, 'frozen', durationMs, now); }
-  // An ice aura reaches every body. Overlapping auras never refresh an active
-  // chill, including a longer one already applied by frost powder.
+  // An ice aura reaches every body and REFILLS the chill it finds (the
+  // frozen row's top-up, owner Nov 2026): a body in the aura stays chilled,
+  // and thaws its row's duration after leaving; a longer chill already
+  // applied by frost powder is never shortened.
   function applyAuraFrost(c, now = Date.now()) {
-    if (!c || isChilled(c, now)) return false;
+    if (!c) return false;
     return landStatus(c, 'frozen', Conditions.DEFINITIONS.frozen.durationMs, now);
   }
 
@@ -896,10 +904,11 @@
   // The DOSE is the row's duration (or `opts.durationMs`), times
   // `opts.durationMul` for a weaker flame (the Meteor Ring's third,
   // UNIQUE_JEWELRY.meteor_ring.cometAura burnDurationMul). A HIT on a body
-  // already alight BANKS the dose on top of what is left, up to the row's
-  // cap (the `stack` rule Conditions.apply keeps for the player); CONTACT
-  // (`opts.stack: false` — standing in fire, scene_fire.js) only takes the
-  // credit and leaves the clock to exposure. True when the fire grew.
+  // already alight takes the row's repeat rule (Conditions.repeatDose —
+  // burning BANKS the dose on top of what is left, to the row's cap, as for
+  // the player); CONTACT (`opts.stack: false` — standing in fire,
+  // scene_fire.js) only takes the credit and leaves the clock to exposure.
+  // True when the fire grew.
   function ignite(c, now = performance.now(), by = 'fire', opts = {}) {
     if (root.Conditions?.fireImmune(c)) return false;
     if (!canBurn(c)) return false;
@@ -909,8 +918,10 @@
     if (c._burnState?.remainingMs > 0) {
       c._burnBy = by;
       if (opts.stack === false) return false;
-      c._burnState.remainingMs = Math.min(def.maxDurationMs, c._burnState.remainingMs + dose);
-      return true;
+      const next = Conditions.repeatDose(def, c._burnState.remainingMs, dose, { stack: opts.stack });
+      const grew = next != null && next > c._burnState.remainingMs;
+      if (next != null) c._burnState.remainingMs = next;
+      return grew;
     }
     c._burnState = { remainingMs: dose, nextTickMs: def.intervalMs };
     c._burnAtT = now;
@@ -940,9 +951,12 @@
     if (!c) return false;
     const def = poisonDef();
     const fresh = !poisoned(c, now);
-    // A refresh runs the minute again without postponing the bite already due
-    // (Conditions.apply's rule for the player).
-    c._poisonState = { remainingMs: def.durationMs, nextTickMs: fresh ? def.intervalMs : Math.max(0, c._poisonState.nextTickMs - (now - c._poisonAtT)) };
+    // A repeat takes the row's repeat rule (Conditions.repeatDose — poison
+    // banks, to twice the dose) without postponing the bite already due.
+    const elapsed = fresh ? 0 : Math.max(0, now - c._poisonAtT);
+    const next = Conditions.repeatDose(def, fresh ? 0 : c._poisonState.remainingMs - elapsed, def.durationMs);
+    if (next == null) return false;
+    c._poisonState = { remainingMs: next, nextTickMs: fresh ? def.intervalMs : Math.max(0, c._poisonState.nextTickMs - elapsed) };
     c._poisonAtT = now;
     c._poisonBy = by;
     if (fresh) flagStatus(c, statusLook('poison'), now);

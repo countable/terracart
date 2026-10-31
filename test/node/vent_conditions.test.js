@@ -25,10 +25,10 @@
   test('vent conditions: short exposures keep longer effects and damage cadence; immunity still applies', () => {
     const save = { energy: 100 };
     Conditions.apply(save, 'poison', 0);
-    Conditions.tick(save, 750);
+    Conditions.tick(save, 1000);   // past the one-dose-a-second window
     Conditions.apply(save, 'poison', 0, { durationMs: 30000 });
-    assert.eq(save.conditions.poison.remainingMs, 59250);
-    assert.eq(save.conditions.poison.nextTickMs, 1250);
+    assert.eq(save.conditions.poison.remainingMs, 60000, 'poison banks the vent\'s dose, never past twice that dose');
+    assert.eq(save.conditions.poison.nextTickMs, 1000);
     // A vent's eruption is CONTACT (environment_hazards.js passes stack:
     // false): it tops the burn up and never banks; a HIT of fire banks.
     Conditions.apply(save, 'burning', 0, { durationMs: 6000, stack: false });

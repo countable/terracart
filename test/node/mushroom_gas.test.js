@@ -135,16 +135,21 @@
     assert.falsy(Conditions.active(s.save, 'confused'), 'kinds never mix: no confusion from other gases');
     assert.eq(s.save.conditions.poison.remainingMs, MushroomGas.KINDS.poison.durationMs);
     assert.eq(s.save.conditions.paralysis.remainingMs, MushroomGas.KINDS.paralysis.durationMs);
-    // Still standing in the cloud: poison renews each second, paralysis does
-    // not until its re-arm gap has passed, so its hold runs out first.
+    // Still standing in the cloud: poison banks each second (to twice the
+    // cloud's dose, the poison row's repeat rule), paralysis does not until
+    // its re-arm gap has passed, so its hold runs out first.
     const { durationMs, rearmMs } = MushroomGas.KINDS.paralysis;
     for (let t = 1000; t < rearmMs; t += 1000) {
       Conditions.tick(s.save, 1000); st.elapsedMs += 1000; MushroomGas.contact(s, st);
     }
     assert.falsy(Conditions.active(s.save, 'paralysis'), 'the paralysis lapses inside the cloud');
     assert.gt(rearmMs - durationMs, 2000, 'a free window of over two seconds to step out');
-    assert.eq(s.save.conditions.poison.remainingMs, MushroomGas.KINDS.poison.durationMs);
-    st.elapsedMs += 1000; MushroomGas.contact(s, st);
+    assert.gte(rearmMs - durationMs, Conditions.DEFINITIONS.paralysis.repeat.recoverMs, 'the gap covers the paralysis row\'s own recovery');
+    assert.eq(s.save.conditions.poison.remainingMs, MushroomGas.KINDS.poison.durationMs * Conditions.DEFINITIONS.poison.repeat.capMul,
+      'poison banked to twice the cloud\'s dose');
+    // Play and the cloud keep one clock: the row's three seconds of recovery
+    // (sinceEnded) are counted on foreground play, as the gap is.
+    Conditions.tick(s.save, 1000); st.elapsedMs += 1000; MushroomGas.contact(s, st);
     assert.truthy(Conditions.active(s.save, 'paralysis'), 'after the gap the cloud doses again');
   }));
 
