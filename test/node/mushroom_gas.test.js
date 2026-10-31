@@ -117,6 +117,8 @@
     Conditions.tick(s.save, 1000);
     st.elapsedMs += 1000; MushroomGas.contact(s, st);
     assert.eq(s.save.conditions.confused.remainingMs, 5000);
+    // A stronger dose a second of play later (one dose a second: Conditions.APPLY_DEBOUNCE_MS).
+    Conditions.tick(s.save, 1000);
     Conditions.apply(s.save, 'confused');
     st.elapsedMs += 1000; MushroomGas.contact(s, st);
     assert.eq(s.save.conditions.confused.remainingMs, 10000);

@@ -23,6 +23,10 @@
   //   pinned  — a sprung trap's jaw (app.js _tickTraps): the body holds still
   //             (_bodyHold) for the row's duration; no drain of its own (the
   //             trap's bleed is the trap's). Antidote / Elixir pry it open.
+  //   petrified — the gorgon's gaze (temple_puzzles.js, the grove temple's
+  //             maze trial — Medusa's roster row `gaze`): the body turns to
+  //             stone, grey, for 5 s — no step, no blow, as paralysis — topped
+  //             back up while the gaze holds, never stacked.
   //   blinded — a ghost's touch (its roster row's `condition`): for 15 s the
   //             player's light and sight run at `lightMul` — the reach
   //             plateau (coords.js reachRadiusM), the light ramp and a carried
@@ -40,6 +44,8 @@
       label: 'Frozen', tint: FROZEN_TINT, flicker: false, ink: '#' + FROZEN_TINT.toString(16).padStart(6, '0'), bg: '#102a3ae8' }),
     paralysis: Object.freeze({ icon: 'paralysis', durationMs: 5000, maxDurationMs: 6000, blocksMovement: true, blocksAttacks: true,
       label: 'Paralysed', tint: 0x4f9fff, flicker: false, ink: '#b4d8ff', bg: '#0e1f3ae8' }),
+    petrified: Object.freeze({ icon: 'stoneskin', durationMs: 5000, maxDurationMs: 5000, blocksMovement: true, blocksAttacks: true,
+      label: 'Petrified', tint: 0x8f8f8f, flicker: false, ink: '#dadada', bg: '#262626e8' }),
     pinned: Object.freeze({ icon: 'pinned', durationMs: 3000, blocksMovement: true,
       label: 'Pinned', tint: 0xb8bcc8, flicker: false, ink: '#d6dae6', bg: '#1c1f28e8' }),
     blinded: Object.freeze({ icon: 'blinded', durationMs: 15000, lightMul: 0.5,
@@ -132,6 +138,30 @@
     if (!def) return false;
     return !def.flicker || Math.floor(now / FLICKER_MS) % 2 === 0;
   }
+  // ONE DOSE A SECOND (owner, Oct 2026): a status landing again within
+  // APPLY_DEBOUNCE_MS of FOREGROUND PLAY since its last landing on the same
+  // body is ignored — a gaze held on the body, a web walked through cell by
+  // cell, a cloud stood in — so a status tops up at most once a second and a
+  // per-frame source never churns the clock. The clock is the one tick()
+  // advances (conditions count foreground time, never the wall), kept as
+  // session state keyed by the save and never written into it; a reload
+  // starts it afresh. A refused dose (immunity, a boon) leaves no stamp, and
+  // a cure clears the stamp so the next bite after an Antidote lands at
+  // once. The temple trial's petrify keeps the same window off this
+  // constant (temple_puzzles.js).
+  const APPLY_DEBOUNCE_MS = 1000;
+  const doseClocks = new WeakMap();
+  function doseClock(save) {
+    let clock = doseClocks.get(save);
+    if (!clock) doseClocks.set(save, clock = { playedMs: 0, landed: {} });
+    return clock;
+  }
+  function debounced(save, id) {
+    const clock = doseClock(save), last = clock.landed[id];
+    if (Number.isFinite(last) && clock.playedMs - last < APPLY_DEBOUNCE_MS) return true;
+    clock.landed[id] = clock.playedMs;
+    return false;
+  }
   // Conditions count foreground time and keep row-specific contact semantics:
   // harmful contact resets or preserves a row as defined below. It does not
   // bank like a second consumable dose, whose wall-clock rule Buffs owns.
@@ -144,6 +174,7 @@
     if (id === 'burning' && fireImmune(save, now)) return false;
     // A Toad Shrine's boon (src/shrines.js 'antidote'): poison cannot take hold.
     if (id === 'poison' && root.Shrines && root.Shrines.leverActive(save, 'antidote')) return false;
+    if (debounced(save, id)) return false;
     const fresh = !active(save, id);
     save.conditions ||= {};
     if (fresh) save.conditions[id] = def.intervalMs
@@ -158,6 +189,7 @@
   }
   function cure(save, id) {
     if (!active(save, id)) return false;
+    delete doseClock(save).landed[id];
     delete save.conditions[id];
     return true;
   }
@@ -192,6 +224,7 @@
   }
   function tick(save, elapsedMs, options = {}) {
     if (!Number.isFinite(elapsedMs) || elapsedMs <= 0) return { ticks: 0, lost: 0, expired: false };
+    doseClock(save).playedMs += elapsedMs;
     const before = save.energy ?? 0;
     let ticks = 0;
     let expired = false;
@@ -257,6 +290,7 @@
       jellyfish_stun: `You can't move, and you attack at ${half(d.attackSpeedMul)} speed.`,
       frozen: `You move and attack at ${half(d.moveSpeedMul)} speed.`,
       paralysis: "You can't move or attack.",
+      petrified: "Turned to stone: you can't move or attack.",
       pinned: "A trap's jaws hold you in place.",
       blinded: `Your light and sight reach ${half(d.lightMul)} as far.`,
     };
@@ -270,5 +304,5 @@
     clearDebuffs(save);
     return true;
   }
-  root.Conditions = { DEFINITIONS, FLICKER_MS, conditionTintOn, normalize, active, confusionSteering, movementBlocked, attacksBlocked, attackIntervalMul, movementMul, lightMul, apply, cure, advanceBurn, burnTickLoss, damageImmune, setDialogShield, flying, fireImmune, fireDamage, tick, hasDebuffs, clearDebuffs, describe, useAntidote, useElixir };
+  root.Conditions = { DEFINITIONS, FLICKER_MS, APPLY_DEBOUNCE_MS, conditionTintOn, normalize, active, confusionSteering, movementBlocked, attacksBlocked, attackIntervalMul, movementMul, lightMul, apply, cure, advanceBurn, burnTickLoss, damageImmune, setDialogShield, flying, fireImmune, fireDamage, tick, hasDebuffs, clearDebuffs, describe, useAntidote, useElixir };
 })(typeof globalThis !== 'undefined' ? globalThis : this);
