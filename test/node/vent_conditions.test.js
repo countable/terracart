@@ -37,8 +37,9 @@
     assert.eq(save.conditions.burning.remainingMs, 6000);
     Conditions.apply(save, 'burning', 0, { stack: false });
     assert.eq(save.conditions.burning.remainingMs, 6000, 'a default contact never shortens a longer one');
+    Conditions.tick(save, 1000);   // past the one-dose-a-second window
     Conditions.apply(save, 'burning', 0);
-    assert.eq(save.conditions.burning.remainingMs, 11000, 'a hit of fire banks on top');
+    assert.eq(save.conditions.burning.remainingMs, 10000, 'a hit of fire banks on top of the five left');
     assert.falsy(Conditions.apply({ fireResistancePotionUntil: 100 }, 'burning', 0, { durationMs: 6000 }));
     assert.falsy(Conditions.apply(save, 'poison', 0, { durationMs: NaN }));
   });

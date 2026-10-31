@@ -1498,6 +1498,7 @@
     const n = (o) => (o ? (Array.isArray(o) ? o.length : Object.keys(o).length) : 0);
     return [!!scene._headingUp,scene.game?.renderer?.type,Render.buildingArtStyle,scene.buildingRoofVariant,scene.buildingRoofDetail,scene.buildingStoreys].join(':') + ',' + n(s.restoredHouses) + ',' + n(s.unlockedForts) + ',' + n(s.claimedCastles)
       + ',' + JSON.stringify([s.restoredHouses, s.shopLines, s.shopTiers, s.bookshopId, s.petshopId, s.starterBlacksmithId])
+      + ',' + Object.keys(s.hives || {}).filter(id => s.hives[id].hp === 0).sort().join('|')
       + ',' + (s.starterShopId || '') + ',' + HomeArea.storeys(s) + ',' + Object.values(s.temples || {}).filter(r => r.active).length
       // Home's roof comes off while the player is inside (drawHome).
       + ',' + (scene.homeInside ? Number(!!scene.homeInside()) : '')
@@ -1703,6 +1704,9 @@
     if (g.texturePhase) g.texturePhase(projX(0), projY(0));
 
     for (const d of draws) {
+      // Active road hives stand as camera-facing sprites; destruction restores
+      // this same footprint's ordinary wreck geometry on the next rebuild.
+      if (d.object && Render.hiveSpec(d.object, scene)) continue;
       if (perspective) scene._wallPerspective.polygon.building = {
         key: d.key, footprint: d.pts,
         anchor: { x: (d.left + d.right) / 2, y: (d.north + d.south) / 2 },

@@ -167,7 +167,7 @@
     const frame = tileFrame({ cellsPerEdge: N }, tx, ty, tileEdgeM);
     const cell = o => frame.idxOf(o.x, o.y);
     const streetLists = streetDress ? [streetDress.objects, streetDress.wildplants,
-      streetDress.treasures, streetDress.coins, streetDress.traps, streetDress.webs, streetDress.vents] : [];
+      streetDress.treasures, streetDress.coins, streetDress.traps, streetDress.webs, streetDress.vents, streetDress.guards] : [];
     const scenicLists = scenicDress ? [scenicDress.objects, scenicDress.wildplants] : [];
     let count = 0;
     field.legacyRemovedByAnchor = field.legacyRemovedByAnchor || {};
@@ -6761,7 +6761,7 @@
       // Zone painting runs earlier for scenic measurements, but the street's
       // own hard gates still read the original ground and spawn reasons.
       streetDress = yield* StreetVariants.dressSteps({ index: streetIndex, tx, ty, N: w, tileEdgeM,
-        grid: caveSource.grid,
+        grid: caveSource.grid, objects: deduped, zone,
         spawnOpts: dressOpts({ spawnWhy: caveSource.spawnWhy }) });
     }
     if (zone) {

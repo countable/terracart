@@ -460,14 +460,15 @@ test('trail prize: the ceremony rolls the ROAD pool, and rung one skips the roll
     'rung one takes its card in the rolled row; a sole rung stands alone');
 });
 
-test('trail prize: rung five is the Serpent Idol, alone, and nowhere else', () => {
+test('trail prize: rung five is the Wood Serpent Idol, alone, and nowhere else', () => {
   const p = Trail.fixedPrize(5);
-  assert.eq(p.id, 'serpent_idol');
+  assert.eq(p.id, 'wood_serpent_idol');
+  assert.eq(p.tier, 1, 'the ladder\'s first rung');
   assert.eq(p.qty, 1);
   assert.truthy(p.sole, 'offered alone: it cannot be picked past');
   assert.eq(Trail.fixedPrize(1), null, 'the first weapon row is separate from later fixed rewards');
   for (const n of [2, 4, 8]) assert.eq(Trail.fixedPrize(n), null);
-  assert.truthy(ITEM_BY_ID.serpent_idol.progressionOnly, 'never a find, a ware or a trailer sale');
+  assert.truthy(ITEM_BY_ID.wood_serpent_idol.findOnly && !ITEM_BY_ID.wood_serpent_idol.progressionOnly, 'a scarce find elsewhere, never a ware');
   Trail.fixedPrize(5).qty = 9;
   assert.eq(Trail.fixedPrize(5).qty, 1, 'callers get a copy');
 });

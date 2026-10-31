@@ -327,20 +327,25 @@
   }
   const MAZE = Object.freeze({ width: 34, height: 33, step: 3, loops: .77, seed: 2718,
     enemySpacing: 12, shrineKind: 'ember_altar', treasureTier: 3 });
-  // The reviewed layout-lab braid, phased from the canonical grove focus.
-  // Repeat its open border on large footprints rather than stretching cells.
-  const mazeMask = (() => {
-    let seed = MAZE.seed + 47291;
+  // THE BRAID — the one maze layout generator: a spanning tree of WALL LINES
+  // over a lattice of nodes `step` cells apart (the first at `origin`), drawn
+  // by a seeded depth-first walk, then `loops` of its dead ends joined to a
+  // neighbour. The open floor is what the lines leave. Returns the wall
+  // cells as `y * width + x`. The dungeon maze reads it through mazeWallAt
+  // (MAZE, the reviewed layout-lab braid); the grove temple's maze trial
+  // builds its own small braid with it (temple_puzzles.js mazeBoard).
+  function mazeBraid({ width, height, step, loops, seed: seed0, origin = 1 }) {
+    let seed = seed0 + 47291;
     const random = () => {
       seed += 0x6D2B79F5;
       let t = seed; t = Math.imul(t ^ t >>> 15, t | 1);
       t ^= t + Math.imul(t ^ t >>> 7, t | 61);
       return ((t ^ t >>> 14) >>> 0) / 4294967296;
     };
-    const cols = Math.floor((MAZE.width - 3) / MAZE.step) + 1;
-    const rows = Math.floor((MAZE.height - 3) / MAZE.step) + 1;
+    const cols = Math.floor((width - origin - 2) / step) + 1;
+    const rows = Math.floor((height - origin - 2) / step) + 1;
     const mask = new Set(), links = new Set(), degree = new Uint8Array(cols * rows);
-    const coord = i => [1 + i % cols * MAZE.step, 1 + Math.floor(i / cols) * MAZE.step];
+    const coord = i => [origin + i % cols * step, origin + Math.floor(i / cols) * step];
     const edge = (a,b) => `${Math.min(a,b)}:${Math.max(a,b)}`;
     const neighbors = i => {
       const x = i % cols, y = Math.floor(i / cols), out = [];
@@ -348,7 +353,7 @@
       if (y) out.push(i-cols); if (y < rows-1) out.push(i+cols);
       return out;
     };
-    const add = (x,y) => mask.add(y * MAZE.width + x);
+    const add = (x,y) => mask.add(y * width + x);
     const join = (a,b) => {
       let [x,y] = coord(a); const [tx,ty] = coord(b); add(x,y);
       while (x !== tx || y !== ty) {
@@ -364,12 +369,15 @@
       const b = choices[Math.floor(random()*choices.length)]; seen.add(b); join(a,b); stack.push(b);
     }
     for (let a=0; a<degree.length; a++) {
-      if (degree[a] !== 1 || random() >= MAZE.loops) continue;
+      if (degree[a] !== 1 || random() >= loops) continue;
       const choices = neighbors(a).filter(b => !links.has(edge(a,b)));
       if (choices.length) join(a,choices[Math.floor(random()*choices.length)]);
     }
     return mask;
-  })();
+  }
+  // The reviewed layout-lab braid, phased from the canonical grove focus.
+  // Repeat its open border on large footprints rather than stretching cells.
+  const mazeMask = mazeBraid(MAZE);
   function mazeWallAt(u,v) {
     const mod = (n,m) => ((n % m) + m) % m;
     return mazeMask.has(mod(v + Math.floor(MAZE.height/2), MAZE.height) * MAZE.width
@@ -600,5 +608,5 @@
     for (const o of plan.objects.concat(plan.wildplants)) occupied.add(o._iy * N + o._ix);
     return plan;
   }
-  root.CaveAreas = { SPRING, BUDGETS, MAZE, select, materialAt, mazeWallAt, plan, planCity, apply };
+  root.CaveAreas = { SPRING, BUDGETS, MAZE, select, materialAt, mazeBraid, mazeWallAt, plan, planCity, apply };
 })(typeof window !== 'undefined' ? window : globalThis);

@@ -1,7 +1,7 @@
 // Content-addressed resources survive deployments. HTML stays network-first;
 // tiles retain their independent offline cache. Keep two shell generations so
 // old tabs can still request their exact script URLs after a worker update.
-const SHELL_VERSION = 'shell-65f195dc';
+const SHELL_VERSION = 'shell-cd66f4b2';
 
 const RESOURCE_CACHE = 'terracart-resources-v1';
 const RESOURCE_MANIFEST = './__terracart_resource_manifest__';
@@ -158,6 +158,13 @@ const ASSET_HASHES = {
   "assets/Icons/Items/RavenScroll.png": "20f21c7d",
   "assets/Icons/Items/Rope.png": "536c2f28",
   "assets/Icons/Items/SerpentIdol.png": "86dbcaca",
+  "assets/Icons/Items/SerpentIdolCopper.png": "5a0ec0b8",
+  "assets/Icons/Items/SerpentIdolCrimson.png": "4d7060ba",
+  "assets/Icons/Items/SerpentIdolFrost.png": "c3526ced",
+  "assets/Icons/Items/SerpentIdolGold.png": "91e79b5e",
+  "assets/Icons/Items/SerpentIdolIron.png": "2159a88a",
+  "assets/Icons/Items/SerpentIdolPlatinum.png": "eb019dee",
+  "assets/Icons/Items/SerpentIdolWood.png": "d1feaa7d",
   "assets/Icons/Items/SkeletonScroll.png": "c6c3c07c",
   "assets/Icons/Items/Spear.png": "897e87cb",
   "assets/Icons/Items/ThunderScroll.png": "96abb018",
@@ -267,7 +274,7 @@ const ASSET_HASHES = {
   "assets/Icons/SelectedItems/items.png": "5aa36f2f",
   "assets/Icons/StatusEffects/status-icons.png": "fe5d9c9f",
   "assets/Icons/coin.png": "4c9e7ebc",
-  "assets/Icons/dom-atlas.png": "0d0d4819",
+  "assets/Icons/dom-atlas.png": "3739dbb8",
   "assets/NPC/Ayo_human_idle.png": "39297eca",
   "assets/NPC/Ayo_human_walk.png": "ba53a101",
   "assets/NPC/Citizen_woman01_idle.png": "8ab400ca",
@@ -425,6 +432,7 @@ const ASSET_HASHES = {
   "assets/Objects/HazardAnimationsV2/tornado.png": "8a6f5393",
   "assets/Objects/HazardAnimationsV2/vent-cycle-complete.png": "3bc690f4",
   "assets/Objects/Hedges/hedges-24.png": "5d1738e0",
+  "assets/Objects/Hives/mushroom-grove.png": "21504caf",
   "assets/Objects/Home/firepit.png": "33280385",
   "assets/Objects/PPBuildings/city-gearhouse.png": "289278ff",
   "assets/Objects/PPBuildings/city-storefront.png": "40062b1d",

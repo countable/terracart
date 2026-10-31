@@ -315,6 +315,7 @@
       stone: { weathered: '#8a756a', restored: '#9b857b', pattern: 'spots', accent: '#f0dfb4' }, lampDensity: 1,
       words: /(mushroom|toadstool|fung|pilz|fairy|\bring|moss|damp|mycel|spore|schwamm|elfen|feen)/i,
       lampGlow: '#ff8c2a', fauna: { butterfly: [2, 5] },
+      hives: { kind: 'mushroom', count: 1, wreckReachCells: 3 },
       story: 'street_toadstool', title: 'Toadstool Lane',
       body: 'Red toadstools crowd the verge, and the air smells of damp earth. You step around their spotted caps.',
       flash: 'Toadstools. They glow at dusk.' },
@@ -457,8 +458,16 @@
       stone: { weathered: '#929088', restored: '#929088' }, lampGlow: '#d8cf9c',
       story: 'street_rocky_path', art: 'street_rocky_path', title: 'Rocky Road / Path', label: 'Rocky Road',
       body: 'Loose stones and low rocks line this simple route.', flash: 'Rocky Road / Path.' },
+    // GRASSY LANE: long grass over the road and two verge cells a side
+    // (VERGE_ROWS.grassy_lane), and ONE PET HIDING IN IT per street and owning
+    // tile (`hiddenPets`: the species off the street key — a slow one, since
+    // the verge is Passing ground and the spawn gate refuses fast fauna
+    // there), seated in the grass before the grass rows walk, and HIDDEN
+    // (HiddenObjects: still and invisible) until the feet reach a
+    // neighbouring cell. Caught, its seat stays empty (save.caught).
     { id: 'grassy_lane', materialLooks: { tree: 'mossy_tree' }, baseline: true, size: 'minor', share: 0.28, pathWeight: 0.28, rung: 'common',
       terrain: 'GRASS', pathTerrainInfluence: true, affinities: ["cultivated"],
+      hiddenPets: ['cat', 'dog', 'chicken'],
       stone: { weathered: '#83916c', restored: '#83916c' }, lampGlow: '#d8cf9c',
       story: 'street_grassy_lane', art: 'street_grassy_lane', title: 'Grassy Lane',
       body: 'Grass covers the road and its grassy verges.', flash: 'Grassy Lane.' },
@@ -2614,17 +2623,79 @@
   //        (roadMask + occupied + pois [+ roadClass] — occupied GROWS: each
   //        placed piece claims its cell, so later spawners and later pieces
   //        see it; roadClass, when absent, is read off index.roadClass) }
-  // Returns { objects, wildplants, treasures, lairs, slowCells (Map cell
-  // index → 'tar' | 'stakes'), marks } —
+  // Returns { objects, wildplants, treasures, lairs, guards (authored
+  // residents — a row's `hiddenPets` — laid by spawnInTile on the zone
+  // guards' lane), slowCells (Map cell index → 'tar' | 'stakes'), marks } —
   // marks is a Uint8Array (N*N) of variant codes on each dressed line's band
   // and verge (the story trigger reads it), or null when nothing is dressed.
   function dress(ctx) { return root.WorldGen.runSteps(dressSteps(ctx)); }
+
+  // A road's fragments share one hive budget per tile. First reclaim nearby
+  // ordinary buildings; only a road with no suitable wreck raises a new one.
+  // Existing buildings retain their ids and footprints, so saved restoration
+  // and hive defeats can resolve against the same identity after a rebuild.
+  function dressHives(ctx, out) {
+    const WG = root.WorldGen, S = root.Streets;
+    const { index, N, tx, ty, grid } = ctx;
+    if (!index) return;
+    const frame = WG.dressFrame(ctx), scale = N * WG.CELL_M / (index.extent || 4096);
+    const owner = variantOwner(index, N, VERGE_MAX_CELLS), groups = new Map();
+    for (const rec of index.dressingLines || index.lines || []) {
+      const policy = VARIANT_BY_ID[rec.variant]?.hives;
+      if (!policy) continue;
+      const key = `${rec.key}|${rec.variant}`;
+      if (!groups.has(key)) groups.set(key, { policy, variant: rec.variant, seats: new Map() });
+      const group = groups.get(key), spans = S.tileSpans(rec.line, scale, index.extent || 4096);
+      sampleLine(rec.line, scale, WG.CELL_M, WG.CELL_M / 2, (s, x, y, nx, ny) => {
+        if (!S.covers(spans, s)) return;
+        for (const side of [1, -1]) for (let k = 1; k <= VERGE_MAX_CELLS; k++) {
+          const c = vergeCellAt(rec, x, y, nx, ny, side, k, WG.CELL_M);
+          if (owner(c.ix, c.iy) !== rec.variant
+            || !WG.isSpawnCell(grid, N, N, c.ix, c.iy, ctx.spawnOpts, 'enemy')) continue;
+          if (WG.isRoadTerrain(grid[c.iy * N + c.ix])) continue;
+          group.seats.set(c.iy * N + c.ix, c);
+        }
+      });
+    }
+    for (const [key, group] of [...groups].sort(([a], [b]) => a.localeCompare(b))) {
+      const { policy, variant } = group;
+      const seats = [...group.seats.values()].sort((a, b) =>
+        hash01(`hive|${key}|${tx}|${ty}|${a.ix}|${a.iy}`) - hash01(`hive|${key}|${tx}|${ty}|${b.ix}|${b.iy}`));
+      if (!seats.length) continue;
+      const candidates = [];
+      for (const o of ctx.objects || []) {
+        if (o.kind !== 'house' || o.tier !== WG.T.BUILDING || o.hive || o.templeZone) continue;
+        const ix = Math.floor((o.x - frame.ox) / frame.cellM), iy = Math.floor((o.y - frame.oy) / frame.cellM);
+        if (owner(ix, iy) !== variant || ctx.zone?.coverage?.[iy * N + ix]) continue;
+        const distance = Math.min(...seats.map(c => Math.max(Math.abs(c.ix - ix), Math.abs(c.iy - iy))));
+        if (distance <= policy.wreckReachCells) candidates.push({ o, distance });
+      }
+      candidates.sort((a, b) => a.distance - b.distance || String(a.o.id).localeCompare(String(b.o.id)));
+      if (candidates.length) {
+        for (const { o } of candidates.slice(0, policy.count)) {
+          const at = ctx.objects.indexOf(o);
+          // Cave substrate snapshots share the original records: replace,
+          // rather than mutating, so surface hives cannot leak underground.
+          ctx.objects[at] = { ...o, hive: policy.kind, hiveStreet: key };
+        }
+        continue;
+      }
+      for (const c of seats.slice(0, policy.count)) {
+        if (!WG.isSpawnCell(grid, N, N, c.ix, c.iy, ctx.spawnOpts, 'enemy')) continue;
+        frame.claim(c.ix, c.iy);
+        out.push(WG.makeObject('house', frame.cx(c.ix), frame.cy(c.iy),
+          WG.cellId('street_hive', tx, ty, c.ix, c.iy),
+          { tier: WG.T.BUILDING, area: frame.cellM * frame.cellM, hive: policy.kind,
+            hiveStreet: key, _street: variant, _hiveSynthetic: true }));
+      }
+    }
+  }
   // The same, as a generator — rasterizeTileSteps drives it (one yield per
   // dressed line), so the dressing is paid inside the sliced tile build and
   // never in the unsliced spawn pass (CLAUDE.md, the worst-block rule).
   function* dressSteps(ctx) {
     const WG = root.WorldGen, S = root.Streets;
-    const res = { objects: [], wildplants: [], treasures: [], coinSeats: new Map(), traps: [], webs: [], vents: [], lairs: [], slowCells: new Map(), marks: null };
+    const res = { objects: [], wildplants: [], treasures: [], coinSeats: new Map(), traps: [], webs: [], vents: [], lairs: [], guards: [], slowCells: new Map(), marks: null };
     const idx = ctx && ctx.index;
     if (!idx || !WG || !S) return res;
     const { tx, ty, N, grid, spawnOpts } = ctx;
@@ -2634,6 +2705,7 @@
     // The dressing frame (WorldGen.dressFrame): the tile's cells in frame
     // metres and the occupancy this pass claims into.
     const { cellM: frameCellM, cx, cy, claim } = WG.dressFrame(ctx);
+    dressHives(ctx, res.objects);
     const owner = variantOwner(idx, N, VERGE_MAX_CELLS);
     // Each phase sets its source theme before searching. Relocation predicates
     // apply ownership and the three-cell edge limit while searching, so blocked
@@ -2885,6 +2957,45 @@
             break;
           }
         });
+      }
+      // A HIDDEN PET (the row's `hiddenPets` — Grassy Lane): one per themed
+      // street and owning tile, shared by the street's fragments here. Its
+      // SPECIES is the street's (off rec.key, the same for every player) and
+      // its SEAT one of the OUTER grass cells (the second verge cell either
+      // side — the grass cross-section stops at an occupant, so a pet in the
+      // inner cell would bare the cell behind it too; the inner cell only
+      // when no outer one seats) picked off the street and tile, on the
+      // species' own fauna gate. Seated BEFORE the verge rows walk, so the
+      // grass leaves it just its one cell. A `guards` record — spawnInTile
+      // lays it like a zone guard; `hidden` keeps it still and unseen until
+      // the feet reach a neighbouring cell (HiddenObjects).
+      if (row.hiddenPets?.length) {
+        const sid = `street_pet_${tx}_${ty}_${rec.key}`;
+        if (!habitatSeats.has(sid)) {
+          const kind = row.hiddenPets[Math.floor(hash01(`street-pet|${rec.key}`) * row.hiddenPets.length)];
+          const petCls = root.creatureSpawnClass ? root.creatureSpawnClass(kind) : 'fauna';
+          const petOk = (ix, iy) => ix >= 0 && iy >= 0 && ix < N && iy < N
+            && spawnCell(grid, N, N, ix, iy, spawnOpts, petCls)
+            && (!root.BiomeProfiles || root.BiomeProfiles.faunaAllows(kind, grid[iy * N + ix]));
+          const outer = [], inner = [], seen = new Set();
+          sampleLine(rec.line, gM, CELL_M, CELL_M / 2, (s, x, y, nx, ny) => {
+            if (!S.covers(spans, s)) return;
+            for (const side of [1, -1]) for (const [k, list] of [[2, outer], [1, inner]]) {
+              const c = vergeCell(rec, x, y, nx, ny, side, k);
+              const key = c.iy * N + c.ix;
+              if (seen.has(key) || !petOk(c.ix, c.iy)) continue;
+              seen.add(key); list.push(c);
+            }
+          });
+          const seats = outer.length ? outer : inner;
+          if (seats.length) {
+            const c = seats[Math.floor(hash01(`street-pet-seat|${rec.key}|${tx},${ty}`) * seats.length)];
+            claim(c.ix, c.iy); habitatSeats.add(sid);
+            res.guards.push({ kind, id: WG.cellId('street_pet', tx, ty, c.ix, c.iy),
+              x: cx(c.ix), y: cy(c.iy), homeX: cx(c.ix), homeY: cy(c.iy),
+              hidden: true, _street: v, _ix: c.ix, _iy: c.iy });
+          }
+        }
       }
       if (BERRY_VARIANTS.has(v)) {
         // THE RUNTS BEHIND THE BUSHES: a post every BERRY_RUNT_STEP_M, held at
@@ -3806,6 +3917,6 @@
     normName, streetKey, anonKey, parishOf, sizeOfTags, isVehicleTags, variantFor, rocksFor,
     boundSectionsSteps, PATH_SECTION_MIN_M, PATH_SECTION_TARGET_M, PATH_SECTION_MAX_M, PATH_FRAGMENT_MIN_M, buildPathSectionsSteps, applyPathScenicSteps, syncPathVariants, selectionWeights, applyAffinitiesSteps, nexusExitAffinitySteps, NEXUS_EXIT_AFFINITY_M, AFFINITY_SAMPLE_M, terrainFor, paintTerrainSteps,
     homeIndexSteps, indexFor, nameVote, lineName, sampleLine, canonicalPaths, variantAt, lineParts, displayLines, buildIndexSteps, buildIndex, areaSteps, area, suppressNexusRoadThemesSteps,
-    markBanditStops, streetShrineChosen, dress, dressSteps, lampSpacingFor, lampGlowFor, stoneColorFor, lineStyles, hotRoadAt, isSlowKind,
+    markBanditStops, streetShrineChosen, dress, dressSteps, dressHives, lampSpacingFor, lampGlowFor, stoneColorFor, lineStyles, hotRoadAt, isSlowKind,
   };
 })(typeof globalThis !== 'undefined' ? globalThis : this);

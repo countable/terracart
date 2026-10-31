@@ -1067,7 +1067,7 @@ const Multiplayer = (function () {
       if (e.kind !== 'serpent' || e.record.own !== true || (e.record.depth || 0) !== (scene.depth || 0)) continue;
       const head = scene._serpentPieces(e.key).head;
       if (!head || !BOSS_KEY_RE.test(e.key)) continue;
-      if (!sendEnemy({ t: 'boss', key: e.key, startedAt: e.record.startedAt, d: scene.depth || 0,
+      if (!sendEnemy({ t: 'boss', key: e.key, startedAt: e.record.startedAt, d: scene.depth || 0, tier: e.record.tier || 1,
         x: round4(head.x / scene.mPerPx), y: round4(head.y / scene.mPerPx), h: round4(head._heading || 0) }, now)) return;
       S.bossSentAt = now;
     }
@@ -1080,7 +1080,10 @@ const Multiplayer = (function () {
         || ![msg.x, msg.y, msg.h].every(Number.isFinite) || !(scene.mPerPx > 0)) return false;
     const fresh = !BossEncounters.get(scene.save, 'serpent', msg.key);
     const at = fromWorldPx(scene, msg.x, msg.y);
-    const ok = !!scene._adoptSerpent?.(msg.key, msg.startedAt, msg.d, { x: at.x, y: at.y, h: msg.h });
+    // `tier` is the serpent's rung (EnemyRoster.SERPENT_TIERS); a feed from
+    // before the ladder names none and is the Wood serpent.
+    const tier = Number.isInteger(msg.tier) && msg.tier >= 1 ? msg.tier : 1;
+    const ok = !!scene._adoptSerpent?.(msg.key, msg.startedAt, msg.d, { x: at.x, y: at.y, h: msg.h }, Date.now(), tier);
     if (ok && fresh) {
       const who = S.peers.get(msg.id)?.name || 'Another player';
       scene._toast?.(`⚔️ ${who} raised a serpent — join the fight`, { tier: 'sub' });

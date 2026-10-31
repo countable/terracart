@@ -83,9 +83,8 @@
       mushroom_monster: ['mushroom', 25],
       treant: ['rope', 25],
       fire_elemental: ['torch', 25],
-      serpent_head: ['minnow', 25],
-      serpent_body: ['minnow', 25],
-      serpent_tail: ['minnow', 25],
+      // Every rung of the serpent ladder (EnemyRoster.SERPENT_TIERS), all three parts.
+      ...Object.fromEntries(EnemyRoster.ROWS.filter(r => r.boss === 'serpent').map(r => [r.id, ['minnow', 25]])),
       bugbear: ['throwing_spear', 25],
       troll: ['throwing_spear', 25],
       giant_bear: ['meat', 25],

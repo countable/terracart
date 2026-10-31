@@ -547,6 +547,32 @@ function furnitureFrame(itemOrId) {
   return spec?.tierSheetFrame?.[itemTierOf(id)] ?? spec?.frame ?? 0;
 }
 
+// THE SERPENT IDOLS (scene_boss.js _useSerpentIdol): one per rung of the
+// serpent ladder — EnemyRoster.SERPENT_TIERS owns tier, material and name —
+// each raising its tier's serpent and, when it falls, spent for a chest of
+// that tier. A FIND and never a ware (owner, Oct 2026): `findOnly` keeps them
+// off every shop shelf and barter list (shops.js) and out of the fort's slots
+// (scene_venues.js), and `dropWeight` keeps them scarce beside their tier's
+// other magic (rarity.js pickItemInClass, chest_themes.js members). The Wood
+// idol is also the trail's fifth prize (trail.js FIXED_PRIZES). Saves from
+// before the ladder held a 'serpent_idol': save.js rewrites it as the Wood one.
+const SERPENT_IDOL_DROP_WEIGHT = 0.15;
+const SERPENT_IDOL_PRICES = { 1: 45, 2: 70, 3: 110, 4: 180, 5: 280, 6: 450, 7: 800 };
+const SERPENT_IDOL_FLAVOUR = {
+  wood: 'A serpent carved in dark wood, cold and heavy. Something vast sleeps in it, and it is not friendly.',
+  copper: 'A copper serpent, green at the joints. Whatever sleeps in it bites harder than the wooden one.',
+  iron: 'An iron serpent, cold enough to ache in the hand. It sleeps lightly.',
+  gold: 'A golden serpent, far heavier than it looks. What sleeps in it has grown fat on its hoard.',
+  platinum: 'A platinum serpent with a faint lavender sheen. It is not asleep so much as waiting.',
+  crimson: 'A crimson serpent, warm to the touch. Something in it is hungry.',
+  frost: 'A serpent of blue ice that never melts. What sleeps in it has slept since the first winter.',
+};
+const SERPENT_IDOLS = (typeof EnemyRoster !== 'undefined' ? EnemyRoster.SERPENT_TIERS : []).map(t => ({
+  id: `${t.material}_serpent_idol`, name: `${t.name} Serpent Idol`, kind: 'magic', baseTier: t.tier,
+  boss: 'serpent', bossTier: t.tier, material: t.material, dropWeight: SERPENT_IDOL_DROP_WEIGHT, findOnly: true }));
+// The idol that raises a serpent of `tier` (the Wood idol for an unknown tier).
+function serpentIdolId(tier) { return (SERPENT_IDOLS.find(i => i.bossTier === tier) || SERPENT_IDOLS[0])?.id; }
+
 const MINERAL_ICON_SHEET = {
   ...Object.fromEntries(Object.keys(FURNITURE).map(id => [id, { sheet: 'furniture_icons', get frame() { return furnitureFrame(id); } }])),
   field_scope: { sheet: 'icon_field_scope', frame: 0 },
@@ -665,7 +691,7 @@ const MINERAL_ICON_SHEET = {
   bones_scroll: { sheet: 'icon_bones_scroll', frame: 0 },
   wraith_scroll: { sheet: 'icon_wraith_scroll', frame: 0 },
   raven_scroll:  { sheet: 'icon_raven_scroll', frame: 0 },
-  serpent_idol:  { sheet: 'icon_serpent_idol', frame: 0 },
+  ...Object.fromEntries(SERPENT_IDOLS.map(i => [i.id, { sheet: `icon_${i.id}`, frame: 0 }])),
   // Potion of Blight — the red flask of the next row down (row 3, y=48:
   // frame 17), so it doesn't read as the Speed potion's red beside it.
   blight_potion: { sheet: 'icon_potions', frame: 17 },
@@ -927,7 +953,6 @@ const BASE_TIER = {
   blight_potion: 3,
   // The Spirit Raven: Blight's tier — see its PRICES row for the comparison.
   raven_scroll: 2,
-  serpent_idol: 4,
   bones_scroll: 3, wraith_scroll: 4,
   dragon_powder: 4, flight_potion: 4, shrinking_potion: 4, giant_potion: 4, fire_resistance_potion: 4,
   // Revival: getting up where you fell instead of walking Home at a crawl.
@@ -1186,9 +1211,8 @@ const ITEMS = [
   { id: 'bones_scroll', name: 'Scroll of Bones', kind: 'magic', scroll: true },
   { id: 'wraith_scroll', name: 'Scroll of the Wraith', kind: 'magic', scroll: true },
   { id: 'raven_scroll',  name: 'Scroll of the Raven', kind: 'magic', scroll: true },
-  // The trail's fifth prize (trail.js FIXED_PRIZES), never a find or a
-  // ware: `progressionOnly` keeps it out of every loot pool and the trailer.
-  { id: 'serpent_idol', name: 'Serpent Idol', kind: 'magic', progressionOnly: true },
+  // The serpent idols (SERPENT_IDOLS above): scarce finds, never wares.
+  ...SERPENT_IDOLS,
   // Drunk while DOWN (zero energy) to get back up on the spot — see
   // REVIVE_POTION_FRAC and drinkRevivePotion in app.js.
   { id: 'revival_potion',       name: 'Potion of Revival',       kind: 'magic', potion: true },
@@ -1735,14 +1759,15 @@ const CONSUMABLE_SPEC = {
     get: 'A cold shade slips from the ink to hunt your foes.',
     used: { title: 'You read the Scroll of the Wraith', body: (scene, spec) => spec.get },
   },
-  // THE SERPENT IDOL raises a boss (scene_boss.js, BossEncounters kind
-  // 'serpent'). Raising it does not spend it: a fight that resets leaves the
-  // idol in the bag; only the serpent's death consumes it.
-  serpent_idol: {
+  // THE SERPENT IDOLS raise a boss (scene_boss.js, BossEncounters kind
+  // 'serpent') of the idol's tier. Raising one does not spend it: a fight
+  // that resets leaves the idol in the bag; only the serpent's death consumes
+  // it. `method` is handed the idol's id (scene_consumables.js _useConsumable).
+  ...Object.fromEntries(SERPENT_IDOLS.map(i => [i.id, {
     method: '_useSerpentIdol',
-    verb: 'Raise', title: 'Raise the Serpent Idol?',
-    get: 'A great serpent coils out of the earth. Cut it down coil by coil before it slips away.',
-  },
+    verb: 'Raise', title: `Raise the ${i.name}?`,
+    get: `The ${i.name.replace(/ Idol$/, '')} coils out of the earth. Cut it down coil by coil before it slips away.`,
+  }])),
   raven_scroll: {
     durationMs: _CONSUMABLE_MINUTE_MS, buff: 'raven',
     verb: 'Read', title: 'Read the Scroll of the Raven?',
@@ -2002,7 +2027,8 @@ const PRICES = {
   shielding_potion: 250,  // T5 — half monster damage for 1 min
   blight_potion: 90,   // T3 — 1 min of a 1.5-cell aura at app.js's BLIGHT_DPS
   raven_scroll: 55, // T2 — one minute of a slime-strength ally
-  serpent_idol: 180, // T4 — a boss and its hoard; never sold (progressionOnly)
+  // The serpent idols: a boss and its chest at the idol's tier; never sold (findOnly).
+  ...Object.fromEntries(SERPENT_IDOLS.map(i => [i.id, SERPENT_IDOL_PRICES[i.bossTier]])),
   bones_scroll: 90, // T3 — one minute of a skeleton-strength ally
   wraith_scroll: 160, // T4 — one minute of a ghost-strength ally
   revival_potion: 40,   // T3 — get up where you fell with 30% of the bar
@@ -2301,7 +2327,7 @@ const ITEM_EFFECTS = {
   bones_scroll: 'The skull-marked parchment rattles softly in your hand.',
   wraith_scroll: 'Cold gathers around the shade stamped into the parchment.',
   raven_scroll: 'A pale wing stirs beneath the raven-marked ink.',
-  serpent_idol: 'A stone serpent, cold and heavy. Something vast sleeps in it, and it is not friendly.',
+  ...Object.fromEntries(SERPENT_IDOLS.map(i => [i.id, SERPENT_IDOL_FLAVOUR[i.material]])),
   thunder_scroll: 'A distant storm stirs between the inked lines.',
   revival_potion: 'A faint pulse waits to call a fallen traveller back.',
   resurrection_potion: 'A deep warmth waits where a fallen traveller’s heart has quieted.',

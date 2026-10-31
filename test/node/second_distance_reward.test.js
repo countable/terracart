@@ -71,7 +71,7 @@
   test('second distance reward: later fixed progression rewards keep their ordinary rules', () => {
     assert.eq(Trail.fixedPrize(3, {}).slot, 'pickaxe');
     assert.eq(Trail.fixedPrize(3, { relics: { pickaxe: { tier: 1 } } }), null);
-    assert.eq(Trail.fixedPrize(5, {}).id, 'serpent_idol');
+    assert.eq(Trail.fixedPrize(5, {}).id, 'wood_serpent_idol');
     assert.truthy(Trail.fixedPrize(5, {}).sole);
     const first = Trail.firstWeaponChoices();
     assert.eq(first.map(r => r.slot).join(','), 'sword,bow,staff');

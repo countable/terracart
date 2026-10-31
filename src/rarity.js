@@ -121,7 +121,7 @@
       if (it.caveOnly) continue;
       // Made at a campfire, never found (items.js CAMPFIRE_MAKES).
       if (it.cooked) continue;
-      // A ladder's own prize (items.js `progressionOnly` — the Serpent Idol).
+      // Progression ware (items.js `progressionOnly` — the Portal Stone, the depth key).
       if (it.progressionOnly) continue;
       const cls = it.kind;
       const t = it.baseTier;

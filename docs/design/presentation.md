@@ -410,8 +410,9 @@ pixels and decorative details do not define additional tap cells.
   Offers prefer equipment upgrades at the promised tier. When fewer than three
   slots can improve, remaining slots use the normal duplicate coin conversion;
   better equipment is never downgraded. Only the selected offer is granted.
-  The Serpent Idol moves to the fifth ordinary rung (3 km before class bonuses),
-  still offered alone so access to its boss cannot be declined.
+  The Wood Serpent Idol (the first rung of the serpent ladder) is the fifth
+  ordinary rung's prize (3 km before class bonuses), still offered alone so
+  access to its boss cannot be declined.
 
 - Feedback is visual; there is no vibration setting or device vibration.
 - `RoadSafety` owns the location warning. Standing on a majority-covered MD/LG

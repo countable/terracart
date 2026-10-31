@@ -192,13 +192,21 @@ function loadSave() {
 }
 
 // Renamed persisted values, rewritten as a save is read. The themed shop's
-// role key was 'market' before Oct 2026; it is 'shop' now.
+// role key was 'market' before Oct 2026; it is 'shop' now. The one Serpent
+// Idol became the Wood Serpent Idol when the serpent ladder arrived
+// (items.js SERPENT_IDOLS): a bag stack of the old id is the Wood one.
 const LEGACY_HOUSE_ROLES = Object.freeze({ market: 'shop' });
+const LEGACY_ITEM_IDS = Object.freeze({ serpent_idol: 'wood_serpent_idol' });
 function migrateSave(save) {
   const rh = save && save.restoredHouses;
   if (rh && typeof rh === 'object') {
     for (const id of Object.keys(rh)) {
       if (Object.hasOwn(LEGACY_HOUSE_ROLES, rh[id])) rh[id] = LEGACY_HOUSE_ROLES[rh[id]];
+    }
+  }
+  if (Array.isArray(save && save.inv)) {
+    for (const stack of save.inv) {
+      if (stack && Object.hasOwn(LEGACY_ITEM_IDS, stack.id)) stack.id = LEGACY_ITEM_IDS[stack.id];
     }
   }
   return save;

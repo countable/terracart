@@ -24,9 +24,14 @@ const BossEncounters = (() => {
         effect: 'Defeat the garrison before time runs out, or the fight resets.' },
       resetLine: 'The garrison withdraws. The fight resets.' },
     // The head repeats roam → encircle → charge on the encounter clock.
-    // Body spacing, steering and mode tuning live alongside that clock.
+    // Body spacing, steering and mode tuning live alongside that clock. The
+    // record's `tier` is the serpent's rung (EnemyRoster.SERPENT_TIERS: the
+    // idol that raised it, the rows it is made of, the chest it leaves).
+    // A BEATEN HEAD (struck to zero: scene_boss.js _bossPieceFelled) is not a
+    // kill — the serpent goes on at `headBeatenSpeedMul` of its pace until
+    // the last coil falls.
     serpent: { store: 'bossEncounters', durationMs: 5 * 60 * 1000,
-      coils: 12, spacingCells: 0.55 - 1 / SpriteLayout.CELL_PX, spawnCells: 6,
+      coils: 12, spacingCells: 0.55 - 1 / SpriteLayout.CELL_PX, spawnCells: 6, headBeatenSpeedMul: 0.5,
       modes: ['roam', 'encircle', 'charge'], modeMs: 8000,
       roamGoalMs: 2000, viewportMarginCells: 1, orbitRadiusCells: 2,
       orbitLookAheadRad: 0.6, chargeThroughCells: 2, chargeSpeedMul: 1.6,

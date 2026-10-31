@@ -6,6 +6,19 @@ mechanics.
 
 ## Combat, energy and Home
 
+- Roadside hives are wrecks occupied by a hostile building. `Hives.KINDS`
+  owns their HP, sprite and spawning rules. The Mushroom House has 120 HP
+  and births one Mushroom Monster per foreground minute, up to four living
+  children per house. Births obey the ordinary enemy spawn gate and live
+  collision checks, including clearance from the player. Only nearby, loaded
+  surface hives advance; leaving the area restarts the minute, and background time never produces catch-up waves.
+  Player swings use their ordinary weapon damage and cooldown. Damage and
+  destruction persist in `save.hives`; zero HP reveals the original repairable
+  wreck permanently. Existing children remain after the house falls. Claimed,
+  restored and player-owned houses cannot activate. Birth serials are saved so
+  a replacement never reuses a defeated creature's ID; these locally timed
+  children are not multiplayer-shared world creatures.
+
 - Creeping vines use the shared thorn contact rule: five energy on entry and
   one per second while touching, with flight immunity. They can be chopped
   with the normal axe/wood harvest interaction; clearing a cell is permanent.
@@ -27,6 +40,23 @@ mechanics.
   share this fall behavior, except the hidden way, which is walked on the sky
   floor ([floors](floors.md#sky-floor-depth--1)). Awakening remains permanent and winning grants the
   temple gift only once, even after re-entry or reload.
+- THE GORGON'S MAZE (`TemplePuzzles` kind `maze`, one of the grove trials
+  `TempleLayout.plan` draws): the one maze generator, the cave braid
+  (`CaveAreas.mazeBraid` — the dungeon maze reads its lines as walls between
+  wide corridors; the trial reads them as one-cell passages, `MAZE_BRAID`),
+  drawn off the plan's seed until the walk from the player's corner to the
+  golden ladder detours (`MAZE_DETOUR_CELLS`), and MEDUSA (`TRIAL_FOE`; her
+  roster row prices, paces and draws her) in the cell farthest from both ends
+  (`mazeSeatRank`), stalking a step toward the player
+  on her attack cadence and striking when adjacent. Her GAZE is the row's
+  `gaze`: the player's facing (`this.aim` — the compass heading, or the way
+  the body last stepped or was turned by Q / E without one) within
+  `halfAngleDeg` of the line to her, within `cells`, with no wall between
+  (`gazeMeets`), lands PETRIFIED on the trial's player: stone for the
+  `petrified` row's duration, topped up while the gaze holds, never stacked,
+  no step and no blow; the trial draws the body in the row's grey. The trial's
+  petrify is trial state, like its health, read off the same row and the same
+  one-dose-a-second clock as a surface status.
 
 - Confusing gas scales each `confused` dose with local density: a full
   0.3-density puff applies five seconds; thinner gas applies proportionally less
@@ -271,12 +301,18 @@ mechanics.
   BURNING is the one `stack` row: a HIT of fire (a torch blow, an elemental's
   touch, a blast, a Meteor or Comet Ring's dose once a burn interval) banks
   its duration on top of what is left, up to the row's 60 s cap, for the
-  player (`Conditions.apply`) and a foe (`Combat.ignite`) alike; CONTACT with
+  player (`Conditions.apply`, within its one-dose-a-second window like every
+  row) and a foe (`Combat.ignite`) alike; CONTACT with
   fire (lava, a hearth, burning ground: `stack: false`, the scene's
   `_ignitePlayer` and the foe tick) only lights it, and exposure grows it
   through `advanceBurn`. They do not bank like a repeated timed
   consumable, whose epoch writer is `Buffs.extend` / `extendField`. A new status is a row there, never a timer,
-  colour or label of its own. BLINDED (a ghost's touch,
+  colour or label of its own. ONE DOSE A SECOND: a status landing again within
+  `Conditions.APPLY_DEBOUNCE_MS` of its last landing on the same body is
+  ignored (`apply` returns false, nothing stamps), so a gaze, a web walked cell
+  by cell or a cloud stood in tops a status up at most once a second.
+  PETRIFIED (the gorgon's gaze, the grove temple's maze trial) is the
+  paralysis rule in stone grey. BLINDED (a ghost's touch,
   its roster row's `condition`) carries `lightMul`: `Conditions.lightMul`
   halves the base reach before Inner Light upgrade steps (`reachRadiusM`,
   never under one cell), the light ramp's and a carried torch's radius
@@ -344,6 +380,10 @@ mechanics.
   spend; silent combat drains retain their ordinary cost. The `work`
   (Hardworking) `Buffs.KINDS` row cancels the multiplier while active. Surface
   water entry at or below 0°C applies the shared `frozen` condition row.
+- A wild animal can be `hidden` the way a shiny one is: still and unseen
+  until the feet reach a neighbouring cell (`HiddenObjects`, remembered in
+  `save.hiddenDiscoveries`). A Grassy Lane hides one such pet in its grass
+  ([generation](generation.md)); `hidden` wins over a kind's own stealth.
 - `Pets` owns individual pet records in `save.released` (`pet: true`), including
   carried animals. Every animal and enemy has a FAVOURITE (`favouriteItems`,
   items.js: an animal's `ANIMAL_FOOD`, else an enemy's roster-tier gem from
@@ -536,26 +576,50 @@ Tests: `combat`, `armor`, `energy_int`, `downed_pursuit`, `rest_work`, `home_war
   side is `_tickBossEncounters` (`src/scene_boss.js`), every frame; each live
   fight shows its clock as a status-row chip.
 - WINNING spends the trigger for good: a citadel is claimed; the idol is
-  consumed and leaves a T4 boss chest (`chestThemeFor` → the `boss` theme:
-  equipment or a unique relic), kept as `save.bossChests` until opened.
-- THE SERPENT: one creature per piece (`serpent_head` / `_body` / `_tail`
-  roster rows, `boss: 'serpent'`), moved and biting only by its encounter's
-  tick, never `rosterEnemyMove`. The head snakes about the player within the
-  row's `leashCells`, cycling through eight seconds each of viewport roaming,
-  circling the player, and charging through the player's position. Roaming and
-  circling use 3.9 m/s; charges use 1.6 times that pace and commit to a target
-  that the player can dodge. The saved encounter clock preserves the phase
-  across reloads; shared copies follow the owner's poses. Coils and tail follow its trail,
-  spaced one display pixel closer than 0.55 cells at the standard cell scale. Trail samples
-  accumulate distance from a fixed anchor while the live head moves, so turns
-  remain in the path at every frame rate. Each coil touching the player bites
-  for the row's `dmg` (4 base damage) once a `damageIntervalSeconds`
-  through `foeBlowLands`. Only coils can be struck (the head and tail are
-  `untargetable`, read by `Combat.isConcealed`); a slain coil shortens it, and
-  with only head and tail left it dies. Body and gait numbers are the
-  `KINDS.serpent` row. The Serpent Idol is the road ladder's fifth prize, alone
-  (`Trail.FIXED_PRIZES`), `progressionOnly` (no loot pool or sale), and cannot
-  be raised on the Major-and-Medium road group's kerb or junctions.
+  consumed and leaves a boss chest of the serpent's tier (`chestThemeFor` →
+  the `boss` theme: equipment or a unique relic), kept as `save.bossChests`
+  until opened. The chest is plain — no `name`, no `poiClass` — so it carries
+  no map label and is never a point of interest.
+- THE SERPENT LADDER: one serpent per material tier, a row of
+  `EnemyRoster.SERPENT_TIERS` (tier, material, coil hp, bite, pace, and the
+  `palette` that recolours the one parts atlas at load) expanded into three
+  roster rows a rung (`EnemyRoster.serpentKind(tier, part)`: `bossPart` head /
+  coil / tail, `boss: 'serpent'`). Each rung has its idol (`items.js
+  SERPENT_IDOLS`, `<material>_serpent_idol`, `bossTier`): the fight record's
+  `tier` is the idol's, the chest left is that tier, and the multiplayer feed
+  carries it. The Wood serpent is the original tuning (ten-hp coils biting for
+  four at 3.9 m/s); every rung up is tougher, harder-biting and faster. The
+  idols are ordinary magic finds kept scarce by `dropWeight` and off every
+  shelf, barter list and fort reel by `findOnly`; the Wood idol is also the
+  road ladder's fifth prize, alone (`Trail.FIXED_PRIZES`). A save from before
+  the ladder holding `serpent_idol` is rewritten to the Wood one
+  (`save.js migrateSave`). `tools/build_serpent_idol_icons.cjs` paints the
+  idol icons from the same palettes.
+- THE SERPENT: one creature per piece, moved and biting only by its
+  encounter's tick, never `rosterEnemyMove`. The head snakes about the player
+  within the row's `leashCells`, cycling through eight seconds each of
+  viewport roaming, circling the player, and charging through the player's
+  position. Charges use 1.6 times the rung's pace and commit to a target that
+  the player can dodge. The saved encounter clock preserves the phase across
+  reloads; shared copies follow the owner's poses. Coils and tail follow its
+  trail, spaced one display pixel closer than 0.55 cells at the standard cell
+  scale. Trail samples accumulate distance from a fixed anchor while the live
+  head moves, so turns remain in the path at every frame rate. Each coil
+  touching the player bites for the row's `dmg` once a `damageIntervalSeconds`
+  through `foeBlowLands`. Coils and the HEAD can be struck (only the tail tip
+  is `untargetable`, read by `Combat.isConcealed`); a slain coil shortens it.
+  The head's fall is not a kill: `_damageEnemy` offers a felled piece to
+  `_bossPieceFelled` before `resolveDefeat`, which marks the head `_beaten`
+  (concealed from every further strike, never caught, never announced) and
+  halves the serpent's pace (`KINDS.serpent.headBeatenSpeedMul`) for the rest
+  of the fight; the record's `headBeaten` restores it on a reload. With only
+  the head and tail left it dies. Body and gait numbers are the
+  `KINDS.serpent` row. An idol cannot be raised on the Major-and-Medium road
+  group's kerb or junctions.
+- THE SERPENT'S DRAW ORDER (`Render.sortWorldDepth`): each piece takes its own
+  ground slot against the world, but a run of one chain's pieces with nothing
+  between them is laid head-most on top (the head over the first coil, each
+  coil over the one behind it, the tail beneath), whichever way it heads.
 - SHARED: once one player starts a boss fight, every nearby player is in it.
   A citadel battle travels as `battle` frames (below). A serpent's starter
   drives its head and sends the pose as `boss` frames every `feedMs`; a

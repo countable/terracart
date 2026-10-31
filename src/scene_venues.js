@@ -794,10 +794,10 @@ class SceneVenues {
   fortSlotMachine(house) {
     const kinds = new Set(FORT_SLOT_KINDS);
     // The same gates every loot roll keeps (rarity.js pickItemInClass): no
-    // progression ware (the serpent idol is the trail's prize), nothing
+    // progression ware, nothing find-only (the serpent idols), nothing
     // cave-only, no shiny, and no dropWeight-0 item (the hive's syrup).
     const cands = ITEMS.filter((it) => kinds.has(it.kind) && (PRICES[it.id] ?? 0) > 0
-      && !FORT_SLOT_EXCLUDE.has(it.id) && !it.progressionOnly && !it.caveOnly && !it.shiny
+      && !FORT_SLOT_EXCLUDE.has(it.id) && !it.progressionOnly && !it.findOnly && !it.caveOnly && !it.shiny
       && it.dropWeight !== 0).map((it) => it.id);
     const ids = ShopsMath.slotPrizes(`slots:${house.id}:${utcDayKey()}`, cands);
     return ShopsMath.slotMachine(ids, (id) => PRICES[id] ?? 0,

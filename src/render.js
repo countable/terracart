@@ -174,9 +174,26 @@ Render.enemyMeleeColor = function (c) {
 // anchors determine occlusion; architectural pieces may also mark a background
 // pass for wall bodies beneath crowns. Rank only breaks exact ties, so stepping
 // within one cell can still pass behind a tree.
+//   A SEGMENTED CHAIN (the serpent: `chain` is its fight key, `link` a piece's
+// place behind the head, -1 for the head) overlaps HEAD-MOST ON TOP: the head
+// over the first coil, each coil over the one behind it, the tail beneath
+// all — whichever way it is heading. Every piece still takes its own ground
+// slot against the world, so a run of pieces is reordered only where nothing
+// else (a prop, the player, another creature) sits between them in ground
+// order: a serpent wound round a tree is still cut by the trunk.
 Render.sortWorldDepth = function (pieces) {
   pieces.sort((a, b) => Number(!!b.background || b.layer === WorldLayers.GROUND_DECAL) - Number(!!a.background || a.layer === WorldLayers.GROUND_DECAL)
     || (a.groundY - b.groundY) || ((a.rank || 0) - (b.rank || 0)));
+  for (let i = 0; i < pieces.length;) {
+    const chain = pieces[i].chain;
+    let j = i + 1;
+    if (chain != null) while (j < pieces.length && pieces[j].chain === chain) j++;
+    if (j - i > 1) {
+      const run = pieces.slice(i, j).sort((a, b) => b.link - a.link);
+      for (let k = i; k < j; k++) pieces[k] = run[k - i];
+    }
+    i = j;
+  }
   let changed = false;
   pieces.forEach((piece, depth) => {
     // Frame items are fresh wrappers. Stamp their target depth, but do not
@@ -1835,11 +1852,19 @@ Render.buildingStoreysFor = (o, scene) => {
   return tier == null ? null : tier >= 2 ? 2 : 1;
 };
 Render.buildingStyleFor = (o, scene) => Render.buildingProfileFor(o, scene).style;
-Render.proceduralHouse = (o, scene) => Render.proceduralBuildings()
+Render.hiveSpec = (o, scene) => typeof Hives !== 'undefined' && Hives.isActive(scene.save, o)
+  ? Hives.KINDS[o.hive] : null;
+Render.hiveLabel = (o, scene) => {
+  const spec = Render.hiveSpec(o, scene);
+  return spec ? `${spec.name} · ${Math.ceil(Hives.health(scene.save, o))}/${spec.hp} HP` : null;
+};
+Render.proceduralHouse = (o, scene) => !Render.hiveSpec(o, scene) && Render.proceduralBuildings()
   && typeof BuildingOverlay !== 'undefined' && BuildingOverlay.enabled()
   && (scene.depth ?? 0) === 0 && scene._proceduralBuildings?.has(o.id);
 // Map sprites and restoration cards use the original role artwork.
 Render.houseTextureFrame = (role, o, scene, theme) => {
+  const hive = Render.hiveSpec(o, scene);
+  if (hive) return hive.frame;
   if (role === 'plain') return 'front';
   if (role === 'wizard') return 3;
   if (role === 'turret') return CastleStyles.get(CastleStyles.TURRET_STYLE).towerFrame;
@@ -1847,6 +1872,8 @@ Render.houseTextureFrame = (role, o, scene, theme) => {
 };
 // Baked unclaimed art already contains its wear: never apply a second wash.
 Render.houseTextureKey = (role, o, scene) => {
+  const hive = Render.hiveSpec(o, scene);
+  if (hive) return hive.texture;
   // Home (the player's house) has no sprite: the building overlay draws it
   // from its footprint — walls, doorway and roof (building_overlay.js
   // drawHome). A null key is an invisible sprite (resolveAppearance).
@@ -5051,8 +5078,12 @@ Render.drawObjects = function drawObjects(scene) {
   for (const it of filteredObj) zList.push({ it, rank: it.o.kind === 'tower' ? 2 : 1,
     layer: Render.itemLayer(it),
     groundY: groundY(it, Render.objectGroundOffsetPx(it._appearance, scene.textures)) });
+  // A segmented boss's piece (the serpent — `boss` is its fight's key,
+  // `segIndex` its place behind the head) names its chain so sortWorldDepth
+  // can lay the chain head-most on top.
   for (const it of creatureList) zList.push({ it, rank: 3,
-    groundY: groundY(it, SpriteLayout.CREATURE_GROUND_DY) });
+    groundY: groundY(it, SpriteLayout.CREATURE_GROUND_DY),
+    ...(it.c.boss != null && it.c.segIndex != null ? { chain: it.c.boss, link: it.c.segIndex } : {}) });
   // The ground shadow stays below props. The raised body clears only its
   // supporting step-over props; standing props retain ordinary depth ordering.
   const playerGroundY = scene._wreckRepair?.at?.y ?? Math.max(playerWorldM(scene).y,
@@ -5446,6 +5477,8 @@ Render.drawObjects = function drawObjects(scene) {
     return n >= full.length ? full : full.slice(0, n);
   };
   const _houseSignText = (o) => {
+    const hiveLabel = Render.hiveLabel(o, scene);
+    if (hiveLabel) return hiveLabel;
     const role = _houseRole(o);
     // Wrecks have no sign - their identity is hidden until the player
     // restores them. The owner then returns the correct shop / house role.
@@ -6650,8 +6683,8 @@ const { RENDER_SPEC, resolveAppearance, _houseRole, _houseKey, _houseScale, _hou
     house:  {
       key: (o, scene, pass) => Render.proceduralHouse(o, scene) ? null : _houseKey(o, scene, pass),
       frame: _houseFrame,
-      layer: (o, scene, pass) => _houseRole(o, scene, pass) === 'wreck' ? WorldLayers.GROUND_DECAL : WorldLayers.STANDING_PROP,
-      scaleYMul: (o, scene, pass) => _houseRole(o, scene, pass) === 'wreck' ? 0.4 : 1,
+      layer: (o, scene, pass) => _houseRole(o, scene, pass) === 'wreck' && !Render.hiveSpec(o, scene) ? WorldLayers.GROUND_DECAL : WorldLayers.STANDING_PROP,
+      scaleYMul: (o, scene, pass) => _houseRole(o, scene, pass) === 'wreck' && !Render.hiveSpec(o, scene) ? 0.4 : 1,
       // Every building stands its bottom-middle on its footprint's centre of
       // mass (_houseFootPx): the object sits on the footprint cell nearest
       // that point, so the art is nudged by the remainder.
