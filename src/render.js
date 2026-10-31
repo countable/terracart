@@ -1174,7 +1174,7 @@ Render.renderAuras = function renderAuras(scene, pool, list, project) {
     const diameter = 2 * auraRadiusCells(item.aura) * CELL_PX;
     setTextureIfDifferent(s, item.aura.texture || 'aura_blight');
     s.setOrigin(0.5, 0.5).setDisplaySize(diameter, diameter)
-      .setPosition(x, y).setAlpha(0.9);
+      .setPosition(x, y).setAlpha(item.aura.alpha ?? 0.9);
     if (item.aura.tint != null) s.setTintFill(item.aura.tint);
   });
 };
@@ -4211,13 +4211,14 @@ Render.drawLowPolyProps = function (scene, items) {
 };
 
 // Fingerposts are small closed solids (StreetSigns.mesh) on the same retained
-// mesh path, in a group of their own on the wall sheet's white texel, so their
-// flat cel colours tint it. One part per solid: a board pointing at the camera
+// mesh path, in a group of their own on the cel wall sheet, whose wood slots
+// they sample (roadSignTexel) under their cel tints. One part per solid: a board pointing at the camera
 // draws over the post and one pointing away draws behind it, while every part
 // shares the post's foot as its support, so the sign sorts against the player
 // as one. The foot keeps its sub-cell seat beside the road edge
-// (StreetSigns.edgeSeats); only the anchor cell's scroll offsets the group.
+// (StreetSigns.cornerSeats); only the anchor cell's scroll offsets the group.
 // The retained pieces stay on the scene for the tap (Render.tallPropHit).
+const roadSignTexel = (material, s, t) => WallMaterials.texel(material === 'top' ? 'woodTop' : 'woodSide', s, t);
 Render.drawRoadSignMeshes = function (scene, items) {
   const drawn = new Set();
   if (typeof StreetSigns === 'undefined' || typeof WallPerspective === 'undefined'
@@ -4245,9 +4246,9 @@ Render.drawRoadSignMeshes = function (scene, items) {
       const centre = absCellCenterMeters(scene, cell.cellIX, cell.cellIY);
       const x = at.x + fx + (o.x - centre.x) * pxPerM, y = at.y + fy + (o.y - centre.y) * pxPerM;
       const support = { x, y, order: group.blocks.length }, first = group.blocks.length;
-      for (const part of StreetSigns.mesh(o, { x, y, uv: WallMaterials.WHITE })) {
+      for (const part of StreetSigns.mesh(o, { x, y, texel: roadSignTexel })) {
         WallPerspective.prism(scene, 'roadSigns', part.points, 0, StreetSigns.ART.post.height, part.colors, support, true,
-          { materialFaces: part.faces, topOutline: PropLowPoly.outline(part.faces, StreetSigns.ART.colours.ink) });
+          { materialFaces: part.faces, topOutline: PropLowPoly.outline(part.faces, StreetSigns.ART.ink) });
       }
       meshes.push({ o, blocks: group.blocks.slice(first) });
     }
@@ -4697,10 +4698,10 @@ Render.drawObjects = function drawObjects(scene) {
   forEachLoadedTile(pc.tx, pc.ty, (entry, etx, ety) => {
     for (const [o, art] of Render.connectedArtForTile(entry, etx, ety,
         scene.tileEdgeM, spentIds, pWorldX, pWorldY, halfM)) connectedArt.set(o, art);
-    if (scene.depth > 0) {
+    {
       const pad = halfM + scene.cellM;
       WorldGen.forEachItemInBox(entry, 'objects', pWorldX-pad, pWorldY-pad, pWorldX+pad, pWorldY+pad, o => {
-        if (o.kind === 'ground_hole' && !isSpent(o, spentIds)) chasmObjects.push(o);
+        if (o.kind === 'ground_hole' && (o.depth || 0) === (scene.depth || 0) && !isSpent(o, spentIds)) chasmObjects.push(o);
       });
     }
     if (entry.reefCorals) WorldGen.forEachItemInBox(entry, 'reefCorals',
@@ -5179,6 +5180,10 @@ Render.drawObjects = function drawObjects(scene) {
     // Per-kind post-config hook — runs AFTER the pool's identity reset and
     // the tint, so hooks can override the ordinary appearance.
     if (typeof spec.after === 'function') spec.after(s, o, scene, appearancePass);
+    if (o.kind === 'chest' && typeof ExplosiveBarrels !== 'undefined') {
+      const barrelTint = ExplosiveBarrels.tint(scene, o);
+      if (barrelTint != null) s.setTint(barrelTint);
+    }
     Render.applyWorkImpact(s, Render.workImpactPose(scene._workProgress, o, performance.now()),
       Math.round(sx), Math.round(sy) + (appearance.foot?.footFromCentre ?? dyPx));
     s._huAnchor = Render.objectGroundAnchor(appearance, scene.textures, { x: sx, y: sy });
@@ -5191,6 +5196,7 @@ Render.drawObjects = function drawObjects(scene) {
     s._staticHadWork = !!scene._workProgress;
   };
   const reuseStaticObject = (s, item) => {
+    if (typeof ExplosiveBarrels !== 'undefined' && ExplosiveBarrels.fuse(scene,item.o)) return false;
     // A fading arrival is reconfigured every frame until it is whole.
     if (!scene._boot_still || !item._appearanceStable || scene._workProgress || s._staticHadWork
         || s._staticObject !== item.o || s._staticAppearance !== item._appearance || Render.arriving(item.o)) return false;
@@ -5964,6 +5970,15 @@ Render.drawObjects = function drawObjects(scene) {
   // has expired (player just needs to tap to advance). Hidden for wildplants
   // (no watered_t), seeds (stage 0 + unwatered), and mature crops.
   const now = Date.now();
+  scene._barrelTimerPool ||= [];
+  const barrelTimers = typeof ExplosiveBarrels === 'undefined' ? []
+    : filteredObj.filter(({o}) => ExplosiveBarrels.countdown(scene,o) != null);
+  Render.renderPool(scene, scene._barrelTimerPool, scene.labelContainer, barrelTimers, (t,{o,dx,dy}) => {
+    const {x:sx,y:sy}=project(dx,dy);
+    t.setText(String(ExplosiveBarrels.countdown(scene,o)))
+      .setPosition(Math.round(sx+5),Math.round(sy-CELL_PX/2)).setAlpha(1);
+    setColorOnce(t,'#ffdfaa');
+  }, labelFactory('timer'));
   const timerList = plantedList.filter(({ p }) =>
     !p.wildId && (p.stage ?? 0) < MAX_GROWTH_STAGE && p.watered_t);
   Render.renderPool(scene, scene.plantedTimerPool, scene.plantedContainer, timerList, (t, { p, dx, dy }) => {
@@ -6230,6 +6245,16 @@ Render.drawObjects = function drawObjects(scene) {
       const player = playerWorldM(scene);
       playerAuras.push({ dx: player.x - pWorldX, dy: player.y - pWorldY,
         aura: CONSUMABLE_SPEC.tome_frost_aura.aura });
+    }
+    // The Comet Ring's fire (scene_consumables.js _tickCometAura —
+    // scene._cometAura): the disc is exactly as wide as the aura burns this
+    // frame, and brighter the more it is stoked.
+    const comet = scene._cometAura;
+    if (comet?.lit && comet.radiusCells > 0) {
+      const player = playerWorldM(scene);
+      playerAuras.push({ dx: player.x - pWorldX, dy: player.y - pWorldY,
+        aura: { texture: UNIQUE_JEWELRY.comet_ring.cometAura.texture, radiusCells: comet.radiusCells,
+          alpha: 0.55 + 0.4 * comet.intensity } });
     }
     Render.renderAuras(scene, scene.playerAuraPool, playerAuras, project);
   }

@@ -142,18 +142,21 @@
     }
     return out;
   }
+  // A point of a slot's painted tile as sheet UV: s across, t down, both 0..1.
+  // The wall surfaces below and the fingerposts (StreetSigns.mesh) sample by it.
+  function texel(material, s, t) {
+    const slot = slots[material], n = TILE - PAD * 2;
+    return { u: (slot % 4 * TILE + PAD + s * n) / SIZE, v: (Math.floor(slot / 4) * TILE + PAD + t * n) / SIZE };
+  }
   // Split only at texture repeat boundaries; individual texels never create geometry.
   function surface(result, points, material, normal, tint = 0xffffff) {
-    const slot = slots[material], ox = slot % 4 * TILE + PAD, oy = Math.floor(slot / 4) * TILE + PAD;
     const lo = Math.floor(Math.min(...points.map(p => p.s))), hi = Math.ceil(Math.max(...points.map(p => p.s)));
     const bottom = Math.floor(Math.min(...points.map(p => p.t))), top = Math.ceil(Math.max(...points.map(p => p.t)));
     for (let s = lo; s < Math.max(lo + 1, hi); s++) for (let t = bottom; t < Math.max(bottom + 1, top); t++) {
       let ring = clip(clip(points, 's', s, true), 's', s + 1, false);
       ring = clip(clip(ring, 't', t, true), 't', t + 1, false);
       if (ring.length < 3) continue;
-      ring = ring.map(p => ({ x: p.x, y: p.y, z: p.z,
-        u: (ox + (p.s - s) * (TILE - PAD * 2)) / SIZE,
-        v: (oy + (p.t - t) * (TILE - PAD * 2)) / SIZE }));
+      ring = ring.map(p => ({ x: p.x, y: p.y, z: p.z, ...texel(material, p.s - s, p.t - t) }));
       for (let i = 1; i + 1 < ring.length; i++) result.push({ points: [ring[0], ring[i], ring[i + 1]], normal, color: tint, flatColor: multiplyColors(materialColor(material), tint) });
     }
   }
@@ -378,5 +381,5 @@
     }
     return faces;
   }
-  global.WallMaterials = { prepare, prepareGrass, geometry, postHeight, WOOD, HEDGE, GRASS, KEY, WHITE };
+  global.WallMaterials = { prepare, prepareGrass, geometry, postHeight, texel, WOOD, HEDGE, GRASS, KEY, WHITE };
 })(globalThis);

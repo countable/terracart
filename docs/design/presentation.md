@@ -302,7 +302,11 @@ pixels and decorative details do not define additional tap cells.
   successful presentation records `storySeen['coin:first']` and reveals the coin
   and count permanently, including after spending or reloading. A pending
   introduction survives spending and reloads; older saves unlock on their next
-  earned coin.
+  earned coin. Coins earned lift the chip: the count rolls up from the old
+  balance to the new and the chip hops once with a brighter glint
+  (`CompassHUD.moneyGain`, read each frame through `coinRoll` by `updateHUD`);
+  the first paint and a spend paint flat. Reduced motion keeps the roll and
+  skips the hop.
 
 - Living-silver compass circuits persist their active state in `save.compassModules`. Inventory activates on the first item
   or gear, books on the first book obtained, memories on the first discovery/memory.
@@ -816,9 +820,11 @@ Bed and Inn share `_presentSleep`: show the furniture frame or Inn booth art,
 fade the camera to black, run the source transaction exactly once, then fade
 back. `cameraBlackout` also supplies teleport's camera transition, without owning
 its particles or movement guard. Headless scenes commit immediately. Bed sleep
-rechecks the placed record, owned Home cell, lockout and missing energy at black.
-Inn sleep retains payment, daily-use and failure checks; only success queues its
-receipt. Both persist after the transaction.
+rechecks the placed record, owned Home cell, bed gate, lockout and missing energy
+at black. Inn sleep retains payment, bed-gate and failure checks; only success
+queues its receipt. Both run `Rest.sleep` ([combat](combat.md)), persist after
+the transaction, and refuse with "Rested. Back in <wait>." while the shared
+four-hour gate runs.
 
 ## Live weather
 

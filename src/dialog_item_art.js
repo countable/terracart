@@ -4,6 +4,10 @@ const DialogItemArt = {
   "columns": 8,
   "size": 768,
   "entries": {
+    "toxic_seed": {
+      "sheet": "assets/Icons/DialogItems/items-02.png?v=3b7d0d1e",
+      "frame": 27
+    },
     "rubble": {
       "sheet": "assets/Icons/DialogItems/items-01.png?v=a6070585",
       "frame": 33

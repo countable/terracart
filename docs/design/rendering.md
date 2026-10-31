@@ -85,6 +85,9 @@ exports into asset, icon and seating registries. Inventory/offer icons use these
 same sheets; atlas aliases and old palette callbacks are replaced, not layered.
 `ArtAtlas.register` respects the current asset owner, so a shared atlas finishing
 first cannot recreate an obsolete alias while a replacement sheet is loading.
+The revealed mimic uses an exact runtime palette matching the T2 chest’s
+orange wood and dark metal, with pale teeth. Its roster `artScaleRef: chest`
+uses `SpriteLayout.CHEST_SCALE`, so opening the disguise does not enlarge it.
 Elevators retain their broken/repaired behavior in a separate 24×36 sheet; the
 grove votive uses the same 36px frame and display scale as other shrines.
 Waystone frames (both states) and the scope clip only their bottom ink row at
@@ -1291,25 +1294,32 @@ the reach rim within the existing player-light radius.
   use their dominant material color; Home, cave and discarded cells receive no
   road tint. It samples only visible cells, caches nearest-road queries, and is
   hidden underground without changing generated terrain or spawn ownership.
-- Roadside directions are a fingerpost drawn as retained solids from
-  `StreetSigns.ART`, on the mesh path the crates take
+- Roadside directions are a fingerpost at every junction where two streets
+  meet (`StreetSigns.candidates`: either end of a road, one sign per junction
+  point, none at a dead end or where a street only meets its own next
+  section), its post planted in the verge cell at the corner between the two
+  roads (`StreetSigns.cornerSeats`, stepping outward when that cell is taken).
+  It is drawn as retained solids from `StreetSigns.ART`, on the mesh path the crates take
   (`Render.drawRoadSignMeshes`, `WallPerspective.prism`, one group of its own
   on the wall sheet's white texel so flat cel colours tint it): a square post
   standing straight on the ground with no footing, about a cell tall, and one
   thin vertical board per listed heading, an elongated pentagon with a pointed
   end, never an arrowhead, that points along its road in world space. Boards
-  hang from the post top a row at a time (`StreetSigns.rows`): headings at
-  least a right angle apart share a row off their own post faces, boards that
-  would cross stack, and rows compress so the lowest stays above the ground
+  hang one under another from the post top, a board height apart, the sign's
+  own id choosing which heading takes the top (`StreetSigns.rows`), and the
+  stack compresses so the lowest stays above the ground
   (`StreetSigns.rowTop`). Each board roots on the post's own face (its corner
   for a diagonal), so no solid reaches inside another and draw order never
   shows a root. One part per solid, every part supported at the post's foot,
   so a board pointing at the camera draws over the post, one pointing away
-  draws behind it, and the sign sorts against the player as one. Face colour
-  is a cel step by outward normal (`StreetSigns.faceColour`, a west light);
-  heights project straight up like every low-poly solid, and a compass turn
+  draws behind it, and the sign sorts against the player as one. The wood is
+  the cel wall sheet's own wood slots (`WallMaterials.texel`), grain up the
+  pole and along each plank, under a grey tint per face: a cel step by
+  outward normal (`StreetSigns.faceTint`, a west light) and, on the post, a
+  step darker for each lower third (`ART.bands`); heights project straight
+  up like every low-poly solid, and a compass turn
   reveals a board's other faces instead of turning a flat picture. The foot
-  keeps its sub-cell seat beside the road edge (`StreetSigns.edgeSeats`). The
+  keeps its sub-cell seat in the junction corner (`StreetSigns.cornerSeats`). The
   sign record alone owns the tap, the cell and the shadow; a tap on its drawn
   triangles from a neighbouring cell names it (`Render.tallPropHit`) and still
   lists the headings and route names. `RENDER_SPEC.roadsign` keeps the
@@ -1834,5 +1844,6 @@ Road experience briefs live in `design/road-experiences/`.
 `tools/road-experience-*.json` with shipped story paintings and current 20 × 7
 captures from `tools/capture_road_variant_views.cjs`. Regenerate the variant
 dashboard before capturing, then rebuild the gallery. Each brief describes the
-intended feeling, art cues and player actions; proposed mechanics are labelled
-separately from existing behavior. These briefs do not change runtime behavior.
+intended feeling with three adjectives, art cues and existing player actions.
+Review comments supply requested changes; the briefs contain no unsolicited
+mechanic proposals. These briefs do not change runtime behavior.

@@ -42,12 +42,12 @@ test('sandbox coverage: the synthetic tile uses real map pipelines', () => {
     const road = e.streetIndex.lines.find(r => r.name === name);
     assert.truthy(road && StreetVariants.roadStoryFor(road), `${name} has a fixed identity`);
   }
-  for (const id of ['lantern', 'barricade']) assert.truthy(
+  for (const id of ['lantern', 'barricade', 'golden_path']) assert.truthy(
     e.streetIndex.lines.some(r => r.size === 'path' && r.variant === id), `${id} is on a path`);
 
   assert.truthy(e.streetDress && e.streetMarks, 'the real street dresser ran');
   assert.truthy(e.slowCells && e.slowCells.size > 0, 'burned-road and tar-yard slow cells exist');
-  assert.truthy(e.objects.some((o) => o.shrineKind === 'golden_idol' && o.coinSeats?.length), 'the Golden Road has its idol and its coin seats');
+  assert.truthy(e.objects.some((o) => o.shrineKind === 'golden_path_idol' && o.coinSeats?.length), 'the Golden Path has its idol and its coin seats');
   assert.gt(e.streetLairs.length, 0, 'street lairs were authored');
   assert.truthy(e.streetLairs.some((l) => l.tier === 'cafe'), 'the café hoard has its guard lair');
   assert.truthy(e.extraTreasures.some((t) => String(t.id).includes('treasure_cafe')),

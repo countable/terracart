@@ -24,8 +24,8 @@ test('sleep presentation: headless fallback commits immediately exactly once', (
   assert.eq(commits, 1); assert.falsy(scene._sleeping);
 });
 
-test('bed: pending sleep rechecks Home ownership and picked-up furniture at commit', () => {
-  for (const change of ['outdoors', 'pickup', 'locked', 'full']) {
+test('bed: pending sleep rechecks Home ownership, picked-up furniture and the bed gate at commit', () => {
+  for (const change of ['outdoors', 'pickup', 'locked', 'full', 'rested', 'none']) {
     const record = { id: 'bed', itemId: 'bed_quilted', x: 2.5, y: 2.5, depth: 0 };
     const entry = { cellsPerEdge: 32, grid: new Uint8Array(1024).fill(WorldGen.T.BUILDING),
       owners: new Uint8Array(1024), ownerKeys: ['home'], objects: [] };
@@ -34,9 +34,10 @@ test('bed: pending sleep rechecks Home ownership and picked-up furniture at comm
       depth: 0, cellsPerTile: 32, tileEdgeM: 160,
       mPerPx: 5 / (WorldGen.TILE_PX / 32), originPx: { x: 0, y: 0 }, startWorldM: { x: 0, y: 0 },
       getMaxEnergy: () => 100, _zeroEnergyLocked() { return this.locked; },
-      flashAtPlayer() {}, _restoreEnergy() { throw new Error('stale sleep restored energy'); },
+      flashAtPlayer() {}, _restoreEnergy() { throw new Error('the cot rests through Rest.sleep, not a heal'); },
       _presentSleep({ commit }) { this.commit = commit; return true; },
     });
+    scene.save.planted = [{ x: 0, y: 0, crop: 'berry', stage: 1, watered_t: Date.now() - 1000 }];
     const key = WorldGen.tileKey(0, 0), previous = WorldGen.tileCache.get(key);
     WorldGen.tileCache.set(key, entry);
     try {
@@ -45,7 +46,17 @@ test('bed: pending sleep rechecks Home ownership and picked-up furniture at comm
       if (change === 'pickup') scene.save.furniture = [];
       if (change === 'locked') scene.locked = true;
       if (change === 'full') scene.save.energy = 100;
+      if (change === 'rested') scene.save.restedAt = Date.now() - 1000;
       scene.commit();
+      if (change === 'none') {
+        assert.eq(scene.save.energy, 100, 'the night restores everything');
+        assert.eq(scene.save.planted[0].stage, 2, 'and the berry\'s hold ran while sleeping');
+        assert.truthy(Rest.waitMs(scene.save) > 0, 'the bed gate is armed');
+        assert.falsy(scene.useFurniture(record), 'and refuses the cot again');
+      } else {
+        assert.eq(scene.save.energy, change === 'full' ? 100 : 30, `${change}: nothing restored`);
+        assert.eq(scene.save.planted[0].stage, 1, `${change}: no hours passed`);
+      }
     } finally {
       if (previous) WorldGen.tileCache.set(key, previous); else WorldGen.tileCache.delete(key);
     }

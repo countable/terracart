@@ -587,6 +587,59 @@ class SceneConsumables {
       CONSUMABLE_SPEC.tome_frost_aura.aura, now);
   }
 
+  // THE COMET RING (UNIQUE_JEWELRY.comet_ring — comet_ring.js CometRing):
+  // while it is carried, a ring of fire round the FEET (playerWorldM) sized
+  // and stoked by the player's own pace. CometRing.step reads the metres the
+  // feet moved since the last frame off this tick's own perf clock (like the
+  // blight's — Phaser's smoothed dt would under-read a slow device), null
+  // across a floor change, and keeps the state on the scene (_cometAura:
+  // the render's disc and the lightmap's warmth read it). Every ENEMY
+  // inside (Combat.isEnemy — never a crow, a deer, a pet or a caught one;
+  // never one fire cannot touch, Combat.canBurn) is set alight as the
+  // player's own kill (Combat.ignite, the lit torch's call) and takes the
+  // aura's dps × dt through _damageEnemy, armour mitigated once per logical
+  // second as the blight does. The wearer is never a target: the ring is
+  // their own fire, and it touches no ally either. Faster than the spec's
+  // maxMps for overspeedMs and the wind snuffs it: the one writer
+  // of the `cometSnuffed` Buffs row (Buffs.extend); it relights when that ends.
+  _tickCometAura() {
+    const nowT = performance.now(), lastT = this._cometLastT;
+    this._cometLastT = nowT;
+    const spec = jewelryCometAura(this.save);
+    if (!spec || !this.startWorldM || !this.playerM) { this._cometAura = null; this._cometSample = null; return; }
+    const here = playerWorldM(this), prev = this._cometSample;
+    this._cometSample = { x: here.x, y: here.y, depth: this.depth };
+    if (lastT == null || !prev) return;
+    const dt = Math.min(0.25, (nowT - lastT) / 1000);
+    if (!(dt > 0)) return;
+    const movedM = prev.depth === this.depth ? Math.hypot(here.x - prev.x, here.y - prev.y) : null;
+    const snuffed = Buffs.until('cometSnuffed', this.save, this) > Date.now();
+    const next = CometRing.step(this._cometAura, { movedM, dt, snuffed }, spec);
+    this._cometAura = next;
+    if (next.snuff) {
+      Buffs.extend(this.save, this, 'cometSnuffed', spec.snuffedMs);
+      this.flashAtPlayer('💨 The comet gutters out', Buffs.KINDS.cometSnuffed.color);
+      this._syncStatusRow();
+      return;
+    }
+    if (!next.lit || !(next.dps > 0)) return;
+    const rM = next.radiusCells * this.cellM;
+    const caughtSet = setOf(this.save.caught);
+    const pc = this.playerToWorldCell();
+    const inside = [];
+    WorldGen.forEachItemNear('creatures', pc.tx, pc.ty, (c) => {
+      const dx = c.x - here.x, dy = c.y - here.y;
+      if (dx * dx + dy * dy > rM * rM) return;
+      if (!Combat.isEnemy(c) || caughtSet.has(c.id) || !Combat.canBurn(c)) return;
+      inside.push(c);
+    });
+    for (const c of inside) {
+      Combat.ignite(c, nowT, 'player');
+      const rate = Combat.mitigate(next.dps, Combat.monster(c.kind)?.armor || 0);
+      this._damageEnemy(c, rate * dt, 'player', { bypassArmor: true });
+    }
+  }
+
   // True while a Dragon Powder is active. The buff is a 1-minute in-memory
   // timer (this._dragonUntil) — deliberately NOT persisted to the save, so a
   // refresh ends it. _walkRelics (the tier-8 legs) and interact.js's 2×-damage

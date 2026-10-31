@@ -396,7 +396,7 @@
     { name: 'Fern Way', class: 'minor', type: T.ROAD, y: 1, thick: 1, x0: 0, x1: 23, variant: 'overgrown' },
     { name: 'Cherry Lane', class: 'minor', type: T.ROAD, y: 4, thick: 1, x0: 0, x1: 23, variant: 'orchard' },
     { name: 'Abbey Walk', class: 'minor', type: T.ROAD, y: 7, thick: 1, x0: 0, x1: 23, variant: 'pilgrim' },
-    { name: 'Coin Row', class: 'minor', type: T.ROAD, y: 10, thick: 1, x0: 0, x1: 23, variant: 'golden' },
+    { name: 'Golden Path', class: 'path', type: T.PATH, y: 10, thick: 1, x0: 0, x1: 23, variant: 'golden_path' },
     // Clear of the Ancient Highway's kerb buffer, which refuses every thorn
     // ray (at y 35 the lane drew no brambles at all) and every reward seat
     // (Kiln Row's pots): Berry Lane's bushes are scenery, so it takes the

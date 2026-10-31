@@ -878,7 +878,8 @@ class SceneCreate {
       [[0, `rgba(${rgb}, 1)`], [0.4, `rgba(${rgb}, 0.45)`], [1, `rgba(${rgb}, 0)`]]));
     // Every influence circle shares its baked fill and boundary; the drawn
     // outer edge is the gameplay radius. Baking also preserves colour in Canvas.
-    for (const [key, color] of [['aura_blight', 0xd2285a], ['aura_frost', FROZEN_TINT]]) {
+    for (const [key, color] of [['aura_blight', 0xd2285a], ['aura_frost', FROZEN_TINT],
+      [UNIQUE_JEWELRY.comet_ring.cometAura.texture, 0xff8c2a]]) {
       this._ensureCanvasTex(key, 128, (ctx, S) => paintAuraDisc(ctx, S, color));
     }
     makeCastleSkullFlagTexture(this);

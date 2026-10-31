@@ -23,7 +23,7 @@
       _revealPendingBookReads() { this.events.push('read'); },
       ...over,
     };
-    for (const name of ['_macroStory', '_storySplashOnce', '_macroTransaction', '_enqueueCeremony', '_drainCeremonies', '_dialogOpen', '_presentInn', '_presentSleep',
+    for (const name of ['_macroStory', '_storySplashOnce', '_macroTransaction', '_enqueueCeremony', '_drainCeremonies', '_dialogOpen', '_presentInn', '_presentSleep', '_afterRest',
       '_presentCurio', '_presentTraining', '_presentStallOffer', '_settleDeal', '_guildBountyDefeat']) s[name] = method(name);
     s.invRoomFor = id => Inventory.roomFor(s.save, id);
     s.addToInv = (id, n, flash, opts) => { s.grantOptions = opts; return Inventory.add(s.save, id, n).accepted; };
@@ -54,7 +54,7 @@
     }
     assert.eq(s.messages.length, 10);
   });
-  boothTest('booth inn: receipt follows payment and healing; repeated daily use cannot show success', () => {
+  boothTest('booth inn: receipt follows payment and healing; a second night inside the bed gate cannot show success', () => {
     const s = fixture(); const o = { id: 'inn-receipt' };
     s._presentInn(0, 0, o, {}); s.offers[0].onAccept();
     assert.eq(s.save.energy, 100);

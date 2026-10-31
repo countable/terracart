@@ -844,7 +844,7 @@
       : { sheet: row.id, frames: 4, frameMs: row.art.frameMs ?? (flying ? 120 : 240),
         // 2× a 16px sheet, trimmed by the row's own `artScale` (the slimes:
         // at the full 2× a pest stood as tall as a goblin).
-        fw, fh, scale: 2 * (row.artScale ?? 1), foot: maxY / fh, minY, maxY,
+        fw, fh, scale: row.artScaleRef === 'chest' ? CHEST_SCALE * 16 / fw : 2 * (row.artScale ?? 1), foot: maxY / fh, minY, maxY,
         ...(row.art.attackFrames ? { attackFrames: row.art.attackFrames } : {}),
         // An EIGHT-WAY parts atlas (the serpent's): the frame is the row's
         // column for the creature's heading (creatureAppearance).

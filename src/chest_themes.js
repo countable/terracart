@@ -10,6 +10,14 @@
   const foodIds = () => ITEMS.filter(isFood).map(i => i.id);
   const cropSeeds = () => ITEMS.filter(i => i.kind === 'seed' && !i.plants && foodIds().includes(i.grows)).map(i => i.id);
   const groups = {
+    cacheSupplies: { ids: ['torch', 'rope', 'trap_disarm_kit', 'throwing_spear', 'barricade', 'sugar_potion', 'blank_scroll', 'javelin', 'renovation_permit'] },
+    cacheSeeds: { ids: () => [...cropSeeds(), ...ITEMS.filter(i => i.kind === 'seed' && i.plants).map(i => i.id)] },
+    cacheFruit: { ids: ['berry', 'apple', 'orange'], minTier: { cache_orchard: 1 } },
+    cacheForage: { ids: ['wood', 'mushroom', 'berry', 'acorn'] },
+    cacheOccult: { ids: ['bone', 'shadow_powder', 'raven_scroll', 'bones_scroll', 'wraith_scroll'] },
+    cacheSacred: { ids: ['flowers', 'book', 'protection_potion', 'revival_potion'] },
+    cacheParalysis: { ids: ['antidote', 'healing_potion', 'protection_potion', 'shielding_potion'] },
+    cacheConfusion: { ids: ['antidote', 'healing_potion', 'raven_scroll', 'fear_scroll', 'bones_scroll'] },
     uniqueRelics: { ids: () => ITEMS.filter(i => i.kind === 'unique_relic' && !isTome(i.id) && !i.progressionOnly).map(i => i.id), mixedTiers: true, fallback: 'magic' },
     supplies: { ids: { torch: 3, rope: 1, trap_disarm_kit: 1, throwing_spear: 1, barricade: 1, sugar_potion: 1, blank_scroll: 1, javelin: 1, renovation_permit: 1, evertorch: 1 }, starterWeapons: ['dagger', 'lance', 'musket'], starterWeaponChance: 0.25, fallback: 'torch' },
     field: { ids: ['torch', 'rope', 'trap_disarm_kit', 'throwing_spear', 'barricade'], fallback: 'torch' },
@@ -83,6 +91,15 @@
   //   civic     unique relics, supplies, coins
   //   authority armour, supplies, combat magic - never produce
   const themes = {
+    cache_overgrown: { cache: true, weights: { cacheSeeds: 100 }, t1Fallback: 'cacheSeeds' },
+    cache_orchard: { cache: true, weights: { cacheFruit: 100 }, t1Fallback: 'cacheFruit' },
+    cache_old_growth_path: { cache: true, weights: { cacheForage: 100 }, t1Fallback: 'cacheForage' },
+    cache_haunted_forest_path: { cache: true, weights: { cacheOccult: 100 }, t1Fallback: 'cacheOccult' },
+    cache_pilgrim: { cache: true, weights: { cacheSacred: 100 }, t1Fallback: 'cacheSacred' },
+    cache_spider_path: { cache: true, weights: { cacheSupplies: 100 }, t1Fallback: 'cacheSupplies' },
+    cache_paralysis_path: { cache: true, weights: { cacheParalysis: 100 }, t1Fallback: 'cacheParalysis' },
+    cache_confusion_path: { cache: true, weights: { cacheConfusion: 100 }, t1Fallback: 'cacheConfusion' },
+
     roadside: { weights: { supplies: 40.5, materials: 36, cash: 13.5, furniture: 10 } },
     commerce: { weights: { cash: 63, gems: 27, furniture: 10 } },
     food: { weights: { food: 100 } },
@@ -121,7 +138,7 @@
   };
   const qualityFloor = chestTier => chestTier >= 3 ? chestTier : 1;
   for (const [theme, row] of Object.entries(themes)) {
-    row.t1Fallback = ['food', 'park', 'farm', 'worship'].includes(theme) ? 'restorative'
+    row.t1Fallback ||= ['food', 'park', 'farm', 'worship'].includes(theme) ? 'restorative'
       : theme === 'flora' ? 'flowers' : theme === 'school' ? 'books'
       : theme === 'health' || theme === 'vista' ? 'antidote'
       : theme === 'commerce' ? 'cash' : 'torch';
@@ -136,6 +153,7 @@
     theme = normalize(theme);
     const high = (opts.tier ?? tier) >= 3 && highTierWeights[theme];
     const out = { ...(high || themes[theme].weights) };
+    if (themes[theme].cache) return out;
     for (const [seed, targets] of Object.entries(seedTransfers)) {
       if (high) continue; // high-tier rows already specify their final seed shares
       const removed = (out[seed] || 0) * (1 - seedMultiplier(tier));
@@ -238,6 +256,7 @@
         // player who already carries one (ChestThemes.cap holds them to one
         // per chest; this holds them to one per save).
         && ((item.kind !== 'unique_relic' && !item.unique) || !carriesItem(opts.save, id))
+        && (!themes[normalize(opts.theme)]?.cache || (item.baseTier ?? 1) <= 3)
         && (def.minTier?.[normalize(opts.theme)] ?? item.baseTier ?? 1) <= tier;
     });
   }

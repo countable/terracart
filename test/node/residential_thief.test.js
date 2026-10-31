@@ -64,4 +64,25 @@
     assert.lt(respawn.x, 0, 'reload cannot restart pursuit');
     assert.falsy(Combat.raidSpent(loaded.save, foe('another_thief')), 'other encounter IDs retain their own raid');
   });
+
+  test('residential thief: draws level with the zombie on residential ground, lighter in commercial', () => {
+    const row = EnemyRoster.get('thief');
+    assert.eq(row.surface.weightByBiome.RESIDENTIAL, 3);
+    assert.eq(HabitatSpawns.surfaceWeight(row, 'RESIDENTIAL'), 3);
+    assert.eq(HabitatSpawns.surfaceWeight(row, WorldGen.T.RESIDENTIAL), 3, 'by terrain code too');
+    assert.eq(HabitatSpawns.surfaceWeight(row, 'COMMERCIAL'), row.surface.weight, 'the plain weight elsewhere');
+    assert.eq(HabitatSpawns.surfaceWeight(EnemyRoster.get('zombie'), 'RESIDENTIAL'), 3, 'a row without the table keeps its weight');
+    const tally = (biome, n = 4000) => {
+      const counts = {};
+      for (let i = 0; i < n; i++) {
+        const kind = HabitatSpawns.enemyKind(HabitatSpawns.landProfile(biome), `thief_share_${biome}_${i}`, biome, {});
+        counts[kind] = (counts[kind] || 0) + 1;
+      }
+      return counts;
+    };
+    const home = tally('RESIDENTIAL');
+    assert.inRange(home.thief / home.zombie, 0.85, 1.15, `a thief for every zombie: ${JSON.stringify(home)}`);
+    const shops = tally('COMMERCIAL');
+    assert.inRange(shops.thief / shops.club_goblin, 0.85, 1.15, `one in two tier-2 seats in commercial: ${JSON.stringify(shops)}`);
+  });
 })();

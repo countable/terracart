@@ -143,7 +143,7 @@
         budget[0] += range[0]; budget[1] += range[1];
       }
       roadCache.set(id, Object.freeze({ id, owner: 'road', fauna: weightedRows(mix),
-        faunaBudget: Object.freeze(budget), haunting: row.haunting === true || id === 'pilgrim' }));
+        faunaBudget: Object.freeze(budget), habitatEnemies: row.habitatEnemies, haunting: row.haunting === true || id === 'pilgrim' }));
     }
     return roadCache.get(id);
   }
@@ -214,7 +214,8 @@
     return root.BiomeProfiles?.faunaAllows(kind, type) ?? true;
   }
   function enemyRows(profile, type, context) {
-    if (!profile || profile.owner === 'road') return [];
+    if (!profile || profile.owner === 'road' && !profile.habitatEnemies) return [];
+    if (profile.owner === 'road') return root.EnemyRoster.ROWS.filter(row => profile.habitatEnemies.kinds.includes(row.id));
     const family = profile.owner === 'zone' ? root.EnemyHabitats?.SURFACE_FAMILIES[profile.id] : null;
     let eligible = root.EnemyRoster.ROWS.filter(row => !row.retired && row.surface && row.tier <= 3
       && row.attackType !== 'touch' && (family ? family.includes(row.id)
@@ -226,13 +227,19 @@
     const replaced = new Set(eligible.filter(row => row.variantType === 'Tint' && row.surface.replaceBase !== false).map(row => row.variantOf));
     return eligible.filter(row => !replaced.has(row.id));
   }
+  // A land row's draw weight on this biome: its surface `weightByBiome`
+  // entry for the biome when it has one (the thief, heavier on RESIDENTIAL
+  // ground than on COMMERCIAL), else its plain `weight`.
+  function surfaceWeight(row, type) {
+    return row.surface.weightByBiome?.[nameOf(type)] ?? row.surface.weight;
+  }
   function enemyKind(profile, id, type, context) {
     const rows = enemyRows(profile, type, context), weights = profile?.enemyTierWeights || root.EnemyRoster.SURFACE_TIERS.at(-1).tierWeights;
     const tiers = [...new Set(rows.map(row => row.tier))];
     const tier = pick(tiers, unit(id + ':tier'), value => weights[value] || 0);
     const family = profile?.owner === 'zone';
     return pick(rows.filter(row => row.tier === tier), unit(id + ':enemy'),
-      row => family ? row.surface.weight || 1 : row.surface.weight)?.id || null;
+      row => family ? row.surface.weight || 1 : surfaceWeight(row, type))?.id || null;
   }
   // Allocate counts from the raw habitat footprint. A restricted hole changes
   // the available seats, never this apportionment; rounding preserves the cap.
@@ -286,6 +293,7 @@
     for (const group of groups) group.enemyReserve = 0;
     allocate(armed, budget(reserveBudget()), 'enemyReserve');
     for (const group of groups) {
+      if (group.profile.owner === 'road') group.enemyRequested = group.profile.habitatEnemies?.count || 0;
       if (group.profile.owner !== 'land') group.faunaRequested = faunaBudget(group.profile, `${tx}|${ty}|${group.key}`);
       group.diagnostic = { key: group.key, profile: group.profile.id, rawCells: group.cells.length,
         fauna: counts(group.faunaRequested), enemies: counts(group.enemyRequested), reserve: counts(group.enemyReserve) };
@@ -463,7 +471,7 @@
     return out;
   }
   const api = { FAUNA_DENSITY, faunaCount, FAUNA_PER_TILE, FAUNA_SPACING_CELLS, faunaSpacing, ENEMIES_PER_TILE, reserveBudget, reserveVisible, LAND_FAUNA, VARIANT_FAUNA, landProfile, shoreProfile, variantProfile, roadProfile, resolve,
-    faunaRows, pickFauna, faunaBudget, allows, enemyRows, enemyKind, populationSteps };
+    faunaRows, pickFauna, faunaBudget, allows, enemyRows, enemyKind, surfaceWeight, populationSteps };
   root.HabitatSpawns = api;
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
 })(typeof window !== 'undefined' ? window : globalThis);

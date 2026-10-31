@@ -701,6 +701,26 @@ const TAP_HANDLERS = [
     }
   }},
 
+  // The first direct tap uncovers a concealed object; a later tap performs
+  // its normal interaction. Camera peek and nearby cell taps reveal nothing.
+  { name: 'concealed', try: (ctx) => {
+    const {scene,wm}=ctx;
+    if (ctx.building || typeof HiddenObjects === 'undefined') return false;
+    const tapCell=worldMetersToAbsCell(scene,wm.x,wm.y);
+    let found=null;
+    const inspect=o=>{
+      if (!found && (o.concealed || o.revealOnCell) && HiddenObjects.isHidden(scene.save,o)
+          && (o.depth || 0)===(scene.depth || 0) && itemContainsTapCell(scene,o,tapCell)) found=o;
+    };
+    WorldGen.forEachItem('objects',inspect);
+    if (!found) WorldGen.forEachItem('wildplants',inspect);
+    if (!found) for(const o of HiddenObjects.saved(scene)) inspect(o);
+    if (!found || !treasureExposed(found,scene)
+        || typeof Visibility !== 'undefined' && Visibility.hidden(scene,found.x,found.y,true)) return false;
+    if (tooFar(ctx,found.x,found.y)) return 'far';
+    return HiddenObjects.reveal(scene,found,wm);
+  }},
+
   // (Eat-by-tapping-the-player and the honey/book/potion/sapphire tap-on-feet
   // gestures removed — the persistent Eat and consumable Use buttons below the
   // inventory bar (syncEatButton / syncConsumableButton in app.js) cover those
@@ -2016,7 +2036,23 @@ const TAP_HANDLERS = [
       scene.flash('Choose a crop or flower seed.', sx, sy);
       return true;
     }
+    if (item.plants === 'creeping_vine' && ((scene.depth ?? 0) !== 0 || !CreepingVines.plantSeat(scene, cwmx, cwmy))) {
+      scene.flash('Vines need safe outdoor soil.', sx, sy);
+      return true;
+    }
     if (!ctx.plantEnergyPaid && !scene.spendEnergy(ENERGY_COST?.plant ?? 0, sx, sy)) return true;
+    if (item.plants === 'creeping_vine') {
+      if (!CreepingVines.plant(scene, cwmx, cwmy)) return true;
+      scene.tilledSet.delete(cellKey);
+      Crops.clearBedQuality(save, cellKey);
+      Inventory.remove(save, sel.id, 1);
+      ctx.dirty = true;
+      scene.buildInventoryDOM();
+      scene.flash('Toxic vine planted.', sx, sy);
+      scene.questEvent?.('plant');
+      return true;
+    }
+
     if (item.plants) {
       // Plant a sapling → a growing tree (persisted in save.fruittrees,
       // re-injected per tile in spawnInTile). TWO kinds share this path and
@@ -2095,6 +2131,12 @@ const TAP_HANDLERS = [
     if (!seed || ITEM_BY_ID[seed.id]?.kind !== 'seed' || !(seed.count > 0)) return false;
     if (!isTillableCell(cell) || scene.tilledSet.has(cellKey)) return false;
     const seedId = seed.id, depth = scene.depth ?? 0;
+    const toxic = ITEM_BY_ID[seedId].plants === 'creeping_vine';
+    if (toxic && (depth !== 0 || !CreepingVines.plantSeat(scene, cwmx, cwmy))) {
+      scene.flash('Vines need safe outdoor soil.', sx, sy);
+      return true;
+    }
+
     let blocker = at.furnitureIdx >= 0 ? 'Furniture stands here.' : null;
     if (at.fireIdx >= 0 || at.scarecrowIdx >= 0 || at.magicTrapIdx >= 0) blocker = 'Something stands here.';
     if (scene.placedRockSet.has(cellKey)) blocker = 'Your own stone fence.';
@@ -2123,7 +2165,7 @@ const TAP_HANDLERS = [
         && live.furnitureIdx < 0 && live.fireIdx < 0 && live.scarecrowIdx < 0
         && live.magicTrapIdx < 0 && live.plantedIdx < 0
         && !groundObjectBlocker(scene, save, cwmx, cwmy, live.half);
-      if (!free || Inventory.count(save, seedId) < 1) {
+      if (!free || Inventory.count(save, seedId) < 1 || toxic && !CreepingVines.plantSeat(scene, cwmx, cwmy)) {
         Energy.set(save, (save.energy ?? 0) + tillCost, Energy.maxEnergy(save));
         scene.updateEnergyDOM?.();
         persistSave(save);

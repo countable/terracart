@@ -41,8 +41,11 @@
   test('geyser paths: a short section retains its geyser and shrine where safe', () => {
     for (const kind of kinds) {
       const a = dressing(kind, 0, true);
-      assert.eq(a.vents.length, 1);
+      assert.eq(a.vents.length, 1, kind + ' keeps its geyser ahead of optional caches');
       assert.eq(a.objects.filter(o => o.kind === 'grove_shrine').length, 1);
+      const core = [...a.vents, ...a.objects.filter(o => o.kind === 'grove_shrine')];
+      for (const cache of a.objects.filter(o => o.cache))
+        assert.falsy(core.some(o => o.x === cache.x && o.y === cache.y), 'cache cannot claim a shrine or geyser seat');
     }
   });
   test('geyser paths: private ground rejects all pieces and kerbs reject hazards', () => {

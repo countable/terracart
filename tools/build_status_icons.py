@@ -63,6 +63,8 @@ ICONS = {
     'torch': ('extra_assets/Pixel Plains/PP Interiors Pack/Torch 1.png', [0, 0, 16, 32], 'Lit flame torch'),
     'frostAura': (*spell('Ice', 'Frostball_Cast'), 'Frost orb and surrounding aura'),
     'blight': (*tile(RPG, 32, 12), 'Violet blight skull'),
+    # Shares the trap pin's frame: the ring's wearer outran their own fire.
+    'cometSnuffed': (*effect('Speed_Down'), 'Red slow-down boot'),
     'speed': (*effect('Speed_Up'), 'Boot with increase arrow'),
     'protection': (*effect('Protect_Up'), 'Protective blue barrier'),
     'immortal': (*effect('Resistance_Up'), 'Resistance cycle with increase arrow'),

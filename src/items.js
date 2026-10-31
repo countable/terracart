@@ -700,6 +700,8 @@ const MINERAL_ICON_SHEET = {
   vampire_ring:      { sheet: 'icon_rings',   frame: 18 },
   // The banded ring with its pale blue lens (Rings.png row 2).
   xray_ring:         { sheet: 'icon_rings',   frame: 12 },
+  // The rose band trailing a flaming star (Rings.png row 3).
+  comet_ring:        { sheet: 'icon_rings',   frame: 14 },
   regeneration_amulet:      { sheet: 'icon_amulets', frame: 10 },
   vigor_amulet:      { sheet: 'icon_amulets', frame: 17 },
   sleep_powder:  { sheet: 'icon_potions', frame: 3 }, // scoop of violet dream dust
@@ -800,6 +802,7 @@ function inventoryIconSource(itemId) {
   if (MINERAL_ICON_SHEET[itemId]) return MINERAL_ICON_SHEET[itemId];
   const item = ITEM_BY_ID[itemId];
   if (!item) return null;
+  if (item.plants === 'creeping_vine') return { sheet: 'crops', frame: 15 * CROPS_SHEET_COLS + SEEDBOX_COL };
   const cropKey = item.grows || item.crop;
   if (!cropKey) return null;
   const ov = CROP_SPRITE[cropKey];
@@ -838,7 +841,7 @@ function inventoryIconSource(itemId) {
 const PLANTS_YIELD = { tree: 'wood' };
 // Both potions use the approved ALT-0603 flask. Their pet and renewal charms
 // distinguish the effects without recolouring or replacing that shared artwork.
-const SHARED_ICON_BADGES = { taming_potion: 'pet_fang_charm', resurrection_potion: 'regeneration_amulet' };
+const SHARED_ICON_BADGES = { toxic_seed: 'poisonberry', taming_potion: 'pet_fang_charm', resurrection_potion: 'regeneration_amulet' };
 function iconBadgeItem(itemId) {
   if (Object.hasOwn(SHARED_ICON_BADGES, itemId)) return SHARED_ICON_BADGES[itemId];
   const item = ITEM_BY_ID[itemId];
@@ -952,7 +955,7 @@ const BASE_TIER = {
   poison_flask: 2,
   // Unique jewelry is intrinsically magical, never a metal rung.
   portal_stone: 3, depth_key: 4,
-  stealth_ring: 2, perception_ring: 2, coin_ring: 2, invisibility_ring: 4, ember_ring: 3, vampire_ring: 4, xray_ring: 3, regeneration_amulet: 3, vigor_amulet: 5,
+  stealth_ring: 2, perception_ring: 2, coin_ring: 2, invisibility_ring: 4, ember_ring: 3, vampire_ring: 4, xray_ring: 3, comet_ring: 5, regeneration_amulet: 3, vigor_amulet: 5,
   // Tomes: a tome's tier is one above the potion it channels (the books
   // group's top-tier pick makes each tier's chest hand its own tome).
   tome_reach: 3, tome_raven: 4, tome_thunder: 5, tome_fire_wall: 4,
@@ -1046,6 +1049,7 @@ const ITEMS = [
   { id: 'smiths_guild_badge', name: 'Smiths’ Guild Badge', kind: 'unique_relic' },
   { id: 'marketeers_guild_badge', name: 'Shopkeepers’ Guild Badge', kind: 'unique_relic' },
   { id: 'traders_guild_badge', name: 'Traders’ Guild Badge', kind: 'unique_relic' },
+  { id: 'toxic_seed', name: 'Toxic Seed', kind: 'seed', plants: 'creeping_vine', grows: 'creeping_vine', baseTier: 2 },
   ...Object.keys(CROP_ROW).map(c => ({
     id: `${c}_seed`, name: `${CROP_NAMES[c]} Seed`, kind: 'seed', grows: c,
     baseTier: BASE_TIER[c] || 1,
@@ -1217,6 +1221,7 @@ const ITEMS = [
   { id: 'ember_ring',        name: 'Ember Ring',            kind: 'unique_relic', uniqueJewelry: true },
   { id: 'vampire_ring',      name: 'Vampire Ring',          kind: 'unique_relic', uniqueJewelry: true },
   { id: 'xray_ring',         name: 'X-Ray Ring',            kind: 'unique_relic', uniqueJewelry: true },
+  { id: 'comet_ring',        name: 'Comet Ring',            kind: 'unique_relic', uniqueJewelry: true },
   { id: 'regeneration_amulet',      name: 'Amulet of Regeneration', kind: 'unique_relic', uniqueJewelry: true },
   { id: 'vigor_amulet',      name: 'Amulet of Vigour',        kind: 'unique_relic', uniqueJewelry: true },
   // Rope: use it (Use button with it selected) and the dialog asks which way —
@@ -1901,7 +1906,7 @@ const PRICES = {
   // A seed's price is also its roll-budget divisor (chest_themes.js
   // quantity): ~TIER_VALUE[baseTier] / 5, so a same-tier roll with no
   // brackets (BUDGET_SHARE.seed of the budget) holds about four.
-  rainberry_seed: 63, pairy_seed: 63, nut_seed: 5, potato_seed: 1,
+  toxic_seed: 5, rainberry_seed: 63, pairy_seed: 63, nut_seed: 5, potato_seed: 1,
   berry_seed: 5, cress_seed: 1, onion_seed: 5, starfruit_seed: 15,
   gemfruit_seed: 15, rubble_seed: 8, coffee_seed: 12,
   sunflower_seed: 30, fireflower_seed: 40, iceflower_seed: 50, dawnfruit_seed: 480,
@@ -2006,7 +2011,7 @@ const PRICES = {
                        //      effect, not the tier: the T2 butterfly is 100 too)
   frost_powder:  100,  // T3 — every enemy in reach chilled (slowed) for 30 s
   // Initial entries are replaced by fixed-tier equipment values after gearPrice is defined.
-  stealth_ring: 0, perception_ring: 0, coin_ring: 0, invisibility_ring: 0, ember_ring: 0, vampire_ring: 0, xray_ring: 0, regeneration_amulet: 0, vigor_amulet: 0,
+  stealth_ring: 0, perception_ring: 0, coin_ring: 0, invisibility_ring: 0, ember_ring: 0, vampire_ring: 0, xray_ring: 0, comet_ring: 0, regeneration_amulet: 0, vigor_amulet: 0,
   rope:          15,   // T2 — one climb up or down a level, in place (cheaper than a sapphire's brief round trip); crafted from 5 long grass, so not a money pump
   trap_disarm_kit:      20,   // T2 — permanently removes a trap; situational, not a staple
   magic_trap:    40,   // T3 — one tier-3 shot and a staff beat's hold on one foe
@@ -2087,7 +2092,7 @@ for (const k of BABY_KINDS) PRICES[babyItemId(k)] = itemValue(k) * 3;
 // bought on tap at any house.
 const BUY_LIST = Object.keys(CROP_ROW)
   .filter(c => (BASE_TIER[c] || 1) <= 3)
-  .map(c => `${c}_seed`);
+  .map(c => `${c}_seed`).concat('toxic_seed');
 const STARTING_MONEY = 0;
 
 // === Energy / food ===
@@ -2126,6 +2131,7 @@ const TRAP_KIT_KEEP_CHANCE = 0.8;
 
 const ITEM_GUIDE_TIPS = {
   workshop: 'I restored a ruined building as a Workshop. Tools, supplies and remembered scrolls take shape here.',
+  bed_quilted: 'Seven lengths of timber became a cot at the workshop. I slept the afternoon through at home and woke whole, the seedlings a little taller. No bed would have me again before evening.',
   growth_powder: 'At the workshop I ground nettles with long grass into a green powder. The seedlings stirred before I had finished sprinkling it.',
   psychosis_powder: 'At the workshop I crushed yellow meadow flowers with young fern. The dust made the room tilt. I opened every window.',
   sleep_powder: 'I ground golden flowers with white ones into a fine dust. One breath of it and I woke at the bench at dusk.',
@@ -2163,7 +2169,7 @@ const EGG_HATCH_SPEC = Object.freeze({
 });
 
 const ITEM_EFFECTS = {
-  bed_quilted: "A soft quilt and a wooden cot promise a quiet night.",
+  bed_quilted: "A soft quilt and a wooden cot promise a quiet night. Sleep in it inside your Home to wake with your strength restored, four hours on. No bed or inn will take you again until four more have passed.",
   washtub: "A round wooden washing tub offers a quiet place to freshen up.",
   mirror_brass: "A brass-framed looking glass waits on its own little stand.",
   table_oak: "A compact oak table makes a useful corner feel like home.",
@@ -2246,6 +2252,8 @@ const ITEM_EFFECTS = {
   ember_ring: 'Its banked ember drinks the heat before it reaches your skin.',
   xray_ring: 'Leaves and branches thin to glass. Whatever crouches in the hedge is plain to see.',
   vampire_ring: 'Each blow you strike by hand sends a fifth of its wound back into you. The dead have nothing left to give.',
+  // The numbers live on UNIQUE_JEWELRY.comet_ring.cometAura; the Snuffed chip quotes them.
+  comet_ring: 'Fire rides at your heels and never touches you. The faster you run, the wider and hotter it burns. Outrun the wind and it snuffs the flame for a while.',
   invisibility_ring: 'The eye forgets the hand it almost saw.',
   regeneration_amulet: 'A slow warmth mends what the day takes.',
   vigor_amulet: 'A quickened warmth mends what the day takes.',
@@ -2330,7 +2338,9 @@ for (const raw of Object.keys(COOKED_FOODS)) {
 for (const item of ITEMS.filter(item => item.kind === 'seed')) {
   Object.defineProperty(ITEM_EFFECTS, item.id, {
     enumerable: true,
-    get: () => 'A small promise of green, waiting for a soft bed of earth.',
+    get: () => item.plants === 'creeping_vine'
+      ? 'Plant in open soil to start one toxic creeping vine. It spreads while nearby and stings on contact.'
+      : 'A small promise of green, waiting for a soft bed of earth.',
   });
 }
 
@@ -3046,6 +3056,16 @@ const UNIQUE_JEWELRY = Object.freeze({
   // X-RAY: sees through partial cover and into concealing cells (bushes,
   // hedges, trees — Visibility.hidden); cave rock still hides. Not Perception.
   xray_ring: Object.freeze({ xray: true }),
+  // THE COMET RING: a burning aura round the feet whose reach and bite grow
+  // with the wearer's own PACE (comet_ring.js CometRing.shape is the one
+  // reader of these numbers; scene_consumables.js _tickCometAura burns with
+  // it). The wearer is never inside their own fire. Faster than `maxMps` for
+  // `overspeedMs` running snuffs it for `snuffedMs` (the `cometSnuffed` row
+  // of Buffs.KINDS); then it relights by itself. `texture` is the ground
+  // disc scene_create.js bakes and render.js draws exactly as wide as it burns.
+  comet_ring: Object.freeze({ cometAura: Object.freeze({
+    maxMps: 8, minRadiusCells: 0.75, maxRadiusCells: 3, restIntensity: 0.15, maxDps: 6,
+    overspeedMs: 3000, snuffedMs: 10000, texture: 'aura_comet' }) }),
   regeneration_amulet: Object.freeze({ regenMs: 4000 }),
   vigor_amulet: Object.freeze({ regenMs: 2000 }),
 });
@@ -3091,6 +3111,14 @@ function jewelryMeleeLifesteal(save) {
     if (row.meleeLifesteal && carriesItem(save, id)) frac = Math.max(frac, row.meleeLifesteal);
   }
   return frac;
+}
+// The carried Comet Ring's aura spec (UNIQUE_JEWELRY.comet_ring.cometAura),
+// null without one. A second ring is the same fire: nothing stacks.
+function jewelryCometAura(save) {
+  for (const [id, row] of Object.entries(UNIQUE_JEWELRY)) {
+    if (row.cometAura && carriesItem(save, id)) return row.cometAura;
+  }
+  return null;
 }
 function jewelryRegenIntervalMs(save) {
   let interval = Infinity;
@@ -3139,7 +3167,12 @@ function trailerSellPrice(baseValue) {
 const HOME_RECIPES = [
   // The starter-known spear is the first cave trip's throw. Torches are found
   // on cave floors and sold at the first Supply Shop, never crafted.
-  { id: 'throwing_spear', station: 'workshop', cost: [{ id: 'rubble', qty: 1 }, { id: 'wood', qty: 1 }] },
+  // `known: true`: offered without ever having found one (the starter spear;
+  // the cot, which no field drops — homeRecipeLocked).
+  { id: 'throwing_spear', station: 'workshop', cost: [{ id: 'rubble', qty: 1 }, { id: 'wood', qty: 1 }], known: true },
+  // The Quilted Cot (T1 furniture): seven wood. Placed inside Home it is a
+  // night's rest — Rest.sleep, the Inn's own routine (src/rest.js).
+  { id: 'bed_quilted', station: 'workshop', cost: [{ id: 'wood', qty: 7 }], known: true },
   { id: 'scarecrow', station: 'workshop', cost: [{ id: 'wood', qty: 3 }] },
   { id: 'barricade', station: 'workshop', cost: [{ id: 'wood', qty: 3 }] },
   { id: 'rope', station: 'workshop', cost: [{ id: 'longgrass', qty: 5 }] },
@@ -3171,9 +3204,10 @@ const BREW_RECIPES = [
 // are learned by first finding their output in the wild, never by buying,
 // bartering, forging or crafting it. addToInv owns the foundWild ledger.
 // Scrolls require previous use instead: their words must be remembered.
+const HOME_RECIPE_BY_ID = Object.fromEntries(HOME_RECIPES.map(r => [r.id, r]));
 function homeRecipeLocked(save, id) {
   if (ITEM_BY_ID[id]?.scroll) return !Array.isArray(save?.usedScrolls) || !save.usedScrolls.includes(id);
-  return id !== 'throwing_spear' && !save?.foundWild?.[id];
+  return !HOME_RECIPE_BY_ID[id]?.known && !save?.foundWild?.[id];
 }
 // How many times a recipe can be made from what is held: the fewest times
 // any one ingredient covers its share. `count(id)` reads the bag. An empty

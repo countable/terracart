@@ -78,7 +78,7 @@ function fadesOverPlayer(o) {
 // A separate seeded stream leaves its loot and all world placement unchanged.
 function chestHidesMimic(o) {
   return !!o && o.kind === 'chest' && !!o.id && !(o.depth > 0)
-    && !o.fixedLoot && !o.crate && !restocks(o) && !macroFor(o)
+    && !o.cache && !o.fixedLoot && !o.crate && !restocks(o) && !macroFor(o)
     && !isBikeRack(o) && !isBarrel(o) && !produceStandFor(o)
     && chestTier(o) === 2 && makeRng32(fnv1a(o.id + '#mimic'))() < 0.15;
 }
@@ -589,6 +589,7 @@ const INTERACTABLES = {
           scene.flash('Already smashed.', sx, sy);
           return true;
         }
+        if (isExplosiveBarrel(o) && typeof ExplosiveBarrels !== 'undefined' && ExplosiveBarrels.arm(scene, o)) return true;
         save.opened.push(o.id);
         ctx.dirty = true;
         const sting = barrelProfile(o).openingSting;
@@ -671,7 +672,7 @@ const INTERACTABLES = {
       // The chapel's blessing opens on the chapel's own painting and name the place.
       const dress = (chapel && typeof Macros !== 'undefined')
         ? { art: Macros.KIND_TRANSACTION.chapel.art, header: Macros.KIND_TRANSACTION.chapel.title }
-        : { art: chestOpeningArt(o) || undefined };
+        : { art: chestOpeningArt(o) || undefined, ...(o.cache ? { header: 'Inside the ' + cacheType(o).name.toLowerCase() } : {}) };
       // Every path below that actually spends the chest goes through this, so
       // the starter ladder's "open a crate" step is credited exactly once no
       // matter which branch (item / relic / gold / partial take) claimed it.
@@ -708,7 +709,7 @@ const INTERACTABLES = {
       const held = held0;
       // A chest at a treasure trail's end (HomeArea.isTrailChest) rolls
       // CHEST_TRAIL_TIER_BONUS tiers higher, within its depth's cap.
-      const trailEnd = !chapel && !held0 && typeof HomeArea !== 'undefined' && HomeArea.isTrailChest?.(scene, o);
+      const trailEnd = !o.cache && !chapel && !held0 && typeof HomeArea !== 'undefined' && HomeArea.isTrailChest?.(scene, o);
       const chestT = chapel ? Macros.chapelRollTier(o)
         : Math.min(typeof chestTierMaxFor === 'function' ? chestTierMaxFor(o.depth) : 7,
           ((typeof chestTier === 'function') ? chestTier(o) : 2) + (trailEnd ? HomeArea.CHEST_TRAIL_TIER_BONUS : 0));
@@ -1126,7 +1127,7 @@ function isSmallContainer(o) {
 // The crate is a row of the recurring-site table (Macros.DAILY_VISIT_KINDS
 // .crate, `days`), resolved by visitKindForObject like the pot and the wagon.
 function restocks(o) {
-  if (!o || o.kind !== 'chest' || !o.poiClass || o.crate || o.fixedLoot) return false;
+  if (!o || o.kind !== 'chest' || !o.poiClass || o.cache || o.crate || o.fixedLoot) return false;
   if (o.depth > 0 || o.caveOf) return false;
   if (typeof chestLook !== 'function') return false;
   const L = chestLook(o);

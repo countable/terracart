@@ -432,9 +432,10 @@
     // A fresh reward stream consumes one ambient seed, never a world-generation stream.
     rng = rng || makeRng32(Math.floor(Math.random() * 0x100000000));
     theme = ChestThemes.normalize(theme);
-    const chestTier = clampedChestTier(opts);
+    const chestTier = Math.min(ChestThemes.themes[theme].cache ? 3 : 7, clampedChestTier(opts));
     const ctx = RARITY_TUNING.chestTierMod[chestTier];
-    const quality = rollRewardQuality(ctx, 'chestQuality', save, rng, opts);
+    const quality = rollRewardQuality(ctx, 'chestQuality', save, rng, ChestThemes.themes[theme].cache
+      ? { ...opts, classMaxTier: { ...opts.classMaxTier, chestQuality: 3 } } : opts);
     quality.tier = Math.max(quality.tier, ChestThemes.qualityFloor(chestTier));
     return resolveChestReward(theme, quality, save, rng, { ...opts, tier: chestTier });
   }
@@ -446,7 +447,7 @@
   }
   function resolveChestRewardRaw(theme, quality, save, rng, opts = {}) {
     theme = ChestThemes.normalize(theme);
-    const chestTier = clampedChestTier(opts);
+    const chestTier = Math.min(ChestThemes.themes[theme].cache ? 3 : 7, clampedChestTier(opts));
     const { tier, bracket, jackpotApplied } = quality;
     const selectionOpts = { ...opts, theme, chestTier, save };
     if ((_ITEM_BY_ID[opts.venueProduct]?.baseTier || 1) < ChestThemes.qualityFloor(chestTier))
