@@ -1050,7 +1050,14 @@ access or tile lifecycle mechanics.
   Do not cache a final answer from a tile still loading (no `layers` yet).
 - Fetch tiles through `fetchTileResponse`, which resolves the live TileJSON
   template and retries resolution on failure. Bumping a dated fallback URL
-  does not repair live fetching. After the centre is playable, surface rings
+  does not repair live fetching. Every raw tile-store access (`idbGet`,
+  `idbPut`, `idbMergeGeometry`) is bounded by `TILE_IDB_TIMEOUT_MS`: a
+  stalled open or request is a cache miss that falls through to the fetch
+  (the worker's tile cache answers it), the stalled connection is forgotten
+  so the next call opens afresh, and a late connection is closed. IndexedDB
+  does stall on the load right after a reload; an unbounded, memoised open
+  once left every tile loading forever with no failure to retry
+  (`test/node/tile_store.test.js`). After the centre is playable, surface rings
   prefetch at most three raw tile payloads ahead through `prefetchTileBytes`;
   decode, generation and spawning remain serial and sliced. Cache hits and
   retry backoff skip lookahead; a newer centre stops the older ring. Repeated
