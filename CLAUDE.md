@@ -123,11 +123,17 @@ One line each; the linked purpose doc owns the detail.
   only as a chip in the status row; a timed consumable is a `CONSUMABLE_SPEC`
   row ([combat](docs/design/combat.md), [presentation](docs/design/presentation.md)).
 - Luxury is derived from saved furniture records through `Furniture.luxuryOf`, never summed from rendered sprites ([generation](docs/design/generation.md)).
+- Surface ground looks are `GroundMaterials` families drawn by
+  `TerrainTransitions`, never a per-cell wash or square fallback; reuse a
+  similar family before adding one (decals, roads and floors excepted)
+  ([rendering](docs/design/rendering.md)).
 - `lighting.js` owns the sole lighting pass; add sources as `Lighting.KINDS`
   rows ([rendering](docs/design/rendering.md)).
-- Ordinary props resolve taps by data cell (`sameAbsCell`); buildings also
-  accept their visible roofs and walls through `Render.buildingHit`. Sprites seat
-  through `RENDER_SPEC` and its audit ([rendering](docs/design/rendering.md)).
+- Ordinary props resolve taps by data cell (`sameAbsCell`); a bare cell passes
+  a tap to the neighbouring prop whose drawn crown covers it
+  (`Render.tallPropHit`), and buildings also accept their visible roofs and
+  walls through `Render.buildingHit`. Sprites seat through `RENDER_SPEC` and
+  its audit ([rendering](docs/design/rendering.md)).
 - A cell-crossing rebuild never reads pixels back — no `getImageData`, no
   per-piece `textures.createCanvas` ([rendering](docs/design/rendering.md)).
 - Nothing reveals the survivor's or the wizard's secret before the memory-30

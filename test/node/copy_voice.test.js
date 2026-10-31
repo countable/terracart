@@ -231,7 +231,7 @@ test('map copy: nothing else reaches flash() through a variable unmeasured', () 
   // as a failure rather than as unchecked copy.
   const known = new Set([
     'TOO_TIRED_MSG', 'BAG_FULL_MSG',  // the shared constants test
-    'flavor',                          // TERRAIN_FLAVOR, measured above
+    'flavor',                          // TERRAIN_FLAVOR and ROADSIDE_FLAVOR, measured below
     'blocker',                         // tillBlockerLine, measured above
     'blockMsg',                        // the gate() test above
     'msg', 'text', 'line',             // locally built, measured at their source
@@ -246,6 +246,8 @@ test('map copy: nothing else reaches flash() through a variable unmeasured', () 
     'Macros',                          // Macros.waitLine — every recurring row's prefix, measured below
     'row',                             // a page stone's `read` line, measured below
     'itemName', 'fav', 'Pets', 'foeName', // the creature tap's name / favourite / offer lines, measured below
+    'street',                          // a road tap's street title, measured below
+    'zone',                            // a ground tap's zone variant name, measured below
   ]);
   const seen = new Set();
   for (const src of [SCENE_SRC, INTERACT_SRC, INTERACTABLES_SRC]) {
@@ -255,6 +257,15 @@ test('map copy: nothing else reaches flash() through a variable unmeasured', () 
   const unknown = [...seen].filter((v) => !known.has(v));
   assert.eq(unknown.length, 0,
     'flash fed from an unmeasured variable: ' + unknown.join(', '));
+});
+
+test('map copy: a road tap names its street within a map line', () => {
+  const rows = [...StreetVariants.STREET_VARIANTS, StreetVariants.BANDIT_STORY, StreetVariants.HIGHWAY_STORY];
+  for (const row of rows) assert.lte([...row.title].length, MAP_MSG_MAX, `street title: ${row.title}`);
+});
+
+test('map copy: a ground tap names its zone variant within a map line', () => {
+  for (const row of ZoneVariantData.variants) assert.lte([...row.name].length, MAP_MSG_MAX, `zone variant: ${row.name}`);
 });
 
 test('map copy: the name-bearing loot toasts fit at their widest', () => {
@@ -287,6 +298,8 @@ test('map copy: the terrain table fits at every code', () => {
     const label = TERRAIN_FLAVOR[code];
     assert.lte([...label].length, MAP_MSG_MAX, `terrain ${code}: ${label}`);
   }
+  // The verge line a road cell answers with when the tap misses every band.
+  assert.lte([...ROADSIDE_FLAVOR].length, MAP_MSG_MAX, `roadside: ${ROADSIDE_FLAVOR}`);
 });
 
 test('map copy: a till refusal fits for every kind it can name', () => {

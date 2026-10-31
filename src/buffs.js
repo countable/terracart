@@ -54,6 +54,11 @@
       effect: () => `Your light reaches ${CONSUMABLE_SPEC.torch.radiusMul}× as far in the dark.` },
     frostAura: { icon: 'frostAura', name: 'Frost aura', color: '#9ad8ff', stroke: '#10233c', save: 'frostAuraUntil',
       effect: 'Cold spreads from you and chills every creature that comes near.' },
+    // The Comet Ring's fire put out by its wearer's own speed (comet_ring.js
+    // CometRing.step; scene_consumables.js _tickCometAura is the one writer).
+    cometSnuffed: { icon: 'cometSnuffed', name: 'Snuffed', color: '#c9bfb4', stroke: '#2a2420', scene: '_cometSnuffedUntil',
+      effect: () => { const s = UNIQUE_JEWELRY.comet_ring.cometAura;
+        return `Faster than ${s.maxMps} m/s for ${s.overspeedMs / 1000} s blew the Comet Ring's fire out. It relights when this ends.`; } },
     blight:  { icon: 'blight', name: 'Blight',  color: '#ff6f9a', stroke: '#3a0418', save: 'blightPotionUntil',
       effect: () => `Foes within ${CONSUMABLE_SPEC.blight_potion.radiusCells} cells of you take ${CONSUMABLE_SPEC.blight_potion.damagePerSecond} damage a second.` },
     speed:   { icon: 'speed', name: 'Speed',   color: '#9fe8ff', stroke: '#0b2a3a', save: 'speedPotionUntil',

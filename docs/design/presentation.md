@@ -274,6 +274,14 @@ pixels and decorative details do not define additional tap cells.
   loaded, so it installs no reflection layers, animation loop, or tilt listeners.
   The baked emission assets and `CompassShine` implementation remain available
   for the development prototype.
+- Two short notes sit low in the round map. "no compass — tap the map"
+  shows until a heading arrives. "compass unsure: wave in a figure 8"
+  shows at most once per session, only after iPhone compass accuracy has been
+  unknown or worse than 30° for 10 s while GPS has a fix; Safari never shows
+  the iPhone's own calibration screen to a page. Unknown accuracy is routine
+  indoors, where waving does not help, so no fix means no note. It clears on
+  good accuracy or after 15 s (`HeadingUp.calibrateHint` owns the numbers),
+  and replaces the no-compass note while it shows.
 
 - Starter guidance is a floating Dragon Spirit portrait with a compact, pale
   speech bubble at the top of the screen. It stays hidden until the opening story,
@@ -692,6 +700,26 @@ pixels and decorative details do not define additional tap cells.
   Highway story. Their identities come from the mapped road class and have
   separate first-visit records, without assigning a street variant. The
   existing Old Trade Road record remains valid for returning players.
+- Tapping a road or path flashes its street's title only. The tap is read
+  at its own point inside the cell (`StreetVariants.roadAtPoint`, through
+  interact.js `roadUnderTap`), because most road cells are only partly
+  covered by their band and some are crossed by two ways. Each band that
+  reaches the cell (the overlay's stroke, `WorldGen.roadOverlayWidthM`
+  wide) is tested at that point, and the nearest centreline holding it
+  wins. That way names an MD/LG road's story, the themed dressing section
+  cut from it there, or its tier's ground line. A tap that misses every
+  band reads as the ground beside the road and offers no road repair.
+  Without line geometry the cell decides (`StreetVariants.streetNameAt`).
+  That cell rule is the feet story's row, except inside a Nexus: the Nexus
+  clears the dressing marks, but a path keeps its theme, so the tap still
+  names it while the feet story stays with the Nexus. Point and cell agree
+  there, because both read `dressingLines`.
+  Other surface ground inside a Nexus, the verge beside a band included,
+  flashes its zone variant's name
+  (`zoneVariantNameAt`, the `WorldGen.zoneAnchorAt` winner): non-tillable
+  ground through `flavor`, bare tillable ground with no seed selected through
+  the last handler, `zone-name`. Home, cave and discarded cells, and
+  underground taps, keep their own lines.
 - Story panels use a direct second-person narrator focused on the current
   experience: what happens, what the Hood notices, and how people respond.
   Keep them to one or two short sentences with occasional sensory detail.

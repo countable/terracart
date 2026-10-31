@@ -8,7 +8,7 @@
     const barrels = [...p.background].filter(([, material]) => material === 'quarry_barrel');
     assert.gt(barrels.length, 0);
     let oldCount = 0;
-    for (const { bounds: [x, y, r, b] } of p.landmarks) {
+    for (const { bounds: [x, y, r, b] } of p.landmarks.filter(m => m.kind === 'patch')) {
       // The previous placement was one barrel on this unchanged seeded roll.
       let h = Math.imul(4 * N + x + 173, 374761393) ^ Math.imul(5 * N + y + 719, 668265263) ^ 47;
       h = Math.imul(h ^ (h >>> 13), 1274126177);
@@ -161,20 +161,48 @@
       assert.eq(p.finds.length, 2, 'compact bowl retains the same finite ore budget');
     }
   });
-  test('quarry layout: strip benches align with the usable footprint and leave cross-cuts', () => {
-    for (const [w, h, axis] of [[32, 9, 'x'], [9, 32, 'y']]) {
-      const p = plan('quarry-strip-mine', rect(w, h));
-      assert.gt(p.landmarks.length, 1);
-      for (const m of p.landmarks) {
-        const [left, top, right, bottom] = m.bounds;
-        assert.eq(m.axis, axis);
-        assert.eq(axis === 'x' ? bottom - top + 1 : right - left + 1, 3, 'bench is a narrow intact module');
-        const middle = axis === 'x' ? left + Math.floor((right - left + 1) / 2) : top + Math.floor((bottom - top + 1) / 2);
-        for (let y = top; y <= bottom; y++) for (let x = left; x <= right; x++) {
-          if ((axis === 'x' ? x : y) === middle) assert.falsy(p.background.has(y * N + x), 'cross-cut stays open');
-        }
+  test('strip mine: stone fills every second round ring about the site centre', () => {
+    for (const [w, h] of [[32, 9], [9, 32], [20, 20], [21, 13]]) {
+      const cells = rect(w, h), p = plan('quarry-strip-mine', cells);
+      const [m] = p.landmarks;
+      assert.eq(p.landmarks.length, 1);
+      assert.eq(m.kind, 'centre_rings');
+      assert.eq(m.bounds.join(), [4, 4, 4 + w - 1, 4 + h - 1].join());
+      for (const i of cells) {
+        const x = i % N, y = Math.floor(i / N);
+        const ring = Math.round(Math.hypot(x - (7 + w) / 2, y - (7 + h) / 2));
+        const material = p.background.get(i);
+        if (material === 'crystal') assert.eq(ring % 2, 0, 'sapphire seams sit on cut rings');
+        else assert.eq(material === 'stone', ring % 2 === 0, `${w}x${h} cell ${x},${y} ring ${ring}`);
       }
+      assert.inRange(p.background.size / cells.length, .4, .6, 'about half the site is stone');
       assert.eq(p.finds.length, 0, 'buried finds roll beneath actual stones after layout placement');
+    }
+    assert.eq(plan('quarry-strip-mine', rect(2, 30)).landmarks.length, 0, 'a two-cell sliver cannot read as rings');
+  });
+  test('abandoned quarry: stone fills every second square ring stepping in from the site corners', () => {
+    for (const [w, h] of [[32, 9], [9, 32], [20, 20], [21, 13]]) {
+      const cells = rect(w, h), p = plan('quarry-abandoned', cells);
+      const rings = p.landmarks.filter(m => m.kind === 'corner_rings');
+      assert.eq(rings.length, 1);
+      assert.eq(rings[0].bounds.join(), [4, 4, 4 + w - 1, 4 + h - 1].join());
+      for (const i of cells) {
+        const x = i % N, y = Math.floor(i / N), material = p.background.get(i);
+        const ring = Math.min(Math.max(x - 4, y - 4), Math.max(w + 3 - x, y - 4),
+          Math.max(x - 4, h + 3 - y), Math.max(w + 3 - x, h + 3 - y));
+        if (material === 'copper_rock' || material === 'quarry_barrel') continue; // patch finds seat first
+        assert.eq(material === 'stone', ring % 2 === 0, `${w}x${h} cell ${x},${y} ring ${ring}`);
+      }
+      for (const [x, y] of [[4, 4], [w + 3, 4], [4, h + 3], [w + 3, h + 3]]) assert.truthy(p.background.has(y * N + x), 'every corner is filled');
+      assert.inRange(p.background.size / cells.length, .4, .6, 'about half the site is filled');
+    }
+  });
+  test('strip mine and abandoned quarry: stone is the cube block', () => {
+    for (const zoneVariant of ['quarry-strip-mine', 'quarry-abandoned']) {
+      const o = { kind: 'mineralrock', id: 'cube', yieldTier: 1, requiredTier: 1, zoneVariant };
+      assert.truthy(mineralRockUsesZoneArt(o));
+      assert.eq(mineralRockArtFrame(o), 60, 'the squared grey block in rock_variants');
+      assert.eq(mineralRockArtFrame({ ...o, sightBlocking: true }), 60);
     }
   });
   test('quarry layout: intact patches and surviving foundation walls respect irregular footprints', () => {
@@ -182,7 +210,10 @@
     for (const id of ['quarry-abandoned', 'quarry-strip-mine', 'quarry-stronghold']) {
       const p = plan(id, cells);
       assert.truthy(p.landmarks.length > 0);
-      for (const m of p.landmarks) {
+      for (const i of p.background.keys()) assert.truthy(covered.has(i));
+      if (id === 'quarry-strip-mine') continue;
+      if (id === 'quarry-abandoned') assert.eq(p.landmarks.filter(m => m.kind === 'corner_rings').length, 1);
+      for (const m of p.landmarks.filter(m => m.kind !== 'corner_rings')) {
         assert.truthy(m.size >= 3 && m.size <= 8);
         if (id === 'quarry-stronghold') assert.eq(m.size, 5);
         const [left, top, right, bottom] = m.bounds;
@@ -214,7 +245,7 @@
     const strip = plan('quarry-strip-mine', cells);
     assert.eq(strip.finds.length, 0, 'strip mine treasure is per rock, not a finite site budget');
     const stronghold = plan('quarry-stronghold', cells);
-    assert.eq(stronghold.finds.length, 3);
+    assert.eq(stronghold.finds.length, 1, 'one T2 chest per ruined stronghold, however many rooms');
     for (const id of ['quarry-abandoned', 'quarry-stronghold', 'quarry-crater', 'quarry-strip-mine']) {
       const observer = plan(id, cells, false);
       assert.eq(observer.finds.length, 0);

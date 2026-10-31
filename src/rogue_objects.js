@@ -39,6 +39,7 @@ const RogueObjects = (() => {
   // keeps its plum canopy and conifers remain cooler than the olive hedge.
   // Explicit source colours leave transparency, shadows and shape untouched.
   const streetPalettes = Object.freeze({
+    hanging_lantern: Object.freeze({ 0x262222:0x463429 }),
     mossy_tree: Object.freeze({
       0x314a14:0x4c4d2b, 0x42631b:0x66663d, 0x42631a:0x66663d,
       0x557827:0x7f7f46, 0x527b20:0x7f7f46, 0x719828:0x99994c,
@@ -72,6 +73,12 @@ const RogueObjects = (() => {
     for (let i=0; i<data.length; i+=4) {
       // Soft source shadows are not foliage or bark, and retain their ink.
       if (data[i+3] !== 255) continue;
+      // Let the wooden post meet the ground without a dark contact underline.
+      // The lantern and side outlines keep their source ink.
+      if (name === 'hanging_lantern') {
+        const { fw, maxY } = STREET_DECORATION_ART[name].bounds;
+        if (Math.floor(i / 4 / fw) !== maxY - 1) continue;
+      }
       const value=palette[(data[i]<<16)|(data[i+1]<<8)|data[i+2]];
       if (value == null) continue;
       data[i]=value>>>16; data[i+1]=(value>>>8)&255; data[i+2]=value&255;
@@ -103,11 +110,10 @@ const RogueObjects = (() => {
     }
   }
   function streetSpec(o, original) {
-    if (typeof STREET_DECORATION_ART === 'undefined' || ['_streetlamp','roadsign'].includes(o.kind)) return null;
-    const brokenStack = o._smashed && o.barrelStyle === 'street_decor_pottery_stack';
-    const name = brokenStack ? 'pottery_stack_broken' : o._streetArt || (o.kind === 'tree' ? o._objectArt : null);
+    if (typeof STREET_DECORATION_ART === 'undefined' || o.kind === '_streetlamp') return null;
+    const name = o._streetArt || (o.kind === 'tree' ? o._objectArt : null);
     const row = STREET_DECORATION_ART[name];
-    if (!row || (o._smashed && !brokenStack)) return null;
+    if (!row || o._smashed) return null;
     const tree = o.kind === 'tree';
     const stage = tree ? treeArtFrame(o) : 3;
     const scale = row.scale * (tree ? (stage === 1 ? .42 : stage === 2 ? .7 : 1) : 1);
@@ -184,9 +190,14 @@ const RogueObjects = (() => {
       if (sheets[key]) sheets[key] = {...sheet};
     }
   }
+  // Zones whose plain stone keeps its themed rock_variants block
+  // (ZONE_ROCK_THEMES) instead of the shared Rogue stone: the quarries' cut
+  // cubes.
+  const ZONE_ROCK_ART = new Set(['quarry-strip-mine', 'quarry-abandoned']);
   function spec(o,scene,original) {
     const street = streetSpec(o, original);
     if (street) return street;
+    if (o.kind === 'mineralrock' && ZONE_ROCK_ART.has(o.zoneVariant) && mineralRockUsesZoneArt(o)) return original;
     if (o.kind === 'mineralrock' && mineralRockMaterial(o) !== 'plain') {
       return {...original, key:'rogue_minerals', frame:Object.keys(mineralColors).indexOf(mineralRockMaterial(o)),
         scale:o.sightBlocking ? 2.4 : 1.6, origin:[.5,.5], seat:true,
@@ -226,6 +237,9 @@ const RogueObjects = (() => {
       // Keep growth legible. Full trees use the reference's broad canopy;
       // smaller living stages retain their data and scale the native artwork.
       const stage=treeArtFrame(o); scale=stage===1 ? .35 : stage===2 ? .6 : .85;
+      // A bare snag has no canopy to fill the cell, so at the full-tree scale
+      // it read oversized beside living trees.
+      if (o._objectArt==='dead_tree') scale*=.75;
     }
     if (!key) return original;
     return {...original,key:'rogue_'+key,frame:'__BASE',scale,origin:[.5,.5],seat:true,
@@ -238,7 +252,7 @@ const RogueObjects = (() => {
     }
     return {enabled,textures};
   }
-  return {enabled,install,installIcons,spec,status,streetPalette,recolorStreetPixels,bakeStreetPalette};
+  return {enabled,ZONE_ROCK_ART,install,installIcons,spec,status,streetPalette,recolorStreetPixels,bakeStreetPalette};
 })();
 if(typeof ASSETS!=='undefined') RogueObjects.install(ASSETS);
 if(typeof window!=='undefined') window.RogueObjects=RogueObjects;

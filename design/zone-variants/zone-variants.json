@@ -7951,17 +7951,9 @@
           {
             "id": "0",
             "material": "treasure_chest_t2"
-          },
-          {
-            "id": "1",
-            "material": "treasure_chest_t2"
-          },
-          {
-            "id": "2",
-            "material": "treasure_chest_t2"
           }
         ],
-        "count": 3
+        "count": 1
       },
       "connection": {
         "shape": "none"
@@ -7969,7 +7961,7 @@
       "guards": {
         "mode": "none"
       },
-      "atmosphere": "Ruined foundations shelter chests and scattered clay pots. Whoever held these walls is long gone.",
+      "atmosphere": "Ruined foundations shelter a chest, clay pots and the odd barrel. Whoever held these walls is long gone.",
       "quarryLayout": "stronghold",
       "affinities": [
         "ruined"
@@ -8460,6 +8452,7 @@
       "barrel": 0.004
     },
     "craterPoolSizeCells": 5,
-    "foundationPotChance": 0.5
+    "foundationPotChance": 0.5,
+    "foundationBarrelChance": 0.3
   }
 }

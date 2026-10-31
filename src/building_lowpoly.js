@@ -29,7 +29,9 @@
   // restoredRoles lists the RESTORED_ROLES whose look is live; null makes all of them live.
   const LOOK={heightScale:1,inkPx:1,wallThickness:2.8,ink:0x2a2229,textured:true,facade:'cel',facadeVariant:'A',restoredRoles:['relic'],eaveBand:4.5,eaveShade:.5,flatRim:1.75,flatShade:4.5,sheet:768,
     chimney:{radius:4.4,cap:5.8,mouth:3.4,above:6.5,rise:3.5,capHeight:1.1,sides:0xd9c9b8,capColor:0x9c8f84,mouthColor:0x2a2229},
-    wreck:{tint:0xb3a89e,roofTint:0xc5c2bc,debris:0x8f857a,beam:0x7d8b95,top:0xaa9b88,highlight:0xc2b29a,shadow:0x8c7d6b,mortar:0xaa9b88,ink:0x000000}};
+    wreck:{tint:0xb3a89e,roofTint:0xc5c2bc,debris:0x8f857a,beam:0x7d8b95,top:0xaa9b88,highlight:0xc2b29a,shadow:0x8c7d6b,mortar:0xaa9b88,cap:0xd6d6d6,ink:0x000000}};
+  // wreck.cap tints the pale speckled caps of walls and fallen blocks a touch
+  // below the lit wall faces; study-sheet wrecks keep their native caps.
   // The light of a wreck's inner wall faces and rubble floor: the middle cel step.
   const WRECK_INSIDE_LIGHT=.7;
   const WRECK_BORDER={color:0x413b32,alpha:.72,width:5,period:64,maskX:400,maskY:136};
@@ -359,19 +361,31 @@
     // original edge parameter and UVs on both sides, including entrance bays.
     const outer=typeof BuildingStyles!=='undefined'?BuildingStyles.inset(ring,-thickness):null;
     const shell=outer||ring;
+    // Outward is the ring's right-hand side when its signed area is positive
+    // (clockwise on screen, y down), else its left.
+    const winding=Math.sign(ring.reduce((s,p,i)=>{const q=ring[(i+1)%ring.length];return s+p.x*q.y-q.x*p.y;},0))||1;
     for(const f of base.faces){
       if(f.kind!=='wall'||f.chimney)continue;
       const poly=cutZ(f.points,H),edge=edgeOf(f.points),a=ring[edge],b=ring[(edge+1)%ring.length];
-      const dx=b.x-a.x,dy=b.y-a.y,len2=dx*dx+dy*dy||1;
-      const move=p=>{const t=((p.x-a.x)*dx+(p.y-a.y)*dy)/len2;
-        return {...p,x:shell[edge].x+(shell[(edge+1)%ring.length].x-shell[edge].x)*t,
-          y:shell[edge].y+(shell[(edge+1)%ring.length].y-shell[edge].y)*t};};
+      const dx=b.x-a.x,dy=b.y-a.y,len2=dx*dx+dy*dy||1,len=Math.sqrt(len2);
+      // A face standing clear of its wall — the skin's door overlay, 0.2 out
+      // so it never z-fights the facade (authoredOutline) — keeps that
+      // clearance on both copies: the outer stands as far beyond the thick
+      // wall's outer line, the inner as far into the room. Flattened onto
+      // the wall line, the door flickered in place whenever the player saw
+      // it from inside (owner, Oct 2026).
+      const nx=dy/len*winding,ny=-dx/len*winding;
+      const clear=p=>(p.x-a.x)*nx+(p.y-a.y)*ny;
+      const move=p=>{const t=((p.x-a.x)*dx+(p.y-a.y)*dy)/len2,c=clear(p);
+        return {...p,x:shell[edge].x+(shell[(edge+1)%ring.length].x-shell[edge].x)*t+nx*c,
+          y:shell[edge].y+(shell[(edge+1)%ring.length].y-shell[edge].y)*t+ny*c};};
+      const mirror=p=>{const c=clear(p);return c?{...p,x:p.x-2*nx*c,y:p.y-2*ny*c}:p;};
       for(let i=1;i<poly.length-1;i++){
         const tri=[poly[0],poly[i],poly[i+1]];
-        const along=p=>((p.x-a.x)*dx+(p.y-a.y)*dy)/Math.sqrt(len2);
+        const along=p=>((p.x-a.x)*dx+(p.y-a.y)*dy)/len;
         if(Math.abs((along(tri[1])-along(tri[0]))*(tri[2].z-tri[0].z)-(along(tri[2])-along(tri[0]))*(tri[1].z-tri[0].z))<1e-8)continue;
         faces.push({...f,points:tri.map(move),edge});
-        faces.push({...f,points:[...tri].reverse(),interior:true,edge,wallDirection:{x:-dx,y:-dy}});
+        faces.push({...f,points:[...tri].reverse().map(mirror),interior:true,edge,wallDirection:{x:-dx,y:-dy}});
       }
     }
     const skinWall=base.authored?base.faces.find(f=>f.kind==='wall'&&f.fallbackUV):null;
@@ -1923,7 +1937,7 @@
       }
       const roofTone=face.tileCap&&texture.roofTone!=null?mix(texture.roofTone,0x2a2229,.12):recipe.roof;
       if(face.footprintBorder)face.color=WRECK_BORDER.color;else if(face.castShadow)face.color=0x9b9eaa;else if(face.debris||(face.interior||face.wreckMasonry)&&recipe.shape==='wreck')face.color=0xffffff;else if(face.rim)face.color=mix(roofTone,0xf3e6c8,.5);else if(face.rimShade)face.color=mix(roofTone,0x2a2229,.22);else if(face.solid)face.color=roofTone;
-      else if(face.wallTop)face.color=face.rawUV?0xffffff:recipe.shape==='wreck'?wreckLook(recipe).mortar:0xffffff;
+      else if(face.wallTop)face.color=recipe.shape!=='wreck'?0xffffff:face.rawUV?wreckLook(recipe).cap??0xffffff:wreckLook(recipe).mortar;
       else if(face.rubbleTop)face.color=recipe.shape==='wreck'?wreckLook(recipe).top:mix(recipe.body,0xf3e6c8,.35);
       else if(face.kind==='trim'&&face.color==null)face.color=recipe.trim;
       else if(recipe.shape==='wreck'&&(face.kind==='wall'||face.kind==='roof')&&!face.debris&&!face.chimney)face.color=face.kind==='roof'?wreckLook(recipe).roofTint:wreckLook(recipe).tint;

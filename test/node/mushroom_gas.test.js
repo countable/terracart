@@ -59,8 +59,8 @@
   test('mushroom gas: one outdoor puff reaches five cells and naturally dissipates within ten seconds', () => fixture(s => {
     MushroomGas.emit(s, 8, 8);
     const footprint = new Set(['8,8', '7,8', '9,8', '8,7', '8,9']);
-    const sizes = [];
-    for (let second = 0; second < 10; second++) {
+    const sizes = [], confused = [];
+    for (let second = 0; second < 13; second++) {
       for (let frame = 0; frame < 10; frame++) {
         Conditions.tick(s.save, 100);
         MushroomGas.tick(s, .1);
@@ -69,11 +69,13 @@
         }
       }
       sizes.push(MushroomGas.cells(s).length);
-      if (second === 0) assert.truthy(Conditions.active(s.save, 'confused'));
+      confused.push(Conditions.active(s.save, 'confused') ? 1 : 0);
     }
-    assert.eq(sizes.join(), '1,5,5,5,5,5,5,1,1,0');
+    assert.eq(sizes.slice(0, 10).join(), '1,5,5,5,5,5,5,1,1,0');
     assert.eq(mass(s), 0);
-    assert.falsy(Conditions.active(s.save, 'confused'), 'single-puff confusion ends within ten seconds');
+    // The last thin breath (second 9) still grants the three-second floor, so
+    // confusion outlives the cloud by at most that floor.
+    assert.eq(confused.join(), '1,1,1,1,1,1,1,1,1,1,1,1,0', 'single-puff confusion ends within the floor after the gas clears');
   }));
 
   test('gas kinds: every kind fully clears below the same threshold in a sealed room', () => fixture((s, e) => {
@@ -85,16 +87,17 @@
     for (const gas of Object.values(MushroomGas.state(s).gases)) assert.eq(gas.cells.size, 0);
   }));
 
-  test('confusion gas: dose duration scales with density up to the shared condition limit', () => fixture(s => {
+  test('confusion gas: dose duration scales with density between a three-second floor and the shared condition limit', () => fixture(s => {
     const st = MushroomGas.state(s), doses = [];
     s._applyCondition = (kind, opts) => doses.push({ kind, ...opts });
+    assert.eq(MushroomGas.KINDS.confusion.minDurationMs, 3000);
     for (const density of [.3, .15, .03, .6, 1.2, 6]) {
       st.gases.confusion.cells.clear();
       MushroomGas.emit(s, 8, 8, density);
       st.elapsedMs += MushroomGas.CONFIG.contactMs;
       MushroomGas.contact(s, st);
     }
-    assert.eq(doses.map(d => d.durationMs).join(), '5000,2500,500,10000,20000,60000');
+    assert.eq(doses.map(d => d.durationMs).join(), '5000,3000,3000,10000,20000,60000');
     assert.truthy(doses.every(d => d.kind === 'confused'));
   }));
 

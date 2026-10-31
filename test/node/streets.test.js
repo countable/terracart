@@ -142,21 +142,10 @@
     near(S.pointAtM(dup, MVT_TO_M, 0, 4).x, 10, 1e-9, 'a zero-length segment is not divided by');
   });
 
-  test('streets lamps: the verge offset is half the band plus the stone', () => {
-    // Where a lamp stands ACROSS the way. Derived from the one number that
-    // already says how wide the road is (WorldGen.roadOverlayWidthM, the
-    // width the band is stroked with), so the stone kisses the kerb rather
-    // than standing in the traffic — and a wider class seats its lamps
-    // further out by construction.
-    near(S.lampOffsetM(5.5, 2.24), 5.5 / 2 + 2.24, 1e-9, 'half the carriageway, plus the stone');
-    assert.truthy(S.lampOffsetM(12, 2.24) > S.lampOffsetM(2, 2.24), 'a motorway seats them further out than a footway');
-    assert.eq(S.lampOffsetM(0, 0), 0, 'no width and no stone is no offset');
-    // Guarded, never trusted: a class with no width guess and art that has
-    // not loaded are each a zero, not a NaN that would put the stone at the
-    // tile's corner.
-    assert.eq(S.lampOffsetM(undefined, undefined), 0, 'nothing in, nothing out');
-    assert.eq(S.lampOffsetM(NaN, 3), 3, 'a missing width leaves the stone\'s own radius');
-    assert.eq(S.lampOffsetM(-4, 0), 0, 'a negative width never pulls a lamp across the road');
+  test('streets lamps: posts clear the drawn road edge by half a metre', () => {
+    near(S.lampOffsetM(5.5), 5.5 / 2 + 0.5, 1e-9, 'the post clears the boundary');
+    assert.truthy(S.lampOffsetM(12) > S.lampOffsetM(2), 'wider roads put the boundary further out');
+    for (const width of [0, undefined, NaN, -4]) assert.eq(S.lampOffsetM(width), 0);
   });
 
   test('streets: subLineM interpolates its ends and keeps the bends', () => {

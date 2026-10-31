@@ -148,10 +148,12 @@
     save.conditions ||= {};
     if (fresh) save.conditions[id] = def.intervalMs
       ? { remainingMs: duration, nextTickMs: def.intervalMs } : { remainingMs: duration };
-    // A short hazard exposure must not shorten an existing longer condition.
-    // Keep the damage-tick phase; default applications retain their old rules.
-    else if ((explicit || id === 'confused') && def.refresh !== false) save.conditions[id].remainingMs = Math.max(save.conditions[id].remainingMs, duration);
-    else if (id !== 'burning' && def.refresh !== false) save.conditions[id].remainingMs = def.durationMs;
+    // An additional hit leaves the greater of what remains and what it
+    // inflicts: a short exposure never shortens a longer effect, and a hit
+    // on a fading one tops it back up. The damage-tick phase is kept. A
+    // `refresh: false` row (frozen) keeps its first clock; burning also grows
+    // with exposure through advanceBurn.
+    else if (def.refresh !== false) save.conditions[id].remainingMs = Math.max(save.conditions[id].remainingMs, duration);
     return fresh;
   }
   function cure(save, id) {

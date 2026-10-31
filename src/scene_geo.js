@@ -564,12 +564,13 @@ class SceneGeo {
       let deg = null;
       let absoluteThisEvent = false;
       if (e.webkitCompassHeading != null) {
-        // iOS supplies magnetic north. Negative headings and negative accuracy
-        // mean the sensor has no usable bearing; never smooth these sentinels
-        // into north or substitute relative alpha while it recalibrates.
-        if (!Number.isFinite(e.webkitCompassHeading) || e.webkitCompassHeading < 0
-            || (e.webkitCompassAccuracy != null
-              && (!Number.isFinite(e.webkitCompassAccuracy) || e.webkitCompassAccuracy < 0))) return;
+        // iOS supplies magnetic north. A negative heading means no usable
+        // bearing; never smooth that sentinel into north or substitute
+        // relative alpha. Accuracy is advisory only: iOS reports -1 for long
+        // stretches indoors and while it wants a figure-8 calibration, and
+        // dropping those headings froze the map on its last bearing.
+        this._compassRaw = { heading: e.webkitCompassHeading, accuracy: e.webkitCompassAccuracy };
+        if (!Number.isFinite(e.webkitCompassHeading) || e.webkitCompassHeading < 0) return;
         deg = e.webkitCompassHeading % 360;
         absoluteThisEvent = true;
       } else if (e.absolute && Number.isFinite(e.alpha)) {

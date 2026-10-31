@@ -41,6 +41,23 @@
     assert.includes(WORLDGEN_SRC, 'species: fruitTreeSpecies(ftHash, PEACH_ONE_IN_LONE),');
   });
 
+  test('orchard lane: rare oranges and peaches share the stable fruit selector', () => {
+    const rare = StreetVariants.VARIANT_BY_ID.orchard.rareFruitSpecies;
+    const counts = { apple: 0, orange: 0, worldpeach: 0 };
+    for (let hash = 0; hash < 10000; hash++) {
+      const species = WorldGen.fruitTreeSpecies(hash, undefined, rare);
+      counts[species]++;
+      if (WorldGen.fruitTreeSpecies(hash) === 'worldpeach') assert.eq(species, 'worldpeach', 'existing peach cells stay peaches');
+    }
+    assert.eq(counts.apple, 9600); assert.eq(counts.orange, 200); assert.eq(counts.worldpeach, 200);
+    const save = { inv: [], fruitPicked: {} };
+    const scene = makeScene({ addToInv: (id, n) => Inventory.add(save, id, n).accepted });
+    const orange = { kind: 'fruittree', id: 'orchard_orange', species: 'orange' };
+    INTERACTABLES.fruittree.custom(makeCtx(scene, save), orange);
+    assert.inRange(Inventory.count(save, 'orange'), 1, 2, 'orange trees harvest oranges');
+    assert.eq(Inventory.count(save, 'apple'), 0);
+  });
+
   test('peach rarity: a standalone sidecar fruit tree rolls its species at the lone rate by its settled cell', () => {
     const lat = 49.0, lon = -119.5;
     const gj = { features: [

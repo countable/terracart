@@ -812,7 +812,11 @@
   // save.starterPlotAt holds the TOP-LEFT cell's centre in world metres. It is
   // chosen once and re-painted at those same cells on every later rebuild of
   // the tile, so the plot can never drift out from under a player who has
-  // already tilled it.
+  // already tilled it. A plot NOBODY HAS WORKED yet is a promise, not a
+  // field: if its ground stops taking a hoe — Home's firepit seated on it,
+  // a prop a newer dressing stands there, the band of a widened road — it
+  // is chosen again rather than repainted (the arrow pointed at a plot with
+  // no soil under it; owner, Oct 2026).
   function carveStarterPlot(scene, entry, tx, ty, spawnIX, spawnIY, usedSeats) {
     const grid = entry.grid;
     if (!grid) return;
@@ -821,8 +825,8 @@
     // reload — but one already frozen keeps being repainted forever (below),
     // so a player who finishes the ladder doesn't watch their first field turn
     // back into whatever was under it.
-    if (!scene.save.starterPlotAt &&
-        (typeof Quests === 'undefined' || Quests.starterHidden(scene.save))) return;
+    const guiding = typeof Quests === 'undefined' || !Quests.starterHidden(scene.save);
+    if (!scene.save.starterPlotAt && !guiding) return;
     const f = WorldGen.tileFrame(entry, tx, ty, scene.tileEdgeM);   // THIS tile's cells (its row's grid)
     const { N } = f;
     const paint = (cx, cy) => {
@@ -831,16 +835,6 @@
       }
     };
     const inTile = (cx, cy) => cx >= 0 && cy >= 0 && cx + 1 < N && cy + 1 < N;
-
-    // Already frozen — repaint in place. The plot lives within a few cells of
-    // the anchor, so a frozen plot that doesn't land on THIS tile belongs to a
-    // neighbour and is that tile's job to paint.
-    const frozen = scene.save.starterPlotAt;
-    if (frozen && Number.isFinite(frozen.x)) {
-      const c = f.cellOf(frozen.x, frozen.y);
-      if (inTile(c.ix, c.iy)) paint(c.ix, c.iy);
-      return;
-    }
 
     // Cells a plot must never overwrite: the street, anyone's floor, open
     // water and the decking over it, and the cave layers. Everything else
@@ -854,11 +848,24 @@
     // handed to the gate with the entry's full options.
     const occupied = WorldGen.occupiedIndexSet(f, entry.objects, entry.wildplants);
     const spawnOpts = WorldGen.spawnOptsOf(entry, { occupied });
+    // Home as the SAVE has it: a placed wagon's house cells and the firepit's
+    // cell. The carve runs on a freshly built tile, before the house is
+    // stamped back into its grid and the pit re-injected, so the grid cannot
+    // show either; the footing offsets below only know the north-up default.
+    const homeCells = new Set();
+    const wagon = scene.save.starterTrailer;
+    if (wagon && !wagon.adopted && Number.isFinite(wagon.x)) {
+      const w = f.cellOf(wagon.x, wagon.y), { minCell, maxCell } = HomeArea.HOUSE;
+      for (let dy = minCell; dy <= maxCell; dy++) for (let dx = minCell; dx <= maxCell; dx++) homeCells.add((w.ix + dx) + ',' + (w.iy + dy));
+    }
+    const pit = scene.save.homeFirepit;
+    if (pit && Number.isFinite(pit.x)) { const c = f.cellOf(pit.x, pit.y); homeCells.add(c.ix + ',' + c.iy); }
 
     const usable = (cx, cy) => {
       // Home's footing (HomeArea.inFooting; see inTrailerMoat in the caller)
       // — a plot there would sit under the wagon or on the firepit.
       if (HomeArea.inFooting(cx - spawnIX, cy - spawnIY)) return false;
+      if (homeCells.has(cx + ',' + cy)) return false;
       if (usedSeats.has(cx + ',' + cy)) return false;
       // `unpaintable` is the road TERRAIN; THE SPAWN GATE (a 'minor' spawn —
       // the plot is placed scenery like the trail crates) catches the rest
@@ -871,6 +878,23 @@
     };
     const blockUsable = (cx, cy) => inTile(cx, cy) &&
       usable(cx, cy) && usable(cx + 1, cy) && usable(cx, cy + 1) && usable(cx + 1, cy + 1);
+
+    // Already frozen — repaint in place. The plot lives within a few cells of
+    // the anchor, so a frozen plot that doesn't land on THIS tile belongs to a
+    // neighbour and is that tile's job to paint. A plot the player has
+    // WORKED (tilled, planted or built on any of its cells) is theirs and is
+    // repainted whatever now stands around it; one nobody has touched is
+    // kept only while all four cells would still be chosen today, else the
+    // freeze is dropped and — while the ladder still guides — chosen again.
+    const frozen = scene.save.starterPlotAt;
+    if (frozen && Number.isFinite(frozen.x)) {
+      const c = f.cellOf(frozen.x, frozen.y);
+      if (!inTile(c.ix, c.iy)) return;
+      if (plotWorked(scene, f, c.ix, c.iy) || blockUsable(c.ix, c.iy)) { paint(c.ix, c.iy); return; }
+      scene.save.starterPlotAt = null;
+      if (typeof persistSave === 'function') persistSave(scene.save);
+      if (!guiding) return;
+    }
 
     // Nearest-first ring scan out to 8 cells, so the plot lands as close to
     // the trailer as the surroundings allow. The scan order is fixed (not
@@ -890,6 +914,43 @@
     const { x: wmx, y: wmy } = absCellCenterMeters(scene, cellIX, cellIY);
     scene.save.starterPlotAt = { x: wmx, y: wmy };
     if (typeof persistSave === 'function') persistSave(scene.save);
+  }
+  // Has the player made the 2x2 at tile cell (cx, cy) theirs: a tilled bed,
+  // a placed rock, a crop, a fruit tree, a scarecrow or a fire on any of its
+  // cells? Surface records only — the plot is surface ground.
+  function plotWorked(scene, f, cx, cy) {
+    const sv = scene.save, keys = new Set(), cells = [];
+    for (let dy = 0; dy < 2; dy++) for (let dx = 0; dx < 2; dx++) {
+      const m = f.centre(cx + dx, cy + dy), a = worldMetersToAbsCell(scene, m.x, m.y);
+      keys.add(cellKeyFromAbsCell(a.cellIX, a.cellIY));
+      cells.push({ ix: cx + dx, iy: cy + dy });
+    }
+    for (const list of [sv.tilled, sv.placedRocks, Object.keys(sv.tilledQuality || {})]) {
+      for (const k of list || []) if (keys.has(String(k))) return true;
+    }
+    const surface = (o) => typeof PlacedFloor === 'undefined' || PlacedFloor.onDepth(o, 0);
+    for (const list of [sv.planted, sv.fruittrees, sv.scarecrows, sv.fires]) {
+      for (const o of list || []) {
+        if (!o || !Number.isFinite(o.x) || !surface(o)) continue;
+        const c = f.cellOf(o.x, o.y);
+        if (cells.some(p => p.ix === c.ix && p.iy === c.iy)) return true;
+      }
+    }
+    return false;
+  }
+  // Does the world-metre point (x, y) lie on one of the frozen plot's four
+  // cells? Home's firepit keeps off them (scene_venues.js
+  // _placePendingHomeFirepit): the pit is seated after the plot, and a pit on
+  // the plot left the arrow pointing at a plot with no soil to till.
+  function onStarterPlot(scene, x, y) {
+    const plot = scene.save?.starterPlotAt;
+    if (!plot || !Number.isFinite(plot.x) || !Number.isFinite(x)) return false;
+    const a = worldMetersToAbsCell(scene, plot.x, plot.y), c = worldMetersToAbsCell(scene, x, y);
+    for (let dy = 0; dy < 2; dy++) for (let dx = 0; dx < 2; dx++) {
+      const k = absCellOffset(scene, a.cellIX, a.cellIY, dx, dy);
+      if (k.cellIX === c.cellIX && k.cellIY === c.cellIY) return true;
+    }
+    return false;
   }
 
   // ── The fishing pond ────────────────────────────────────────────────────
@@ -2230,10 +2291,10 @@
   // land), never changes terrain, reach, fog, or where the player can walk.
   // A treasure trail is a dark ink hint that begins startCells walking cells
   // out from its chest or X — [nearest, farthest], seeded per target. The
-  // drawn line ends behindCells beyond the feet: 0 keeps it from running
-  // under them (Render.drawChestTrails clips it per frame).
-  const TRAIL_STYLE = Object.freeze({ colour: 0x000000, alpha: 0.375, width: 2, dash: 6, gap: 5, bendCells: 0.28,
-    behindCells: 0, startCells: Object.freeze([8, 12]) });
+  // drawn line ends behindCells beyond the feet: -1 stops it a cell ahead of
+  // them (Render.drawChestTrails clips it per frame).
+  const TRAIL_STYLE = Object.freeze({ colour: 0x000000, alpha: 0.3375, width: 2, dash: 6, gap: 5, bendCells: 0.28,
+    behindCells: -1, startCells: Object.freeze([8, 12]) });
   const trailCellKey = c => `${c.cellIX},${c.cellIY}`;
   const TRAIL_STEPS = [[1, 0], [0, 1], [-1, 0], [0, -1]];
 
@@ -2404,6 +2465,7 @@
     revealStarterTrail,
     placeStarterRelicChest,
     carveStarterPlot,
+    onStarterPlot,
     carveStarterPond,
     paintPond,
     carveStarterPondAround,

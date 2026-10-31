@@ -583,7 +583,7 @@ const CreatureSpawnEvents = {
   headstone: { id: 'headstone_ghost', source: 'event', kind: 'ghost', frequency: { unit: 'event', count: 1 } },
   fishedSlime: { id: 'fished_slime', source: 'event', kind: 'slime', frequency: { unit: 'event', count: 1 } },
   nest: { id: 'nest_bush', source: 'event', frequency: { unit: 'event', count: 1 } },
-  hive() { return { id: 'hive_bees', source: 'event', kind: 'bee', frequency: { unit: 'event', count: WorldGen.HIVE_SPEC.bees } }; },
+  hive() { return { id: 'hive_bees', source: 'event', kind: WorldGen.HIVE_SPEC.beeKind, frequency: { unit: 'event', count: WorldGen.HIVE_SPEC.bees } }; },
   summon(ability) { return { id: 'enemy_summon_slots', source: 'event', kind: ability.kind,
     frequency: { unit: 'event', count: ability.maxMinions } }; },
 };
@@ -838,21 +838,23 @@ function spawnNestBushCreature(scene, bush, type) {
 
 // A hive's daily defenders use ordinary enemy seating and combat. Plan the
 // entire swarm first so a refused placement cannot partially spend a visit.
+// Distance 1 searches rings 1..2 — HIVE_SPEC.beeReachCells, the room
+// spawnForestHives demands before it places a hive.
 function planHiveBees(scene, hive) {
   const out = [], seats = new Set();
-  const day = utcDayKey();
+  const day = utcDayKey(), kind = WorldGen.HIVE_SPEC.beeKind;
   const count = CreatureSpawns.frequencyCount(CreatureSpawnEvents.hive().frequency, Math.random);
   for (let i = 0; i < count; i++) {
     const id = `hivebee_${hive.id}_${day}_${i}`;
     const point = walkableDestination(scene, hive.x, hive.y, 1, {
-      seed: id, kind: 'bee', cls: creatureSpawnClass('bee'),
+      seed: id, kind, cls: creatureSpawnClass(kind),
       accept(x, y) {
         return !seats.has(`${x},${y}`) && !(x === hive.x && y === hive.y);
       },
     });
     if (!point) return [];
     seats.add(`${point.x},${point.y}`);
-    out.push({ entry: point.entry, creature: EnemySpawns.markShared(WorldGen.makeCreature('bee', point.x, point.y, id,
+    out.push({ entry: point.entry, creature: EnemySpawns.markShared(WorldGen.makeCreature(kind, point.x, point.y, id,
       { shiny: false, homeX: hive.x, homeY: hive.y })) });
   }
   return out;
@@ -1550,8 +1552,9 @@ function enemySummon(scene, c, ability) {
 }
 // ── THE SPLITTING SLIME (a roster row's `ability.type === 'split'`) ───────
 // Struck, it DIVIDES: the blow's victim keeps half its remaining pool and
-// steps one cell to one side of the blow, and a twin with the other half
-// rises one cell to the other side — perpendicular to the striker first (the
+// steps to one side of the blow, and a twin with the other half rises on the
+// other side, the pair just FOE_SPACING_CELLS apart (the closest the foe
+// spacing lets two bodies stand) — perpendicular to the striker first (the
 // two flank you), along the line of the blow when a flank is blocked, and not
 // at all when neither pair of cells is open. It stops dividing once a half
 // would carry less than the row's minHp, so the total pool is CONSERVED and
@@ -1573,13 +1576,13 @@ function enemySplit(scene, c, fromX, fromY, now) {
   const hp = Combat.hp(c);
   if (hp < 2 * a.minHp) return null;
   if (now < (c._splitNextT || 0)) return null;
-  const cellM = scene.cellM;
+  const offset = FOE_SPACING_CELLS * scene.cellM / 2;
   const base = Math.atan2(c.y - fromY, c.x - fromX);
   let seats = null;
   for (const angles of [[base + Math.PI / 2, base - Math.PI / 2], [base, base + Math.PI]]) {
     const pair = [];
     for (const ang of angles) {
-      const x = c.x + Math.cos(ang) * cellM, y = c.y + Math.sin(ang) * cellM;
+      const x = c.x + Math.cos(ang) * offset, y = c.y + Math.sin(ang) * offset;
       if (!enemyCanStep(scene, c, row, x, y)) break;
       pair.push({ x, y });
     }

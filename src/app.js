@@ -154,25 +154,6 @@ const STREET_SHINE_ALPHA = 0;
 const GATHER_SPREAD_POINTS = 6;
 // Restored streets use native Rogue lamp sprites. Site geometry and light
 // anchors live in RoadOverlay; restoration and visit brightness stay in Streets.
-// THE SITE'S FOOTPRINT. RoadOverlay.LAMP_DARK_CELLS is the width the old
-// cobble stone drew at, and it is still what RoadOverlay.LAMP_SITE_R_CELLS
-// (the verge offset every lamp is placed by, and the cells rasterization
-// reserves) is derived from — so every lamp stands exactly where it always
-// has. It sizes no art any more; it is kept as a placement constant only.
-const STREET_LAMP_DARK_CELLS = RoadOverlay.LAMP_DARK_CELLS;
-// THE LAMP STANDS ON THE VERGE, and this is the art's own footprint radius in
-// cells — what _streetLampsForTile adds to half the carriageway
-// (Streets.lampOffsetM) so the art just touches the band's edge instead of
-// standing in the traffic. It is the WIDEST of the two arts one lamp can
-// wear, because either of them may be the one showing: the baked lamp's
-// plinth (RoadOverlay.LAMP_FOOT_R_CELLS) and the dark cobble a lamp draws
-// before it lights (STREET_LAMP_DARK_CELLS, a full width, so half it).
-// Deriving it from the sizes the draw pass actually uses is what keeps a lamp
-// touching the kerb when either art is resized.
-const STREET_LAMP_R_CELLS = Math.max(
-  ((typeof RoadOverlay !== 'undefined' && RoadOverlay.LAMP_FOOT_R_CELLS) || 0.204),
-  STREET_LAMP_DARK_CELLS.road / 2,
-  STREET_LAMP_DARK_CELLS.path / 2);
 // How faint the DWELL PREVIEW gets at its fullest — the ghost of the clean
 // carriageway creeping in under the player while the dwell runs. It was well
 // under half (0.55), because the preview is a promise, not the thing: at the
@@ -2205,10 +2186,7 @@ class MapScene extends Phaser.Scene {
       this._zoneStoryHere = null;
     }
     // THE STORY: which street is this?
-    const code = entry.streetMarks ? entry.streetMarks[i] : 0;
-    const onMajorRoad = entry.roadClass && (entry.roadClass[i] & WorldGen.ROAD_CLASS_MAJOR_BAND);
-    const row = onMajorRoad ? StreetVariants.roadStoryAt(entry, lix, liy)
-      : code ? StreetVariants.variantByCode(code) : null;
+    const row = StreetVariants.streetStoryAt(entry, lix, liy);
     if (!row) { this._streetStoryHere = null; return; }
     if (row.story === this._streetStoryHere) return;
     this._streetStoryHere = row.story;
@@ -4009,6 +3987,7 @@ class MapScene extends Phaser.Scene {
     this._combatTick(dt);
     this._tickBlightAura();
     this._tickFrostAura();
+    this._tickCometAura();
     this._tickMoonbeam();
     Companions.tickAll(this);
     tickGroundCoins(this);
@@ -4847,8 +4826,8 @@ class MapScene extends Phaser.Scene {
         // ONLY A CASTLE YOU HAVE TAKEN BACK FIGHTS FOR YOU. A turret is stamped
         // with its castle's footprint key (worldgen), and this is the SAME
         // isClaimedKey test the tower's own art and its light already read: an
-        // unclaimed castle draws in the shaded 'tower_unclaimed' palette
-        // (render.js RENDER_SPEC.tower) and contributes no light
+        // unclaimed castle draws with weathered geometry materials
+        // (CastleStyles.renderStyle) and contributes no light
         // (lighting.js sourceKind), so a ruin that looked dead and dark was
         // nonetheless shooting arrows at everything that walked past it. A
         // turret with no castle at all (`o.castle` null) reads unclaimed to
@@ -6078,7 +6057,9 @@ class MapScene extends Phaser.Scene {
   // land on the fix; collapsed it is 0, because a body lying down has its
   // midsection where its feet were (see PLAYER_DOWNED_ROTATION).
   playerBodyDy() {
-    return Combat.playerDowned(this.save.energy) || this._playerSubmerged ? 0
+    if (Combat.playerDowned(this.save.energy)) return 0;
+    if (this._quicksandPose) return this._quicksandPose.dy;
+    return this._playerSubmerged ? 0
       : this.playerFeetNudgeY - Math.max(this._obstacleStep?.liftPx || 0,
         Conditions.flying(this.save) ? CONSUMABLE_SPEC.flight_potion.liftPx : 0);
   }
@@ -6089,8 +6070,8 @@ class MapScene extends Phaser.Scene {
     return Combat.playerDowned(this.save.energy) ? PLAYER_DOWNED_ROTATION : (this._obstacleLean || 0);
   }
 
-  // The waterline follows the body, not the camera. Only liquid sinks the
-  // body: long grass and hedges leave it standing (ObstacleStep's `covered`
+  // The waterline follows the body, not the camera. Liquid and quicksand sink
+  // the body: long grass and hedges leave it standing (ObstacleStep's `covered`
   // is foliage, not a waterline). Crop in frame coordinates
   // so walking directions and heading-up counterrotation keep the upper half.
   // This is a pose only: movement, reach and world sorting keep the same feet.
@@ -6113,12 +6094,27 @@ class MapScene extends Phaser.Scene {
           || (tar && (!fire || GroundFire.active(fire, Date.now())));
       }
     }
-    this._playerSubmerged = submerged;
+    const sand = this._quicksand;
+    const sinking = !airborne && !Combat.playerDowned(this.save.energy)
+      && !(this._obstacleStep?.liftPx > 0)
+      && sand?.amount > 0 && sand.depth === this.depth && this.startWorldM && this.playerM
+      && EnvironmentHazards.quicksandAt(this, this.cellAt(playerWorldM(this).x, playerWorldM(this).y));
+    this._quicksandPose = null;
+    if (sinking && this.player) {
+      const frame = this.player.frame;
+      // Four source rows retain the hat tip even in the lowest walking frame.
+      const ratio = Math.min(.5, EnvironmentHazards.CONFIG.quicksand.hatPixels / frame.realHeight);
+      const height = frame.realHeight * (1 - sand.amount * (1 - ratio));
+      const scaledHeight = this.player.displayHeight || frame.realHeight * (this.player.scaleY || 1);
+      this._quicksandPose = { height, dy: this.playerFeetNudgeY
+        + sand.amount * (scaledHeight * (.5 - ratio) - this.playerFeetNudgeY) };
+    }
+    this._playerSubmerged = submerged || !!this._quicksandPose;
     if (typeof Weather !== 'undefined') Weather.waterContact(this, weatherWater);
     if (!this.player) return;
-    if (submerged) {
+    if (submerged || this._quicksandPose) {
       const frame = this.player.frame;
-      this.player.setCrop(0, 0, frame.realWidth, frame.realHeight / 2);
+      this.player.setCrop(0, 0, frame.realWidth, this._quicksandPose?.height ?? frame.realHeight / 2);
     } else if (this.player.isCropped) this.player.setCrop();
   }
 
@@ -7414,12 +7410,31 @@ class MapScene extends Phaser.Scene {
   // share walking pace, so distant GPS targets cannot overpower the effect.
   _confusedStep(dt, capMS, intent = null) {
     if (!(dt > 0) || Combat.playerDowned(this.save.energy)) return;
-    if (this._busyWheel?.()) { this._playDirected(this.player, 'idle'); return; }
-    if (!this._confusedLoop) this._confusedLoop = {
-      angle: Math.random() * Math.PI * 2,
-      turn: (Math.random() < 0.5 ? -1 : 1) * Conditions.DEFINITIONS.confused.turnRadS,
-      compassBefore: { deg: this.compassDeg ?? null, facing: { ...this.facing }, mapRot: this.mapRot },
-    };
+    const wheel = this._busyWheel?.();   // a catch does not root you (_followStep)
+    if (wheel && !wheel.flee) { this._playDirected(this.player, 'idle'); return; }
+    // The compass heading a facing angle reads as: atan2(fx, -fy) of (cos a, sin a).
+    const shownDeg = (a) => (Math.atan2(Math.cos(a), -Math.sin(a)) * 180 / Math.PI + 360) % 360;
+    if (!this._confusedLoop) {
+      // NO JUMP AT ONSET (owner, Oct 2026): the spin starts from the TRUE
+      // direction — the way the body faces, else the device heading, else
+      // the way to the follow target — and the shown compass starts at its
+      // real reading, each drifting from there at turnRadS. A random start
+      // swung the body and the heading-up map round in a single frame.
+      const f = this.facing, deg = this.compassDeg;
+      const toward = !this._followPaused && this._targetM
+        ? { x: this._targetM.x - this.playerM.x, y: this._targetM.y - this.playerM.y } : null;
+      const angle = f && (f.x || f.y) ? Math.atan2(f.y, f.x)
+        : Number.isFinite(deg) ? Math.atan2(-Math.cos(deg * Math.PI / 180), Math.sin(deg * Math.PI / 180))
+        : toward && (toward.x || toward.y) ? Math.atan2(toward.y, toward.x) : 0;
+      this._confusedLoop = {
+        angle,
+        turn: (Math.random() < 0.5 ? -1 : 1) * Conditions.DEFINITIONS.confused.turnRadS,
+        // The real reading's lead over the facing's own heading, kept for the
+        // whole spin so the compass drifts from where it truly pointed.
+        compassOffset: Number.isFinite(deg) ? ((deg - shownDeg(angle)) % 360 + 540) % 360 - 180 : 0,
+        compassBefore: { deg: this.compassDeg ?? null, facing: { ...this.facing }, mapRot: this.mapRot },
+      };
+    }
     const loop = this._confusedLoop;
     const takeover = Conditions.confusionSteering(this.save);
     const manual = intent && (intent.x || intent.y);
@@ -7453,7 +7468,7 @@ class MapScene extends Phaser.Scene {
       }
     }
     this.facing = { x: Math.cos(loop.angle), y: Math.sin(loop.angle) };
-    this.compassDeg = (Math.atan2(this.facing.x, -this.facing.y) * 180 / Math.PI + 360) % 360;
+    this.compassDeg = ((shownDeg(loop.angle) + (loop.compassOffset || 0)) % 360 + 360) % 360;
     this._playDirected(this.player, 'walk', this.facing.x, this.facing.y);
   }
 
@@ -7485,8 +7500,10 @@ class MapScene extends Phaser.Scene {
     // A wheel is running (auto-mine, or a manual chop/mine the player tapped):
     // hold position until it resolves so the body doesn't wander off its work.
     // An AUTO-engaged sword fight is exempt — you didn't ask for it, so it must
-    // not root you to the spot (see _busyWheel).
-    if (this._busyWheel()) { this._playDirected(this.player, 'idle'); return; }
+    // not root you to the spot (see _busyWheel). So is a CATCH (`flee`): its
+    // creature bolts for the edge of your reach, and you may walk after it.
+    const wheel = this._busyWheel();
+    if (wheel && !wheel.flee) { this._playDirected(this.player, 'idle'); return; }
     // Paused after a tap-interrupt — wait for the next steer (GPS/keyboard).
     if (this._followPaused) { this._playDirected(this.player, 'idle'); return; }
     // Steering? Then the walk animation follows the STICK, not the step vector
@@ -7885,13 +7902,10 @@ class MapScene extends Phaser.Scene {
     // fix.
     const underRoad = !!(loaded && entry.roadMask
       && entry.roadMask[iy * N + ix]);
-    // A street lamp's footing (surface only — caves have no streets).
-    const underLamp = !!(loaded && (this.depth ?? 0) === 0 && typeof RoadOverlay !== 'undefined'
-      && RoadOverlay.lampCellsFor(tx, ty, entry).has(iy * N + ix));
     // cellIX / cellIY: the same cell as an ABSOLUTE key (coords.js encoding) —
     // what dug-wall keys and _popEnergy take. Never tx * N + ix by hand.
     const abs = tileCellToAbs(this, tx, ty, ix, iy);
-    return { tx, ty, ix, iy, cellIX: abs.cellIX, cellIY: abs.cellIY, loaded, underRoad, underLamp,
+    return { tx, ty, ix, iy, cellIX: abs.cellIX, cellIY: abs.cellIY, loaded, underRoad,
       type: loaded ? entry.grid[iy * N + ix] : 0 };
   }
 

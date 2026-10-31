@@ -113,9 +113,9 @@
       for (const [k, e] of prior) WorldGen.tileCache.set(k, e);
     }
   });
-  test('chest trails: the dashed line uses half-opacity ink', () => {
+  test('chest trails: the dashed line uses faint ink', () => {
     assert.eq(Starter.TRAIL_STYLE.colour, 0x000000);
-    assert.eq(Starter.TRAIL_STYLE.alpha, 0.375);
+    assert.eq(Starter.TRAIL_STYLE.alpha, 0.3375);
   });
   test('chest trails: treasure trails follow the player away from Home', () => {
     const prior = [...WorldGen.tileCache];

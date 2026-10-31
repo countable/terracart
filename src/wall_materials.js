@@ -1,7 +1,7 @@
 // Shared cel-pixel wall sheet and retained world-space triangles.
 (function (global) {
   'use strict';
-  const KEY = 'wall-materials-cel-v7', SIZE = 512, TILE = 128, PAD = 2;
+  const KEY = 'wall-materials-cel-v8', SIZE = 512, TILE = 128, PAD = 2;
   const WHITE = { u: 500 / SIZE, v: 500 / SIZE };
   // Square sixth-cell posts; alternate logs are 10% taller with equal carved tips.
   const WOOD = Object.freeze({ height: 14, tipHeight: 8.5, thickness: 32 / 6, width: 32 / 6, pitch: 32 / 6, shadeHeight: 11.25, staggerScale: 1.1, lowerTint: 0xe4e4e4 });
@@ -26,6 +26,37 @@
       ? parseInt(rogueHedge['#' + colors[material].toString(16)].slice(1), 16) : colors[material];
   };
   const hash = (x, y) => hash2U01(x, y, 173, 97);
+  // Clipped hedge faces are a leaf-clump mottle in the approved clipped-hedge
+  // ramp (flora-zone_hedge_single), the side one step darker; the Dreamland
+  // ramp keeps the former greens. The approved strip the slots used to tile
+  // carried its sawtooth divider into every repeat and read as stripes.
+  const LEAF = Object.freeze({
+    texel: 2, pitch: 4,
+    // One clump on the texel grid: 1 body, 2 lit cap (upper left), 3 shaded underside.
+    clump: ['.222.', '21113', '11133', '.333.'],
+    ramps: {
+      hedgeTop: ['#35633a', '#3f7035', '#4f813b', '#629347'], hedgeSide: ['#294d30', '#35633a', '#3f7035', '#4f813b'],
+      rogueTop: ['#66663a', '#7f7f42', '#999946', '#b2b23f'], rogueSide: ['#4c5132', '#66663a', '#7f7f42', '#999946']
+    }
+  });
+  // Clumps sit on a jittered lattice, painted top to bottom so lower clumps
+  // overlap the ones behind, and wrap at the slot edges so the world-keyed
+  // repeat (HEDGE.repeat) tiles without a seam.
+  function paintLeafClumps(g, n, side, rogue) {
+    const ramp = LEAF.ramps[(rogue ? 'rogue' : 'hedge') + (side ? 'Side' : 'Top')], cells = Math.floor(n / LEAF.texel), salt = side ? 11 : 0;
+    const texel = (x, y, color) => { g.fillStyle = color; g.fillRect(((x % cells) + cells) % cells * LEAF.texel, ((y % cells) + cells) % cells * LEAF.texel, LEAF.texel, LEAF.texel); };
+    g.fillStyle = ramp[2]; g.fillRect(0, 0, n, n);
+    const clumps = [];
+    for (let gy = 0; gy < cells; gy += LEAF.pitch) for (let gx = 0; gx < cells; gx += LEAF.pitch) {
+      const v = hash2U01(gx, gy, 173, 97, salt), w = hash2U01(gy, gx, 173, 97, salt + 1);
+      clumps.push({ x: gx + Math.floor(v * LEAF.pitch), y: gy + Math.floor(w * LEAF.pitch), tier: v > .62 ? 3 : w < .22 ? 1 : 2 });
+    }
+    clumps.sort((a, b) => a.y - b.y || a.x - b.x);
+    for (const c of clumps) LEAF.clump.forEach((row, r) => [...row].forEach((ch, k) => {
+      if (ch === '.') return;
+      texel(c.x + k, c.y + r, ramp[ch === '1' ? c.tier : ch === '2' ? Math.min(3, c.tier + 1) : Math.max(0, c.tier - 1)]);
+    }));
+  }
   function postHeight(index = 0) {
     const total = WOOD.height + WOOD.tipHeight;
     return (Math.trunc(index) & 1) ? total * WOOD.staggerScale - WOOD.tipHeight : WOOD.height;
@@ -37,9 +68,7 @@
   function prepare(scene) {
     if (!scene.textures?.createCanvas || !scene.textures?.exists) return null;
     const rogue = rogueEnabled();
-    const hedge = scene.textures.exists('street_decor_hedge_strip')
-      ? scene.textures.get('street_decor_hedge_strip').getSourceImage() : null;
-    const key = KEY + (rogue ? '-rogue' : '') + (hedge ? '-bushy' : '-pending');
+    const key = KEY + (rogue ? '-rogue' : '');
     if (scene.textures.exists(key)) return scene.textures.get(key);
     const texture = scene.textures.createCanvas(key, SIZE, SIZE), g = texture.getContext();
     for (const name of Object.keys(slots)) {
@@ -51,18 +80,7 @@
       };
       fill('#' + colors[name].toString(16).padStart(6, '0'), 0, 0, n, n);
       if (name.startsWith('hedge')) {
-        // The approved bushy strip supplies leaf clusters to the existing
-        // connected mesh. Crop its opaque interior so repeated crowns have
-        // neither a black outline nor a grass fringe at every texture seam.
-        g.fillStyle = '#' + materialColor(name).toString(16).padStart(6,'0');
-        g.fillRect(0,0,n,n);
-        if (hedge) {
-          g.imageSmoothingEnabled = false;
-          const sourceY = name === 'hedgeTop' ? 2 : 5;
-          const sourceH = name === 'hedgeTop' ? 7 : 9;
-          for (let y=0; y<n; y+=sourceH*2) for (let x=0; x<n; x+=124)
-            g.drawImage(hedge,1,sourceY,62,sourceH,x,y,124,sourceH*2);
-        }
+        paintLeafClumps(g, n, name === 'hedgeSide', rogue);
       } else if (name.startsWith('vine')) {
         // The former hedge's procedural leaves now belong to creeping vines.
         const side = name === 'vineSide';

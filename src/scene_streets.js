@@ -305,17 +305,9 @@ class SceneStreets {
   // code the grid was painted with), which is what picks its unlit stone's
   // frame: the old cobble sheet drew a different cluster per road tier.
   //
-  // AND IT STANDS ON THE VERGE, not on the centreline. `lampsAlong` says how
-  // far along the way each stone is; how far OFF it is Streets.lampOffsetM —
-  // half the way's own drawn width (WorldGen.roadOverlayWidthM, the number
-  // the band is stroked with) plus the stone's own radius
-  // (STREET_LAMP_R_CELLS x this tile's metres per cell), so the art just
-  // touches the band's edge. The cell size is the TILE's own
-  // (tileEdgeM / cellsPerEdge, the basis its geometry is in) rather than the
-  // scene's global CELL_M, for the same reason rasterizeTile uses it.
-  // One point comes out of it, and BOTH readers take that point: the sprite
-  // the world pass seats and the light Lighting.collectLamps stamps, so the
-  // glow can never be left behind on the tarmac.
+  // Lamps follow the vector road boundary, without snapping to or reserving
+  // a grid cell. The sprite and Lighting.collectLamps read the same continuous
+  // ground point, so their anchors remain together through camera movement.
   _streetLampsForTile(tx, ty, entry) {
     if (entry._streetLamps) return entry._streetLamps;
     // Never cache a loading tile's empty list.

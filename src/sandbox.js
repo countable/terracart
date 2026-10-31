@@ -386,10 +386,11 @@
   // indexing and labels. This keeps the authored road and the road the live
   // overlay sees identical.
   const SHOWCASE_ROUTES = [
+    { name: 'Causeway', class: 'minor', type: T.ROAD, y: 6, thick: 1, x0: 27, x1: 47, variant: 'causeway' },
     { name: 'Rocky Road', class: 'minor', type: T.ROAD, y: 2, thick: 1, x0: 27, x1: 47, variant: 'rocky_path' },
     { name: 'Grassy Lane', class: 'minor', type: T.ROAD, y: 10, thick: 1, x0: 27, x1: 47, variant: 'grassy_lane' },
     { name: 'Old Growth Path', class: 'path', type: T.PATH, y: 18, thick: 1, x0: 27, x1: 47, variant: 'old_growth_path' },
-    { name: 'Haunted Forest Path', class: 'path', type: T.PATH, y: 26, thick: 1, x0: 27, x1: 47, variant: 'haunted_forest_path' },
+    { name: 'Haunt', class: 'path', type: T.PATH, y: 26, thick: 1, x0: 27, x1: 47, variant: 'haunted_forest_path' },
     { name: 'Paralysis Path', class: 'minor', type: T.ROAD, y: 32, thick: 1, x0: 27, x1: 47, variant: 'paralysis_path' },
     { name: 'Way of Variety', class: 'path', type: T.PATH, y: 38, thick: 1, x0: 27, x1: 47, variant: 'way_of_variety' },
     { name: 'Fern Way', class: 'minor', type: T.ROAD, y: 1, thick: 1, x0: 0, x1: 23, variant: 'overgrown' },
@@ -1285,7 +1286,7 @@
     entry.streetGround = new Uint8Array(c.cellsPerEdge * c.cellsPerEdge);
     driveSteps(StreetVariants.paintTerrainSteps({ index, grid: entry.grid, N: c.cellsPerEdge,
       roadMask: spawnOpts.roadMask, spawnWhy: spawnOpts.spawnWhy, zone: entry.zone,
-      streetGround: entry.streetGround }));
+      streetGround: entry.streetGround, occupied: spawnOpts.occupied }));
     driveSteps(StreetVariants.stampBanditStretchesSteps(index, entry.roadClass, c.cellsPerEdge, c.tx, c.ty));
     const dressing = StreetVariants.dress({ index, tx: c.tx, ty: c.ty, N: c.cellsPerEdge,
       tileEdgeM: c.tileEdgeM, grid: entry.grid, spawnOpts });

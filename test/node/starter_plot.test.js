@@ -159,13 +159,20 @@
     }
   });
 
-  test('starter plot: a frozen plot is repainted in place, never re-chosen', () => {
+  // The absolute cell key (coords.js) of a tile-local cell, as save.tilled holds it.
+  const tilledKey = (scene, cx, cy) => {
+    const c = worldMetersToAbsCell(scene, cellCentre(cx, cy).x, cellCentre(cx, cy).y);
+    return cellKeyFromAbsCell(c.cellIX, c.cellIY);
+  };
+
+  test('starter plot: a frozen plot the player tilled is repainted in place, never re-chosen', () => {
     const scene = makePlotScene();
     const first = makeEntry(T.GRASS);
     carveStarterPlot.call(scene, first, 0, 0, SPAWN, SPAWN, new Set());
     const cell = plotCell(scene);
     assert.truthy(cell, 'first build froze a plot');
     const frozen = { x: scene.save.starterPlotAt.x, y: scene.save.starterPlotAt.y };
+    scene.save.tilled = [tilledKey(scene, cell.cx + 1, cell.cy)];
 
     // Rebuild the SAME tile with the surroundings changed so a fresh search
     // would land somewhere else entirely (the whole ring is now road). The
@@ -216,12 +223,104 @@
     carveStarterPlot.call(scene, first, 0, 0, SPAWN, SPAWN, new Set());
     const cell = plotCell(scene);
     assert.truthy(cell, 'plot frozen while the ladder was running');
-    // Finish the ladder, then rebuild: the field the player tilled must not
+    // Finish the ladder, then rebuild: the field the player planted must not
     // revert to whatever terrain was under it.
+    scene.save.planted = [{ ...cellCentre(cell.cx, cell.cy + 1), crop: 'potato' }];
     Quests.starterSkipAll(scene.save);
     const rebuilt = makeEntry(T.ROAD);
     carveStarterPlot.call(scene, rebuilt, 0, 0, SPAWN, SPAWN, new Set());
     assertPlotIsTillable(rebuilt, cell, 'after the ladder finished');
+  });
+
+  // A plot nobody has worked is a promise the arrow points at, and the
+  // ground under it can change after it froze: Home's firepit is seated
+  // later, a newer dressing can stand a prop there, a road can widen over
+  // it. The carve chooses again rather than repainting soil nobody can till.
+  test('starter plot: an unworked frozen plot moves when something now stands on it', () => {
+    const scene = makePlotScene();
+    carveStarterPlot.call(scene, makeEntry(T.GRASS), 0, 0, SPAWN, SPAWN, new Set());
+    const old = plotCell(scene);
+    assert.truthy(old, 'a plot was frozen');
+    const rebuilt = makeEntry(T.GRASS, [Object.assign({ kind: 'tree' }, cellCentre(old.cx + 1, old.cy + 1))]);
+    carveStarterPlot.call(scene, rebuilt, 0, 0, SPAWN, SPAWN, new Set());
+    const now = plotCell(scene);
+    assert.truthy(now, 'a plot is frozen again');
+    assert.truthy(now.cx !== old.cx || now.cy !== old.cy, 'the plot moved off the tree');
+    assertPlotIsTillable(rebuilt, now, 'moved plot');
+    for (const [dx, dy] of [[0,0],[1,0],[0,1],[1,1]]) {
+      assert.falsy(now.cx + dx === old.cx + 1 && now.cy + dy === old.cy + 1, `cell +${dx}+${dy} is not the tree's`);
+    }
+    // ...and a plot the player has tilled stays put over the same obstacle.
+    const worked = makePlotScene();
+    carveStarterPlot.call(worked, makeEntry(T.GRASS), 0, 0, SPAWN, SPAWN, new Set());
+    const kept = plotCell(worked);
+    worked.save.tilled = [tilledKey(worked, kept.cx, kept.cy)];
+    const again = makeEntry(T.GRASS, [Object.assign({ kind: 'tree' }, cellCentre(kept.cx + 1, kept.cy + 1))]);
+    carveStarterPlot.call(worked, again, 0, 0, SPAWN, SPAWN, new Set());
+    assert.eq(JSON.stringify(plotCell(worked)), JSON.stringify(kept), 'a tilled plot never moves');
+  });
+
+  test('starter plot: a veteran save\'s unworked plot is dropped, not re-chosen, once its ground is gone', () => {
+    const scene = makePlotScene();
+    carveStarterPlot.call(scene, makeEntry(T.GRASS), 0, 0, SPAWN, SPAWN, new Set());
+    assert.truthy(scene.save.starterPlotAt, 'a plot was frozen');
+    Quests.starterSkipAll(scene.save);
+    const rebuilt = makeEntry(T.ROAD);
+    carveStarterPlot.call(scene, rebuilt, 0, 0, SPAWN, SPAWN, new Set());
+    assert.falsy(scene.save.starterPlotAt, 'the freeze is dropped');
+    for (let i = 0; i < rebuilt.grid.length; i++) {
+      if (rebuilt.grid[i] !== T.ROAD) throw new Error(`grid cell ${i} was repainted`);
+    }
+  });
+
+  // The carve runs on a freshly built tile, before Home's house is stamped
+  // back into its grid and the firepit re-injected, so it reads both from
+  // the save. Home's north-up footing alone does not cover a house the first
+  // compass heading turned, nor a pit seated by a street.
+  test('starter plot: keeps off the saved wagon\'s house and firepit, which the grid cannot show', () => {
+    // A west-facing placement: the wagon one cell west of the anchor, its
+    // 2x2 reaching two cells west — outside the north-up footing.
+    const wagon = cellCentre(SPAWN - 1, SPAWN), pit = cellCentre(SPAWN + 2, SPAWN + 2);
+    const scene = makePlotScene({ save: { starterTrailer: { id: 'starter_trailer', ...wagon }, homeFirepit: pit } });
+    const entry = makeEntry(T.GRASS);
+    // Block the rest of ring 2 so the house's west cells are the nearest
+    // candidates left: every ring-2 cell save the block that would overlap them.
+    for (let dy = -2; dy <= 2; dy++) for (let dx = -2; dx <= 2; dx++) {
+      if (Math.max(Math.abs(dx), Math.abs(dy)) !== 2) continue;
+      if (dx === -2 && dy <= 0 && dy >= -1) continue;
+      entry.objects.push(Object.assign({ kind: 'tree' }, cellCentre(SPAWN + dx, SPAWN + dy)));
+    }
+    carveStarterPlot.call(scene, entry, 0, 0, SPAWN, SPAWN, new Set());
+    const cell = plotCell(scene);
+    assert.truthy(cell, 'a plot was frozen');
+    const houseCells = new Set();
+    for (const dy of [-1, 0]) for (const dx of [-1, 0]) houseCells.add(`${SPAWN - 1 + dx},${SPAWN + dy}`);
+    for (const [dx, dy] of [[0,0],[1,0],[0,1],[1,1]]) {
+      assert.falsy(houseCells.has(`${cell.cx + dx},${cell.cy + dy}`), `cell +${dx}+${dy} is not under the house`);
+      assert.falsy(cell.cx + dx === SPAWN + 2 && cell.cy + dy === SPAWN + 2, `cell +${dx}+${dy} is not the firepit's`);
+    }
+    // A plot frozen before the pit was seated, and then sat on by it, moves.
+    const late = makePlotScene();
+    carveStarterPlot.call(late, makeEntry(T.GRASS), 0, 0, SPAWN, SPAWN, new Set());
+    const old = plotCell(late);
+    late.save.homeFirepit = cellCentre(old.cx, old.cy + 1);
+    carveStarterPlot.call(late, makeEntry(T.GRASS), 0, 0, SPAWN, SPAWN, new Set());
+    const moved = plotCell(late);
+    assert.truthy(moved && (moved.cx !== old.cx || moved.cy !== old.cy), 'the plot leaves the firepit');
+    for (const [dx, dy] of [[0,0],[1,0],[0,1],[1,1]]) {
+      assert.falsy(moved.cx + dx === old.cx && moved.cy + dy === old.cy + 1, `cell +${dx}+${dy} is not the firepit's`);
+    }
+  });
+
+  test('starter plot: onStarterPlot names exactly the frozen 2x2', () => {
+    const scene = makePlotScene();
+    carveStarterPlot.call(scene, makeEntry(T.GRASS), 0, 0, SPAWN, SPAWN, new Set());
+    const cell = plotCell(scene);
+    for (let dy = -1; dy <= 2; dy++) for (let dx = -1; dx <= 2; dx++) {
+      const c = cellCentre(cell.cx + dx, cell.cy + dy);
+      assert.eq(Starter.onStarterPlot(scene, c.x, c.y), dx >= 0 && dx < 2 && dy >= 0 && dy < 2, `cell ${dx},${dy}`);
+    }
+    assert.falsy(Starter.onStarterPlot(makePlotScene(), 10, 10), 'no plot, no cells');
   });
 
   test('starter plot: the frozen point is the top-left cell centre, on the tap grid', () => {

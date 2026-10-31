@@ -58,7 +58,7 @@
       name: 'Lantern saint', flash: 'Her lantern warms your hand.',
       body: "A stone saint holds out a lantern. You pause beneath its warm light." },
     tide_bell: { art: 'shrine_tide_bell', frame: 2, light: 0x9fdcff, lever: 'reach', durationMs: 3 * MIN,
-      zoneVariants: ['shellwater_strand'], streets: ['promenade'],
+      zoneVariants: ['shellwater_strand'], streets: ['promenade', 'causeway'],
       name: 'Tide bell', flash: 'Your arms feel long as tides.',
       body: "You ring the bell and hear the rush of waves. The sound seems close, though the shore is far away." },
     bone_watcher: { art: 'shrine_bone_watcher', frame: 3, light: 0xd8d4e8, lever: 'shield', durationMs: 3 * MIN,

@@ -17,7 +17,7 @@ const app = SCENE_SRC;
 // The three passes, as source, in the order drawRoadGeometry calls them.
 const forTileSrc = app.slice(app.indexOf('  _streetLampsForTile(tx, ty, entry) {'),
                               app.indexOf('  // The lamps near the frame')) + ROAD_OVERLAY_SRC.slice(
-  ROAD_OVERLAY_SRC.indexOf('  function lampSitesForTile('), ROAD_OVERLAY_SRC.indexOf('  function lampReservedCells('));
+  ROAD_OVERLAY_SRC.indexOf('  function lampSitesForTile('), ROAD_OVERLAY_SRC.indexOf('  // The kerb:'));
 const updateSrc = app.slice(app.indexOf('  _updateStreetLamps() {'),
                              app.indexOf('  // THE RIPEN PASS.'));
 // …and the DRAW is render.js's: a lamp goes through the shared world sprite
@@ -232,7 +232,9 @@ test('street lamps: a nearby crossing removes posts from its pavement, retaining
 });
 
 test('street lamps: close parallel roads share sparse lamp clusters with stable identity priority', () => {
-  const first = mkFeature(), second = lineFeature(4243,'residential',[[280,166],[100,166]]);
+  const first = mkFeature();
+  const y = 178 - WorldGen.roadOverlayWidthM(first.tags) - CELL_M_T * .8;
+  const second = lineFeature(4243,'residential',[[280,y],[100,y]]);
   const firstAlone = RoadOverlay.lampSitesForTile(TX,TY,nearbyEntry([first]));
   const secondAlone = RoadOverlay.lampSitesForTile(TX,TY,nearbyEntry([second]));
   const sites = RoadOverlay.lampSitesForTile(TX,TY,nearbyEntry([first,second]));
@@ -246,7 +248,9 @@ test('street lamps: close parallel roads share sparse lamp clusters with stable 
 
 test('street lamps: parallel wider road wins a lamp cluster; distant and collinear routes keep their sites', () => {
   const road = mkFeature();
-  const wide = lineFeature(4243,'secondary',[[280,161],[100,161]]);
+  const y = 178 - (WorldGen.roadOverlayWidthM(road.tags)
+    + WorldGen.roadOverlayWidthM({class:'secondary'})) / 2 - CELL_M_T * .8;
+  const wide = lineFeature(4243,'secondary',[[280,y],[100,y]]);
   const isolatedWide = RoadOverlay.lampSitesForTile(TX,TY,nearbyEntry([wide]));
   const sites = RoadOverlay.lampSitesForTile(TX,TY,nearbyEntry([road,wide]));
   for (const lamp of isolatedWide) assert.truthy(sites.some(other=>other.id===lamp.id),'wider-road posts win any close cluster');
@@ -261,59 +265,40 @@ test('street lamps: parallel wider road wins a lamp cluster; distant and colline
   assert.eq(collinear.length,alone.length,'collinear source fragments retain one complete row, not zero');
 });
 
-test('street lamps: future lamp reservations cover the exact rendered feet and their cell-edge overlap', () => {
+test('street lamps: live feet retain continuous boundary coordinates without owning a grid cell', () => {
   const entry = readyEntry();
   const lamps = RoadOverlay.lampSitesForTile(TX, TY, entry);
-  const reserved = RoadOverlay.lampReservedCells(TX, TY, entry);
   assert.truthy(lamps.length > 0);
   for (const lamp of lamps) {
-    const ix = Math.floor((lamp.x - TX * TILE_EDGE_M) / CELL_M_T);
-    const iy = Math.floor((lamp.y - TY * TILE_EDGE_M) / CELL_M_T);
-    assert.truthy(reserved.has(iy * CELLS + ix), 'every unlit future lamp owns its foot cell');
+    assert.falsy('ix' in lamp || 'iy' in lamp || 'cellIX' in lamp || 'cellIY' in lamp);
+    assert.truthy(Number.isFinite(lamp.x) && Number.isFinite(lamp.y));
   }
-  assert.eq(JSON.stringify(lamps), JSON.stringify(P._streetLampsForTile(TX, TY, entry)), 'live renderer uses the same exact coordinates and identities');
-  assert.truthy(reserved.size > lamps.length, 'feet straddling a grid boundary also reserve the adjoining cell');
+  assert.eq(JSON.stringify(lamps), JSON.stringify(P._streetLampsForTile(TX, TY, entry)),
+    'live renderer uses the same exact coordinates and identities');
 });
 
-test('street lamps: lampCellsFor is the reserved footprint, cached per loaded entry', () => {
-  const entry = readyEntry();
-  const cells = RoadOverlay.lampCellsFor(TX, TY, entry);
-  assert.eq(JSON.stringify([...cells]), JSON.stringify([...RoadOverlay.lampReservedCells(TX, TY, readyEntry())]));
-  assert.gt(cells.size, 0);
-  assert.truthy(RoadOverlay.lampCellsFor(TX, TY, entry) === cells, 'computed once per tile entry');
-  const loading = { tileEdgeM: TILE_EDGE_M, cellsPerEdge: CELLS };
-  assert.eq(RoadOverlay.lampCellsFor(TX, TY, loading).size, 0);
-  assert.falsy(loading._lampCells, 'a loading tile never caches an empty footprint');
-});
-
-test('street lamps: rasterized road decorations cannot occupy future lamp footprints', () => {
-  let props = 0, sites = 0;
-  for (let sample = 0; sample < 12; sample++) {
-    const layers = mkLayers();
-    const road = layers[0].features[0];
-    road.tags.class = 'minor';
-    layers.push({name:'landcover', extent:EXTENT, features:[{type:3, tags:{class:'meadow'},
-      geom:[[{x:0,y:0},{x:EXTENT,y:0},{x:EXTENT,y:EXTENT},{x:0,y:EXTENT}]]}]});
-    layers.push({name:'transportation_name', extent:EXTENT, features:[
-      {type:2, tags:{name:`Hedge Lane ${sample}`}, geom:road.geom}
-    ]});
-    const tile = WorldGen.rasterizeTile(layers, CELLS, TX, TY, TILE_EDGE_M);
-    const reserved = RoadOverlay.lampReservedCells(TX, TY,
-      {...tile, layers, tileEdgeM:TILE_EDGE_M, cellsPerEdge:CELLS});
-    sites += reserved.size;
-    const dress = tile.streetDress;
-    const seats = [...dress.coinSeats.values()].flatMap((m) => [...m.values()]);
-    for (const o of [...dress.objects, ...dress.wildplants, ...seats, ...dress.treasures]) {
-      props++;
-      const ix = Math.floor((o.x - TX * TILE_EDGE_M) / CELL_M_T);
-      const iy = Math.floor((o.y - TY * TILE_EDGE_M) / CELL_M_T);
-      assert.falsy(reserved.has(iy * CELLS + ix), `${o.id} collides with a lamp site`);
+test('street lamps: boundary sites do not remove cells from generated road decorations', () => {
+  const layers = mkLayers();
+  layers[0].features[0].tags.class = 'minor';
+  layers.push({name:'landcover', extent:EXTENT, features:[{type:3, tags:{class:'meadow'},
+    geom:[[{x:0,y:0},{x:EXTENT,y:0},{x:EXTENT,y:EXTENT},{x:0,y:EXTENT}]]}]});
+  layers.push({name:'transportation_name', extent:EXTENT, features:[
+    {type:2, tags:{name:'Hedge Lane'}, geom:layers[0].features[0].geom}
+  ]});
+  const original = RoadOverlay.lampSitesForTile;
+  const draw = () => WorldGen.rasterizeTile(layers, CELLS, TX, TY, TILE_EDGE_M).streetDress;
+  const baseline = draw();
+  try {
+    RoadOverlay.lampSitesForTile = () => [];
+    const withoutLamps = draw();
+    for (const key of ['objects', 'wildplants', 'traps', 'treasures']) {
+      assert.eq(JSON.stringify(baseline[key]), JSON.stringify(withoutLamps[key]),
+        key + ' retain their cells whether lamp sites exist or not');
     }
-  }
-  assert.truthy(sites > 0 && props > 0, 'fixture exercises actual lamps and variant decorations');
+  } finally { RoadOverlay.lampSitesForTile = original; }
 });
 
-test('hedged lane: real lamp reservations leave substantial hedge rows on both sides', () => {
+test('hedged lane: boundary lamps leave substantial hedge rows on both sides', () => {
   let fixture;
   for (let sample = 0; sample < 60 && !fixture; sample++) {
     const layers = mkLayers();
@@ -333,16 +318,10 @@ test('hedged lane: real lamp reservations leave substantial hedge rows on both s
   const lamps = RoadOverlay.lampSitesForTile(TX, TY, fixture);
   assert.gt(lamps.length, 0, 'actual lamps are present');
   assert.lt(lamps.length, 8, '180m lane does not receive dense Lantern Row spacing');
-  const reserved = RoadOverlay.lampReservedCells(TX, TY, fixture);
   const hedges = fixture.streetDress.wildplants.filter(p => /^hedge_/.test(p.id));
   for (const side of [-1, 1]) {
     const row = hedges.filter(p => Math.sign(p.y - TY * TILE_EDGE_M - 178) === side);
     assert.gt(row.length, 15, 'both verges retain a hedge row with lamps present');
-    for (const hedge of row) {
-      const ix = Math.floor((hedge.x - TX * TILE_EDGE_M) / CELL_M_T);
-      const iy = Math.floor((hedge.y - TY * TILE_EDGE_M) / CELL_M_T);
-      assert.falsy(reserved.has(iy * CELLS + ix), 'hedge clears lamp foot');
-    }
   }
 });
 
@@ -399,53 +378,23 @@ test('street lamps: a ready tile stands one lamp per Streets.lampSpacingM() of s
   assert.eq(lamps.map((L) => Math.round(L.s)).join(','), '18,54,90,126,162', 'spread evenly, a half interval in at each end');
   // In ABSOLUTE world metres: the tile's own origin plus the point BESIDE the
   // line — 118 m along a way that runs due east, and one verge offset off it.
-  const offM = Streets.lampOffsetM(WorldGen.roadOverlayWidthM({ class: 'residential' }),
-                                   STREET_LAMP_R_CELLS * CELL_M_T);
+  const offM = Streets.lampOffsetM(WorldGen.roadOverlayWidthM({ class: 'residential' }));
   assert.inRange(lamps[0].x - TX * TILE_EDGE_M, 117.9, 118.1, 'the first stone stands 118 m into the tile');
   assert.inRange(lamps[0].y - TY * TILE_EDGE_M, 178 - offM - 0.1, 178 - offM + 0.1,
     '…and a verge offset off the centreline, square to a way running due east');
 });
 
-test('street lamps: a lamp stands ON THE VERGE — its stone just touching the band, never in the traffic', () => {
-  // The seat is DERIVED (streets.js lampOffsetM): half the way's own drawn
-  // width — WorldGen.roadOverlayWidthM, the number road_overlay.js strokes
-  // the band with and rasterizeTile stamps roadMask from — plus the stone's
-  // radius, so the art kisses the kerb.
+test('street lamps: posts stand half a metre outside both road edges', () => {
   const lamps = P._streetLampsForTile.call({}, TX, TY, readyEntry());
   const halfBandM = WorldGen.roadOverlayWidthM({ class: 'residential' }) / 2;
-  const footRM = STREET_LAMP_R_CELLS * CELL_M_T;
-  for (const L of lamps) {
-    // The way runs due east down y = 178, so the whole offset is in y.
-    const off = Math.abs((L.y - TY * TILE_EDGE_M) - 178);
-    assert.inRange(off, halfBandM + footRM - 1e-6, halfBandM + footRM + 1e-6,
-      'half the carriageway plus the lamp\'s footprint — off the road, touching it');
-    assert.truthy(off - footRM >= halfBandM - 1e-6, 'no part of the lamp overlaps the band');
-    assert.truthy(off - footRM <= halfBandM + 1e-6, 'and it is not floating out in the grass');
+  for (const lamp of lamps) {
+    const off = Math.abs((lamp.y - TY * TILE_EDGE_M) - 178);
+    assert.inRange(off, halfBandM + 0.5 - 1e-6, halfBandM + 0.5 + 1e-6,
+      'the post follows the drawn road edge with a small verge setback');
   }
-  // …and the offset is the WAY's own, not one number for every road: a
-  // motorway's band is far wider, so its lamps stand further out.
-  const wide = Streets.lampOffsetM(WorldGen.roadOverlayWidthM({ class: 'motorway' }), footRM);
-  const narrow = Streets.lampOffsetM(WorldGen.roadOverlayWidthM({ class: 'footway' }), footRM);
-  assert.truthy(wide > narrow, 'a motorway seats its lamps further off the centreline than a footway');
-});
-
-test('street lamps: the verge offset is derived from the art the draw pass uses', () => {
-  // STREET_LAMP_R_CELLS is the widest of the two stones a lamp can wear —
-  // the baked one inside its halo square and the dark cobble it draws before
-  // it lights — so NEITHER art overlaps the band, whichever is showing.
-  assert.truthy(/const STREET_LAMP_R_CELLS = Math\.max\(/.test(app), 'the widest of the arts, not a typed gap');
-  assert.truthy(/RoadOverlay\.LAMP_FOOT_R_CELLS/.test(app), 'the baked lamp\'s own plinth, from the module that paints it');
-  assert.truthy(/STREET_LAMP_DARK_CELLS\.road \/ 2/.test(app), 'and the dark cobble\'s, halved to a radius');
-  assert.eq(RoadOverlay.LAMP_FOOT_R_CELLS, RoadOverlay.LAMP_DRAW_CELLS * 0.085,
-    'road_overlay derives it from the square it bakes the lamp in');
-  assert.truthy(STREET_LAMP_R_CELLS >= RoadOverlay.LAMP_FOOT_R_CELLS, 'the lit lamp\'s foot fits inside it');
-  assert.truthy(STREET_LAMP_R_CELLS >= STREET_LAMP_DARK_CELLS.road / 2, 'and so does the dark cobble');
-  // The placement pass asks streets.js for the offset and hands it to the one
-  // point resolver — never a second projection of its own.
-  assert.truthy(/Streets\.lampOffsetM\(WorldGen\.roadOverlayWidthM\(f\.tags \|\| \{\}\), footRM\)/.test(forTileSrc),
-    'the offset is half the way\'s roadOverlayWidthM plus the lamp\'s footprint');
-  assert.truthy(/Streets\.pointAtM\(line, mvtToM, sM, offM\)/.test(forTileSrc),
-    'and the point comes out of the same resolver the centreline does');
+  const wide = Streets.lampOffsetM(WorldGen.roadOverlayWidthM({ class: 'motorway' }));
+  const narrow = Streets.lampOffsetM(WorldGen.roadOverlayWidthM({ class: 'footway' }));
+  assert.truthy(wide > narrow, 'road width determines the boundary');
 });
 
 test('street lamps: a tile still LOADING is never memoised as lampless — the bug that lit nothing', () => {
@@ -612,19 +561,17 @@ test('street lamps: suppressed medium and large roads retain sparse rift posts i
         assert.gt(lamps.length, 0, `${cls}: rift posts exist`);
         assert.lt(lamps.length, small.length, `${cls}: sparse silhouettes`);
         assert.truthy(lamps.every(l => l.suppressed && l.glow === StreetVariants.SUPPRESSED_STYLE.lampGlow), 'nexus and stale themes cannot override suppression');
-        assert.gt(RoadOverlay.lampReservedCells(TX, TY, entry).size, 0, 'rift feet reserve spawn space');
       }
     }
   } finally { ZoneVariants.lampGlowAt = original; }
 });
 
-test('street lamps: paths and small roads retain their lamps and reserved footprints', () => {
+test('street lamps: paths and small roads retain their boundary lamps', () => {
   for (const cls of [...WorldGen.PATH_CLASSES, 'minor', 'service', 'street', 'residential']) {
     const entry = readyEntry();
     entry.layers[0].features[0].tags.class = cls;
     const sites = RoadOverlay.lampSitesForTile(TX, TY, entry);
     assert.gt(sites.length, 0, `${cls}: lamps remain`);
-    assert.gt(RoadOverlay.lampReservedCells(TX, TY, entry).size, 0, `${cls}: feet remain reserved`);
     assert.eq(P._streetLampsForTile.call({}, TX, TY, entry).length, sites.length, `${cls}: live lamps remain`);
   }
 });

@@ -438,7 +438,7 @@ const AUTHORED_CONTAINER_ART = Object.freeze({
   street_decor_dark_urn: { texKey: 'street_decor_dark_urn', smashedKey: 'clay_pot_smashed', name: 'dark urn',
     openingSting: { energy: 10, line: 'Poison! −10 energy' },
     loot: [{ kind: 'magic', w: 1, minTier: 3, maxTier: 3, qty: 1 }] },
-  street_decor_pottery_stack: { texKey: 'street_decor_pottery_stack', smashedKey: 'street_decor_pottery_stack_broken', smashedFrame: 0, name: 'pottery stack', loot: CLAY_POT_LOOT },
+  street_decor_pottery_stack: { texKey: 'street_decor_pottery_stack', smashedKey: 'clay_pot_smashed', smashedFrame: 0, name: 'pottery stack', loot: CLAY_POT_LOOT },
 });
 const BARREL_ART = [
   { texKey: 'barrel', smashedKey: null, name: 'barrel', loot: BARREL_LOOT },

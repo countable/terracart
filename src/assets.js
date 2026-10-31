@@ -33,7 +33,6 @@ const ASSETS = {
       RoadOverlay.invalidate(scene);
     } },
   selected_shrub: { kind: 'spritesheet', path: 'assets/ArtTrials/RogueObjects/shrub-olive.png', frameWidth: 16, frameHeight: 16 },
-  weather_rain: { kind: 'spritesheet', path: 'assets/ArtTrials/RogueObjects/rain.png', frameWidth: 16, frameHeight: 16 },
   // One native 24px top-down steel snare frame, cropped with provenance in
   // ArtTrials/RogueObjects/manifest.json. textures.js seats it in the 32px cell.
   snare_open: { kind: 'spritesheet', path: 'assets/ArtTrials/RogueObjects/snare_open.png', frameWidth: 24, frameHeight: 24 },
@@ -362,10 +361,11 @@ const ASSETS = {
   // fruit; frame 1 a slice). These are the inventory icons (items.js
   // MINERAL_ICON_SHEET), loaded as WORLD textures too because a bearing fruit
   // tree wears one on its canopy (render.js's fruit pass) and a dropped stack
-  // of them renders through inventoryIconSource → the same key. Only the two
+  // of them renders through inventoryIconSource → the same key. Only the
   // species the world grows are loaded; the rest stay DOM-only icons.
   icon_apple:  { kind: 'spritesheet', path: 'assets/Icons/Food Icons/Apple.png', frameWidth: 16, frameHeight: 16 },
   icon_worldpeach:  { kind: 'spritesheet', path: 'assets/Icons/Food Icons/Peach.png', frameWidth: 16, frameHeight: 16 },
+  icon_orange: { kind: 'spritesheet', path: 'assets/Icons/Food Icons/Orange.png', frameWidth: 16, frameHeight: 16 },
   // Scarecrow — 48×48 single-image prop (straw-man on a cross-pole). Pole base
   // anchors at origin (0.5, 1) so it stands on its placement cell; the render
   // spec scales the 48px art down to ~one cell. ?v= busts the SW/browser cache.

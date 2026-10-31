@@ -49,19 +49,18 @@
     { crop: 'poisonberry', below: PLAIN_BUSH_P }];
   // ── Pottery Road ─────────────────────────────────────────────────────────
   // Clay pots line both verges (VERGE_ROWS.pottery): a sample every cell,
-  // POTTERY_GAP of them left empty (the row's stream), each pot the first
-  // free cell from the SECOND verge cell out (a cell back from the kerb, as
-  // the house barrels stand) on the reward gate, so none stands on a
-  // Major-and-Medium kerb. Every pot is a generated clay pot (loot.js
+  // POTTERY_GAP of them left empty (the row's stream), each front pot in the
+  // adjacent verge cell on the reward gate. Existing occupancy and the
+  // shared road safety rules still apply. Every pot is a generated clay pot (loot.js
   // CLAY_POT_LOOT: a coin a quarter of the time) — no guards, no POI. The
   // only street that stands pots: plain Small streets stand barrels alone.
-  // A second full rank stands one cell behind it (k = 3). Neither row
-  // leaves random gaps; existing obstacles and lamp reservations still win.
+  // A second full rank stands one cell behind it (k = 2). Neither row
+  // leaves random gaps; existing obstacles still win.
   const POTTERY_GAP = 0;
   const POTTERY_BACK_GAP = 0;
   // ── Trade Row ────────────────────────────────────────────────────────────
   // Barrels of goods line both verges (VERGE_ROWS.trade: a sample every cell,
-  // TRADE_BARREL_GAP left empty, a cell back from the kerb on the reward
+  // TRADE_BARREL_GAP left empty, directly beside the road on the reward
   // gate — wooden barrels, loot.js BARREL_LOOT) and goblin grunts pick
   // through them: a post every TRADE_GRUNT_STEP_M, TRADE_GRUNT_CHANCE of
   // them held off the street key and the post's index, each the
@@ -80,8 +79,8 @@
   // so often (BERRY_RUNT_STEP_M, BERRY_RUNT_CHANCE of the posts): the
   // street_berry garrison (lairs.js GROUPS), an ambusher that slips into the
   // nearest bush.
-  const BERRY_LANE_BUSHES = [{ crop: 'shrub', below: 0.30 }, { crop: 'berry', below: 0.55 },
-    { crop: 'poisonberry', below: 0.70 }, { crop: 'shrub', art: 'bramble', below: 1 }];
+  const BERRY_LANE_BUSHES = [{ crop: 'shrub', below: 0.50 }, { crop: 'berry', below: 0.75 },
+    { crop: 'poisonberry', below: 0.90 }, { crop: 'shrub', art: 'bramble', below: 1 }];
   const BERRY_TRAIL_BUSHES = [{ crop: 'berry', below: .80 }, { crop: 'poisonberry', below: .90 },
     { crop: 'shrub', below: .95 }, { crop: 'shrub', art: 'bramble', below: 1 }];
   const BERRY_LANE_THORN_MAX = 1 / 3;
@@ -90,8 +89,8 @@
   const BERRY_VARIANTS = new Set(['berry', 'berry_trail']);
 
   // ── The verge ────────────────────────────────────────────────────────────
-  // Every verge piece searches OUTWARD from the band's edge, k = 1..this
-  // cells, and takes the first cell that passes the shared spawn rule.
+  // All themed placements, including fallback seats and guards, stay within
+  // this distance of the road edge. Verge rows search outward inside the cap.
   const VERGE_MAX_CELLS = 3;
   // A bus stop is on a MAJOR road when a Major-and-Medium road band touches a cell within
   // this many cells (Chebyshev) of its own.
@@ -187,9 +186,8 @@
       share: row?.sectionShare ?? LONG_ROAD_SECTION_SHARE,
     };
   }
-  // Half-cell samples fill the full three-cell verge on both sides.
+  // Half-cell samples fill the available painted verge on both sides.
   const GOLDEN_STEP_M = 3.5;
-  const OVERGROWN_STEP_M = 12, OVERGROWN_MAX = 42;
   const ORCHARD_STEP_M = 12, ORCHARD_MAX = 80;
   const TOADSTOOL_STEP_M = 6, TOADSTOOL_MAX = 100;
   const TOADSTOOL_COVER_MAX = 200;
@@ -199,26 +197,27 @@
   // Stop starting new barricade lines at this budget; finish the last line
   // so a count cutoff cannot leave a gap halfway across its road.
   const BARRICADE_STEP_M = 50, BARRICADE_MAX = 80;
-  const BARRICADE_VERGE_MAX_CELLS = 4;
+  const BARRICADE_VERGE_MAX_CELLS = VERGE_MAX_CELLS;
   // How finely a burned row is walked for its one fire slime per stretch.
   const BURNED_GUARD_STEP_M = 10;
   // Lantern Row: NOT a prop of its own — the street lamps, denser. A lantern
-  // street stands its restoration lamps at Streets.lampSpacingM() / this
-  // (app.js _streetLampsForTile), same art, same lit-when-restored rule, one
-  // lane.
-  const LANTERN_SPACING_DIV = 4;
+  // street stands its restoration lamps at its way's usual spacing / this
+  // (road_overlay.js lampSitesForTile), same art, same lit-when-restored rule,
+  // one lane. On a path (16.7 m) that is one lamp every 8.3 m, just over a
+  // cell; at 4 they stood under a cell apart, post against post.
+  const LANTERN_SPACING_DIV = 2;
   // Normal lamp spacing leaves the hedges as the lane's defining feature.
   const HEDGE_LAMP_DENSITY = 1;
   // A variant's ownership claim reaches two cells past its road band.
   // Terrain influence uses each row's separate terrainVergeCells override.
   const TERRAIN_VERGE_CELLS = 2;
-  const THORNY_SHRINE_RADIUS_CELLS = 2;
-  const THORNY_VERGE_MAX_CELLS = 4;
+  const THORNY_SHRINE_RADIUS_CELLS = 1;
+  const THORNY_VERGE_MAX_CELLS = VERGE_MAX_CELLS;
   const THORNY_CLUSTER_DENSITY = 0.6;
   // Stray brambles scattered past and between the thickets: each verge cell
   // out to THORNY_SCATTER_CELLS from the road takes one at this chance, on
   // the same ray rules (nothing behind a building, road or occupied seat).
-  const THORNY_SCATTER_CELLS = 6;
+  const THORNY_SCATTER_CELLS = VERGE_MAX_CELLS;
   const THORNY_SCATTER_DENSITY = 0.2;
   const SNARE_CHEST_TIER = 3;
   const SNARE_TRAP_RADIUS_CELLS = 2;
@@ -253,14 +252,14 @@
   // `story` is the _storySplashOnce key AND the painting stem (sceneArtUrl);
   // `flash` is the ≤30-char map line a later visit gets.
   const STREET_VARIANTS = [
-    { id: 'hedgerow', terrain: 'PARK', affinities: ['cultivated', 'formal'], size: 'minor', share: 0.08, nudge: 2, rung: 'find',
+    { id: 'hedgerow', terrain: 'PARK', influenceVergeCells: 3, materialLooks: { tree: 'mossy_tree' }, affinities: ['cultivated', 'formal'], size: 'minor', share: 0.08, nudge: 2, rung: 'find',
       stone: { weathered: '#77746a', restored: '#898a80' }, lampDensity: HEDGE_LAMP_DENSITY,
       words: /\b(lane|ln|close|court|ct|place|pl|mews|circle|cir|crescent|cres|cove|row|gasse|hecke|weg)\b/i,
       lampGlow: '#ffffff', fauna: { rabbit: [2, 5] },
       story: 'street_hedgerow', title: 'The hedged lane',
-      body: 'Clipped hedges line both sides of the road, behind the white lamps. You look through as you pass.',
+      body: 'Clipped hedges hug both sides of the road, with white lamps along the edge. You look through as you pass.',
       flash: 'A hedged lane, still kept.' },
-    { id: 'overgrown', terrain: 'FOREST', treeSpecies: 'pine', affinities: ['woodland'], size: 'minor', share: 0.04, rung: 'common',
+    { id: 'overgrown', materialLooks: { tree: 'conifer_tree' }, terrain: 'FOREST', treeSpecies: 'pine', affinities: ['woodland'], size: 'minor', share: 0.04, rung: 'common',
       // EXTRA ENCOUNTERS beside the plant guard, each its own finite post
       // (lairs.js STREET_TIER_GUARDS / KIND_ORDER rows), rolled off the
       // street key: a sounder of wild boars on every overgrown street, a
@@ -270,24 +269,24 @@
       words: /(park|wood|forest|grove|glen|heath|moor|green|meadow|wald|heide|hain|wiese|garten|garden|fern|brook)/i,
       lampGlow: '#9be08a', fauna: { rabbit: [2, 5], butterfly: [2, 5] },
       story: 'street_overgrown', title: 'Gone to seed', label: 'Overgrown Lane',
-      body: 'Saplings crowd the verge beneath tall pines. You push past branches reaching into the street.',
+      body: 'Seedlings grow into tall pines along the verge, then give way to bare trunks and stumps.',
       flash: 'The green is taking it back.' },
-    { id: 'orchard', terrain: 'GRASS', terrainVergeCells: 1, treeSpecies: 'maple', affinities: ['cultivated'], size: 'minor', share: 0.08, rung: 'uncommon',
+    { id: 'orchard', materialLooks: { tree: 'mossy_tree' }, terrain: 'GRASS', terrainVergeCells: 1, placementVergeCells: 1, treeSpecies: 'maple', rareFruitSpecies: ['worldpeach', 'orange'], affinities: ['cultivated'], size: 'minor', share: 0.08, rung: 'uncommon',
       stone: { weathered: '#8a7c69', restored: '#a49376' }, lampDensity: 0.5,
       words: /(orchard|apple|cherry|plum|pear|peach|fruit|obst|kirsch|apfel|birn|pflaum|vine|berry)/i,
       lampGlow: '#ffa6c9', fauna: { rabbit: [2, 5] },
       story: 'street_orchard', title: 'Orchard Lane',
       body: 'Apples hang from the old orchard trees.',
       flash: 'Old trees, still fruiting.' },
-    { id: 'pilgrim', terrain: 'CHURCHYARD', affinities: ['sacred'], size: 'minor', share: 0.06, rung: 'uncommon',
+    { id: 'pilgrim', materialLooks: { tree: 'conifer_tree' }, terrain: 'CHURCHYARD', affinities: ['sacred'], size: 'minor', share: 0.06, rung: 'uncommon',
       stone: { weathered: '#929084', restored: '#aaa798' }, lampDensity: 1,
       words: /(church|chapel|abbey|kirch|kloster|pilgrim|cross|saint|\bst\b|priest|minster|\bdom\b|mission)/i,
       lampGlow: '#f2eee0', fauna: { crow: [2, 5] },
       story: 'street_pilgrim', title: "Pilgrim's Way",
-      body: 'Smooth, rounded stones lie beside the road. Each lights beneath your feet. Keep them all glowing together.',
+      body: 'A neat row of smooth stones lines the verge. Step on each to keep them glowing together.',
       flash: 'Stones await your footsteps.' },
     // Lantern Row and Barricade are path themes; vehicle arterials stay plain.
-    { id: 'lantern', pathWeight: .10, terrain: 'COMMERCIAL', affinities: ['formal', 'destination'], size: 'path', share: 0.12, rung: 'common',
+    { id: 'lantern', materialLooks: { tree: 'mossy_tree' }, pathWeight: .10, terrain: 'COMMERCIAL', affinities: ['formal', 'destination'], size: 'path', share: 0.12, rung: 'common',
       stone: { weathered: '#91836a', restored: '#ae9a72' }, lampDensity: LANTERN_SPACING_DIV,
       words: /(lantern|lamp|light|candle|latern)/i,
       // No `attracts`: the theme adds lamps without a separate fauna profile.
@@ -299,7 +298,7 @@
       story: 'street_lantern', title: 'Lantern Row',
       body: 'Lamp posts line the road, close enough to light the whole street. You walk between the rows of lamps.',
       flash: 'Lamp posts, cold and waiting.' },
-    { id: 'burned', terrain: 'INDUSTRIAL', affinities: ['ruined'], size: 'minor', share: 0.05, rung: 'uncommon',
+    { id: 'burned', materialLooks: { tree: 'dead_tree' }, terrain: 'INDUSTRIAL', affinities: ['ruined'], size: 'minor', share: 0.05, rung: 'uncommon',
       stone: { weathered: '#321b18', restored: '#49241b', pattern: 'embers', accent: '#ff6a20' }, lampDensity: 0.5,
       hotRoad: true,
       words: /(mill|forge|smith|ash|burn|brand|kiln|furnace|cinder|coal|ember|kohle|schmied|asche)/i,
@@ -307,10 +306,10 @@
       story: 'street_burned', title: 'Burned Row',
       body: 'Hot embers glow between the road stones, burning like lava underfoot. Tar fills the gutters, and iron stakes jut from the verge.',
       flash: 'Hot embers burn underfoot.' },
-    { id: 'barricade', pathWeight: .03, terrain: 'WASTELAND', affinities: ['ruined'], size: 'path', share: 0.04, rung: 'rare',
+    { id: 'barricade', materialLooks: { tree: 'dead_tree' }, pathWeight: .03, terrain: 'WASTELAND', terrainVergeCells: 3, pathTerrainInfluence: true, affinities: ['ruined'], size: 'path', share: 0.04, rung: 'rare',
       stone: { weathered: '#8c806b', restored: '#a19276' }, lampDensity: 1,
       words: /(gate|wall|fort|\btor\b|mauer|castle|burg|bastion|guard|wache|barrack|kaserne|armou?ry)/i,
-      lampGlow: '#ff8c2a',
+      lampGlow: '#ffc171',
       story: 'street_barricade', title: 'The barricade',
       body: 'Rough barricades cross the road and reach into the verges. Iron spikes stand between the wooden barriers.',
       flash: 'Barricades. Goblins held it.' },
@@ -320,7 +319,7 @@
     // Weathered paving keeps the fly-agaric red and cream spots. Restored
     // setts turn muted with a red undertone, so the common bevel lights
     // read as polished stone like the default repaired road. Lamps stay orange.
-    { id: 'toadstool', terrain: 'WETLAND', affinities: ['damp', 'woodland'], size: 'minor', share: 0.05, rung: 'uncommon',
+    { id: 'toadstool', materialLooks: { tree: 'mossy_tree' }, terrain: 'WETLAND', affinities: ['damp', 'woodland'], size: 'minor', share: 0.05, rung: 'uncommon',
       stone: { weathered: '#8a756a', restored: '#9b857b', pattern: 'spots', accent: '#f0dfb4' }, lampDensity: 1,
       words: /(mushroom|toadstool|fung|pilz|fairy|\bring|moss|damp|mycel|spore|schwamm|elfen|feen)/i,
       lampGlow: '#ff8c2a', fauna: { butterfly: [2, 5] },
@@ -335,26 +334,27 @@
     // lamps on the scenic metres shed it — lampGlowFor), and the story — one
     // shared ledger key with a painting per landscape, told on the first scenic metre
     // restored (app.js _ripenStreets), the `flash` on later walks.
-    { id: 'promenade', pathWeight: .12, terrain: 'SAND', affinities: ['coastal', 'formal'], size: 'path', share: 0, rung: 'uncommon',
+    { id: 'promenade', materialLooks: { tree: 'conifer_tree' }, pathWeight: .12, terrain: 'SAND', affinities: ['coastal', 'formal'], size: 'path', share: 0, rung: 'uncommon',
       pathFauna: { metal_slime: { perPathM: 300, max: 2, salt: 'pathfauna|metal_slime' } },
       stone: { weathered: '#9c8d70', restored: '#b1a07c' },
       lampGlow: '#ffd16a',
       story: 'street_scenic', title: 'The promenade',
       body: 'The path runs along the water. You listen to it lapping against the shore as you walk.',
       flash: 'The promenade. Walk it slow.' },
-    { id: 'greenway', pathWeight: .20, terrain: 'GRASS', affinities: ['woodland'], size: 'path', share: 0, rung: 'uncommon',
+    { id: 'greenway', materialLooks: { tree: 'mossy_tree' }, pathWeight: .20, terrain: 'GRASS', affinities: ['woodland'], size: 'path', share: 0, rung: 'uncommon',
+      pathFauna: { deer: { perPathM: 100, max: 4, salt: 'pathfauna|deer' } },
       stone: { weathered: '#74866c', restored: '#91a084' },
       lampGlow: '#a8e07a',
       story: 'street_scenic', art: 'street_greenway', title: 'A greenway',
       body: "Branches hang low over the path. You duck beneath them as leaves brush your hood.",
       flash: 'A greenway. The green holds.' },
-    { id: 'parkpath', pathWeight: .27, terrain: 'PARK', affinities: ['formal', 'cultivated'], size: 'path', share: 0, rung: 'uncommon',
+    { id: 'parkpath', materialLooks: { tree: 'mossy_tree' }, pathWeight: .27, terrain: 'PARK', affinities: ['formal', 'cultivated'], size: 'path', share: 0, rung: 'uncommon',
       stone: { weathered: '#7b756b', restored: '#898a80' },
       lampGlow: '#a8e07a',
       story: 'street_scenic', art: 'street_parkpath', title: 'The park path',
       body: "Weeds crowd the old park path, and dry leaves cover its edges. You follow it through the overgrowth.",
       flash: 'The park path winds on.' },
-    { id: 'golden', terrain: 'ROCK', affinities: ['formal'], size: 'minor', share: 0.02, rung: 'rare',
+    { id: 'golden', materialLooks: { tree: 'mossy_tree' }, terrain: 'ROCK', affinities: ['formal'], size: 'minor', share: 0.02, rung: 'rare',
       stone: { weathered: '#96866b', restored: '#af9c75' }, lampDensity: 1,
       // A coin spree half the usual section long (sectionLimits): a whole
       // 500 m of coins on every long road would be a purse, not a find.
@@ -363,7 +363,7 @@
       story: 'street_golden', art: 'street_golden', title: 'Golden Road',
       body: 'A gilded shrine stands beside the road. Touch it each day, and green coins spill along both sides of the road.',
       flash: 'A gilded shrine waits ahead.' },
-    { id: 'snare', terrain: 'WASTELAND', affinities: ['ruined'], size: 'minor', share: 0.03, rung: 'rare',
+    { id: 'snare', materialLooks: { tree: 'dead_tree' }, terrain: 'WASTELAND', terrainVergeCells: 3, affinities: ['ruined'], size: 'minor', share: 0.03, rung: 'rare',
       stone: { weathered: '#80776c', restored: '#94897b' }, lampDensity: 1,
       lampGlow: '#d58b52', story: 'street_snare', art: 'street_snare', title: 'Snare Lane',
       body: 'A chest sits beside the lane, surrounded by iron traps. Open jaws stretch across the road and both verges.',
@@ -371,55 +371,55 @@
     // Append so saved mark codes retain their existing meanings.
     // Dry khaki scrub ground (WASTELAND's dusty ochre), not the forest floor:
     // a thorn lane reads parched (owner, Oct 2026).
-    { id: 'thorny', terrain: 'WASTELAND', terrainVergeCells: THORNY_VERGE_MAX_CELLS, affinities: ['woodland'], size: 'minor', share: 0.04, rung: 'uncommon',
+    { id: 'thorny', materialLooks: { tree: 'dead_tree' }, terrain: 'WASTELAND', terrainVergeCells: THORNY_VERGE_MAX_CELLS, affinities: ['woodland'], size: 'minor', share: 0.04, rung: 'uncommon',
       stone: { weathered: '#827967', restored: '#998c73' }, lampDensity: 1,
       sectionMaxM: 250, words: /(thorn|bramble|briar|brier)/i,
       lampGlow: '#b1bd78', story: 'street_thorny', art: 'street_thorny', title: 'Thorny Way',
       body: 'Tangled brambles crowd both sides of the road. You follow the narrow opening between their thorns.',
       flash: 'Brambles crowd the road.' },
-    { id: 'goblin_gang', terrain: 'WASTELAND', affinities: ['ruined'], size: 'minor', share: 0.04, rung: 'rare',
+    { id: 'goblin_gang', materialLooks: { tree: 'dead_tree' }, terrain: 'WASTELAND', affinities: ['ruined'], size: 'minor', share: 0.04, rung: 'rare',
       stone: { weathered: '#877b68', restored: '#9d8f75' }, lampDensity: 1,
       sectionMaxM: 250, clusters: 6, barrelsPerCluster: 5,
       lampGlow: '#dca452', story: 'street_goblin_gang', art: 'street_goblin_gang', title: 'Goblin Gang Street',
       body: 'Goblin grunts gather in little gangs beside stacks of barrels along the street.',
       flash: 'Goblins and barrel stacks.' },
-    { id: 'golden_path', pathWeight: 0.02, terrain: 'ROCK', affinities: ['formal'], size: 'path', share: 0, rung: 'rare',
+    { id: 'golden_path', materialLooks: { tree: 'mossy_tree' }, pathWeight: 0.02, terrain: 'ROCK', affinities: ['formal'], size: 'path', share: 0, rung: 'rare',
       stone: { weathered: '#96866b', restored: '#af9c75' }, lampGlow: '#efc46a',
       coinPlacement: 'centerline', shrinePlacement: 'ends',
       story: 'street_golden_path', art: 'street_golden_path', title: 'Golden Path',
       body: 'A gilded shrine stands beside the path. Touch it each day, and green coins appear in a line down the path.',
       flash: 'Gold glimmers along the path.' },
-    { id: 'slime_trail', pathWeight: .05, terrain: 'WETLAND', affinities: ['damp', 'hostile'], size: 'path', share: 0, rung: 'uncommon',
+    { id: 'slime_trail', materialLooks: { tree: 'mossy_tree' }, pathWeight: .05, terrain: 'WETLAND', affinities: ['damp', 'hostile'], size: 'path', share: 0, rung: 'uncommon',
       stone: { weathered: '#566746', restored: '#71835a', pattern: 'slime', accent: '#b3d77c' },
       lampGlow: '#b3d77c', enemyKinds: ['slime', 'purple_slime', 'fire_slime', 'split_slime'],
       enemyStepM: 70, guardsPerPost: 2,
       story: 'street_slime_trail', art: 'street_slime_trail', title: 'Slime Trail',
       body: 'Wet slime gleams across the path. A colony of slimes has claimed this trail.',
       flash: 'A glistening trail of slime.' },
-    { id: 'spider_path', pathWeight: .05, terrain: 'CAVE_FLOOR', pathTerrainInfluence: true, affinities: ['woodland', 'ruined'], size: 'path', share: 0, rung: 'uncommon',
+    { id: 'spider_path', materialLooks: { tree: 'dead_tree' }, pathWeight: .05, terrain: 'CAVE_FLOOR', pathTerrainInfluence: true, affinities: ['woodland', 'ruined'], size: 'path', share: 0, rung: 'uncommon',
       stone: { weathered: '#747079', restored: '#96909a' }, lampGlow: '#d5d2e4', webDensity: .35,
       story: 'street_spider_path', art: 'street_spider_path', title: 'Spider Path',
       body: 'Lasting webs lie scattered across the path. Spiders lurk nearby; touching silk briefly pins you in place.',
       flash: 'Silk glistens across the path.' },
-    { id: 'poison_path', pathWeight: .03, terrain: 'WETLAND', pathTerrainInfluence: true, affinities: ['damp', 'hostile'], size: 'path', share: 0, rung: 'rare',
+    { id: 'poison_path', materialLooks: { tree: 'dead_tree' }, pathWeight: .03, terrain: 'WETLAND', pathTerrainInfluence: true, affinities: ['damp', 'hostile'], size: 'path', share: 0, rung: 'rare',
       stone: { weathered: '#62704e', restored: '#899768' }, lampGlow: '#8fcc65',
       ventKind: 'poison', ventStepM: 42,
       story: 'street_poison_path', art: 'street_poison_path', title: 'Poison Path',
       body: 'Poison geysers erupt beside the path. A shrine offers a daily boon along the way.',
       flash: 'Poison geysers line the path.' },
-    { id: 'fire_path', pathWeight: .03, terrain: 'ROCK', affinities: ['ruined', 'hostile'], size: 'path', share: 0, rung: 'rare',
+    { id: 'fire_path', materialLooks: { tree: 'dead_tree' }, pathWeight: .03, terrain: 'ROCK', affinities: ['ruined', 'hostile'], size: 'path', share: 0, rung: 'rare',
       stone: { weathered: '#80644f', restored: '#a77d5b' }, lampGlow: '#ff754b',
       ventKind: 'fire', ventStepM: 42,
       story: 'street_fire_path', art: 'street_fire_path', title: 'Fire Path',
       body: 'Fire geysers erupt beside the path. A shrine offers a daily boon along the way.',
       flash: 'Fire geysers line the path.' },
-    { id: 'paralysis_path', pathWeight: .03, terrain: 'ROCK', affinities: ['hostile'], size: 'minor', share: .02, rung: 'rare',
+    { id: 'paralysis_path', materialLooks: { tree: 'lavender_tree' }, pathWeight: .03, terrain: 'ROCK', affinities: ['hostile'], size: 'minor', share: .02, rung: 'rare',
       stone: { weathered: '#827947', restored: '#b2a362' }, lampGlow: '#e5cc62',
       ventKind: 'paralysis', ventStepM: 42,
       story: 'street_paralysis_path', art: 'street_paralysis_path', title: 'Paralysis Path',
       body: 'Creeping vines spread beneath the paralysis geysers. Their tendrils sting on contact. A shrine offers a daily boon along the way.',
       flash: 'Paralysis geysers hiss.' },
-    { id: 'confusion_path', pathWeight: .03, terrain: 'FOREST', affinities: ['woodland', 'hostile'], size: 'path', share: 0, rung: 'rare',
+    { id: 'confusion_path', materialLooks: { tree: 'lavender_tree' }, pathWeight: .03, terrain: 'FOREST', affinities: ['woodland', 'hostile'], size: 'path', share: 0, rung: 'rare',
       stone: { weathered: '#716278', restored: '#9a85a2' }, lampGlow: '#c49ddd',
       ventKind: 'confusion', ventStepM: 42,
       story: 'street_confusion_path', art: 'street_confusion_path', title: 'Confusion Path',
@@ -428,14 +428,14 @@
     // BERRY LANE (Small road) and BERRY TRAIL (path): every kind of bush along
     // both verges (BERRY_LANE_BUSHES), the rare golden berry bush among them,
     // and goblin runts hiding behind (street_berry). Appended last.
-    { id: 'berry', terrain: 'GRASS', affinities: ['cultivated', 'woodland'], size: 'minor', share: 0.05, rung: 'uncommon',
+    { id: 'berry', materialLooks: { tree: 'mossy_tree' }, terrain: 'GRASS', affinities: ['cultivated', 'woodland'], size: 'minor', share: 0.05, rung: 'uncommon',
       stone: { weathered: '#7d7a64', restored: '#948f74' }, lampDensity: 1,
       words: /(berr(?:y|ies)|beere|bush|busch|strauch|currant|bramble)/i,
       lampGlow: '#f2c14e', fauna: { rabbit: [2, 5] },
       story: 'street_berry', art: 'street_berry', title: 'Berry Lane',
-      body: 'Bushes crowd both verges: berries, poison berries and thorns, and once in a long while a golden one. Something small may be hiding behind them.',
+      body: 'Ordinary and berry bushes line both verges, with occasional poison berries, thorns and golden berries. Something small may be hiding behind them.',
       flash: 'Berry bushes line the lane.' },
-    { id: 'berry_trail', pathWeight: .04, terrain: 'GRASS', affinities: ['cultivated', 'woodland'], size: 'path', share: 0, rung: 'uncommon',
+    { id: 'berry_trail', materialLooks: { tree: 'mossy_tree' }, pathWeight: .04, terrain: 'GRASS', affinities: ['cultivated', 'woodland'], size: 'path', share: 0, rung: 'uncommon',
       bushMix: BERRY_TRAIL_BUSHES, encounterVergeCell: 2,
       extraEncounters: [{ tier: 'street_forest_bear', chance: 1 }],
       stone: { weathered: '#7d7a64', restored: '#948f74' }, lampGlow: '#f2c14e',
@@ -444,7 +444,7 @@
       flash: 'Berry bushes line the trail.' },
     // POTTERY ROAD (Small road): clay pots along both verges, a cell back
     // from the kerb (POTTERY_GAP, VERGE_ROWS.pottery). Appended last.
-    { id: 'pottery', terrain: 'ROCK', affinities: ['cultivated', 'formal'], size: 'minor', share: 0.05, rung: 'uncommon',
+    { id: 'pottery', materialLooks: { tree: 'mossy_tree' }, terrain: 'ROCK', affinities: ['cultivated', 'formal'], size: 'minor', share: 0.05, rung: 'uncommon',
       stone: { weathered: '#8a7664', restored: '#a48a6f' }, lampDensity: 1,
       sectionMaxM: 250, words: /(pott|clay|kiln|ceram|t[öo]pfer|crock)/i,
       lampGlow: '#e0a060', story: 'street_pottery', art: 'street_pottery', title: 'Pottery Road',
@@ -453,42 +453,49 @@
     // TRADE ROW (Small road): barrels of goods along both verges and goblin
     // grunts picking through them in twos (VERGE_ROWS.trade, the trade
     // grunt posts, lairs.js street_trade). Appended last.
-    { id: 'trade', terrain: 'WASTELAND', affinities: ['ruined', 'destination'], size: 'minor', share: 0.04, rung: 'rare',
+    { id: 'trade', materialLooks: { tree: 'dead_tree' }, terrain: 'WASTELAND', affinities: ['ruined', 'destination'], size: 'minor', share: 0.04, rung: 'rare',
       stone: { weathered: '#857a66', restored: '#9b8d72' }, lampDensity: 1,
       sectionMaxM: 250, words: /(trade|market|merchant|handel|markt|bazaar)/i,
       lampGlow: '#dca452', story: 'street_trade', art: 'street_trade', title: 'Trade Row',
       body: 'Barrels of goods line both sides of the road, and goblin grunts pick through them in twos.',
       flash: 'Barrels and goblin grunts.' },
-    { id: 'rocky_path', baseline: true, size: 'minor', share: 0.24, pathWeight: 0.24, rung: 'common',
-      terrain: 'ROCK', affinities: ["ruined"],
+    { id: 'rocky_path', materialLooks: { tree: 'conifer_tree' }, baseline: true, size: 'minor', share: 0.24, pathWeight: 0.24, rung: 'common',
+      terrain: 'ROCK', placementVergeCells: 1, affinities: ["ruined"],
       stone: { weathered: '#929088', restored: '#929088' }, lampGlow: '#d8cf9c',
       story: 'street_rocky_path', art: 'street_rocky_path', title: 'Rocky Road / Path', label: 'Rocky Road',
       body: 'Loose stones and low rocks line this simple route.', flash: 'Rocky Road / Path.' },
-    { id: 'grassy_lane', baseline: true, size: 'minor', share: 0.28, pathWeight: 0.28, rung: 'common',
+    { id: 'grassy_lane', materialLooks: { tree: 'mossy_tree' }, baseline: true, size: 'minor', share: 0.28, pathWeight: 0.28, rung: 'common',
       terrain: 'GRASS', pathTerrainInfluence: true, affinities: ["cultivated"],
       stone: { weathered: '#83916c', restored: '#83916c' }, lampGlow: '#d8cf9c',
       story: 'street_grassy_lane', art: 'street_grassy_lane', title: 'Grassy Lane',
-      body: 'Thick grass covers the road and its verges, with herbs and bushes along the edges.', flash: 'Grassy Lane.' },
-    { id: 'old_growth_path', baseline: true, size: 'minor', share: 0.2, pathWeight: 0.2, rung: 'common',
+      body: 'Grass covers the road and its grassy verges.', flash: 'Grassy Lane.' },
+    { id: 'old_growth_path', materialLooks: { tree: 'conifer_tree' }, baseline: true, size: 'minor', share: 0.2, pathWeight: 0.2, rung: 'common',
       terrain: 'FOREST', pathTerrainInfluence: true, affinities: ["woodland"],
       stone: { weathered: '#69745b', restored: '#69745b' }, lampGlow: '#d8cf9c',
       story: 'street_old_growth_path', art: 'street_old_growth_path', title: 'Old Growth Path',
-      body: 'Mature trees shade a path edged with shrubs and mushrooms.', flash: 'Old Growth Path.' },
-    { id: 'haunted_forest_path', haunting: true, baseline: true, size: 'minor', share: 0.12, pathWeight: 0.12, rung: 'common',
-      terrain: 'FOREST', affinities: ["woodland", "ruined"],
-      stone: { weathered: '#747080', restored: '#747080' }, lampGlow: '#d8cf9c',
-      story: 'street_haunted_forest_path', art: 'street_haunted_forest_path', title: 'Haunted Forest Path',
-      body: 'Dead trees crowd the way. Old headstones stand among the mushrooms.', flash: 'Haunted Forest Path.' },
-    { id: 'way_of_variety', baseline: true, size: 'minor', share: 0.16, pathWeight: 0.16, rung: 'common',
+      body: 'Mature trees shade a path edged with mushrooms.', flash: 'Old Growth Path.' },
+    { id: 'haunted_forest_path', materialLooks: { tree: 'dead_tree' }, haunting: true, baseline: true, size: 'minor', share: 0.12, pathWeight: 0.12, rung: 'common',
+      terrain: 'FOREST', groundFamily: 'brownSoil', affinities: ["woodland", "ruined"],
+      stone: { weathered: '#524f5c', restored: '#524f5c' }, lampGlow: '#d8cf9c',
+      story: 'street_haunted_forest_path', art: 'street_haunted_forest_path', title: 'Haunt',
+      body: 'Dead trees crowd the way. Old headstones stand among the mushrooms.', flash: 'Haunt.' },
+    { id: 'way_of_variety', materialLooks: { tree: 'mossy_tree' }, baseline: true, size: 'minor', share: 0.16, pathWeight: 0.16, rung: 'common',
       terrain: 'GRASS', affinities: ["cultivated", "woodland"],
       stone: { weathered: '#9a9278', restored: '#9a9278' }, lampGlow: '#d8cf9c',
       story: 'street_way_of_variety', art: 'street_way_of_variety', title: 'Way of Variety',
-      body: 'Common finds crowd both sides: herbs, berries, mushrooms, rocks, trees and pots.', flash: 'Way of Variety.' },
+      body: 'Herbs, crops, mushrooms, rocks and pots crowd the way, with occasional copper and rose quartz.', flash: 'Way of Variety.' },
+    { id: 'causeway', materialLooks: { tree: 'mossy_tree' }, terrain: 'WATER', terrainVergeCells: 3,
+      terrainPools: true, affinities: ['damp', 'coastal'], size: 'minor', share: 0.03, rung: 'rare',
+      stone: { weathered: '#858b83', restored: '#a2aaa0' }, lampDensity: 1, lampGlow: '#d9e5bf',
+      words: /(causeway|wetland|marsh)/i,
+      story: 'street_causeway', art: 'street_causeway', title: 'Causeway',
+      body: 'Pools of water flank the raised road. The crossing stays dry.',
+      flash: 'Water beside a dry crossing.' },
   ];
   // Cave occupancy predates Paralysis Path becoming a small-road theme.
   // Its rock-length gate must use that selection table, independently of
   // the surface theme's current weights and bounds.
-  const SUBSTRATE_SECTION_ROWS = STREET_VARIANTS.filter(row => row.id !== 'paralysis_path');
+  const SUBSTRATE_SECTION_ROWS = STREET_VARIANTS.filter(row => !['paralysis_path', 'causeway'].includes(row.id));
   const VARIANT_BY_ID = {};
   STREET_VARIANTS.forEach((r, i) => { VARIANT_BY_ID[r.id] = r; r.code = i + 1; });
   // The extra-encounter tiers of every row (the bear's, the boars'): a post
@@ -504,17 +511,18 @@
   //   step     metres between samples (a function: read at call time — the
   //            hedgerow's cell width is WorldGen's, which loads after this);
   //   max      pieces per line piece (none: no cap);
+  //   offset / samples  optional length-derived start and sample count;
   //   side     1 (the left verge), -1, 'both', or a function of the sample
   //            ({ s: arclength, n: sample index, rng: the row's stream });
-  //   walk     verge cells out the first free one is taken from (default
-  //            VERGE_MAX_CELLS); 1 is the kerb cell alone — the hedgerow's
+  //   walk     verge cells out the first free one is taken from (default 1;
+  //            fill rows default to VERGE_MAX_CELLS); 1 is the hedgerow's
   //            tidy row, where an obstacle leaves a GAP rather than pushing a
   //            hedge out of line;
   //   fill     EVERY free verge cell within walk, not the first (the golden
   //            road's ribbon of coins);
   //   retry    the other side when the chosen one has no free cell (the
   //            burned row's torches: a torch every so often, whichever side);
-  //   start    the first k to try (the toadstool giant's set-back seat);
+  //   start    an additional row behind the primary roadside row;
   //   gate     the spawn class a seat must pass (default 'minor' — scenery;
   //            the pottery row's pots are 'reward', off the Major-and-Medium
   //            kerb like every loot container);
@@ -539,7 +547,7 @@
     const art = crop === pick.crop && pick.art ? { _streetArt: pick.art } : {};
     D.res.wildplants.push(D.WG.makeWildplant(crop, D.cx(c.ix), D.cy(c.iy), id, { _street: D.v, ...art }));
   };
-  const BERRY_LANE_ROWS = [{ step: () => root.WorldGen.CELL_M, side: 'both', walk: 2, stream: true,
+  const BERRY_LANE_ROWS = [{ step: () => root.WorldGen.CELL_M, side: 'both', walk: 1, stream: true,
     draw: (at) => { at.gap = at.rng() < BERRY_LANE_GAP; }, skip: (at) => at.gap,
     emit: berryLaneBush }];
   const BERRY_TRAIL_ROWS = [{ step: () => root.WorldGen.CELL_M / 2, side: 'both', walk: 1,
@@ -548,16 +556,17 @@
   // barrelStyle fixes the look and the CLAY_POT_LOOT table).
   const potteryPot = (D, at, c) => D.res.objects.push(D.WG.makeObject('chest', D.cx(c.ix), D.cy(c.iy),
     D.WG.cellId('pot', D.tx, D.ty, c.ix, c.iy), { barrel: true, barrelStyle: 'clay_pot', _street: D.v }));
-  const POTTERY_ROWS = [{ step: () => root.WorldGen.CELL_M, side: 'both', start: () => 2, walk: 3, gate: 'reward',
+  const POTTERY_ROWS = [{ step: () => root.WorldGen.CELL_M * 2, onRoad: true, gate: 'reward', emit: potteryPot },
+  { step: () => root.WorldGen.CELL_M, side: 'both', walk: 1, gate: 'reward',
     stream: true, draw: (at) => { at.gap = at.rng() < POTTERY_GAP; }, skip: (at) => at.gap,
     emit: potteryPot },
-  { step: () => root.WorldGen.CELL_M, side: 'both', start: () => 3, walk: 3, gate: 'reward',
+  { step: () => root.WorldGen.CELL_M, side: 'both', start: () => 2, walk: 2, gate: 'reward',
     stream: 'pottery_back', draw: (at) => { at.gap = at.rng() < POTTERY_BACK_GAP; }, skip: (at) => at.gap,
     emit: potteryPot }];
   // One Trade Row barrel at cell c: a generated wooden barrel.
   const tradeBarrel = (D, at, c) => D.res.objects.push(D.WG.makeObject('chest', D.cx(c.ix), D.cy(c.iy),
     D.WG.cellId('trade_barrel', D.tx, D.ty, c.ix, c.iy), { barrel: true, barrelStyle: 'barrel', _street: D.v }));
-  const TRADE_ROWS = [{ step: () => root.WorldGen.CELL_M, side: 'both', start: () => 2, walk: 3, gate: 'reward',
+  const TRADE_ROWS = [{ step: () => root.WorldGen.CELL_M, side: 'both', walk: 1, gate: 'reward',
     stream: true, draw: (at) => { at.gap = at.rng() < TRADE_BARREL_GAP; }, skip: (at) => at.gap,
     emit: tradeBarrel }];
   // Common route finds share the normal factories and cell-derived identity.
@@ -572,29 +581,29 @@
   // Approved scout sprites share gameplay identities across every suggested route.
   // Source/crop attribution lives in StreetDecorationArt; these rows own placement.
   const APPROVED_DECORATIONS = [
-    { art:'stump', variants:['overgrown','old_growth_path','orchard'], kind:'tree_stump', extra:{_streetArt:'stump'}, weight:.25 },
-    {"art": "white_flower", "variants": ["parkpath", "greenway", "orchard", "hedgerow"], "extra": {"_streetArt": "white_flower"}, "crop": "white_flower"},
-    {"art": "mossy_tree", "variants": ["orchard", "old_growth_path", "hedgerow"], "extra": {"_streetArt": "mossy_tree", "species": "maple", "treeSpeciesFixed": true, "_objectArt": "mossy_tree"}, "kind": "tree"},
-    {"art": "grass_clump", "variants": ["grassy_lane", "hedgerow", "overgrown"], "extra": {"_streetArt": "grass_clump"}, "crop": "longgrass"},
-    {"art": "young_fern", "variants": ["overgrown", "grassy_lane", "old_growth_path"], "extra": {"_streetArt": "young_fern"}, "crop": "young_fern"},
-    {"art": "conifer_tree", "variants": ["old_growth_path", "overgrown"], "extra": {"_streetArt": "conifer_tree", "species": "pine", "treeSpeciesFixed": true, "_objectArt": "conifer_tree"}, "kind": "tree"},
-    {"art": "mossy_rock", "variants": ["rocky_path", "old_growth_path", "overgrown"], "extra": {"_streetArt": "mossy_rock", "requiredTier": 1, "yieldTier": 1}, "kind": "mineralrock"},
-    {"art": "yellow_flowers", "variants": ["orchard", "berry", "berry_trail", "parkpath"], "extra": {"_streetArt": "yellow_flowers"}, "crop": "yellow_flower"},
-    {"art": "muted_stones", "variants": ["rocky_path", "pilgrim", "barricade"], "extra": {"_streetArt": "muted_stones"}, "crop": "rubble"},
-    {"art": "dead_tree", "variants": ["burned", "haunted_forest_path", "spider_path", "thorny", "overgrown"], "extra": {"_streetArt": "dead_tree", "species": "maple", "treeSpeciesFixed": true, "_objectArt": "dead_tree"}, "kind": "tree"},
+    { art:'stump', variants:['orchard'], kind:'tree_stump', extra:{_streetArt:'stump'}, weight:.25 },
+    {"art": "white_flower", "variants": ["parkpath", "greenway", "hedgerow"], "extra": {"_streetArt": "white_flower"}, "crop": "white_flower"},
+    {"art": "mossy_tree", "variants": ["orchard", "old_growth_path"], "extra": {"_streetArt": "mossy_tree", "species": "maple", "treeSpeciesFixed": true, "_objectArt": "mossy_tree"}, "kind": "tree"},
+    {"art": "grass_clump", "variants": ["grassy_lane"], "extra": {"_streetArt": "grass_clump"}, "crop": "longgrass"},
+    {"art": "young_fern", "variants": ["old_growth_path"], "extra": {"_streetArt": "young_fern"}, "crop": "young_fern"},
+    {"art": "conifer_tree", "variants": ["old_growth_path"], "extra": {"_streetArt": "conifer_tree", "species": "pine", "treeSpeciesFixed": true, "_objectArt": "conifer_tree"}, "kind": "tree"},
+    {"art": "mossy_rock", "variants": ["old_growth_path"], "extra": {"_streetArt": "mossy_rock", "requiredTier": 1, "yieldTier": 1}, "kind": "mineralrock"},
+    {"art": "yellow_flowers", "variants": ["orchard", "berry_trail", "parkpath"], "extra": {"_streetArt": "yellow_flowers"}, "crop": "yellow_flower"},
+    {"art": "muted_stones", "variants": ["barricade"], "extra": {"_streetArt": "muted_stones"}, "crop": "rubble"},
+    {"art": "dead_tree", "variants": ["burned", "haunted_forest_path", "spider_path", "thorny"], "extra": {"_streetArt": "dead_tree", "species": "maple", "treeSpeciesFixed": true, "_objectArt": "dead_tree"}, "kind": "tree"},
     {"art": "fire_rock", "variants": ["fire_path", "burned"], "extra": {"_streetArt": "fire_rock", "requiredTier": 1, "yieldTier": 1}, "kind": "mineralrock"},
     {"art": "plank_fragments", "variants": ["barricade", "goblin_gang", "snare", "burned"], "extra": {"_streetArt": "plank_fragments"}, "crop": "driftwood"},
-    {"art": "toadstool_cluster", "variants": ["toadstool", "old_growth_path", "way_of_variety"], "extra": {"_streetArt": "toadstool_cluster"}, "crop": "mushroom"},
+    {"art": "toadstool_cluster", "variants": ["toadstool", "old_growth_path", "way_of_variety"], "extra": {"_streetArt": "toadstool_cluster"}, "crop": "mushroom_bush"},
     {"art": "spotted_mushroom", "variants": ["toadstool"], "extra": {"_streetArt": "spotted_mushroom"}, "crop": "giant_mushroom"},
-    {"art": "red_mushroom", "variants": ["toadstool", "poison_path"], "extra": {"_streetArt": "red_mushroom"}, "crop": "mushroom"},
+    {"art": "red_mushroom", "variants": ["toadstool", "poison_path"], "extra": {"_streetArt": "red_mushroom"}, "crop": "mushroom_bush"},
     {"art": "healing_mushrooms", "variants": ["confusion_path", "paralysis_path", "toadstool"], "extra": {"_streetArt": "healing_mushrooms", "gasEmitter": true, "gasKind": "healing"}, "crop": "mushroom", "weight": 0.08},
-    {"art": "luminous_bulbs", "variants": ["toadstool", "old_growth_path", "confusion_path"], "extra": {"_streetArt": "luminous_bulbs"}, "crop": "mushroom"},
+    {"art": "luminous_bulbs", "variants": ["toadstool", "old_growth_path", "confusion_path"], "extra": {"_streetArt": "luminous_bulbs"}, "crop": "mushroom_bush"},
     {"art": "bone_fragments", "variants": ["haunted_forest_path", "spider_path", "snare"], "extra": {"_streetArt": "bone_fragments"}, "crop": "bone_fragments"},
-    {"art": "dusty_stones", "variants": ["rocky_path", "barricade", "snare"], "extra": {"_streetArt": "dusty_stones", "requiredTier": 1, "yieldTier": 1}, "kind": "mineralrock"},
-    {"art": "golden_bowl", "variants": ["golden", "golden_path", "pilgrim"], "extra": {"_streetArt": "golden_bowl"}, "crop": "golden_bowl", "weight": 0.3},
+    {"art": "dusty_stones", "variants": ["barricade", "snare"], "extra": {"_streetArt": "dusty_stones", "requiredTier": 1, "yieldTier": 1}, "kind": "mineralrock"},
+    {"art": "golden_bowl", "variants": ["golden", "golden_path"], "extra": {"_streetArt": "golden_bowl"}, "crop": "golden_bowl", "weight": 0.3},
     {"art": "golden_flowers", "variants": ["golden", "golden_path", "promenade"], "extra": {"_streetArt": "golden_flowers"}, "crop": "golden_flower"},
     {"art": "green_slick", "variants": ["slime_trail", "poison_path"], "extra": {"_streetArt": "green_slick"}, "crop": "slime_slick"},
-    {"art": "dark_rubble", "variants": ["rocky_path", "haunted_forest_path", "spider_path"], "extra": {"_streetArt": "dark_rubble"}, "crop": "flint"},
+    {"art": "dark_rubble", "variants": ["haunted_forest_path", "spider_path"], "extra": {"_streetArt": "dark_rubble"}, "crop": "flint"},
     {"art": "lavender_tree", "variants": ["confusion_path", "paralysis_path"], "extra": {"_streetArt": "lavender_tree", "species": "maple", "treeSpeciesFixed": true, "_objectArt": "lavender_tree", "variant": 3}, "kind": "tree"},
     {"art": "dark_urn", "variants": ["pottery", "haunted_forest_path", "confusion_path"], "extra": {"_streetArt": "dark_urn", "barrel": true, "barrelStyle": "street_decor_dark_urn"}, "kind": "chest", "weight": 0.08},
     {"art": "pottery_stack", "variants": ["pottery", "trade", "way_of_variety"], "extra": {"_streetArt": "pottery_stack", "barrel": true, "barrelStyle": "street_decor_pottery_stack"}, "kind": "chest"}
@@ -604,11 +613,19 @@
     return [false, true].map(trees => {
       const choices = available.filter(p => (p.kind === 'tree') === trees);
       const weight = choices.reduce((sum,p) => sum + (p.weight ?? 1),0);
-      return { step: trees ? 35 : 14, max: trees ? 12 : 70, side:'both',
-        start: () => trees ? 3 : 1, walk: trees ? 4 : 3, groundOnly:true,
+      const scatter = ['snare', 'barricade'].includes(variant) && !trees;
+      return { step: scatter ? () => root.WorldGen.CELL_M : trees ? 35 : 14,
+        max: trees ? 12 : 70, side: scatter ? at => at.side : 'both',
+        start: at => scatter ? at.start : trees ? 3 : 1, walk: VERGE_MAX_CELLS, groundOnly:true,
         stream:'approved-decorations-' + (trees ? 'trees' : 'ground'),
         // Weight also limits absolute frequency when a rare prop is the only choice.
-        draw: at => { at.gap = at.rng() >= (trees ? .65 : .72) * Math.min(1, weight / Math.max(1, choices.length)); },
+        draw: at => {
+          at.gap = at.rng() >= (trees ? .65 : .72) * Math.min(1, weight / Math.max(1, choices.length));
+          if (scatter) {
+            at.side = at.rng() < .5 ? -1 : 1;
+            at.start = 1 + Math.floor(at.rng() * VARIANT_BY_ID[variant].terrainVergeCells);
+          }
+        },
         skip:at => at.gap || !choices.length,
         emit: (D,at,c) => {
           const id=D.WG.cellId('route_'+D.v,D.tx,D.ty,c.ix,c.iy);
@@ -630,10 +647,26 @@
       D.WG.cellId('stakes_barr_scatter', D.tx, D.ty, c.ix, c.iy),
       { _street: D.v, _streetScenery: true, _streetScatter: true, _spawnClass: 'streetObstacle' })),
   };
+  const OVERGROWN_STAGES = [
+    { kind: 'tree', variant: 1, _objectArt: 'conifer_tree' },
+    { kind: 'tree', variant: 2, _objectArt: 'conifer_tree' },
+    { kind: 'tree', variant: 3, _objectArt: 'conifer_tree' },
+    { kind: 'tree', variant: 3, _objectArt: 'dead_tree' },
+    { kind: 'tree_stump', _streetArt: 'stump' },
+  ];
+  function overgrownLayout(length) {
+    const cell = root.WorldGen.CELL_M, step = cell * 2;
+    const perStage = Math.floor((length + cell) / (step * OVERGROWN_STAGES.length));
+    const count = perStage * OVERGROWN_STAGES.length;
+    // Leave one empty cell between seats; the shrine follows the last stump.
+    const span = count ? count * step - cell : 0;
+    const offset = (length - span) / 2;
+    return { step, perStage, count, offset, shrineM: offset + span };
+  }
   const VERGE_ROWS = {
     // One colony seed per section. Its subsequent growth is saved local state,
     // advanced only by CreepingVines while a living patch is on screen.
-    paralysis_path: [{ step:21, max:1, side:at => at.side, retry:true, walk:2,
+    paralysis_path: [{ step:21, max:1, side:at => at.side, retry:true, walk:1,
       gate:'hazard', groundOnly:true, stream:'creeping-vine-seed',
       draw:at => {at.side=at.rng()<.5 ? -1 : 1;},
       emit:(D,at,c) => {
@@ -641,52 +674,84 @@
         D.res.wildplants.push(D.WG.makeWildplant('creeping_vine',D.cx(c.ix),D.cy(c.iy),id,
           {_street:D.v,_creepingVine:true,_vineColony:id,_plantArt:'creeping_vine',_ix:c.ix,_iy:c.iy}));
       } }],
-    rocky_path: [{ step: () => root.WorldGen.CELL_M, side: 'both', walk: 2, groundOnly: true,
+    rocky_path: [{ step: () => root.WorldGen.CELL_M, crossRoad: true, walk: 1,
       emit: commonFind([COMMON_ROCK, { crop: 'flint' }, { crop: 'rubble' }]) }],
     grassy_lane: [{ step: () => root.WorldGen.CELL_M / 2, crossRoad: true, walk: 2,
-      emit: commonFind([{ crop: 'longgrass' }]) },
-      { step: 14, side: 'both', start: () => 3, walk: 4,
-        emit: commonFind([{ crop: 'petnip' }, { crop: 'shrub' }, { crop: 'berry' }]) }],
-    old_growth_path: [{ step: 21, side: 'both', start: () => 2, walk: 3, emit: commonFind([OLD_TREE]) },
-      { step: 14, side: 'both', walk: 1, emit: commonFind([{ crop: 'shrub' }, { crop: 'mushroom' }]) }],
-    haunted_forest_path: [{ step: 21, side: 'both', start: () => 2, walk: 3, emit: commonFind([DARK_TREE]) },
+      emit: commonFind([{ crop: 'longgrass' }]) }],
+    old_growth_path: [{ step: 21, side: 'both', walk: 1, emit: commonFind([OLD_TREE]) },
+      { step: 14, side: 'both', walk: 1, emit: commonFind([{ crop: 'mushroom' }]) }],
+    haunted_forest_path: [{ step: 21, side: 'both', walk: 1, emit: commonFind([DARK_TREE]) },
       { step: 49, side: 'both', walk: 2, gate: 'headstone', emit: commonFind([{ kind: 'headstone' }]) },
       { step: 21, side: 'both', walk: 1, emit: commonFind([{ crop: 'mushroom' }]) }],
-    way_of_variety: [{ step: () => root.WorldGen.CELL_M, side: 'both', walk: 2,
-      fill: true, gate: 'reward', emit: commonFind([
-        { crop: 'petnip' }, { crop: 'berry' }, { crop: 'shrub' }, { crop: 'mushroom' },
-        { crop: 'flint' }, { crop: 'rubble' }, COMMON_ROCK, OLD_TREE,
-        { kind: 'chest', extra: { barrel: true, barrelStyle: 'clay_pot' } },
-        { kind: 'chest', extra: { barrel: true, barrelStyle: 'barrel' } },
-      ]) }],
+    // Finds stand on the road or path itself and two verge cells either side
+    // (Grassy Lane's cross-section); none blocks movement.
+    way_of_variety: [{ step: () => root.WorldGen.CELL_M / 2, crossRoad: true, walk: 2,
+      gate: 'reward', emit: (D, at, c) => {
+        const id = D.WG.cellId('route_' + D.v, D.tx, D.ty, c.ix, c.iy);
+        const rare = hash01(id + '|variety-special');
+        const choices = rare < .12
+          ? ['potato', 'cress', 'onion', 'nut'].map(crop => ({ crop }))
+          : rare < .18
+            ? [{ kind: 'mineralrock', extra: { yieldTier: 2, requiredTier: 1 } },
+              { kind: 'mineralrock', extra: { deposit: GEM_DEPOSITS.quartz.item,
+                yieldTier: GEM_DEPOSITS.quartz.yieldTier, requiredTier: GEM_DEPOSITS.quartz.requiredTier } }]
+            : [{ crop: 'petnip' }, { crop: 'berry' }, { crop: 'shrub' }, { crop: 'mushroom' },
+              { crop: 'flint' }, { crop: 'rubble' }, COMMON_ROCK,
+              { kind: 'chest', extra: { barrel: true, barrelStyle: 'clay_pot' } },
+              { kind: 'chest', extra: { barrel: true, barrelStyle: 'barrel' } }];
+        commonFind(choices)(D, at, c);
+      } }],
     berry: BERRY_LANE_ROWS, berry_trail: BERRY_TRAIL_ROWS, pottery: POTTERY_ROWS, trade: TRADE_ROWS,
     // FULLY HEDGED: half-cell samples so a diagonal lane's kerb cells are all
     // reached (a claimed cell is simply skipped), no gate stations. Both rows
-    // sit one cell behind the kerb to clear street-lamp foot reservations.
-    hedgerow: [{ step: () => root.WorldGen.CELL_M / 2, side: 'both', start: () => 2, walk: 2,
+    // adjoin the road; occupied cells leave gaps instead of displacing hedges.
+    hedgerow: [{ step: () => root.WorldGen.CELL_M / 2, side: 'both', walk: 1,
       emit: (D, at, c) => D.res.wildplants.push(D.WG.makeWildplant('shrub', D.cx(c.ix), D.cy(c.iy),
         D.WG.cellId('hedge', D.tx, D.ty, c.ix, c.iy), { _street: D.v, _ix:c.ix, _iy:c.iy, _streetArt: 'clipped' })) }],
-    overgrown: [{ step: OVERGROWN_STEP_M, max: OVERGROWN_MAX, side: () => 1,
-      emit: (D, at, c) => D.res.objects.push(D.WG.makeObject('tree', D.cx(c.ix), D.cy(c.iy),
-        D.WG.cellId('tree_og', D.tx, D.ty, c.ix, c.iy),
-        { species: VARIANT_BY_ID[D.v].treeSpecies, treeSpeciesFixed: true,
-          variant: 1 + Math.min(2, Math.floor(3 * at.s / Math.max(1, D.lengthM()))), _objectArt:'conifer_tree', _street: D.v })) }],
+    // One aligned life-cycle row. Blocked cells leave gaps without moving
+    // later stages or pushing trees out into an extra row.
+    overgrown: [{ step: () => overgrownLayout(0).step,
+      offset: D => overgrownLayout(D.lengthM()).offset,
+      samples: D => overgrownLayout(D.lengthM()).count, side: () => 1, walk: 1,
+      emit: (D, at, c) => {
+        const stage = Math.floor(at.n / overgrownLayout(D.lengthM()).perStage);
+        const { kind, ...look } = OVERGROWN_STAGES[stage];
+        D.res.objects.push(D.WG.makeObject(kind, D.cx(c.ix), D.cy(c.iy),
+          D.WG.cellId('tree_og', D.tx, D.ty, c.ix, c.iy),
+          { ...look, _street: D.v, ...(kind === 'tree'
+            ? { species: VARIANT_BY_ID[D.v].treeSpecies, treeSpeciesFixed: true } : {}) }));
+      } }],
     // Repeating loose scallops: three caps, a breathing gap, then the opposite
-    // verge. Two of every three groups have a giant at its set-back centre.
-    toadstool: [{ step: TOADSTOOL_STEP_M, max: TOADSTOOL_MAX,
+    // verge. Two of every three groups have a giant in their centre.
+    toadstool: [{ step: () => root.WorldGen.CELL_M * 2, onRoad: true,
+      emit: (D, at, c) => {
+        const medium = at.n % 2 === 1;
+        D.res.wildplants.push(D.WG.makeWildplant(medium ? 'mushroom_bush' : 'mushroom',
+          D.cx(c.ix), D.cy(c.iy), D.WG.cellId('wp_ts', D.tx, D.ty, c.ix, c.iy),
+          { _street: D.v, ...(medium ? { _streetArt: 'red_mushroom' } : { _plantArt: 'ordinary' }) }));
+      } }, { step: TOADSTOOL_STEP_M, max: TOADSTOOL_MAX,
       skip: (at) => at.n % 4 === 3,
       side: (at) => Math.floor(at.n / 4) % 2 ? -1 : 1,
-      start: (at) => at.n % 4 === 1 ? 2 : 1,
-      emit: (D, at, c) => D.res.wildplants.push(D.WG.makeWildplant(
-        at.n % 4 === 1 && Math.floor(at.n / 4) % TOADSTOOL_GIANT_EVERY_GROUPS < TOADSTOOL_GIANT_GROUPS ? 'giant_mushroom' : 'mushroom',
-        D.cx(c.ix), D.cy(c.iy), D.WG.cellId('wp_ts', D.tx, D.ty, c.ix, c.iy), { _street: D.v, _streetArt: at.n % 4 === 1 && Math.floor(at.n / 4) % TOADSTOOL_GIANT_EVERY_GROUPS < TOADSTOOL_GIANT_GROUPS ? 'spotted_mushroom' : 'red_mushroom' })) },
-      // Fill around the larger groups with small caps on both two-cell verges.
+      walk: 1,
+      emit: (D, at, c) => {
+        const giant = at.n % 4 === 1 && Math.floor(at.n / 4) % TOADSTOOL_GIANT_EVERY_GROUPS < TOADSTOOL_GIANT_GROUPS;
+        const look = giant ? { _streetArt: 'spotted_mushroom' }
+          : at.n % 4 === 0 ? { _plantArt: 'ordinary' } : { _streetArt: 'red_mushroom' };
+        D.res.wildplants.push(D.WG.makeWildplant(giant ? 'giant_mushroom' : look._plantArt ? 'mushroom' : 'mushroom_bush',
+          D.cx(c.ix), D.cy(c.iy), D.WG.cellId('wp_ts', D.tx, D.ty, c.ix, c.iy), { _street: D.v, ...look }));
+      } },
+      // Mix small caps and medium clusters across both two-cell verges.
       // Earlier plants, lamps and blocked cells keep their existing seats.
       { step: () => root.WorldGen.CELL_M / 2, max: TOADSTOOL_COVER_MAX,
         side: 'both', walk: 2, fill: true, groundOnly: true,
-        emit: (D, at, c) => D.res.wildplants.push(D.WG.makeWildplant('mushroom',
-          D.cx(c.ix), D.cy(c.iy), D.WG.cellId('wp_ts', D.tx, D.ty, c.ix, c.iy), { _street: D.v, ...(at.n % 31 === 17 ? { _streetArt:'healing_mushrooms', gasEmitter:true, gasKind:'healing' }
-            : { _streetArt: at.n % 2 ? 'toadstool_cluster' : 'red_mushroom' }) })) }],
+        emit: (D, at, c) => {
+          const look = at.n % 31 === 17 ? { _streetArt:'healing_mushrooms', gasEmitter:true, gasKind:'healing' }
+            : (c.ix + c.iy) % 2 === 0 ? { _plantArt: 'ordinary' }
+            : { _streetArt: at.n % 2 ? 'toadstool_cluster' : 'red_mushroom' };
+          const crop = look._plantArt || look.gasEmitter ? 'mushroom' : 'mushroom_bush';
+          D.res.wildplants.push(D.WG.makeWildplant(crop,
+            D.cx(c.ix), D.cy(c.iy), D.WG.cellId('wp_ts', D.tx, D.ty, c.ix, c.iy), { _street: D.v, ...look }));
+        } }],
     // Alternate along each verge, with the opposite species across the road:
     // half apples, half mature deciduous maples on clear ground.
     orchard: [{ step: ORCHARD_STEP_M, max: ORCHARD_MAX, side: 'both',
@@ -694,7 +759,7 @@
         const apple = (Math.floor(at.s / ORCHARD_STEP_M) + (side === 1 ? 0 : 1)) % 2 === 0;
         D.res.objects.push(D.WG.makeObject(apple ? 'fruittree' : 'tree', D.cx(c.ix), D.cy(c.iy),
           D.WG.cellId(apple ? 'ft_lane' : 'tree_lane', D.tx, D.ty, c.ix, c.iy),
-          apple ? { species: D.WG.fruitTreeSpecies(D.WG.cellHash(D.tx, D.ty, c.ix, c.iy)), wild: true, _street: D.v }
+          apple ? { species: D.WG.fruitTreeSpecies(D.WG.cellHash(D.tx, D.ty, c.ix, c.iy), undefined, VARIANT_BY_ID[D.v].rareFruitSpecies), wild: true, _street: D.v }
             : { species: VARIANT_BY_ID[D.v].treeSpecies, treeSpeciesFixed: true, variant: 3, _street: D.v }));
       } }],
     // Dense ribbons of COIN SEATS on both verges, one per free cell; sampling
@@ -783,6 +848,104 @@
     const terrain = entry.grid?.[iy * N + ix];
     return best || (terrain === WG.T.ROAD_LG ? HIGHWAY_STORY : terrain === WG.T.ROAD_MD ? BANDIT_STORY : null);
   }
+  // The story row of the street at a tile cell: a Major/Medium band's own
+  // road story, else the cell's variant mark. The feet's story (app.js
+  // _tickStreetStory) and a road tap's name (interact.js flavor) share it.
+  function streetStoryAt(entry, ix, iy) {
+    const N = entry?.cellsPerEdge;
+    if (!(N > 0) || ix < 0 || iy < 0 || ix >= N || iy >= N) return null;
+    const i = iy * N + ix;
+    if (entry.roadClass && (entry.roadClass[i] & root.WorldGen.ROAD_CLASS_MAJOR_BAND)) return roadStoryAt(entry, ix, iy);
+    const code = entry.streetMarks ? entry.streetMarks[i] : 0;
+    return code ? variantByCode(code) : null;
+  }
+  // The street a tapped cell names. A Nexus clears the dressing marks it
+  // covers (WorldGen clearZoneAmbientSteps) yet a path keeps its theme there
+  // (only minor roads are cut, suppressNexusRoadThemesSteps), so an unmarked
+  // cell falls back to mark()'s own test: the cell's owner is a dressing
+  // line whose band and verge reach it.
+  const _ownerByIndex = new WeakMap();
+  function streetNameAt(entry, ix, iy) {
+    const row = streetStoryAt(entry, ix, iy);
+    const idx = entry?.streetIndex, N = entry?.cellsPerEdge;
+    if (row || !idx?.dressingLines || !(N > 0) || ix < 0 || iy < 0 || ix >= N || iy >= N) return row;
+    let cached = _ownerByIndex.get(idx);
+    if (!cached || cached.N !== N) _ownerByIndex.set(idx, cached = { N, at: variantOwner(idx, N) });
+    const v = cached.at(ix, iy), owned = v && VARIANT_BY_ID[v];
+    if (!owned) return null;
+    const CELL_M = root.WorldGen.CELL_M, scale = N / (idx.extent || 4096), x = ix + .5, y = iy + .5;
+    for (const rec of idx.dressingLines) {
+      if (rec.variant !== v) continue;
+      const reach = (rec.halfW + CELL_M) / CELL_M;
+      for (let i = 1; i < rec.line.length; i++) {
+        const a = rec.line[i - 1], b = rec.line[i];
+        const ax = a.x * scale, ay = a.y * scale, dx = (b.x - a.x) * scale, dy = (b.y - a.y) * scale;
+        const len2 = dx * dx + dy * dy, u = len2 ? Math.max(0, Math.min(1, ((x - ax) * dx + (y - ay) * dy) / len2)) : 0;
+        if (Math.hypot(x - ax - u * dx, y - ay - u * dy) <= reach) return owned;
+      }
+    }
+    return null;
+  }
+  // The road a tap at a FRACTIONAL tile cell (fx, fy) actually lands on. A
+  // cell can be crossed by several bands (a junction, a path beside a road)
+  // or only clipped by one, so each way that reaches the cell is tested at
+  // the tap's own point against the band the overlay strokes (round-capped,
+  // WorldGen.roadOverlayWidthM wide; lot lanes are never drawn). The nearest
+  // centreline holding the point wins. Its name: an MD/LG road's story, else
+  // the themed dressing section drawn over it there (dressingLines, after any
+  // Nexus cut), else none. Returns { tier, row } on a band, null off every
+  // band, or undefined when the tile has no line geometry to test.
+  function roadAtPoint(entry, fx, fy) {
+    const WG = root.WorldGen, N = entry?.cellsPerEdge, E = entry?.tileEdgeM;
+    const layer = entry?.layers?.find(l => l.name === 'transportation');
+    if (!WG || !layer || !(N > 0) || !(E > 0)) return undefined;
+    const mvtToM = E / (layer.extent || 4096), px = fx * E / N, py = fy * E / N;
+    const distM = (line, k) => {
+      let best = Infinity;
+      for (let i = 1; i < line.length; i++) {
+        const ax = line[i - 1].x * k, ay = line[i - 1].y * k;
+        const dx = line[i].x * k - ax, dy = line[i].y * k - ay, len2 = dx * dx + dy * dy;
+        const u = len2 ? Math.max(0, Math.min(1, ((px - ax) * dx + (py - ay) * dy) / len2)) : 0;
+        best = Math.min(best, Math.hypot(px - ax - u * dx, py - ay - u * dy));
+      }
+      return best;
+    };
+    let hit = null;
+    for (let fi = 0; fi < layer.features.length; fi++) {
+      const f = layer.features[fi];
+      if (f.type !== 2 || !f.geom || WG.isLotLane(f.tags)) continue;
+      const tier = WG.classifyLine('transportation', f.tags || {});
+      const halfM = WG.roadOverlayWidthM(f.tags || {}) / 2;
+      if (tier == null || !(halfM > 0)) continue;
+      for (const line of f.geom) {
+        if (!line || line.length < 2) continue;
+        const d = distM(line, mvtToM);
+        if (d <= halfM && (!hit || d < hit.d)) hit = { d, fi, halfM, tier, tags: f.tags };
+      }
+    }
+    if (!hit) return null;
+    let row = roadStoryFor({ tags: hit.tags });
+    const idx = entry.streetIndex;
+    if (!row && idx?.dressingLines) {
+      // A dressing section is cut from the hit's own way: the same feature
+      // (fi, the index's own), or — a path rebuilt from several fragments —
+      // a band of the hit's width whose centreline agrees with it at the
+      // point. A themed neighbour's band that merely overlaps the point (a
+      // path at a junction's centre) names nothing on the road.
+      const k = E / (idx.extent || 4096);
+      let best = Infinity;
+      for (const rec of idx.dressingLines) {
+        const owned = VARIANT_BY_ID[rec.variant];
+        if (!owned) continue;
+        const d = distM(rec.line, k);
+        const same = rec.fi === hit.fi
+          || (Math.abs(rec.halfW - hit.halfM) < 1e-6 && Math.abs(d - hit.d) <= DRESSING_MATCH_M);
+        if (d <= rec.halfW && same && d < best) { best = d; row = owned; }
+      }
+    }
+    return { tier: hit.tier, row };
+  }
+  const DRESSING_MATCH_M = 0.5;
   // Per-cell marks (dress().marks): a variant's code 1..n, BANDIT_CODE for a
   // plain Major-and-Medium road cell (resolved from roadClass by the caller).
   function variantByCode(code) { return STREET_VARIANTS[code - 1] || null; }
@@ -1997,6 +2160,97 @@
     return best;
   }
 
+  // One cell, one road theme. Query only cells used by terrain/dressing and
+  // memoize their exact nearest centerline; a bounding-volume tree prunes
+  // distant segments. Plain road intervals compete too, so a theme cannot cross them.
+  // Dressing may bound that owner by its road-edge distance; terrain ownership
+  // retains the unbounded nearest-theme query and applies its own reach.
+  function placementVergeCellsFor(variant, maximum = VERGE_MAX_CELLS, size) {
+    const row = VARIANT_BY_ID[variant];
+    const paintsTerrain = (size || row?.size) === 'minor' || row?.pathTerrainInfluence;
+    const influence = (paintsTerrain ? row?.terrainVergeCells : row?.influenceVergeCells) ?? TERRAIN_VERGE_CELLS;
+    return Math.min(maximum, influence, row?.placementVergeCells ?? maximum);
+  }
+  function variantOwner(index, N, maxVergeCells = Infinity) {
+    const scale = N / (index.extent || 4096), segments = [], cache = new Map();
+    const records = [...(index.dressingLines || index.lines || [])];
+    if (index.dressingLines) {
+      for (const rec of index.lines || []) for (const part of lineParts(rec, 1)) {
+        if (part.variant) continue;
+        records.push({ ...rec, variant: 'plain', line: root.Streets.subLineM(rec.line, 1, part.a, part.b) });
+      }
+    }
+    for (const rec of records) {
+      const variant = rec.variant || 'plain', identity = `${rec.key || ''}|${variant}`;
+      for (let j = 1; j < rec.line.length; j++) {
+        const a = rec.line[j - 1], b = rec.line[j];
+        const ax=a.x*scale, ay=a.y*scale, bx=b.x*scale, by=b.y*scale;
+        const dx=bx-ax, dy=by-ay;
+        segments.push({ax,ay,dx,dy,len2:dx*dx+dy*dy,
+          left:Math.min(ax,bx),right:Math.max(ax,bx),top:Math.min(ay,by),bottom:Math.max(ay,by),variant,identity,
+          halfW:(rec.halfW || 0) / root.WorldGen.CELL_M,size:rec.size});
+      }
+    }
+    const tree = parts => {
+      if (!parts.length) return null;
+      const node={left:Infinity,right:-Infinity,top:Infinity,bottom:-Infinity};
+      for (const p of parts) {
+        node.left=Math.min(node.left,p.left);node.right=Math.max(node.right,p.right);
+        node.top=Math.min(node.top,p.top);node.bottom=Math.max(node.bottom,p.bottom);
+      }
+      if (parts.length <= 8) { node.parts=parts; return node; }
+      const wide=node.right-node.left >= node.bottom-node.top;
+      parts.sort((a,b)=>wide ? a.left+a.right-b.left-b.right : a.top+a.bottom-b.top-b.bottom);
+      const middle=parts.length>>1;
+      node.a=tree(parts.slice(0,middle));node.b=tree(parts.slice(middle));
+      return node;
+    };
+    const rootNode=tree(segments);
+    return (ix, iy) => {
+      if (ix < 0 || iy < 0 || ix >= N || iy >= N) return null;
+      const i=iy*N+ix;
+      if (cache.has(i)) return cache.get(i);
+      const x=ix+.5,y=iy+.5;
+      let distance=Infinity, identity='', variant=null, halfW=0, size;
+      const boxDistance = p => {
+        const ex=Math.max(p.left-x,0,x-p.right),ey=Math.max(p.top-y,0,y-p.bottom);
+        return ex*ex+ey*ey;
+      };
+      const visit = node => {
+        if (!node || boxDistance(node)>distance+1e-10) return;
+        if (!node.parts) {
+          const near=boxDistance(node.a)<=boxDistance(node.b) ? node.a : node.b;
+          visit(near);visit(near===node.a ? node.b : node.a);return;
+        }
+        for (const p of node.parts) {
+          if (boxDistance(p)>distance+1e-10) continue;
+          const t=p.len2 ? Math.max(0,Math.min(1,((x-p.ax)*p.dx+(y-p.ay)*p.dy)/p.len2)) : 0;
+          const d=(x-p.ax-t*p.dx)**2+(y-p.ay-t*p.dy)**2;
+          if (d < distance-1e-10 || Math.abs(d-distance)<=1e-10 && p.identity<identity) {
+            distance=d;identity=p.identity;variant=p.variant;halfW=p.halfW;size=p.size;
+          }
+        }
+      };
+      visit(rootNode);
+      const reach = Number.isFinite(maxVergeCells) ? placementVergeCellsFor(variant, maxVergeCells, size) : maxVergeCells;
+      if (distance > (halfW + reach) ** 2 + 1e-10) variant=null;
+      cache.set(i,variant);
+      return variant;
+    };
+  }
+
+  // Reuse the bounded query for runtime growth and guard formation searches.
+  function placementOwner(entry, N = entry?.cellsPerEdge) {
+    const index = entry?.streetIndex;
+    if (!index || !(N > 0)) return null;
+    const cached = entry._streetSpawnOwner;
+    if (cached?.index !== index || cached.N !== N
+        || cached.lines !== index.lines || cached.dressingLines !== index.dressingLines)
+      entry._streetSpawnOwner = { index, N, lines: index.lines,
+        dressingLines: index.dressingLines, at: variantOwner(index, N, VERGE_MAX_CELLS) };
+    return entry._streetSpawnOwner.at;
+  }
+
   // Reserve the full band and themed verge of each themed street,
   // including deliberate gaps between furniture. Test cell squares against
   // the geometry; sample spacing or a missed loop endpoint cannot make holes.
@@ -2004,18 +2258,18 @@
     const area = new Uint8Array(N * N);
     const variants = new Uint8Array(N * N);
     Object.defineProperty(area, 'variants', { value: variants });
-    const distances = new Float64Array(N * N).fill(Infinity), identities = [];
+
     const WG = root.WorldGen;
     if (!index || !WG || !(N > 0)) return area;
     const ext = index.extent || 4096;
     const cellM = WG.CELL_M;
-    const toCell = N / ext;
+    const toCell = N / ext, owner = variantOwner(index, N);
     let segments = 0;
     let candidates = 0;
     for (const rec of (index.dressingLines || index.lines)) {
       if (!rec.variant) continue;
       yield 'street area';
-      const radius = rec.halfW / cellM + TERRAIN_VERGE_CELLS;
+      const radius = rec.halfW / cellM + (VARIANT_BY_ID[rec.variant]?.influenceVergeCells ?? TERRAIN_VERGE_CELLS);
       for (let j = 1; j < rec.line.length; j++) {
         if ((++segments & 127) === 0) yield 'street area segments';
         const a = rec.line[j - 1], b = rec.line[j];
@@ -2030,13 +2284,9 @@
           if ((++candidates & 511) === 0) yield 'street area cells';
           const distance = segmentCellD2(ax, ay, bx, by, ix, iy), i = iy * N + ix;
           if (rec.size === 'minor' && index.nexusCoverage?.[i]) continue;
-          if (distance > r2) continue;
+          if (distance > r2 || owner(ix, iy) !== rec.variant) continue;
           area[i] = 1;
-          const identity = String(rec.key || rec.variant);
-          if (distance < distances[i] || (distance === distances[i] && identity < identities[i])) {
-            distances[i] = distance; identities[i] = identity;
-            variants[i] = VARIANT_BY_ID[rec.variant]?.code || 0;
-          }
+          variants[i] = VARIANT_BY_ID[rec.variant]?.code || 0;
         }
       }
     }
@@ -2052,7 +2302,7 @@
   // ground out to their verge limit. Preserve pavement codes and store their underlay as
   // terrain + 1, so GRASS (zero) remains distinct from an unset streetGround.
   // Pick the nearest road edge before mutation; stable keys settle overlaps.
-  function* paintTerrainSteps({ index, grid, N, spawnWhy, zone, streetGround, roadClass }) {
+  function* paintTerrainSteps({ index, grid, N, spawnWhy, zone, streetGround, roadClass, roadMask, occupied }) {
     const WG = root.WorldGen;
     const painted = new Uint8Array(N * N);
     if (!WG || !grid || !(N > 0)) return painted;
@@ -2065,7 +2315,26 @@
     records.sort((a, b) => ordinal(String(a.key), String(b.key)) || ordinal(a.variant, b.variant));
     const ext = index.extent || 4096, toCell = N / ext;
     const nearest = new Float64Array(N * N).fill(Infinity), original = grid.slice();
+    const owner = variantOwner(index, N);
     const classes = roadClass || index.roadClass;
+    // A water cell must clear the whole painted road band, including diagonal
+    // corners and other roads crossing the themed section.
+    const dryRoad = new Uint8Array(N * N);
+    if (records.some(rec => VARIANT_BY_ID[rec.variant].terrainPools)) {
+      for (const rec of [...(index.lines || []), ...(index.dressingLines || [])]) {
+        const half = (rec.halfW || 0) / WG.CELL_M;
+        for (let j = 1; j < rec.line.length; j++) {
+          const a = rec.line[j - 1], b = rec.line[j];
+          const ax = a.x * toCell, ay = a.y * toCell, bx = b.x * toCell, by = b.y * toCell;
+          for (let y = Math.max(0, Math.floor(Math.min(ay, by) - half)); y <= Math.min(N - 1, Math.floor(Math.max(ay, by) + half)); y++) {
+            for (let x = Math.max(0, Math.floor(Math.min(ax, bx) - half)); x <= Math.min(N - 1, Math.floor(Math.max(ax, bx) + half)); x++) {
+              if (segmentCellD2(ax, ay, bx, by, x, y) <= half * half + 1e-9) dryRoad[y * N + x] = 1;
+            }
+          }
+          yield 'street pool dry bands';
+        }
+      }
+    }
     let candidates = 0;
     for (const rec of records) {
       yield 'street terrain lines';
@@ -2081,6 +2350,7 @@
           for (let x = Math.max(0, Math.floor(Math.min(ax, bx) - radius)); x <= Math.min(N - 1, Math.floor(Math.max(ax, bx) + radius)); x++) {
             if ((++candidates & 511) === 0) yield 'street terrain cells';
             const i = y * N + x, here = original[i];
+            if (owner(x, y) !== rec.variant) continue;
             if (zone?.coverage?.[i] || zone?.under?.present?.[i] || zone?.under?.[i]
                 || index.nexusCoverage?.[i]) continue;
             if ((!WG.isWalkable(here) && !WG.isCobbleTerrain(here))
@@ -2091,6 +2361,15 @@
             const t = len2 ? Math.max(0, Math.min(1, ((x + .5 - ax) * dx + (y + .5 - ay) * dy) / len2)) : 0;
             const distance = Math.hypot(x + .5 - ax - t * dx, y + .5 - ay - t * dy) - half;
             if (distance > reach || distance >= nearest[i] - 1e-6) continue;
+            if (VARIANT_BY_ID[rec.variant].terrainPools) {
+              if (dryRoad[i] || roadMask?.[i] || WG.isRoadTerrain(here) || occupied?.has(i)) continue;
+              // Short pools with seeded dry gaps; use the dominant grid axis
+              // so reversing or splitting the road does not move the gaps.
+              const along = Math.abs(dx) >= Math.abs(dy) ? x + .5 : y + .5;
+              const block = Math.floor(along / 6), phase = along - block * 6;
+              const inset = .5 + hash01(rec.key + '|pool|' + block);
+              if (phase < inset || phase > 6 - inset) continue;
+            }
             nearest[i] = distance;
             if (WG.isCobbleTerrain(here)) {
               if (streetGround) streetGround[i] = terrain + 1;
@@ -2331,18 +2610,26 @@
     // The dressing frame (WorldGen.dressFrame): the tile's cells in frame
     // metres and the occupancy this pass claims into.
     const { cellM: frameCellM, cx, cy, claim } = WG.dressFrame(ctx);
+    const owner = variantOwner(idx, N, VERGE_MAX_CELLS);
+    // Each phase sets its source theme before searching. Relocation predicates
+    // apply ownership and the three-cell edge limit while searching, so blocked
+    // props, shrines and guards cannot relocate beyond their road corridor.
+    let activeVariant = null;
+    const owns = (ix, iy) => activeVariant == null || owner(ix, iy) === activeVariant;
+    const spawnCell = (grid, w, h, ix, iy, opts, spClass) => owns(ix, iy)
+      && WG.isSpawnCell(grid, w, h, ix, iy, opts, spClass);
     // The verge dressing is scenery — a MINOR spawn (the spawn gate).
     const cellOk = (ix, iy) => ix >= 0 && iy >= 0 && ix < N && iy < N
-      && WG.isSpawnCell(grid, N, N, ix, iy, spawnOpts, 'minor');
+      && spawnCell(grid, N, N, ix, iy, spawnOpts, 'minor');
     // A hoard is an ATTRACTOR: OPEN ground only.
     const hoardOk = (ix, iy) => ix >= 0 && iy >= 0 && ix < N && iy < N
-      && WG.isSpawnCell(grid, N, N, ix, iy, spawnOpts, 'attractor');
+      && spawnCell(grid, N, N, ix, iy, spawnOpts, 'attractor');
     // Reserve a possible encounter point using the ordinary enemy profile.
     // Lairs gates each actual member with its roster-derived profile, so a
     // slow guard can inhabit Calm without granting access to a fast guard.
     const rc = spawnOpts.roadClass || idx.roadClass || null;
     const foeOpts = rc && !spawnOpts.roadClass ? Object.assign({}, spawnOpts, { roadClass: rc }) : spawnOpts;
-    const foeOk = (ix, iy) => WG.isSpawnCell(grid, N, N, ix, iy, foeOpts, 'enemy');
+    const foeOk = (ix, iy) => spawnCell(grid, N, N, ix, iy, foeOpts, 'enemy');
     // Seat a foe BACK: its natural cell if it is a foe cell, else the nearest
     // within FOE_SEAT_BACK_CELLS on the same side of any Major-and-Medium road band — or null
     // (the foe is dropped).
@@ -2358,7 +2645,7 @@
       && c.roadOverlap > 0 && c.roadOverlap <= VERGE_ROAD_OVERLAP_MAX + 1e-10;
     // The first spawnable verge cell k = start..kMax out from the band.
     const verge = (rec, x, y, nx, ny, side, start = 1, kMax = VERGE_MAX_CELLS) => {
-      for (let k = start; k <= kMax; k++) {
+      for (let k = start; k <= Math.min(kMax, placementVergeCellsFor(rec.variant, VERGE_MAX_CELLS, rec.size)); k++) {
         const c = vergeCell(rec, x, y, nx, ny, side, k);
         if (cellOk(c.ix, c.iy)) return c;
       }
@@ -2371,11 +2658,13 @@
       const D = { WG, res, tx, ty, cx, cy, rec, v, N,
         lengthM: () => (lengthM ??= rec.line.slice(1).reduce((m, p, i) => m + Math.hypot(p.x - rec.line[i].x, p.y - rec.line[i].y) * gM, 0)) };
       const rng = row.stream ? streamFor(rec, typeof row.stream === 'string' ? row.stream : v) : null;
-      const step = typeof row.step === 'function' ? row.step() : row.step;
+      const step = typeof row.step === 'function' ? row.step(D) : row.step;
+      const offset = row.offset ? row.offset(D) : step / 2;
+      const samples = row.samples ? row.samples(D) : Infinity;
       const spClass = row.gate || 'minor';
       const ok = (ix, iy, c) => ix >= 0 && iy >= 0 && ix < N && iy < N
         && (!row.groundOnly || !WG.isRoadTerrain(grid[iy * N + ix]) || lightlyPaintedVerge(c))
-        && WG.isSpawnCell(grid, N, N, ix, iy, spawnOpts, spClass);
+        && spawnCell(grid, N, N, ix, iy, spawnOpts, spClass);
       const seat = (x, y, nx, ny, side, k0, kMax) => {
         for (let k = k0; k <= kMax; k++) {
           const c = vergeCell(rec, x, y, nx, ny, side, k);
@@ -2385,12 +2674,18 @@
       };
       let placed = 0, n = 0;
       const crossSeats = new Set();
-      sampleLine(rec.line, gM, step, step / 2, (s, x, y, nx, ny) => {
+      sampleLine(rec.line, gM, step, offset, (s, x, y, nx, ny) => {
         const at = { s, n: n++, rng };
-        if (row.max != null && placed >= row.max) return false;
+        if (at.n >= samples || row.max != null && placed >= row.max) return false;
         if (row.draw) row.draw(at);
         if (!S.covers(spans, s)) return;
         if (row.skip && row.skip(at)) return;
+        if (row.onRoad) {
+          const ix = cellOfM(x), iy = cellOfM(y);
+          if (!ok(ix, iy)) return;
+          claim(ix, iy); row.emit(D, at, { ix, iy }); placed++;
+          return;
+        }
         if (row.crossRoad) {
           crossSection(rec, x, y, nx, ny, () => row.walk, crossSeats, (ix, iy) => {
             claim(ix, iy); row.emit(D, at, { ix, iy }); placed++;
@@ -2398,7 +2693,8 @@
           return;
         }
         const sides = row.side === 'both' ? [1, -1] : [row.side(at)];
-        const k0 = row.start ? row.start(at) : 1, kMax = row.walk || VERGE_MAX_CELLS;
+        const k0 = row.start ? row.start(at) : 1;
+        const kMax = Math.min(row.walk || (row.fill ? VERGE_MAX_CELLS : 1), placementVergeCellsFor(v, VERGE_MAX_CELLS, rec.size));
         for (const side of sides) {
           if (row.fill) {
             for (let k = k0; k <= kMax; k++) {
@@ -2422,7 +2718,7 @@
     const crossSection = (rec, x, y, nx, ny, depth, owned, emit, groundOk = cellOk, spClass = 'streetObstacle') => {
       for (const side of [1, -1]) {
         const start = 0;
-        for (let distance = start; distance <= rec.halfW + depth(side) * CELL_M - CELL_M / 2; distance += CELL_M / 2) {
+        for (let distance = start; distance <= rec.halfW + Math.min(depth(side), placementVergeCellsFor(rec.variant, VERGE_MAX_CELLS, rec.size)) * CELL_M - CELL_M / 2; distance += CELL_M / 2) {
           const ix = cellOfM(x + nx * side * distance), iy = cellOfM(y + ny * side * distance);
           if (ix < 0 || iy < 0 || ix >= N || iy >= N) break;
           const i = iy * N + ix;
@@ -2433,7 +2729,7 @@
           const cellReach = (rec.variant === 'barricade' || spClass === 'minor') && WG.isRoadTerrain(grid[i])
             ? CELL_M / 2 * (Math.abs(nx) + Math.abs(ny)) : 0;
           const road = normalDistance <= rec.halfW + cellReach;
-          if (!WG.isSpawnCell(grid,N,N,ix,iy,foeOpts,spClass)
+          if (!spawnCell(grid,N,N,ix,iy,foeOpts,spClass)
             || !road && !groundOk(ix,iy)) break;
           owned.add(i); emit(ix,iy);
         }
@@ -2443,7 +2739,7 @@
       const ix = cellOfM(px * gM), iy = cellOfM(py * gM);
       if (ix < -END_SEAT_CELLS || iy < -END_SEAT_CELLS
           || ix >= N + END_SEAT_CELLS || iy >= N + END_SEAT_CELLS) return null;
-      return WG.relocateToSpawnCell(grid, N, N, ix, iy, spawnOpts, END_SEAT_CELLS, 'minor');
+      return WG.nearestRingCell(ix, iy, 0, END_SEAT_CELLS, cellOk);
     };
     const marks = new Uint8Array(N * N);
     let marked = false;
@@ -2458,7 +2754,7 @@
         for (let o = -r; o <= r; o += CELL_M * 0.7) {
           const ix = cellOfM(x + nx * o), iy = cellOfM(y + ny * o);
           if (ix < 0 || iy < 0 || ix >= N || iy >= N) continue;
-          marks[iy * N + ix] = code;
+          if (owner(ix, iy) === rec.variant) marks[iy * N + ix] = code;
         }
       });
       marked = true;
@@ -2476,16 +2772,17 @@
 
     if (root.StreetSigns) for (const sign of root.StreetSigns.candidates({ ...idx, mvtToM:gM }, CELL_M)) {
       const rec=sign.rec;
-      let c=null;
-      for (const side of [1,-1]) {
-        c=verge(rec,sign.x,sign.y,sign.nx,sign.ny,side,rec.variant === 'grassy_lane' ? 3 : 1,3);
-        if(c)break;
-      }
+      activeVariant=rec.variant;
+      const signSeats = root.StreetSigns.edgeSeats(sign, CELL_M);
+      // Keep the life-cycle row continuous; its sign uses the opposite verge.
+      const c = (rec.variant === 'overgrown' ? signSeats.slice(0, 1) : signSeats).find(c => cellOk(c.ix, c.iy));
       if(!c)continue;
       claim(c.ix,c.iy);
-      res.objects.push(WG.makeObject('roadsign',cx(c.ix),cy(c.iy),
+      res.objects.push(WG.makeObject('roadsign',
+        cx(c.ix) + (c.x / CELL_M - c.ix - .5) * frameCellM,
+        cy(c.iy) + (c.y / CELL_M - c.iy - .5) * frameCellM,
         WG.cellId('street_sign',tx,ty,c.ix,c.iy),
-        { _street:rec.variant,_streetArt:'direction_sign',directions:sign.directions }));
+        { _street:rec.variant,directions:sign.directions }));
     }
     const burnedSeen = new Set();
     // Barricade street key → every owned piece end in the
@@ -2498,6 +2795,7 @@
     const shrineStreets = new Map(), thornyShrines = new Set();
     for (const rec of (idx.dressingLines || idx.lines)) {
       const v = rec.variant;
+      activeVariant=v;
       if (!v) continue;
       yield 'street dressing';
       const row = VARIANT_BY_ID[v];
@@ -2542,7 +2840,7 @@
       for (const tier of encounters) {
         const sid = tier === `street_${v}` ? `street_habitat_${tx}_${ty}_${v}_${rec.key}`
           : `street_habitat_${tx}_${ty}_${tier}_${rec.key}`;
-        // A hedge encounter sits one cell BEHIND the hedge row (verge k = 3),
+        // A hedge encounter sits one cell BEHIND the hedge row (verge k = 2),
         // so the clipped rows stay unbroken; its samples pace by the old gate
         // spacing.
         const step = v === 'hedgerow' ? CELL_M * HEDGE_GATE_EVERY_CELLS : BURNED_GUARD_STEP_M;
@@ -2550,12 +2848,13 @@
         if (!habitatSeats.has(sid)) sampleLine(rec.line, gM, step, start, (s, x, y, nx, ny) => {
           if (habitatSeats.has(sid)) return false;
           if (!S.covers(spans, s)) return;
-          for (const side of [1, -1]) {
-            const candidate = verge(rec, x, y, nx, ny, side, v === 'hedgerow' ? 3 : (row.encounterVergeCell || 1));
-            const c = candidate && foeSeat(candidate.ix, candidate.iy);
+          for (const side of v === 'overgrown' ? [-1] : [1, -1]) {
+            const candidate = verge(rec, x, y, nx, ny, side, v === 'hedgerow' ? 2 : (row.encounterVergeCell || 1));
+            const c = candidate && (v === 'overgrown'
+              ? (foeOk(candidate.ix, candidate.iy) ? candidate : null) : foeSeat(candidate.ix, candidate.iy));
             if (!c) continue;
             claim(c.ix, c.iy); habitatSeats.add(sid);
-            res.lairs.push({ tier, sid,
+            res.lairs.push({ tier, sid, _street: v,
               lx: (c.ix + 0.5) * frameCellM, ly: (c.iy + 0.5) * frameCellM });
             break;
           }
@@ -2586,14 +2885,14 @@
         // THE GRUNTS AMONG THE BARRELS: a post every TRADE_GRUNT_STEP_M, held
         // at TRADE_GRUNT_CHANCE off the street key and the post's index (the
         // same for every player), seated a cell behind the barrel row (verge
-        // k = 3, the barrels stand at k = 2) on the fast-foe gate — the
+        // k = 2, the barrels stand at k = 1) on the fast-foe gate — the
         // street_trade garrison's pair of runts.
         sampleLine(rec.line, gM, TRADE_GRUNT_STEP_M, TRADE_GRUNT_STEP_M / 2, (s, x, y, nx, ny) => {
           if (!S.covers(spans, s)) return;
           const post = Math.floor(s / TRADE_GRUNT_STEP_M);
           if (hash01(`trade-grunt|${rec.key}|${post}`) >= TRADE_GRUNT_CHANCE) return;
           const side = hash01(`trade-grunt-side|${rec.key}|${post}`) < 0.5 ? 1 : -1;
-          const candidate = verge(rec, x, y, nx, ny, side, 3) || verge(rec, x, y, nx, ny, -side, 3);
+          const candidate = verge(rec, x, y, nx, ny, side, 2) || verge(rec, x, y, nx, ny, -side, 2);
           const c = candidate && foeSeat(candidate.ix, candidate.iy);
           if (!c) return;
           const sid = WG.cellId('trade_grunt', tx, ty, c.ix, c.iy);
@@ -2628,7 +2927,7 @@
           const ix = cellOfM(x + nx * offset), iy = cellOfM(y + ny * offset);
           const id = WG.cellId('path_web', tx, ty, ix, iy);
           if (webSeats.has(id) || hash01(`web-density|${rec.key}|${ix},${iy}`) >= row.webDensity
-            || !WG.isSpawnCell(grid, N, N, ix, iy, foeOpts, 'hazard')) return;
+            || !spawnCell(grid, N, N, ix, iy, foeOpts, 'hazard')) return;
           webSeats.add(id); claim(ix, iy);
           res.webs.push({ id, x: cx(ix), y: cy(iy), _street: v, permanent: true });
         });
@@ -2707,7 +3006,7 @@
             }
             if (!c) return;
             burnedSeen.add(sk);
-            res.lairs.push({ tier: 'burned', sid: sk,
+            res.lairs.push({ tier: 'burned', sid: sk, _street: v,
               lx: (c.ix + 0.5) * frameCellM, ly: (c.iy + 0.5) * frameCellM });
           });
         }
@@ -2719,22 +3018,22 @@
           res.wildplants.push(WG.makeWildplant('shrub', cx(ix), cy(iy),
             WG.cellId('bramble', tx, ty, ix, iy), { _street: v, _streetArt: 'bramble', _spawnClass: 'streetObstacle' }));
         };
-        // Reserve the selected shrine before filling its verge. Two complete
-        // shrub rings enclose it, connected to the verge but clear of the road.
+        // Reserve the shrine inside one complete shrub ring, fitting all seats
+        // within the shared road corridor and clear of the road.
         // Cutting or burning an approach uses the ordinary shrub picked ledger.
         if (!thornyShrines.has(rec.key) && streetShrineChosen(rec.key, v)) {
           const length = S.lineLengthM(rec.line, gM), radius = THORNY_SHRINE_RADIUS_CELLS;
           sampleLine(rec.line, gM, length + CELL_M, length / 2, (s, x, y, nx, ny) => {
             if (!S.covers(spans, s)) return;
             for (const side of [1, -1]) {
-              const off = side * (rec.halfW + (radius + 1.5) * CELL_M);
-              const ix = cellOfM(x + nx * off), iy = cellOfM(y + ny * off);
+              const { ix, iy } = vergeCell(rec, x, y, nx, ny, side, radius + 1);
               if (!hoardOk(ix, iy)) continue;
               const ring = [];
               for (let dy = -radius; dy <= radius; dy++) for (let dx = -radius; dx <= radius; dx++) {
                 if (dx || dy) ring.push({ ix: ix + dx, iy: iy + dy });
               }
-              if (!ring.every(c => WG.isSpawnCell(grid,N,N,c.ix,c.iy,spawnOpts,'streetObstacle'))) continue;
+              if (!ring.every(c => !WG.isRoadTerrain(grid[c.iy * N + c.ix])
+                && spawnCell(grid,N,N,c.ix,c.iy,spawnOpts,'streetObstacle'))) continue;
               claim(ix, iy);
               res.objects.push(WG.makeObject('grove_shrine', cx(ix), cy(iy),
                 WG.cellId('street_shrine', tx, ty, ix, iy),
@@ -2766,17 +3065,23 @@
           });
         });
       } else if (v === 'pilgrim') {
-        // Collect safe verge cells before choosing one compact puzzle. All
-        // source fragments of this street share the same tile-local budget.
+        // Pool actual corridor cells, so splitting or reversing geometry cannot
+        // shift the candidate seats. The shared owner keeps them in painted ground.
         if (!pilgrimSeats.has(rec.key)) pilgrimSeats.set(rec.key, new Map());
-        const seats = pilgrimSeats.get(rec.key);
-        sampleLine(rec.line, gM, CELL_M / 2, 0, (s, x, y, nx, ny) => {
-          if (!S.covers(spans, s)) return;
-          for (const side of [1, -1]) {
-            const c = verge(rec, x, y, nx, ny, side);
-            if (c) seats.set(c.iy * N + c.ix, c);
+        const seats = pilgrimSeats.get(rec.key), scale = N / ext;
+        const reach = (rec.halfW || 0) / CELL_M + placementVergeCellsFor(v, VERGE_MAX_CELLS, rec.size);
+        for (let j = 1; j < rec.line.length; j++) {
+          const a = rec.line[j - 1], b = rec.line[j];
+          const ax = a.x * scale, ay = a.y * scale, bx = b.x * scale, by = b.y * scale;
+          const dx = bx - ax, dy = by - ay, len2 = dx * dx + dy * dy;
+          for (let iy = Math.max(0, Math.floor(Math.min(ay, by) - reach)); iy < Math.min(N, Math.ceil(Math.max(ay, by) + reach)); iy++) {
+            for (let ix = Math.max(0, Math.floor(Math.min(ax, bx) - reach)); ix < Math.min(N, Math.ceil(Math.max(ax, bx) + reach)); ix++) {
+              const t = len2 ? Math.max(0, Math.min(1, ((ix + .5 - ax) * dx + (iy + .5 - ay) * dy) / len2)) : 0;
+              if ((ix + .5 - ax - t * dx) ** 2 + (iy + .5 - ay - t * dy) ** 2 > reach ** 2 + 1e-10) continue;
+              if (cellOk(ix, iy)) seats.set(iy * N + ix, { ix, iy });
+            }
           }
-        });
+        }
       } else if (v === 'barricade') {
         let placed = 0;
         const barricadeSeats = new Set();
@@ -2811,6 +3116,7 @@
     // Pool a street's fragments before distributing six paired clusters;
     // splitting mapped geometry must not multiply its encounter budget.
     for (const parts of gangStreets.values()) {
+      activeVariant='goblin_gang';
       yield 'goblin gang clusters';
       const row = VARIANT_BY_ID.goblin_gang;
       const length = parts.reduce((sum, p) => sum + p.b - p.a, 0);
@@ -2829,7 +3135,7 @@
           const guard = foeSeat(origin.ix, origin.iy);
           if (guard) {
             claim(guard.ix, guard.iy);
-            res.lairs.push({ tier: 'street_goblin_gang',
+            res.lairs.push({ tier: 'street_goblin_gang', _street: rec.variant,
               sid: WG.cellId('gang', tx, ty, guard.ix, guard.iy),
               lx: (guard.ix + 0.5) * frameCellM, ly: (guard.iy + 0.5) * frameCellM });
           }
@@ -2848,32 +3154,24 @@
       }
     }
 
-    // A Pilgrim's Way owns one set of 3–6 stones in this tile. Hash order
-    // chooses the anchor; farthest-first seats spread the puzzle within ten
-    // cells of it, never across an arterial. Commit only complete sets so
-    // blocked ground cannot leave an impossible one- or two-stone puzzle.
+    // Seeded scatter keeps two cells between stones. Commit a complete set
+    // together; blocked corridors with fewer than three spaced seats get none.
     for (const key of [...pilgrimSeats.keys()].sort()) {
+      activeVariant='pilgrim';
       yield 'pilgrim waystones';
       const waystoneSet = `pilgrim:${tx},${ty}:${key}`;
       const target = 3 + Math.floor(hash01(waystoneSet) * 4);
-      const candidates = [...pilgrimSeats.get(key).values()]
-        .filter(c => cellOk(c.ix, c.iy))
-        .sort((a, b) => hash01(`${waystoneSet}|${a.ix},${a.iy}`) - hash01(`${waystoneSet}|${b.ix},${b.iy}`));
+      const candidates = [...pilgrimSeats.get(key).values()].filter(c => cellOk(c.ix, c.iy));
+      const rank = c => hash01(`${waystoneSet}|${c.ix},${c.iy}`);
+      candidates.sort((a, b) => rank(a) - rank(b) || a.iy - b.iy || a.ix - b.ix);
       let chosen = [];
-      for (const anchor of candidates) {
-        const nearby = candidates.filter(c => Math.hypot(c.ix - anchor.ix, c.iy - anchor.iy) <= 10
-          && !crossesMajorBand(rc, N, anchor.ix, anchor.iy, c.ix, c.iy));
-        chosen = [anchor];
-        while (chosen.length < target) {
-          let next = null, distance = 4;
-          for (const c of nearby) {
-            const d = Math.min(...chosen.map(p => (c.ix - p.ix) ** 2 + (c.iy - p.iy) ** 2));
-            if (d > distance) { next = c; distance = d; }
-          }
-          if (!next) break;
-          chosen.push(next);
+      for (let start = 0; start < candidates.length && chosen.length < target; start++) {
+        const attempt = [];
+        for (let offset = 0; offset < candidates.length && attempt.length < target; offset++) {
+          const c = candidates[(start + offset) % candidates.length];
+          if (attempt.every(p => (c.ix - p.ix) ** 2 + (c.iy - p.iy) ** 2 >= 4)) attempt.push(c);
         }
-        if (chosen.length >= 3) break;
+        if (attempt.length > chosen.length) chosen = attempt;
       }
       if (chosen.length < 3) continue;
       for (const c of chosen) {
@@ -2887,6 +3185,7 @@
     // Barricades retain one owned endpoint per street and tile, selected by
     // the stable global endpoint hash, with one guard seated off the kerb.
     for (const grp of streetEnds.values()) {
+      activeVariant=grp.v;
       yield 'street end pieces';
       const seen = new Set();
       const cands = [];
@@ -2924,6 +3223,7 @@
       if (!streetShrineChosen(key, shrineStreets.get(key).v)) continue;
       yield 'street shrines';
       const { v, recs } = shrineStreets.get(key);
+      activeVariant=v;
       if (VARIANT_BY_ID[v].shrinePlacement === 'ends') {
         const rec = idx.pathSections?.find(section => section.key === key) || recs[0].rec;
         const length = S.lineLengthM(rec.line, gM);
@@ -2954,6 +3254,16 @@
       let c = null;
       for (const { rec, spans } of recs) {
         const length = S.lineLengthM(rec.line, gM);
+        if (v === 'overgrown') {
+          const layout = overgrownLayout(length);
+          sampleLine(rec.line, gM, length + CELL_M, layout.shrineM, (s, x, y, nx, ny) => {
+            if (!S.covers(spans, s)) return;
+            const end = vergeCell(rec, x, y, nx, ny, 1, 1);
+            if (hoardOk(end.ix, end.iy)) c = end;
+          });
+          if (c) break;
+          continue;
+        }
         const searchAll = !!VARIANT_BY_ID[v].ventKind;
         sampleLine(rec.line, gM, searchAll ? CELL_M : length + CELL_M,
           searchAll ? Math.min(CELL_M / 2, length / 2) : length / 2, (s, x, y, nx, ny) => {
@@ -2982,6 +3292,7 @@
     // daily activation. Cell claims and the shared hazard gate own every gap.
     for (const rec of (idx.dressingLines || idx.lines)) {
       const row = VARIANT_BY_ID[rec.variant];
+      activeVariant=rec.variant;
       if (!row?.ventKind) continue;
       const spans = S.tileSpans(rec.line, gM, ext);
       const length = S.lineLengthM(rec.line, gM);
@@ -2994,7 +3305,7 @@
           let placed = false;
           for (let k = 1; k <= VERGE_MAX_CELLS; k++) {
             const { ix, iy } = vergeCell(rec, x, y, nx, ny, direction, k);
-            if (!WG.isSpawnCell(grid, N, N, ix, iy, foeOpts, 'hazard')) continue;
+            if (!spawnCell(grid, N, N, ix, iy, foeOpts, 'hazard')) continue;
             claim(ix, iy);
             res.vents.push({ id: WG.cellId(`path_vent_${row.ventKind}`, tx, ty, ix, iy),
               x: cx(ix), y: cy(iy), kind: row.ventKind, _street: rec.variant });
@@ -3017,6 +3328,7 @@
     // guarded; the unguarded fallback remains for an entry built without
     // one (the legacy parts). Else nothing, and the next café may take it.
     // Keyed on the POI's GLOBAL point; the id from the hoard's cell.
+    activeVariant=null;
     let hoards = 0;
     for (const hp of idx.hoardPois || []) {
       if (hoards >= HOARDS_PER_TILE) break;
@@ -3093,6 +3405,7 @@
     // Band cells pass the street-obstacle gate, verge cells the cluster's
     // fast-foe gate; then lowest cell hash first, spaced from the cluster.
     for (const [key, { recs, cluster }] of snareStreets) {
+      activeVariant='snare';
       yield 'snare strays';
       const near = new Map();
       for (const rec of recs) {
@@ -3119,8 +3432,8 @@
         const ix = i % N, iy = (i - ix) / N;
         // The shared hazard policy excludes Passing and Excluded cells.
         const ok = road
-          ? WG.isSpawnCell(grid, N, N, ix, iy, foeOpts, 'streetObstacle')
-          : WG.isSpawnCell(grid, N, N, ix, iy, foeOpts, 'hazard');
+          ? spawnCell(grid, N, N, ix, iy, foeOpts, 'streetObstacle')
+          : spawnCell(grid, N, N, ix, iy, foeOpts, 'hazard');
         if (ok) cands.push({ ix, iy, u: hash01(WG.cellId('snare_stray', tx, ty, ix, iy) + '|' + key) });
       }
       cands.sort((a, b) => a.u - b.u);
@@ -3156,9 +3469,10 @@
     // HOUSE_CRATE_SHARE of the seats stand a tier-1 crate instead of a
     // barrel; the rest are WOODEN barrels (barrelStyle — the clay pot is
     // Pottery Road's). Before the herbs, which fill what is left.
+    activeVariant='plain';
     const T = WG.T;
     const barrelOk = (ix, iy) => ix >= 0 && iy >= 0 && ix < N && iy < N
-      && WG.isSpawnCell(grid, N, N, ix, iy, spawnOpts, 'reward');
+      && spawnCell(grid, N, N, ix, iy, spawnOpts, 'reward');
     const isBuildingCell = (t) => t === T.BUILDING || t === T.BUILDING_MED || t === T.BUILDING_LARGE;
     // A building cell's house: the lowest cell index of its 4-connected run
     // of T.BUILDING cells (a flood per house, memoised).
@@ -3378,11 +3692,11 @@
     stretchOf, isBanditStretch, stampBanditStretchesSteps,
     BUS_STOP_MAJOR_CELLS, WAGON_STOP_SHARE, isWagonStop, END_SEAT_CELLS,
     FOE_SEAT_BACK_CELLS, HOARD_POI_CLASSES, HOARD_POI_FALLBACK, HOARDS_PER_TILE, HOARD_SEAT_CELLS,
-    hoardPick, hoardPoisOf, crossesMajorBand, nearestSeat,
+    hoardPick, hoardPoisOf, crossesMajorBand, nearestSeat, variantOwner, placementOwner,
     BERRY_LANE_BUSHES, BERRY_LANE_THORN_MAX, BERRY_LANE_GAP, BERRY_RUNT_STEP_M, BERRY_RUNT_CHANCE, BERRY_VARIANTS, POTTERY_GAP, POTTERY_BACK_GAP, TRADE_BARREL_GAP, TRADE_GRUNT_STEP_M, TRADE_GRUNT_CHANCE, HOUSE_BARREL_ODDS,
-    HEDGE_GATE_EVERY_CELLS, HOUSE_BARRELS_MAX, HOUSE_FRONT_REACH_CELLS, HOUSE_FRONT_SPAN_CELLS, HOUSE_CRATE_SHARE, TERRAIN_VERGE_CELLS, OVERGROWN_STEP_M, OVERGROWN_MAX, ORCHARD_STEP_M,
+    HEDGE_GATE_EVERY_CELLS, HOUSE_BARRELS_MAX, HOUSE_FRONT_REACH_CELLS, HOUSE_FRONT_SPAN_CELLS, HOUSE_CRATE_SHARE, TERRAIN_VERGE_CELLS, ORCHARD_STEP_M,
     ORCHARD_MAX, TOADSTOOL_STEP_M, TOADSTOOL_MAX, MAX_VARIANT_LENGTH_M, MIN_VARIANT_LENGTH_M, LONG_ROAD_M, LONG_ROAD_SECTION_SHARE, LONG_PATCH_UNITS, sectionLimits, VARIANT_PATCH_UNITS, GOLDEN_STEP_M, BARRICADE_STEP_M, BARRICADE_MAX, BARRICADE_VERGE_MAX_CELLS, BURNED_STEP_M, BURNED_MAX, BURNED_TORCH_STEP_M, BURNED_GUARD_STEP_M, LANTERN_SPACING_DIV, HEDGE_LAMP_DENSITY, SLOW_KINDS,
-    THORNY_SHRINE_RADIUS_CELLS, THORNY_VERGE_MAX_CELLS, THORNY_CLUSTER_DENSITY, THORNY_SCATTER_CELLS, THORNY_SCATTER_DENSITY, SNARE_CHEST_TIER, DEAD_END_CRATE_TIER, DEAD_END_CRATES_PER_TILE, SNARE_TRAP_RADIUS_CELLS, SNARE_MIN_TRAPS, STREET_VARIANTS, VARIANT_BY_ID, EXTRA_ENCOUNTER_TIERS, BANDIT_STORY, HIGHWAY_STORY, roadStoryFor, roadStoryAt, variantByCode, labelName,
+    THORNY_SHRINE_RADIUS_CELLS, THORNY_VERGE_MAX_CELLS, THORNY_CLUSTER_DENSITY, THORNY_SCATTER_CELLS, THORNY_SCATTER_DENSITY, SNARE_CHEST_TIER, DEAD_END_CRATE_TIER, DEAD_END_CRATES_PER_TILE, SNARE_TRAP_RADIUS_CELLS, SNARE_MIN_TRAPS, STREET_VARIANTS, VARIANT_BY_ID, EXTRA_ENCOUNTER_TIERS, BANDIT_STORY, HIGHWAY_STORY, roadStoryFor, roadStoryAt, streetStoryAt, streetNameAt, roadAtPoint, variantByCode, labelName,
     normName, streetKey, anonKey, parishOf, sizeOfTags, isVehicleTags, variantFor, rocksFor,
     boundSectionsSteps, PATH_SECTION_MIN_M, PATH_SECTION_TARGET_M, PATH_SECTION_MAX_M, PATH_FRAGMENT_MIN_M, buildPathSectionsSteps, applyPathScenicSteps, syncPathVariants, selectionWeights, applyAffinitiesSteps, nexusExitAffinitySteps, NEXUS_EXIT_AFFINITY_M, AFFINITY_SAMPLE_M, terrainFor, paintTerrainSteps,
     homeIndexSteps, indexFor, nameVote, lineName, sampleLine, canonicalPaths, variantAt, lineParts, displayLines, buildIndexSteps, buildIndex, areaSteps, area, suppressNexusRoadThemesSteps,

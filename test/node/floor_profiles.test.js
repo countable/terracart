@@ -30,8 +30,8 @@
       assert.eq(row.streetMirror, depth >= 1 && depth <= 3);
     }
     const first = WorldGen.floorProfile(2).caveAreas, second = WorldGen.floorProfile(3).caveAreas;
-    assert.eq(first.weights.map(r => r.weight).join(','), '50,0,30,5,15', 'L1 selects no goblin warrens (owner, Oct 2026)');
-    assert.eq(second.weights.map(r => r.weight).join(','), '20,45,25,10,15');
+    assert.eq(first.weights.map(r => r.weight).join(','), '50,0,30,5,15,10', 'natural L2 has quicksand but no goblin warrens');
+    assert.eq(second.weights.map(r => r.weight).join(','), '20,45,25,10,15,10');
     assert.eq(first.carveWalls, false);
     assert.eq(second.carveWalls, true);
     assert.eq(first.goblins, 0, 'and seats no goblins');

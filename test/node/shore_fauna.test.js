@@ -117,12 +117,25 @@ test('path fauna: promenade-defined metal slimes stand beside paths with stable 
   assert.gt(ordinary.length, 0);
   assert.eq(StreetVariants.VARIANT_BY_ID.promenade.pathFauna.metal_slime.perPathM, 300);
   for (const variant of ['greenway', 'parkpath', 'slime_trail', ''])
-    assert.eq(pathPopulation(false, new Set(), variant).length, 0, `${variant || 'plain'} paths have no metal slimes`);
+    assert.eq(pathPopulation(false, new Set(), variant).filter(c => c.kind === 'metal_slime').length, 0, `${variant || 'plain'} paths have no metal slimes`);
   assert.eq(ordinary.map(c => c.id).join(), relocated.map(c => c.id).join(), 'safety leaves identities intact');
   for (const c of [...ordinary, ...relocated]) assert.eq(Math.abs(cellOf(c) % NB - 30), 1, 'every slime is adjacent to the path');
   for (const c of relocated) assert.gte(Math.floor(cellOf(c) / NB), NB - 5, 'restricted path verges remain empty');
   assert.eq(pathPopulation(false, new Set(ordinary.map(c => c.id))).length, 0, 'defeated slimes remain gone');
   assert.eq(pathLift().call({ tileEdgeM: NB * CM }, [], [], NB, 3, 4, CM, new Uint8Array(NB * NB).fill(T.SAND), {}, new Set()).length, 0, 'a pathless beach has no metal slime');
+});
+
+test('path fauna: Greenway deer use safe verges and stable catch identities', () => {
+  const a=pathPopulation(false,new Set(),'greenway'), b=pathPopulation(true,new Set(),'greenway');
+  assert.eq(a.length,Math.min(4,Math.floor(NB*CM/100)));
+  assert.gt(a.length,0);
+  assert.truthy(a.every(c=>c.kind==='deer'));
+  assert.eq(a.map(c=>c.id).join(),b.map(c=>c.id).join());
+  for(const c of b) {
+    assert.eq(Math.abs(cellOf(c)%NB-30),1);
+    assert.gte(Math.floor(cellOf(c)/NB),NB-5);
+  }
+  assert.eq(pathPopulation(false,new Set(a.map(c=>c.id)),'greenway').length,0);
 });
 
 test('shore fauna: crabs on shore sand only, gulls on the beach only, counted off the waterline', () => {

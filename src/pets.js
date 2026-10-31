@@ -24,12 +24,12 @@
     ((c.pet === true && !!ITEM_BY_ID[itemId]?.petFood) || animalLikesFood(species(c.kind), itemId));
   // GIVING the favourite starts the catch; nothing is prepared beforehand.
   const canCatch = (save, c) => catchable(c) && !c.pet && !ownedKind(save, c.kind);
-  // THE CATCH'S DIFFICULTY is the creature's CURRENT HP times two, worn down
+  // THE CATCH'S DIFFICULTY is the creature's CURRENT HP, worn down
   // at the net's tool rate (Combat.dpsForDurationMs of its toolDurationMs —
   // the rate a weapon of that tier deals damage). A hurt foe, a better net:
   // a shorter catch. Shiny and elite pools are doubled in their HP already.
   function catchMs(save, c) {
-    const difficulty = 2 * Combat.hp(c);
+    const difficulty = Combat.hp(c);
     return difficulty / Combat.dpsForDurationMs(toolDurationMs(save?.relics, 'net')) * 1000;
   }
   function tintFor(c) {

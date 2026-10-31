@@ -110,13 +110,13 @@
     for (const [v, list] of Object.entries(rows)) {
       for (const row of list) {
         assert.truthy(row.step && typeof row.emit === 'function', `${v}: a step and a piece`);
-        assert.truthy(row.crossRoad === true || row.side === 'both' || typeof row.side === 'function', `${v}: sides or a road cross-section`);
+        assert.truthy(row.onRoad === true || row.crossRoad === true || row.side === 'both' || typeof row.side === 'function', `${v}: road seats, sides or a road cross-section`);
       }
     }
     assert.truthy(rows.golden[0].fill, 'the golden road fills every free verge cell (a column, not an accident)');
     assert.truthy(rows.burned[1].retry, 'the burned row\'s torch tries the other side');
-    assert.eq(rows.hedgerow[0].start(), 2, 'hedges stand behind lamp feet');
-    assert.eq(rows.hedgerow[0].walk, 2, 'fixed hedge row — an obstacle leaves a gap');
+    assert.eq(rows.hedgerow[0].start?.() ?? 1, 1, 'hedges start directly beside the road');
+    assert.eq(rows.hedgerow[0].walk, 1, 'fixed hedge row — an obstacle leaves a gap');
     assert.truthy(rows.burned[0].stream && rows.burned[0].draw, 'the debris rolls side and kind off its stream, every sample');
     for (const v of ['overgrown', 'toadstool', 'orchard']) assert.falsy(rows[v][0].retry || rows[v][0].fill, `${v}: the first free cell on its side`);
   });

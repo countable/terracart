@@ -164,6 +164,8 @@ const PLAY_TIPS = [
   ITEM_GUIDE_TIPS.moonbeam_scroll,
   ITEM_GUIDE_TIPS.growth_powder,
   ITEM_GUIDE_TIPS.workshop,
+  ITEM_GUIDE_TIPS.psychosis_powder,
+  ITEM_GUIDE_TIPS.sleep_powder,
 ];
 
 // Volume voices are editorial guidance as well as the attribution shown in the reader.
@@ -415,6 +417,8 @@ const PLAY_TIP_VOLUMES = [
   "wizard",
   "garden",
   "builder",
+  "garden",
+  "garden",
 ];
 
 // Narrator observations sit outside the quoted excerpt.

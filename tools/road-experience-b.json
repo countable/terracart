@@ -1,0 +1,277 @@
+[
+  {
+    "id": "golden",
+    "feeling": "A lucky discovery becomes a small daily ritual.",
+    "arrival": "The gilded shrine draws you off the ordinary road before the reward appears.",
+    "art": [
+      "Use the original Golden Road story art to introduce the shrine.",
+      "Keep the gilded shrine brighter than the muted stone and ordinary lamps.",
+      "Leave both coin rows visually clear of decorative clutter."
+    ],
+    "mechanics": [
+      {
+        "text": "Touching the shrine starts a daily green-coin run along both road verges.",
+        "status": "existing"
+      },
+      {
+        "text": "The themed section is capped at 250 m.",
+        "status": "existing"
+      },
+      {
+        "text": "Briefly pulse the first available coins after activation so the collection route reads immediately.",
+        "status": "proposed"
+      }
+    ],
+    "loop": "Notice shrine \u2192 activate \u2192 sweep both verges \u2192 return another day."
+  },
+  {
+    "id": "snare",
+    "feeling": "Temptation makes every next step a deliberate choice.",
+    "arrival": "A visible chest promises a reward while open iron jaws interrupt the approach.",
+    "art": [
+      "Frame the existing chest with readable iron-trap silhouettes.",
+      "Keep bones, rocks and broken planks lower contrast than armed traps.",
+      "Use the original Snare Lane story art to establish the risk before the player approaches."
+    ],
+    "mechanics": [
+      {
+        "text": "A chest is surrounded by a trap cluster, with additional snares along road and verges.",
+        "status": "existing"
+      },
+      {
+        "text": "Scattered bones, rocks and planks occupy the three-cell dusty verge.",
+        "status": "existing"
+      },
+      {
+        "text": "Highlight the nearest armed trap on approach without revealing traps elsewhere.",
+        "status": "proposed"
+      }
+    ],
+    "loop": "Spot cache \u2192 inspect approach \u2192 avoid or handle traps \u2192 claim chest."
+  },
+  {
+    "id": "thorny",
+    "feeling": "The route feels neglected and resistant to passage.",
+    "arrival": "Bramble clusters break the road rhythm; a partly hidden cairn offers a reason to push through.",
+    "art": [
+      "Use existing brambles as solid silhouettes against dry khaki ground.",
+      "Give the moss cairn a clear focal point inside its compact thorn ring.",
+      "Keep loose roadside thorns distinct from harmless dead-tree branches."
+    ],
+    "mechanics": [
+      {
+        "text": "Bramble clusters cross the road and extend into its three-cell verges.",
+        "status": "existing"
+      },
+      {
+        "text": "Brambles drain energy on contact and can burn; some streets enclose a moss cairn.",
+        "status": "existing"
+      },
+      {
+        "text": "Give brambles a brief contact shake to distinguish their damage from nearby enemies.",
+        "status": "proposed"
+      }
+    ],
+    "loop": "Read thorn gaps \u2192 choose passage or clearance \u2192 reach cairn \u2192 continue."
+  },
+  {
+    "id": "goblin_gang",
+    "feeling": "You have walked into someone else\u2019s territory.",
+    "arrival": "Barrel stacks and grouped goblins signal occupied ground rather than an isolated encounter.",
+    "art": [
+      "Make existing barrel stacks the landmark for each gang.",
+      "Keep goblin silhouettes visible around the stacks.",
+      "Use dusty ground and plank fragments to connect each group without adding new fortifications."
+    ],
+    "mechanics": [
+      {
+        "text": "Up to six gang clusters occupy a section where space permits.",
+        "status": "existing"
+      },
+      {
+        "text": "Each cluster combines goblin guards with up to five barrels.",
+        "status": "existing"
+      },
+      {
+        "text": "Add a short shared alert gesture when one gang notices the player.",
+        "status": "proposed"
+      }
+    ],
+    "loop": "Spot gang \u2192 choose engagement or bypass \u2192 inspect barrels \u2192 assess next group."
+  },
+  {
+    "id": "golden_path",
+    "feeling": "A narrow trail invites an easy, satisfying reward run.",
+    "arrival": "An end shrine promises a line to follow rather than a wide area to search.",
+    "art": [
+      "Retain the original Golden Path story art and gilded shrine.",
+      "Use existing paired candles as a quiet edge cue.",
+      "Keep the green coins legible along the path centre."
+    ],
+    "mechanics": [
+      {
+        "text": "Either end shrine activates the same daily coin run.",
+        "status": "existing"
+      },
+      {
+        "text": "Coins appear along the path centreline.",
+        "status": "existing"
+      },
+      {
+        "text": "Show a brief directional glint down the coin line after activation.",
+        "status": "proposed"
+      }
+    ],
+    "loop": "Touch either shrine \u2192 follow centreline coins \u2192 leave at the far end."
+  },
+  {
+    "id": "slime_trail",
+    "feeling": "The trail feels inhabited by a persistent, sticky colony.",
+    "arrival": "Wet green ground and familiar slime shapes announce a continuous enemy territory.",
+    "art": [
+      "Use the current slime-pattern pavement accent to connect encounters.",
+      "Show the section\u2019s chosen slime species consistently.",
+      "Keep wet slicks distinct from walkable stone and enemy bodies."
+    ],
+    "mechanics": [
+      {
+        "text": "Each section selects one slime species from its configured pool.",
+        "status": "existing"
+      },
+      {
+        "text": "Eligible posts hold two guards about 70 m apart; short sections use a midpoint post.",
+        "status": "existing"
+      },
+      {
+        "text": "Let cleared posts briefly lose their strongest slime shimmer so progress feels visible.",
+        "status": "proposed"
+      }
+    ],
+    "loop": "Recognize species \u2192 approach pair \u2192 fight or bypass \u2192 read next colony post."
+  },
+  {
+    "id": "spider_path",
+    "feeling": "Forward movement becomes fragile: a careless step can hold you in danger.",
+    "arrival": "Pale silk interrupts the dark path while spiders wait nearby.",
+    "art": [
+      "Keep existing pale webs high contrast against cave-floor ground.",
+      "Use dead-tree silhouettes and bone fragments to frame, not obscure, silk.",
+      "Retain original Spider Path story art rather than adding giant decorative spiders."
+    ],
+    "mechanics": [
+      {
+        "text": "Lasting webs occupy 35% of eligible samples and paralyse grounded actors.",
+        "status": "existing"
+      },
+      {
+        "text": "A section has one two-spider garrison.",
+        "status": "existing"
+      },
+      {
+        "text": "Add a short silk-tension animation when a web catches an actor.",
+        "status": "proposed"
+      }
+    ],
+    "loop": "Identify webs \u2192 choose clear footing \u2192 manage spiders \u2192 cross the section."
+  },
+  {
+    "id": "poison_path",
+    "feeling": "The air itself makes lingering feel costly.",
+    "arrival": "Green vent clouds draw attention to pockets of danger around a damp path.",
+    "art": [
+      "Use existing poison vent animation and green gas as the primary warning.",
+      "Separate the toad-idol shrine silhouette from green orb lamps.",
+      "Keep wet ground darker than the gas so its extent stays readable."
+    ],
+    "mechanics": [
+      {
+        "text": "Poison vents erupt beside the route and emit poison gas.",
+        "status": "existing"
+      },
+      {
+        "text": "The daily shrine grants eight minutes of Mending regeneration, not poison immunity.",
+        "status": "existing"
+      },
+      {
+        "text": "Strengthen the vent warning pulse at the edge of the visible screen.",
+        "status": "proposed"
+      }
+    ],
+    "loop": "Watch vent cycle \u2192 avoid gas \u2192 visit shrine if useful \u2192 move onward."
+  },
+  {
+    "id": "fire_path",
+    "feeling": "Crossing feels like timing a dangerous opening.",
+    "arrival": "Flame vents and warm lamps reveal a scorched route with intermittent danger.",
+    "art": [
+      "Use upright flame lamps as steady lights and vent animation as the changing hazard.",
+      "Preserve dark rocks and dead-tree art around orange flames.",
+      "Give the ember altar a distinct silhouette from ordinary fire fixtures."
+    ],
+    "mechanics": [
+      {
+        "text": "Fire vents warn, erupt, apply burning and leave temporary ground fire.",
+        "status": "existing"
+      },
+      {
+        "text": "The daily ember shrine strengthens magic for five minutes; it does not grant fire immunity.",
+        "status": "existing"
+      },
+      {
+        "text": "Make the last warning beat visually sharper before eruption.",
+        "status": "proposed"
+      }
+    ],
+    "loop": "Observe warning \u2192 cross a safe interval \u2192 avoid lingering fire \u2192 consider altar."
+  },
+  {
+    "id": "paralysis_path",
+    "feeling": "Stopping in the wrong place can cost control of the encounter.",
+    "arrival": "Vent warnings compete with creeping tendrils along the roadside.",
+    "art": [
+      "Use existing paralysis vent frames against muted stone.",
+      "Keep creeping-vine tendrils visibly separate from lavender-tree foliage.",
+      "Frame the bone-watcher shrine with a clear approach rather than hiding it in vines."
+    ],
+    "mechanics": [
+      {
+        "text": "Paralysis gas can prevent movement and attacks.",
+        "status": "existing"
+      },
+      {
+        "text": "A creeping-vine colony grows from a roadside seed; tendrils sting on contact.",
+        "status": "existing"
+      },
+      {
+        "text": "Make safe gaps between vines and vent footprints easier to read with restrained edge contrast.",
+        "status": "proposed"
+      }
+    ],
+    "loop": "Read vents and vines \u2192 choose a clear crossing \u2192 avoid becoming trapped \u2192 reach watcher if useful."
+  },
+  {
+    "id": "confusion_path",
+    "feeling": "A familiar path becomes briefly hard to trust.",
+    "arrival": "Violet vapour and lavender trees suggest disorientation while lamps remain landmarks.",
+    "art": [
+      "Use the existing confusion gas and lavender-tree art together.",
+      "Keep green orb lamps visually steady against moving vapour.",
+      "Distinguish the lantern-saint shrine from luminous mushroom bulbs and dark urns."
+    ],
+    "mechanics": [
+      {
+        "text": "Confusion vents release gas that disrupts steering.",
+        "status": "existing"
+      },
+      {
+        "text": "The daily lantern shrine boosts light for five minutes; it does not cure confusion.",
+        "status": "existing"
+      },
+      {
+        "text": "Keep a subtle stable path-edge cue visible through the effect to aid reorientation.",
+        "status": "proposed"
+      }
+    ],
+    "loop": "Read vapour \u2192 avoid exposure \u2192 regain bearings if affected \u2192 follow the route out."
+  }
+]

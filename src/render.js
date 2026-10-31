@@ -198,6 +198,8 @@ Render.sortWorldDepth = function (pieces) {
 // Restoration clears the skulls from every tower and keeps the player's
 // existing single banner at the footprint's designated flag post.
 Render.castleFlagTexture = function (scene, tower) {
+  const room = scene.activeInterior?.();
+  if (room?.kind === 'castle' && room.buildingKey === tower.castle) return null;
   const claimed = scene.isCastleClaimed ? scene.isCastleClaimed(tower)
     : scene.isClaimedKey ? scene.isClaimedKey(tower.castle) : null;
   if (claimed === null) return null;
@@ -208,8 +210,8 @@ Render.towerCrownHeight = function (textures, castle) {
   const frame = textures.getFrame('tower', CastleStyles.get(castle).towerFrame);
   return (frame?.height || CastleStyles.TOWER_HEIGHT) - (frame?.castleCrownY || 0);
 };
-// Only an emitted surface castle replaces its legacy tower artwork. Gameplay
-// tower records remain available to targeting, ownership and interaction.
+// Castle artwork comes only from generated architecture. Gameplay tower
+// records remain available to targeting, ownership and interaction.
 Render.fdrCastleLayout = function (scene, object) {
   if (!scene || (scene.depth ?? 0) !== 0 || object.kind !== 'tower') return null;
   return scene._fdrCastleLayouts?.get(object.castle) || null;
@@ -222,7 +224,7 @@ Render.castleFlagItems = function (scene, items, project) {
     .sort((a, b) => Number(!!b.o.flagPost) - Number(!!a.o.flagPost));
   for (const item of candidates) {
     const castle = Render.fdrCastleLayout(scene, item.o);
-    if (!castle) { flags.push(item); continue; }
+    if (!castle || castle.interior) continue;
     const group = scene._wallPerspective?.[castle.source || 'castles'];
     if (!group) continue;
     const used = occupied.get(castle) || new Set();
@@ -825,6 +827,29 @@ const POI_PAD_MINI_SCALE = 0.55;
 const T_PATH = 8;
 const isRoadType = (t) => t === 7 || t === 13 || t === 14;
 
+// What a street-name anchor prints and in which ink. The word is the
+// street's official first word, then its variant's name: off the dressed
+// tile's per-cell marks, or (a themed path inside a Nexus, whose marks the
+// Nexus cleared) StreetVariants.streetNameAt, as a tap reads it. The ink is
+// the surface's own (RoadOverlay.labelInk): MD/LG art, the variant's stone,
+// a Nexus-suppressed minor road's, else plain. Cached on the anchor until
+// the tile's marks change (none until it is dressed).
+Render.roadLabelView = (entry, ix, iy, type, info) => {
+  if (info._view && info._viewMarks === entry.streetMarks) return info._view;
+  const i = iy * entry.cellsPerEdge + ix;
+  const mark = entry.streetMarks ? entry.streetMarks[i] : 0;
+  let row = mark ? StreetVariants.variantByCode(mark) : null;
+  if (!row && type === T_PATH && entry.streetMarks) {
+    const named = StreetVariants.streetNameAt(entry, ix, iy);
+    if (named && StreetVariants.VARIANT_BY_ID[named.id] === named) row = named;
+  }
+  const suffix = row ? StreetVariants.labelName(row) : '';
+  const ink = type === 14 ? 'surface:md' : type === 13 ? 'surface:lg'
+    : row ? row.id : entry.streetIndex?.nexusCoverage?.[i] && type !== T_PATH ? 'suppressed' : 'plain';
+  info._viewMarks = entry.streetMarks;
+  return (info._view = { text: suffix ? `${info.text} ${suffix}` : info.text, ink });
+};
+
 // Raster road codes carry gameplay, not a second paved surface. Both the
 // game and map review paint the surrounding ground under the source band.
 Render.groundBaseColor = (type, fallback) =>
@@ -903,6 +928,52 @@ Render.neutralPetPixels = function neutralPetPixels(data) {
 // frame's glowing rune keeps the on/off state legible in daylight.
 Render.setWaystoneMaterial = function setWaystoneMaterial(sprite, object, scene) {
   setTextureIfDifferent(sprite, 'waystone', window.Waystones?.isLit(object, scene.save) ? 1 : 0);
+};
+// ROADSIDE FINGERPOST BOARDS. One board record per heading the sign lists,
+// derived once per sign and kept by identity, so the appearance cache holds
+// (CACHED_APPEARANCE_KINDS) and a board never enters saves or the tap path:
+// it is a drawn piece, not a world object. `_board` is the heading's north-up
+// unit vector (StreetSigns.vector), `_slot` its row from the top of the post.
+const ROAD_SIGN_BOARDS = new WeakMap();
+Render.roadSignBoards = function roadSignBoards(item) {
+  const { o, dx, dy } = item;
+  let boards = ROAD_SIGN_BOARDS.get(o);
+  if (!boards) {
+    const listed = (o.directions || []).map(d => StreetSigns.vector(d.direction)).filter(Boolean);
+    // `_owner`: a tap on a board (Render.tallPropHit) is a tap on the sign.
+    boards = listed.map((vec, i) => ({ kind: 'roadsign_board', id: `${o.id}:board${i}`, x: o.x, y: o.y,
+      _board: vec, _slot: i, _slots: listed.length, _street: o._street, _owner: o }));
+    ROAD_SIGN_BOARDS.set(o, boards);
+  }
+  return boards.map(b => ({ o: b, dx, dy }));
+};
+// The post's own seat (SpriteLayout.contactSeat over its frame-filling art):
+// where its frame sits about the cell centre, and the contact its boards share.
+let _roadSignPostSeat = null;
+Render.roadSignPostSeat = function roadSignPostSeat() {
+  if (_roadSignPostSeat) return _roadSignPostSeat;
+  const { post, scale } = StreetSigns.ART;
+  const box = { fw: post.fw, fh: post.fh, minX: 0, minY: 0, maxX: post.fw, maxY: post.fh };
+  const seat = SpriteLayout.contactSeat(box, 0.5, 0.5, scale, scale, false);
+  // The pivot is the pole's centre column, which the plinth is centred on too.
+  seat.dxPx += (post.poleX + post.poleW / 2 - post.fw / 2) * scale;
+  return _roadSignPostSeat = seat;
+};
+// A board's pivot: its source row on the post frame, in screen px from the cell centre.
+Render.roadSignBoardDy = function roadSignBoardDy(o) {
+  const { post, scale } = StreetSigns.ART;
+  return Render.roadSignPostSeat().dyPx + (StreetSigns.boardRow(o._slot, o._slots) - post.fh / 2) * scale;
+};
+// Point the board along its road. The heading is turned for heading-up first
+// (the pool reconfigures every piece while the map turns), then projected
+// like a flat ground mark (StreetSigns.boardPose, GROUND_MARK.tilt). The
+// sprite's own rotation is the final screen angle: the camera's turn and the
+// upright counter-turn (heading_up.js _upright) cancel for every pooled
+// sprite, and the pivot keeps its place up the post through that counter-turn.
+Render.poseRoadSignBoard = function poseRoadSignBoard(sprite, o, scene) {
+  const v = typeof HeadingUp !== 'undefined' ? HeadingUp.toScreenVec(scene, o._board.x, o._board.y) : o._board;
+  const pose = StreetSigns.boardPose(v, GROUND_MARK.tilt);
+  sprite.setRotation(pose.angle).setScale(sprite.scaleX * pose.length, sprite.scaleY);
 };
 Render.petTexture = function petTexture(scene, kind, sheet, tint = 0xffffff) {
   const key = 'pet-neutral-' + sheet;
@@ -1149,7 +1220,7 @@ Render.renderAuras = function renderAuras(scene, pool, list, project) {
     const diameter = 2 * auraRadiusCells(item.aura) * CELL_PX;
     setTextureIfDifferent(s, item.aura.texture || 'aura_blight');
     s.setOrigin(0.5, 0.5).setDisplaySize(diameter, diameter)
-      .setPosition(x, y).setAlpha(0.9);
+      .setPosition(x, y).setAlpha(item.aura.alpha ?? 0.9);
     if (item.aura.tint != null) s.setTintFill(item.aura.tint);
   });
 };
@@ -1884,6 +1955,51 @@ const UNMAPPED_T = 30;
 // lives on the tile entry (first frame the renderer SEES it loaded), so the
 // reveal happens exactly once per cache entry, at the loading frontier.
 const UNMAPPED_REVEAL_MS = 600;
+// AN ARRIVAL FADES IN (owner, Oct 2026: "trees sometimes suddenly appear").
+// An object first drawn WELL INSIDE the view — nearer the anchor than
+// `innerM`, a cell short of the visible rim — cannot have walked in from the
+// edge: it was put there while the view was on it (a late Overpass bin
+// swapping the tile for one with its detected trees, a spawn pass adding to
+// a tile already on screen, a rebuild). It rises from clear to whole over
+// the tile reveal's own time, UNMAPPED_REVEAL_MS, the sprite and its shadow
+// together; an object first seen at the rim, or seen before, draws whole at
+// once. The first-seen stamp is kept PER RECORD in a WeakMap — never on the
+// record, which may be a save record (a planted tree) that JSON.stringify
+// would carry into the save — so the one fade is per object, not per sprite
+// slot, and a tile rebuild (new records) earns one.
+const _arrivals = new WeakMap();
+// A record the pass MINTS afresh every frame (placedAs's lamps, scarecrows
+// and fires; a stump's view of its tree) is a new object each pass, so keyed
+// by identity it was "first seen" every frame and, inside the inner view,
+// stayed clear for good: lit roadside lamps vanished as they neared the
+// player. Render.mintedArrival gives such a record a stable stand-in key by
+// kind and id, carried from frame to frame only while it is still drawn —
+// one culled out and back walks in at the rim again.
+const _mintedKey = new WeakMap();
+let _mintedLive = new Map(), _mintedPrev = new Map();
+Render.mintedArrival = function mintedArrival(o) {
+  const id = `${o.kind}:${o.id}`;
+  const key = _mintedLive.get(id) || _mintedPrev.get(id) || {};
+  _mintedLive.set(id, key);
+  _mintedKey.set(o, key);
+  return o;
+};
+// drawObjects opens each pass with this: last pass's keys stay claimable.
+Render.mintedArrivalFrame = function mintedArrivalFrame() {
+  _mintedPrev = _mintedLive;
+  _mintedLive = new Map();
+};
+Render.arrivalAlpha = function arrivalAlpha(o, dx, dy, now, innerM) {
+  o = _mintedKey.get(o) || o;
+  let seen = _arrivals.get(o);
+  if (!seen) _arrivals.set(o, seen = { ms: now, arriving: Math.hypot(dx, dy) <= innerM });
+  if (!seen.arriving) return 1;
+  const a = (now - seen.ms) / UNMAPPED_REVEAL_MS;
+  if (a >= 1) { seen.arriving = false; return 1; }
+  return Math.max(0, a);
+};
+// Is this record mid-fade (a still frame must keep reconfiguring it)?
+Render.arriving = function arriving(o) { return !!_arrivals.get(_mintedKey.get(o) || o)?.arriving; };
 // Reused across frames — cells currently mid-reveal, as (sx, sy, alpha)
 // triples for the veil pass on the lighting layer.
 const _fadeRects = [];
@@ -2059,8 +2175,8 @@ Render.drawChestTrails = function drawChestTrails(scene) {
   const style = Starter.TRAIL_STYLE, player = playerWorldM(scene);
   g.lineStyle(style.width, style.colour, style.alpha);
   for (const path of paths) {
-    const radius = Math.hypot(player.x - path.target.x, player.y - path.target.y)
-      + scene.cellM * style.behindCells;
+    const radius = Math.max(0, Math.hypot(player.x - path.target.x, player.y - path.target.y)
+      + scene.cellM * style.behindCells);
     const radiusSquared = radius * radius;
     let along = 0;
     g.beginPath();
@@ -2204,7 +2320,82 @@ Render.drawCaveWalls = function (scene, cells, offsetX = 0, offsetY = 0) {
   }, true);
 };
 
+// The street-variant row whose influence footprint holds this cell, or null.
+// Its recorded variant codes already settle overlapping roads, so drawing never
+// repeats spatial ownership searches. `includeRoad` also admits minor road
+// cells so their cobble gaps show the variant's ground.
+Render.roadInfluenceVariant = function roadInfluenceVariant(entry, ix, iy, includeRoad = false) {
+  const N = entry?.cellsPerEdge, i = iy * N + ix;
+  if (!entry?.grid || entry.depth > 0 || !(N > 0) || ix < 0 || iy < 0 || ix >= N || iy >= N
+      || WorldGen.variantOwnerAt(entry, i) !== 'road') return null;
+  const terrain = entry.grid[i];
+  if (!(WorldGen.isWalkable(terrain) || includeRoad && terrain === WorldGen.T.ROAD) || WorldGen.isBuildingTerrain(terrain)
+      || terrain === WorldGen.T.PIER || terrain === WorldGen.T.ROAD_MD || terrain === WorldGen.T.ROAD_LG) return null;
+  const code = (entry.streetAreaVariants || entry.streetArea?.variants)?.[i];
+  return (typeof StreetVariants !== 'undefined' && StreetVariants.variantByCode(code)) || null;
+};
+// A variant row's `groundFamily` redraws its influence ground with that
+// GroundMaterials family (and its transitions). Render-only, like
+// zoneGroundTexture: terrain, flora, spawns and tilling keep the source cell.
+// There is no per-cell colour wash: a square overlay has no transition, so
+// a variant's ground identity is its terrain or this family, never a tint.
+Render.roadInfluenceGroundFamily = function roadInfluenceGroundFamily(entry, ix, iy) {
+  const family = Render.roadInfluenceVariant(entry, ix, iy, true)?.groundFamily;
+  return family ? GroundMaterials.families.findIndex(row => row.id === family) : -1;
+};
+
+// Field-testing overlay: cached nearest-road ownership, sampled only for the
+// visible cell ring. This never changes generated ground, claims or spawns.
+const _variantTintOwners = new WeakMap();
+Render.variantTintColor = function variantTintColor(entry, ix, iy) {
+  const N=entry?.cellsPerEdge, i=iy*N+ix;
+  if (!entry?.grid || entry.depth > 0 || !(N>0) || ix<0 || iy<0 || ix>=N || iy>=N) return null;
+  if (entry.variantDiscarded?.[i]) return null;
+  const winner=WorldGen.variantOwnerAt(entry,i);
+  if (winner==='home' || winner==='cave') return null;
+  if (winner==='zone') {
+    const anchor=WorldGen.zoneAnchorAt(entry,i);
+    const row=anchor && typeof ZoneVariants!=='undefined' && ZoneVariants.pick(anchor);
+    if (!row) return null;
+    const materials=Object.entries(row.background?.materialDensity || {}).sort((a,b)=>b[1]-a[1]);
+    const color=ZoneVariants.materials[materials[0]?.[0]]?.color || row.lampGlow;
+    return /^#[0-9a-f]{6}$/i.test(color || '') ? parseInt(color.slice(1),16) : null;
+  }
+  const index=entry.streetIndex;
+  if (!index || typeof StreetVariants==='undefined') return null;
+  let cached=_variantTintOwners.get(index);
+  if (!cached || cached.N!==N || cached.lines!==index.lines || cached.dressingLines!==index.dressingLines) {
+    cached={N,lines:index.lines,dressingLines:index.dressingLines,owner:StreetVariants.variantOwner(index,N)};
+    _variantTintOwners.set(index,cached);
+  }
+  const variant=cached.owner(ix,iy);
+  return typeof RoadOverlay!=='undefined' ? RoadOverlay.primaryColor(variant) : null;
+};
+Render.setVariantTint = function setVariantTint(scene, enabled) {
+  scene.debugVariantTint=!!enabled;
+  try { localStorage.setItem('terracart.debugVariantTint',enabled?'1':'0'); } catch (_) {}
+  const button=typeof document!=='undefined' && document.getElementById?.('debug-variant-tint');
+  if (button) {
+    button.textContent=`Variant ground tint: ${enabled?'on':'off'}`;
+    button.setAttribute('aria-pressed',String(!!enabled));
+  }
+  if (!enabled) scene._variantTintGfx?.clear().setVisible(false);
+};
+Render.beginVariantTint = function beginVariantTint(scene) {
+  scene._variantTintGfx?.clear();
+  if (!scene.debugVariantTint || scene.depth!==0) {
+    scene._variantTintGfx?.setVisible(false);return null;
+  }
+  if (!scene._variantTintGfx) {
+    scene._variantTintGfx=scene.add.graphics();
+    scene.cobbleContainer.add(scene._variantTintGfx);
+  }
+  scene._variantTintGfx.setVisible(true);
+  return scene._variantTintGfx;
+};
+
 Render.drawCells = function drawCells(scene) {
+  const variantTint=Render.beginVariantTint(scene);
   Render.drawChestTrails(scene);
   Render.drawSpiderWebs(scene);
   const g = scene.cellGfx;
@@ -2457,11 +2648,15 @@ Render.drawCells = function drawCells(scene) {
       const i = (r + 2) * RING + c + 2;
       const entry = WorldGen.tileCache.get(WorldGen.tileKey(_ringTX[i], _ringTY[i]));
       let t = types[i];
+      // A player's stone fence wears rock ground, with transitions like any rock.
+      if (scene.placedRockSet?.has(cellKeyFromAbsCell(AX(c,r), AY(c,r)))) t = 10;
       if (t === 32 && typeof MountainEdges !== 'undefined') t = MountainEdges.groundType(types, RING, i);
       // Source ground and selected Nexus textures share one transition atlas.
       // Keep authored accent-only fills and synthetic floors.
       if (!entry?.grid) continue;
       const textureKey = zoneGroundTexture(entry, _ringIY[i] * entry.cellsPerEdge + _ringIX[i], t);
+      const roadGround = textureKey ? -1 : Render.roadInfluenceGroundFamily(entry, _ringIX[i], _ringIY[i]);
+      if (roadGround >= 0) { transitionMaterials[i] = roadGround; continue; }
       const tintedNative = t === WorldGen.T.CHURCHYARD || t === WorldGen.T.TAR_YARD;
       if (!textureKey && !tintedNative && _ringGroundColor[i] >= 0) continue;
       if (isRoadType(t) || t === T_PATH) t = Render.roadBackdropType(scene, t, AX(c,r), AY(c,r));
@@ -2528,6 +2723,16 @@ Render.drawCells = function drawCells(scene) {
         }
       }
       const { x: sx, y: sy } = cellScreenXY(scene, ox, oy, fracX, fracY, PHASE(row));
+      if (variantTint) {
+        const slot=(row+2)*RING+col+2;
+        const entry=WorldGen.tileCache.get(WorldGen.tileKey(_ringTX[slot],_ringTY[slot]));
+        const tint=Render.variantTintColor(entry,_ringIX[slot],_ringIY[slot]);
+        if (tint!=null) {
+          variantTint.fillStyle(tint,.42);
+          variantTint.fillRect(sx,sy,CELL_PX,CELL_PX);
+        }
+      }
+
 
       // Resolve only the cells in view; the permanent burn ledger can grow
       // indefinitely without increasing the cost of a frame.
@@ -2620,7 +2825,7 @@ Render.drawCells = function drawCells(scene) {
       {
         const ns = Render.terrainSpriteAt(scene, noiseIdx++);
         const h = (absCellIX * 2246822519) ^ (absCellIY * 3266489917);
-        const selected = transitionsActive && type === T(col, row)
+        const selected = transitionsActive
           ? TerrainTransitions.select(scene, transitionMaterials, RING, _si) : null;
         let texKey = selected?.key || null;
         let damageFrame = selected?.frame, terrainLayers = selected?.layers, rockOverlay;
@@ -2723,9 +2928,9 @@ Render.drawCells = function drawCells(scene) {
       // drops an anchor every ~12 road cells), laid along the road direction.
       {
         const lt = scene.letterPool[letterIdx++];
-        // Anchors exist only on vehicle road tiers (a footpath is too narrow
-        // to carry a label), so the isRoad gate also keeps lookups cheap.
-        if (!isTilled && isRoadType(type)) {
+        // Anchors exist only on road and path tiers, so this gate also keeps
+        // lookups cheap.
+        if (!isTilled && (isRoadType(type) || type === T_PATH)) {
           // Look up this cell's label anchor from its owning tile.
           const ix2 = _ringIX[_si], iy2 = _ringIY[_si];
           const entry = WorldGen.tileCache.get(WorldGen.tileKey(_ringTX[_si], _ringTY[_si]));
@@ -2735,11 +2940,15 @@ Render.drawCells = function drawCells(scene) {
             // cells along its rotation, which is fine — map labels do too.
             // worldgen pre-normalizes angle into (-90°, 90°] so the text is
             // never upside down.
-            // The street's variant name follows its official one, read off
-            // the dressed tile's per-cell marks (none until it is dressed).
-            const mark = entry.streetMarks ? entry.streetMarks[iy2 * entry.cellsPerEdge + ix2] : 0;
-            const variant = mark ? StreetVariants.labelName(StreetVariants.variantByCode(mark)) : '';
-            lt.setText(variant ? `${info.text} ${variant}` : info.text).setPosition(sx + CELL_PX / 2, sy + CELL_PX / 2)
+            // Text and ink: Render.roadLabelView. A pooled Text re-bakes its
+            // texture on every style call, so restyle only on a change.
+            const view = Render.roadLabelView(entry, ix2, iy2, type, info);
+            if (lt._inkKey !== view.ink) {
+              const ink = RoadOverlay.labelInk(view.ink);
+              lt.setColor(ink.fill).setStroke(ink.halo, 3).setShadow(0, 1, ink.lip, 0, false, true);
+              lt._inkKey = view.ink;
+            }
+            lt.setText(view.text).setPosition(sx + CELL_PX / 2, sy + CELL_PX / 2)
               .setRotation(info.angle).setVisible(true);
             // Rotated bounds include the text's halo. Leave a small gap at
             // junctions; the next anchor along a crowded road can still label it.
@@ -3374,6 +3583,9 @@ Render.drawCells = function drawCells(scene) {
 // other side. Rather than reordering the layers (a label still needs to read
 // over a building), any label whose box overlaps the player's fades back.
 const LABEL_OVER_PLAYER_ALPHA = 0.3;
+// POI names sit a step back from the rest of the map text so they label the
+// map without shouting over it.
+const POI_LABEL_ALPHA = 0.88;
 // The player's screen box, inset a little so a label merely touching the
 // sprite's transparent margin doesn't trip it. Null when there's no player
 // sprite yet (boot, or a stub scene in tests) — then nothing fades.
@@ -3387,9 +3599,9 @@ function playerScreenBox(scene) {
     y0: p.y - h * p.originY + inset, y1: p.y + h * (1 - p.originY) - inset,
   };
 }
-// Dim `tx` when it overlaps `box`; restore it to full alpha when it doesn't.
-function fadeLabelOverPlayer(tx, box) {
-  if (!box) { tx.setAlpha(1); return; }
+// Dim `tx` when it overlaps `box`; restore it to `base` alpha when it doesn't.
+function fadeLabelOverPlayer(tx, box, base = 1) {
+  if (!box) { tx.setAlpha(base); return; }
   let w = tx.width, h = tx.height;
   let x0 = tx.x - w * tx.originX, y0 = tx.y - h * tx.originY;
   // Quarter-turned labels (the vertical POI names) occupy the transpose of the
@@ -3401,7 +3613,7 @@ function fadeLabelOverPlayer(tx, box) {
     const t = w; w = h; h = t;
   }
   const hit = x0 < box.x1 && x0 + w > box.x0 && y0 < box.y1 && y0 + h > box.y0;
-  tx.setAlpha(hit ? LABEL_OVER_PLAYER_ALPHA : 1);
+  tx.setAlpha(hit ? LABEL_OVER_PLAYER_ALPHA * base : base);
 }
 
 // Shared building visibility geometry. These tests use retained vertices and
@@ -3441,23 +3653,60 @@ Render.buildingHit = function(scene, sx, sy) {
     const object = sprite._staticObject, appearance = sprite._staticAppearance;
     if (!sprite.visible || sprite.alpha === 0 || !object || !isBuilding(object.kind) || !appearance) continue;
     const anchor = sprite._huAnchor || sprite;
-    const dx = sx - anchor.x, dy = sy - anchor.y;
-    const x = anchor.x + cos * dx - sin * dy, y = anchor.y + sin * dx + cos * dy;
-    const frame = appearance.spec.seatFrame ?? appearance.frameVal ?? 0;
-    const art = SpriteLayout.ART_BOUNDS[`${appearance.texKey}:${frame}`];
-    const fw = art?.fw ?? sprite.frame?.realWidth ?? sprite.width;
-    const fh = art?.fh ?? sprite.frame?.realHeight ?? sprite.height;
-    const x0 = sprite.x + ((art?.minX ?? 0) - sprite.originX * fw) * sprite.scaleX;
-    const x1 = sprite.x + ((art?.maxX ?? fw) - sprite.originX * fw) * sprite.scaleX;
-    const y0 = sprite.y + ((art?.minY ?? 0) - sprite.originY * fh) * sprite.scaleY;
-    const y1 = sprite.y + ((art?.maxY ?? fh) - sprite.originY * fh) * sprite.scaleY;
     const z = sin * anchor.x + cos * anchor.y;
-    if (x >= Math.min(x0, x1) && x <= Math.max(x0, x1)
-        && y >= Math.min(y0, y1) && y <= Math.max(y0, y1) && z >= depth) {
+    if (Render.spriteArtContains(sprite, appearance, sx, sy, sin, cos) && z >= depth) {
       key = object.id; depth = z;
     }
   }
   return key || backgroundKey;
+};
+// Does a pooled sprite's TRIMMED art (its ART_BOUNDS, else its frame) cover
+// the screen point? The body counterrotates around its ground anchor under
+// heading-up, so the point is turned back about that anchor first.
+Render.spriteArtContains = function spriteArtContains(sprite, appearance, sx, sy, sin, cos) {
+  const anchor = sprite._huAnchor || sprite;
+  const dx = sx - anchor.x, dy = sy - anchor.y;
+  const x = anchor.x + cos * dx - sin * dy, y = anchor.y + sin * dx + cos * dy;
+  const frame = appearance.spec.seatFrame ?? appearance.frameVal ?? 0;
+  const art = SpriteLayout.ART_BOUNDS[`${appearance.texKey}:${frame}`];
+  const fw = art?.fw ?? sprite.frame?.realWidth ?? sprite.width;
+  const fh = art?.fh ?? sprite.frame?.realHeight ?? sprite.height;
+  const x0 = sprite.x + ((art?.minX ?? 0) - sprite.originX * fw) * sprite.scaleX;
+  const x1 = sprite.x + ((art?.maxX ?? fw) - sprite.originX * fw) * sprite.scaleX;
+  const y0 = sprite.y + ((art?.minY ?? 0) - sprite.originY * fh) * sprite.scaleY;
+  const y1 = sprite.y + ((art?.maxY ?? fh) - sprite.originY * fh) * sprite.scaleY;
+  return x >= Math.min(x0, x1) && x <= Math.max(x0, x1)
+      && y >= Math.min(y0, y1) && y <= Math.max(y0, y1);
+};
+// A TAP ON THE TOP OF A TALL PROP. A prop owns the cell its feet stand in
+// (interact.js 'object'), but a tree, a fingerpost or a lamp rises a cell or
+// more above its feet, so a tap on its crown lands on the ground cell
+// screen-north of it. When that cell holds nothing of its own, the tap goes
+// to the prop whose DRAWN art it landed on: the frontmost visible pooled
+// sprite whose art contains the point and whose owner stands in a
+// NEIGHBOURING cell — never its own cell (that is the ordinary cell hit) and
+// never further (a wide canopy does not reach across the map). Buildings
+// keep their own path (Render.buildingHit); a drawn piece of a prop (a
+// fingerpost's board, `_owner`) answers for the prop. The caller decides
+// whether the tapped cell was bare; this only names what was drawn there.
+Render.tallPropHit = function tallPropHit(scene, sx, sy, wm) {
+  const angle = scene.mapRot || 0, sin = Math.sin(angle), cos = Math.cos(angle);
+  // The tap's cell is resolved only once a drawn candidate asks for it.
+  let tap = null, owner = null, depth = -Infinity;
+  for (const sprite of scene.objectPool || []) {
+    const piece = sprite._staticObject, appearance = sprite._staticAppearance;
+    if (!sprite.visible || sprite.alpha === 0 || !piece || !appearance || appearance.visible === false) continue;
+    const o = piece._owner || piece;
+    if (isBuilding(o.kind)) continue;
+    tap = tap || worldMetersToAbsCell(scene, wm.x, wm.y);
+    const foot = worldMetersToAbsCell(scene, o.x, o.y);
+    const d = absCellDelta(scene, foot.cellIX, foot.cellIY, tap.cellIX, tap.cellIY);
+    if ((!d.dx && !d.dy) || Math.max(Math.abs(d.dx), Math.abs(d.dy)) > 1) continue;
+    const anchor = sprite._huAnchor || sprite;
+    const z = sin * anchor.x + cos * anchor.y;
+    if (z >= depth && Render.spriteArtContains(sprite, appearance, sx, sy, sin, cos)) { owner = o; depth = z; }
+  }
+  return owner;
 };
 // Separating-axis test: unlike triangle bounds, this does not fade empty
 // corners beside a pitched roof or the empty middle of a concave footprint.
@@ -3890,7 +4139,13 @@ Render.drawConnectedWallPrisms = function (scene, objectItems, plantItems, conne
   for (const item of objectItems) collect(item, item.o, connectedArt?.get(item.o));
   for (const item of plantItems) collect(item, item.p, null);
   Render.prismGroupPass(scene, 'props', '_connectedWallKey', key,
-    -fracX * CELL_PX, -fracY * CELL_PX, () => {
+    -fracX * CELL_PX, -fracY * CELL_PX, (group) => {
+      // ONE PART PER CELL PIECE in the shared world sort (WallPerspective
+      // perWall / worldPieces, as grass, loose props and castle walls): a
+      // hedge or wall hides the props and the player behind it and draws
+      // under those in front. One flat batch under every sprite let a
+      // creature behind a hedge paint over its crown (owner, Oct 2026).
+      group.perWall = true;
       for (const { piece, cell } of pieces) {
         const centre = absCellScreenCentre(scene, pc, cell.cellIX, cell.cellIY);
         const x0 = centre.x + fracX * CELL_PX - CELL_PX / 2, y0 = centre.y + fracY * CELL_PX - CELL_PX / 2;
@@ -4279,6 +4534,12 @@ Render.drawObjects = function drawObjects(scene) {
   // worldgen never emits it, so it must be re-added after reloads / eviction.
   if (scene.ensureStarterTrailerObject) scene.ensureStarterTrailerObject();
   const halfM = (VIEW_CELLS / 2 + 1) * scene.cellM;
+  // The arrival fade's inner view (Render.arrivalAlpha): a cell short of the
+  // visible rim at the live zoom (VIEW_CELLS / mapZoom cells across; the
+  // heading-up circle is inscribed in that square), and this frame's clock.
+  const arrivalInnerM = Math.max(scene.cellM, (VIEW_CELLS / (2 * (scene.mapZoom || 1)) - 1) * scene.cellM);
+  const nowMs = performance.now();
+  Render.mintedArrivalFrame();
   // Extra cull reach for house sprites — the art stands bottom-middle on its
   // footprint's centre of mass, so it reaches half its width sideways and its
   // full height north (BUILDING_ART.fort.max: a fort tops out at 3.48 cells
@@ -4621,7 +4882,7 @@ Render.drawObjects = function drawObjects(scene) {
   const placedAs = (list, kind, idWord, extra) => {
     const out = [];
     cullToView(list, pWorldX, pWorldY, halfM, (p, dx, dy) => {
-      const o = { kind, x: p.x, y: p.y, id: `${idWord}_${p.x.toFixed(2)}_${p.y.toFixed(2)}`, ...(extra ? extra(p) : null) };
+      const o = Render.mintedArrival({ kind, x: p.x, y: p.y, id: `${idWord}_${p.x.toFixed(2)}_${p.y.toFixed(2)}`, ...(extra ? extra(p) : null) });
       out.push({ o, dx, dy });
     });
     return out;
@@ -4675,7 +4936,7 @@ Render.drawObjects = function drawObjects(scene) {
     if (objList.some(it => it.o.id !== o.id && !isSpent(it.o, spentIds) && sameAbsCell(scene, it.o.x, it.o.y, o.x, o.y))
         || plantedList.some(({ p }) => sameAbsCell(scene, p.x, p.y, o.x, o.y))
         || (scene.save.furniture || []).some(p => sameAbsCell(scene, p.x, p.y, o.x, o.y))) return null;
-    return { o: { ...o, kind: 'tree_stump', _streetArt: 'stump' }, dx, dy };
+    return { o: Render.mintedArrival({ ...o, kind: 'tree_stump', _streetArt: 'stump' }), dx, dy };
   };
   const stumpSources = [...objList];
   for (const o of scene.save.treeStumps || []) {
@@ -4693,6 +4954,9 @@ Render.drawObjects = function drawObjects(scene) {
   // depth sort as other world objects. Their RENDER_SPEC entry (kind
   // '_scarecrow') anchors the pole base on the placement cell.
   filteredObj.push(...stumps);
+  // A fingerpost's boards are drawn pieces of the one generated sign: the
+  // sign record alone owns the tap, the cell and the shadow.
+  for (const it of filteredObj.filter(({ o }) => o.kind === 'roadsign')) filteredObj.push(...Render.roadSignBoards(it));
   for (const sc of scarecrowList) filteredObj.push(sc);
   for (const fr of fireList) filteredObj.push(fr);
   for (const fp of firepitList) filteredObj.push(fp);
@@ -4846,12 +5110,15 @@ Render.drawObjects = function drawObjects(scene) {
         // Turn with the prop about its own ground anchor, so the tuck-up
         // inset stays screen-up instead of swinging below the art.
         s._huAnchor = Render.objectGroundAnchor(item._appearance, scene.textures, { x: sx, y: sy });
+        // The shadow of an arriving prop fades in with it.
+        s.setAlpha(s.alpha * Render.arrivalAlpha(o, dx, dy, nowMs, arrivalInnerM));
         return;
       }
       const shadow = Render.buildingShadow(item._appearance, scene.textures, { x: sx, y: sy });
       seatShadow(s, 'building', shadow.width, shadow.x, shadow.y, shadow.height);
       // Keep the tucked-up offset in screen space as the building turns.
       s._huAnchor = shadow.anchor;
+      s.setAlpha(s.alpha * Render.arrivalAlpha(o, dx, dy, nowMs, arrivalInnerM));
     });
   }
   // Turrets keep a separate reusable pool inside the shared world layer.
@@ -4888,6 +5155,8 @@ Render.drawObjects = function drawObjects(scene) {
      .setScale(scl, scl * scaleYMul)
      .setPosition(Math.round(sx) + dxPx, Math.round(sy) + dyPx)
      .setTint(tint);
+    // An object put down inside the view fades in (Render.arrivalAlpha).
+    s.setAlpha(Render.arrivalAlpha(o, dx, dy, nowMs, arrivalInnerM));
     // Per-kind post-config hook — runs AFTER the pool's identity reset and
     // the tint, so hooks can override the ordinary appearance.
     if (typeof spec.after === 'function') spec.after(s, o, scene, appearancePass);
@@ -4903,8 +5172,9 @@ Render.drawObjects = function drawObjects(scene) {
     s._staticHadWork = !!scene._workProgress;
   };
   const reuseStaticObject = (s, item) => {
+    // A fading arrival is reconfigured every frame until it is whole.
     if (!scene._boot_still || !item._appearanceStable || scene._workProgress || s._staticHadWork
-        || s._staticObject !== item.o || s._staticAppearance !== item._appearance) return false;
+        || s._staticObject !== item.o || s._staticAppearance !== item._appearance || Render.arriving(item.o)) return false;
     setWorldDepth(s, item._z ?? 0);
     // Body animation/height can change while cached scenery stands still.
     coverCheck(s, item._appearance);
@@ -4921,9 +5191,8 @@ Render.drawObjects = function drawObjects(scene) {
   const objectReuse = scene._boot_still ? reuseStaticObject : undefined;
   Render.renderPool(scene, scene.objectPool, scene.objectsContainer, nonTowerObj,
     configureObject, undefined, objectReuse);
-  Render.renderPool(scene, scene.towerPool, scene.towerContainer,
-    towerList.filter(({ o }) => !Render.fdrCastleLayout(scene, o)),
-    configureObject, undefined, objectReuse);
+  // Clear any retained legacy sprites; castle towers are generated geometry.
+  Render.renderPool(scene, scene.towerPool, scene.towerContainer, [], configureObject);
   // ── Ripe fruit ────────────────────────────────────────────────────────────
   // A bearing fruit tree wears its fruit: the same icon the fruit carries in
   // the inventory, drawn as its own small sprite on the tree's canopy. The
@@ -4945,19 +5214,12 @@ Render.drawObjects = function drawObjects(scene) {
   // Every unrestored turret flies the square skull flag. Restoring the
   // castle replaces them with the player's existing single flagPost banner.
   //
-  // Seated on that turret's crown — the tower art is bottom-anchored at
-  // sy + CELL_PX/2 and runs its full frame height upward, so the flag's own
-  // bottom-anchored pole lands on the battlements. Read from the frame rather
-  // than a copied number, so a retall of the turret can't leave the flag
-  // floating. Retained castles seat flags on their model crowns instead.
-  // The flag inherits its turret's ground depth.
+  // Flags seat only on generated crowns and inherit their turret's ground depth.
   const flagList = Render.castleFlagItems(scene, towerList, project);
   Render.renderPool(scene, scene.castleFlagPool, scene.towerContainer, flagList, (s, item) => {
-    const { dx, dy } = item;
-    const { x: sx, y: sy } = project(dx, dy);
     const seat = item._castleFlagSeat;
-    const towerH = seat ? seat.height : Render.towerCrownHeight(scene.textures, item.o.castle);
-    const x = seat ? seat.x : Math.round(sx), y = seat ? seat.y : Math.round(sy) + CELL_PX / 2;
+    const towerH = seat.height;
+    const x = seat.x, y = seat.y;
     s._huAnchor = { x, y };
     setTextureIfDifferent(s, Render.castleFlagTexture(scene, item.o));
     setWorldDepth(s, (item._z ?? 0) + 0.1);
@@ -5088,7 +5350,7 @@ Render.drawObjects = function drawObjects(scene) {
     // Switch font size + padding live: fallback labels are smaller. Done
     // BEFORE the layout below, which measures the rendered text.
     tx.setText(label);
-    tx.setFontSize(isFallback ? 9 : 11);
+    tx.setFontSize(isFallback ? 8 : 10);
     setPaddingOnce(tx, isFallback ? 'f' : 'n', isFallback ? 2 : 3, isFallback ? 1 : 2);
     // No space between a stall's two lines: Phaser counts the stroke into
     // each line's height, so the spacing takes it back out.
@@ -5124,9 +5386,9 @@ Render.drawObjects = function drawObjects(scene) {
     // orientation branch above). The pool is shared and a pooled slot may have
     // just drawn the other kind, so set it every frame.
     setColorOnce(tx, o.crate ? CRATE_LABEL_INK : LABEL_INK);
-    // Full opacity EXCEPT where the label would cover the player; opened chests
+    // POI_LABEL_ALPHA EXCEPT where the label would cover the player; opened chests
     // keep their label legible (the chest sprite carries the opened state).
-    fadeLabelOverPlayer(tx, _playerBox);
+    fadeLabelOverPlayer(tx, _playerBox, POI_LABEL_ALPHA);
   }, labelFactory('poi'));
 
   // House signs under the doorstep. A ranked or themed building hangs a
@@ -5949,6 +6211,16 @@ Render.drawObjects = function drawObjects(scene) {
       playerAuras.push({ dx: player.x - pWorldX, dy: player.y - pWorldY,
         aura: CONSUMABLE_SPEC.tome_frost_aura.aura });
     }
+    // The Comet Ring's fire (scene_consumables.js _tickCometAura —
+    // scene._cometAura): the disc is exactly as wide as the aura burns this
+    // frame, and brighter the more it is stoked.
+    const comet = scene._cometAura;
+    if (comet?.lit && comet.radiusCells > 0) {
+      const player = playerWorldM(scene);
+      playerAuras.push({ dx: player.x - pWorldX, dy: player.y - pWorldY,
+        aura: { texture: UNIQUE_JEWELRY.comet_ring.cometAura.texture, radiusCells: comet.radiusCells,
+          alpha: 0.55 + 0.4 * comet.intensity } });
+    }
     Render.renderAuras(scene, scene.playerAuraPool, playerAuras, project);
   }
 
@@ -6352,13 +6624,8 @@ const { RENDER_SPEC, resolveAppearance, _houseRole, _houseKey, _houseScale, _hou
       dyPx: (o) => _houseFootPx(o).y,
       scale: _houseScale,
     },
-    // Bottom-seat each sprite at its data cell. A castle's identity selects
-    // one material family; restoring it changes only the condition palette.
-    tower: { key: (o, sc) => Render.fdrCastleLayout(sc, o) ? null : (sc && sc.isClaimedKey && !sc.isClaimedKey(o.castle)
-                               && sc.textures.exists('tower_unclaimed'))
-                              ? 'tower_unclaimed' : 'tower',
-             frame: o => CastleStyles.get(o.castle).towerFrame,
-             origin: [0.5, 1], scale: 1, dyPx: () => CELL_PX * 0.5 },
+    // Castle turret records drive gameplay only; there is no legacy sprite fallback.
+    tower: { key: () => null },
     // Placed scarecrow — 48×48 image, centred in its cell (origin 0.5,0.5, no
     // foot nudge). The trimmed art is 43×39 (the PNG bakes a 39%-alpha shadow
     // under the feet), so scale 0.6 puts it at ~26×23px, inside its single cell.
@@ -6570,7 +6837,18 @@ const { RENDER_SPEC, resolveAppearance, _houseRole, _houseKey, _houseScale, _hou
     // a GATE POST is one of the pair either side of a gate — scenery marking
     // the spawn point a foe rises from each day (lairs.js 'gate' tier). Not
     // tappable: no interactable row matches 'gatepost'.
-    roadsign: { key: 'street_decor_direction_sign', frame: '__BASE', origin: [0.5, 0.5], scale: .65, seat: true, shadow: true },
+    // A ROADSIDE FINGERPOST (street_variants.js, StreetSigns): the post row
+    // seats and casts the shadow; each listed heading is a `roadsign_board`
+    // piece (Render.roadSignBoards) hung on it, pivoting at the pole and
+    // turned to point along its road (Render.poseRoadSignBoard). The boards
+    // name the post's ground contact for depth and the heading-up turn, so
+    // they stay stacked on it however the map turns, and draw just in front.
+    roadsign: { key: 'roadsign_post', frame: 0, origin: [0.5, 0.5], scale: () => StreetSigns.ART.scale, seat: true, shadow: true },
+    roadsign_board: { key: 'roadsign_board', frame: 0, origin: [0, 0.5], scale: () => StreetSigns.ART.scale, seat: false,
+      dxPx: () => Render.roadSignPostSeat().dxPx,
+      dyPx: (o) => Render.roadSignBoardDy(o),
+      footFromCentre: (o) => Render.roadSignPostSeat().footFromCentre + 0.01 * (o._slot + 1),
+      after: (sprite, o, scene) => Render.poseRoadSignBoard(sprite, o, scene) },
     infoboard: { key: 'signpost', frame: 0, origin: [0.5, 0.5], scale: 1.6, seat: true, shadow: true },
     // A message bottle on the waterline (src/scenic.js) lies on the sand:
     // the old tide crop's 16px art, no contact shadow.
@@ -6683,6 +6961,11 @@ const { RENDER_SPEC, resolveAppearance, _houseRole, _houseKey, _houseScale, _hou
         }
       }
     }
+    // A piece hung on another prop (a fingerpost's board) sorts and turns by
+    // the contact its row names, never by its own art, which never touches
+    // the ground; it casts no shadow, so the ellipse width is moot.
+    const hung = typeof spec.footFromCentre === 'function' ? spec.footFromCentre(o, scene, pass) : spec.footFromCentre;
+    if (hung != null) foot = { w: 0, footFromCentre: hung };
     if (foot && Render.hasShrineFooting(o)) {
       const lift = SHRINE_PAD.seatLiftPx * CELL_PX / SHRINE_PAD.sizePx;
       dyPx -= lift;
@@ -6717,7 +7000,7 @@ Render.objectAppearance = function (scene, houseRoles) {
 // its scene token prevents a review scene from reusing another scene's tuple.
 const CACHED_APPEARANCE_KINDS = new Set([
   'zone_prop', 'reef_coral', 'tree', 'mineralrock', 'waystone', 'stakes', 'tar', 'stalagmites', 'inactive_poison_vent',
-  'roadsign', 'infoboard', 'bottle', 'gatepost', 'hive', 'headstone', 'vista_scope', 'well',
+  'roadsign', 'roadsign_board', 'infoboard', 'bottle', 'gatepost', 'hive', 'headstone', 'vista_scope', 'well',
   'groundstack',
 ]);
 Render.objectAppearanceIsStable = function objectAppearanceIsStable(object, art) {

@@ -73,6 +73,25 @@
     assert.eq(save.energy, 70);
     assert.falsy(Conditions.active(save, 'poison'));
   });
+  test('conditions: an additional hit keeps the greater of remaining and inflicted duration', () => {
+    const save = { energy: 100 };
+    for (const id of ['confused', 'jellyfish_stun', 'poison', 'paralysis', 'pinned', 'blinded', 'burning']) {
+      const def = Conditions.DEFINITIONS[id];
+      Conditions.apply(save, id, 0);
+      Conditions.tick(save, Math.floor(def.durationMs / 2));
+      Conditions.apply(save, id, 0);
+      assert.eq(save.conditions[id].remainingMs, def.durationMs, `${id}: a hit on a fading effect tops it back up`);
+      const longer = Math.min(def.durationMs + 1000, def.maxDurationMs || def.durationMs);
+      save.conditions[id].remainingMs = longer;
+      Conditions.apply(save, id, 0);
+      assert.eq(save.conditions[id].remainingMs, longer, `${id}: a hit never shortens a longer effect`);
+      Conditions.cure(save, id);
+    }
+    Conditions.apply(save, 'frozen', 0);
+    Conditions.tick(save, 4000);
+    Conditions.apply(save, 'frozen', 0);
+    assert.eq(save.conditions.frozen.remainingMs, 6000, 'frozen keeps its first clock');
+  });
   test('poison: refresh extends duration without postponing the next tick', () => {
     const save = { energy: 100 };
     assert.truthy(Conditions.apply(save, 'poison'));

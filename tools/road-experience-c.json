@@ -1,0 +1,82 @@
+[
+  {
+    "id": "berry",
+    "feeling": "An inviting food stop becomes a lesson in watching the bushes.",
+    "arrival": "Ordinary bushes and fruiting bushes close around both verges, with occasional thorns breaking the soft outline.",
+    "art": ["Use the existing plain, fruiting and poison-berry bush silhouettes; keep plain bushes dominant.", "Keep thorns sparse and omit yellow flowers so fruit and movement remain the strongest signals.", "Use the existing warm lamp glow to reveal gaps between bushes."],
+    "mechanics": [{"text": "Harvest berry bushes; picked fruit leaves the bush standing, while poison and golden berries retain their existing effects.", "status": "existing"}, {"text": "Goblin runts can lurk behind the bush row; brambles punish careless contact.", "status": "existing"}, {"text": "Give a concealed runt a brief foliage rustle before its first approach, rewarding a pause before harvesting.", "status": "proposed"}],
+    "loop": "Notice fruit → inspect cover → harvest or skirt the bushes → continue."
+  },
+  {
+    "id": "berry_trail",
+    "feeling": "Abundant food feels claimed by something larger than you.",
+    "arrival": "Fruit-heavy bushes crowd the narrow trail, and a large bear occupies the same stretch.",
+    "art": ["Use denser existing berry-bush art than Berry Lane, with a few poison bushes and brambles.", "Keep the bear readable through breaks in the bushes rather than adding new scenery.", "Retain the narrow path silhouette so approaching the fruit feels like a deliberate detour."],
+    "mechanics": [{"text": "The trail uses a fruit-heavy bush mix and adds one large forest-bear encounter where a legal seat exists.", "status": "existing"}, {"text": "Berry-runts may also lurk behind the first bush row; fruit picking and thorn contact use the shared rules.", "status": "existing"}, {"text": "Let the bear visibly investigate a nearby berry bush while idle, explaining its presence before combat.", "status": "proposed"}],
+    "loop": "Spot the bear → choose a safe approach → take nearby fruit or pass by."
+  },
+  {
+    "id": "pottery",
+    "feeling": "A playful sequence of small breaks and occasional rewards.",
+    "arrival": "Terracotta and tan pots appear on the road and in two verge rows, giving the route an immediately readable interaction.",
+    "art": ["Keep the existing pots in exactly terracotta #bf6f4a and tan #c29c67.", "Use intact and smashed pot frames to show where the player has already searched.", "Let the warm road palette support the pots without introducing more decorative colours."],
+    "mechanics": [{"text": "Pots can be smashed; most are empty, with coins and occasional existing item rewards in the shared pot loot table.", "status": "existing"}, {"text": "Road pots and two verge rows create repeated optional stops; occupied seats leave gaps.", "status": "existing"}, {"text": "Vary the existing ceramic break sound by pot size so a run of pots has a tactile rhythm.", "status": "proposed"}],
+    "loop": "Choose a pot → smash → inspect the result → follow the next intact group."
+  },
+  {
+    "id": "trade",
+    "feeling": "Useful supplies are close at hand, but someone is already scavenging them.",
+    "arrival": "Rows of barrels make the rewards obvious; pairs of goblin grunts turn browsing into a tactical choice.",
+    "art": ["Use existing wooden barrels and their broken states as the route's main visual rhythm.", "Keep hanging lantern posts and warm light around the barrel rows.", "Leave readable gaps between barrels so both members of a grunt pair can be spotted."],
+    "mechanics": [{"text": "Barrels use existing container loot and smashing interactions.", "status": "existing"}, {"text": "Eligible roadside posts can hold two goblin grunts, with gaps between encounters.", "status": "existing"}, {"text": "Give idle grunts a short barrel-inspection animation, making guarded supplies legible before they notice the player.", "status": "proposed"}],
+    "loop": "Scan a barrel group → assess its guards → fight or bypass → collect supplies."
+  },
+  {
+    "id": "rocky_path",
+    "feeling": "A practical gathering route where useful stone is always underfoot.",
+    "arrival": "Common rocks, flint and rubble extend onto the route itself and stop at the first verge row.",
+    "art": ["Use only the existing common-rock, flint and rubble forms; omit outer decorative rock types.", "Keep the grey road surface restrained so loose harvestable pieces remain distinct.", "Preserve clear space beyond the first verge row rather than filling the scene with boulders."],
+    "mechanics": [{"text": "Common mineral rocks use normal tier-one mining; flint and rubble retain their ordinary gathering interactions.", "status": "existing"}, {"text": "Finds can occupy the road and first verge row; blocked seats do not push them farther outward.", "status": "existing"}, {"text": "Use distinct existing impact sounds for mining rock and picking loose flint, reinforcing the two gathering actions.", "status": "proposed"}],
+    "loop": "Spot a useful piece → pick or mine → move to the next find."
+  },
+  {
+    "id": "grassy_lane",
+    "feeling": "A soft, low-pressure stretch where a small discovery can interrupt an easy walk.",
+    "arrival": "Long grass spreads across the road and two verge rows, with no added ferns or shrubs competing for attention.",
+    "art": ["Use only the existing long-grass sprite for added vegetation.", "Keep grass-coloured terrain and subdued paving visible beneath the tufts.", "Let cleared grass leave an obvious local opening without adding flowers or new props."],
+    "mechanics": [{"text": "Long grass is harvestable using the shared clearing interaction.", "status": "existing"}, {"text": "Individual grass plants have the existing rare coin and egg finds.", "status": "existing"}, {"text": "Add a quiet grass-brushing footstep layer while crossing uncleared tufts, fading it on cleared cells.", "status": "proposed"}],
+    "loop": "Walk through grass → clear an inviting patch → inspect any small find → move on."
+  },
+  {
+    "id": "old_growth_path",
+    "feeling": "A sheltered timber-and-forage corridor beneath mature trees.",
+    "arrival": "Mature trunks establish the enclosure; small mushrooms punctuate an otherwise uncluttered forest floor.",
+    "art": ["Keep the existing mature-tree silhouettes and forest ground treatment.", "Use small mushroom art as a close-range reward cue beside the trunks.", "Do not generate stumps or bushes; preserve open ground between the mature trees."],
+    "mechanics": [{"text": "Generated mature trees use normal tree chopping and timber rewards.", "status": "existing"}, {"text": "Small mushrooms are pickable, while the existing medium mushroom clusters yield wood and mushroom when chopped.", "status": "existing"}, {"text": "Lower ambient wind and add a subdued canopy sound on entry, making the enclosure perceptible without extra props.", "status": "proposed"}],
+    "loop": "Enter the shade → inspect the tree line → forage or chop → return to the path."
+  },
+  {
+    "id": "haunted_forest_path",
+    "feeling": "An uneasy passage where familiar gathering cues sit among signs of death.",
+    "arrival": "Dead trees, brown soil and headstones replace the living forest, with mushrooms close to the dark road.",
+    "art": ["Use the existing dead-tree art, headstones and dark road palette.", "Keep the brown-soil ground distinct from the green forest routes.", "Leave mushrooms visible near the headstones rather than obscuring them with extra decoration."],
+    "mechanics": [{"text": "The route is marked as a haunting habitat and participates in the shared haunting rules.", "status": "existing"}, {"text": "Dead-tree finds and mushrooms retain ordinary chopping and picking interactions.", "status": "existing"}, {"text": "Introduce a brief distant rustle at the first headstone, without adding an enemy or implying a guaranteed ambush.", "status": "proposed"}],
+    "loop": "Read the changed ground → watch the gaps between dead trees → gather cautiously or keep moving."
+  },
+  {
+    "id": "way_of_variety",
+    "feeling": "A compact scavenging sampler that keeps changing what catches your eye.",
+    "arrival": "Plants, pots, barrels and stones share the road and verges, with occasional crop plants and distinctive ore colours.",
+    "art": ["Use existing mature T1–T2 crop art for potato, cress, onion and nut plants, alongside ordinary finds.", "Let existing copper and pale pink rose-quartz rock art provide occasional colour accents.", "Add no trees; retain only the styling of satellite-detected trees already present."],
+    "mechanics": [{"text": "The seeded mix includes common plants and containers, occasional native crop plants, and copper or rose-quartz deposits.", "status": "existing"}, {"text": "Each find keeps its normal picking, chopping, smashing or mining interaction; the crop plants are harvestable wild plants, not timed farm plots.", "status": "existing"}, {"text": "Briefly name a newly encountered find on approach, encouraging players to learn the different interactions without creating a collection quest.", "status": "proposed"}],
+    "loop": "Notice an unfamiliar find → identify its action → gather → look for a different kind."
+  },
+  {
+    "id": "causeway",
+    "feeling": "A dependable dry crossing through a visibly wet landscape.",
+    "arrival": "Pools appear on both sides while the road and crossings remain continuous and completely dry.",
+    "art": ["Use existing water tiles on both verges and retain a crisp dry road boundary.", "Keep road lamps readable above the water without adding another deck or bridge asset.", "Preserve dry intersecting roads so the route never appears flooded."],
+    "mechanics": [{"text": "The terrain pass creates water pools beside the road, up to three cells outward.", "status": "existing"}, {"text": "Road footprints and crossings are excluded from those pools, preserving the dry route.", "status": "existing"}, {"text": "Add a quiet shoreline sound near the verge pools that fades at the centre of the road, reinforcing the safe crossing.", "status": "proposed"}],
+    "loop": "Notice water flanking the road → follow the dry crossing → emerge onto ordinary ground."
+  }
+]

@@ -202,7 +202,7 @@ test('TERRAIN_FLAVOR: every label is a written line, not a database noun', () =>
 test('TERRAIN_FLAVOR: labels describe the ground, never a refused till', () => {
   // Only a selected seed tills, so a label that reads as the hoe refusing
   // the cell teaches a mechanic that does not exist.
-  for (const label of [...NON_TILLABLE_CODES.map(c => TERRAIN_FLAVOR[c]), LAMP_FOOT_FLAVOR]) {
+  for (const label of NON_TILLABLE_CODES.map(c => TERRAIN_FLAVOR[c])) {
     assert.falsy(/till|hoe|earth to turn/i.test(label), `label implies tapping tills: ${label}`);
   }
   assert.truthy(/root/i.test(TERRAIN_FLAVOR[TERRAIN.ROCK]), 'bare rock says nothing grows');
@@ -261,19 +261,49 @@ test('flavor handler: the same grass cell without the road band still tills', ()
   assert.falsy(flavor.try(ctx), 'missing underRoad field = tillable as before');
 });
 
-// A street lamp's footing (cellAt's underLamp — RoadOverlay.lampCellsFor) is
-// not farmland either: flavor claims the tap before till can reach it.
-test('flavor handler: grass under a street lamp is NOT tillable — tap names the lamp', () => {
+test('flavor handler: boundary lamps leave neighbouring grass tillable', () => {
   const flavor = TAP_HANDLERS.find(h => h.name === 'flavor');
-  const seen = [];
-  const scene = makeScene({ flash: (msg) => seen.push(msg) });
+  const scene = makeScene({});
   const ctx = makeCtx(scene, {});
+  // Ignore an old cached flag as well: lamps no longer own a cell.
   ctx.cell = { type: TERRAIN.GRASS, underRoad: false, underLamp: true };
-  assert.truthy(flavor.try(ctx), 'flavor consumes the tap — till never runs');
-  assert.eq(seen[0], LAMP_FOOT_FLAVOR);
-  assert.falsy(isTillableCell(ctx.cell), 'placements that share the tillable gate refuse it too');
-  assert.lte([...LAMP_FOOT_FLAVOR].length, MAP_MSG_MAX);
+  assert.falsy(flavor.try(ctx), 'tapping grass still falls through to tilling');
+  assert.truthy(isTillableCell(ctx.cell));
 });
+
+// Ground inside a Nexus names its zone variant: non-tillable ground through
+// `flavor`, bare tillable ground through the terminal `zone-name` handler.
+function withZoneTile(fn) {
+  const prior = [...WorldGen.tileCache.entries()], N = 8, i = 3 * N + 2;
+  const coverage = new Uint8Array(N * N); coverage[i] = 1;
+  const entry = { cellsPerEdge: N, grid: new Uint8Array(N * N),
+    zone: { coverage, anchors: [{ kind: 'grove', variant: 'meadow', key: 'tap-zone' }] } };
+  WorldGen.tileCache.clear();
+  WorldGen.tileCache.set(WorldGen.tileKey(0, 0), entry);
+  try { fn(entry, i, ZoneVariants.byId('meadow').name); }
+  finally { WorldGen.tileCache.clear(); for (const [k, v] of prior) WorldGen.tileCache.set(k, v); }
+}
+test('zone tap: ground inside a Nexus names its zone variant', () => withZoneTile((entry, i, name) => {
+  const seen = [], scene = makeScene({ flash: (msg) => seen.push(msg) });
+  const cell = (type) => ({ type, tx: 0, ty: 0, ix: 2, iy: 3 });
+  const ctx = makeCtx(scene, {}); ctx.cell = cell(TERRAIN.ROCK);
+  assert.truthy(TAP_HANDLERS.find(h => h.name === 'flavor').try(ctx));
+  assert.eq(seen.pop(), name, 'non-tillable ground names the zone, not the terrain');
+  ctx.cell = cell(TERRAIN.GRASS);
+  assert.falsy(TAP_HANDLERS.find(h => h.name === 'flavor').try(ctx), 'tillable ground still reaches till');
+  const zoneName = TAP_HANDLERS.find(h => h.name === 'zone-name');
+  assert.truthy(zoneName.try(ctx));
+  assert.eq(seen.pop(), name, 'bare tillable ground names the zone');
+  entry.homeVariant = new Uint8Array(64); entry.homeVariant[i] = 1;
+  assert.falsy(zoneName.try(ctx), 'Home owns its cell');
+  delete entry.homeVariant;
+  ctx.cell = { ...cell(TERRAIN.GRASS), ix: 3 };
+  assert.falsy(zoneName.try(ctx), 'outside the coverage there is no zone');
+  ctx.cell = cell(TERRAIN.ROCK);
+  scene.depth = 1;
+  TAP_HANDLERS.find(h => h.name === 'flavor').try(ctx);
+  assert.eq(seen.pop(), TERRAIN_FLAVOR[TERRAIN.ROCK], 'underground keeps the terrain line');
+}));
 
 test('pet placement: animal inventory stacks have no release tap handler', () => {
   assert.falsy(TAP_HANDLERS.some(h => h.name === 'release'));
@@ -678,6 +708,7 @@ test('TAP_HANDLERS: full handler-name list matches the known snapshot', () => {
     'flavor',
     'plant',
     'till',
+    'zone-name',
   ];
   assert.eq(HANDLER_NAMES.length, EXPECTED.length,
     `handler count: expected ${EXPECTED.length}, got ${HANDLER_NAMES.length}. ` +
@@ -1014,6 +1045,28 @@ test('bush harvest takes five seconds bare-handed and keeps equipped axe speeds'
   } finally { globalThis.WorldGen = original; }
 });
 
+test('medium mushroom bushes take shrub work and award wood and mushroom once without nests', () => {
+  const original=globalThis.WorldGen;
+  const plant={kind:'wildplant',crop:'mushroom_bush',_streetArt:'red_mushroom',id:'mushroom_bush_harvest',x:2.5,y:2.5};
+  try {
+    globalThis.WorldGen={...original,forEachItem:(layer,cb)=>{if(layer==='wildplants')cb(plant);}};
+    for(const tier of [0,1]) {
+      let award,duration,cost,relic;
+      const save={picked:[],energy:100,relics:{axe:{tier}}};
+      const scene=makeGridScene({save,startWorkProgress:(x,y,cb,ms,energy,tool)=>{award=cb;duration=ms;cost=energy;relic=tool;}});
+      assert.eq(TAP_HANDLERS.find(h=>h.name==='wildplant').try({scene,save,wm:{x:2.5,y:2.5},sx:0,sy:0}),true);
+      assert.eq(scene.invCount('mushroom'),0,'work must finish first');
+      assert.eq(relic,'axe');assert.eq(duration,tier?toolDurationMs(save.relics,'axe'):5000);
+      assert.eq(cost,tier?3:9);
+      award();award();
+      assert.eq(scene.invCount('mushroom'),1);assert.eq(scene.invCount('wood'),1);
+      assert.eq(scene.invCount('mushroom_bush'),0,'the plant is not an inventory item');
+      assert.eq(save.picked.filter(id=>id===plant.id).length,1);
+    }
+    assert.falsy(wildplantRule('mushroom_bush').nest,'mushroom bushes never roll nests');
+  } finally {globalThis.WorldGen=original;}
+});
+
 test('giant mushroom harvest awards wood and mushroom once through axe work', () => {
   const original=globalThis.WorldGen;
   let award, duration, cost, relic;
@@ -1177,3 +1230,130 @@ test('picked berry bushes on Small roads chop once instead of falling through to
     }
   } finally { globalThis.WorldGen = original; }
 });
+
+test('flavor: a themed path inside a Nexus still names itself when its mark was cleared', () => {
+  const handler = TAP_HANDLERS.find(h => h.name === 'flavor');
+  const row = StreetVariants.VARIANT_BY_ID.parkpath;
+  const N = 8, unit = 4096 / N, mid = 4.5 * unit;
+  // A path down column 4 of the tile; the Nexus has zeroed every mark.
+  const rec = { size: 'path', key: 'p', variant: row.id, halfW: 1,
+    line: [{ x: mid, y: 0 }, { x: mid, y: 4096 }] };
+  const entry = { cellsPerEdge: N, grid: new Uint8Array(N * N).fill(TERRAIN.GRASS),
+    roadClass: new Uint8Array(N * N), streetMarks: new Uint8Array(N * N),
+    streetIndex: { extent: 4096, lines: [], dressingLines: [rec] } };
+  for (let iy = 0; iy < N; iy++) entry.grid[iy * N + 4] = TERRAIN.PATH;
+  entry.grid[0] = TERRAIN.PATH;   // a stray path cell no themed line reaches
+  const key = WorldGen.tileKey(7, 9), prev = WorldGen.tileCache.get(key);
+  WorldGen.tileCache.set(key, entry);
+  try {
+    const said = [];
+    const scene = { depth: 0, flash: text => said.push(text) };
+    const tap = (ix, iy) => handler.try({ scene, sx: 0, sy: 0, save: {}, at: { furnitureIdx: -1 },
+      cell: { tx: 7, ty: 9, ix, iy, type: entry.grid[iy * N + ix], loaded: true } });
+    assert.truthy(tap(4, 3));
+    assert.eq(said.pop(), row.title, 'the path keeps its name under the Nexus');
+    assert.eq(StreetVariants.streetStoryAt(entry, 4, 3), null, 'the feet story stays with the Nexus');
+    assert.truthy(tap(0, 0));
+    assert.eq(said.pop(), TERRAIN_FLAVOR[TERRAIN.PATH], 'a path beyond the line\'s reach keeps its ground line');
+  } finally {
+    if (prev) WorldGen.tileCache.set(key, prev); else WorldGen.tileCache.delete(key);
+  }
+});
+
+test('flavor: a tapped road cell names its street variant, as the feet story reads it', () => {
+  const handler = TAP_HANDLERS.find(h => h.name === 'flavor');
+  const row = StreetVariants.VARIANT_BY_ID.paralysis_path;
+  const N = 4, entry = { cellsPerEdge: N, grid: new Uint8Array(N * N).fill(TERRAIN.ROAD),
+    roadClass: new Uint8Array(N * N), streetMarks: new Uint8Array(N * N) };
+  entry.streetMarks[1 * N + 2] = StreetVariants.STREET_VARIANTS.indexOf(row) + 1;
+  const key = WorldGen.tileKey(7, 9), prev = WorldGen.tileCache.get(key);
+  WorldGen.tileCache.set(key, entry);
+  try {
+    const said = [];
+    const scene = { depth: 0, flash: text => said.push(text) };
+    const tap = (ix, iy) => handler.try({ scene, sx: 0, sy: 0, save: {}, at: { furnitureIdx: -1 },
+      cell: { tx: 7, ty: 9, ix, iy, type: TERRAIN.ROAD, loaded: true } });
+    assert.truthy(tap(2, 1));
+    assert.eq(said.pop(), row.title);
+    assert.eq(StreetVariants.streetStoryAt(entry, 2, 1), row, 'the feet story shares the row');
+    assert.truthy(tap(0, 0));
+    assert.eq(said.pop(), TERRAIN_FLAVOR[TERRAIN.ROAD], 'an unthemed road keeps its ground line');
+  } finally {
+    if (prev) WorldGen.tileCache.set(key, prev); else WorldGen.tileCache.delete(key);
+  }
+});
+
+// A road tap is read at the tap's own point inside the cell
+// (StreetVariants.roadAtPoint): each band that reaches the cell is tested
+// there, the nearest centreline holding the point names it, and a tap on the
+// cell's ground beside every band is no road tap at all.
+(() => {
+  const N = 8, E = N * 7, unit = 4096 / N;
+  // A minor road along row 4.5 and a footway down column 2.5 cross in cell
+  // (2, 4); a park-path section is dressed over the footway, and the road
+  // carries a themed section of its own only east of column 5.
+  const road = { type: 2, tags: { class: 'minor' }, geom: [[{ x: 0, y: 4.5 * unit }, { x: 4096, y: 4.5 * unit }]] };
+  const path = { type: 2, tags: { class: 'path', subclass: 'footway' }, geom: [[{ x: 2.5 * unit, y: 0 }, { x: 2.5 * unit, y: 4096 }]] };
+  const park = StreetVariants.VARIANT_BY_ID.parkpath, themed = StreetVariants.VARIANT_BY_ID.burned;
+  const entry = () => ({ cellsPerEdge: N, tileEdgeM: E, layers: [{ name: 'transportation', extent: 4096, features: [road, path] }],
+    streetIndex: { extent: 4096, lines: [], dressingLines: [
+      { fi: 1, size: 'path', variant: park.id, halfW: WorldGen.roadOverlayWidthM(path.tags) / 2, line: path.geom[0] },
+      { fi: 0, size: 'minor', variant: themed.id, halfW: WorldGen.roadOverlayWidthM(road.tags) / 2,
+        line: [{ x: 5 * unit, y: 4.5 * unit }, { x: 4096, y: 4.5 * unit }] }] } });
+
+  test('road tap: the band under the tap point names the road, not the cell', () => {
+    const e = entry(), at = (x, y) => StreetVariants.roadAtPoint(e, x, y);
+    assert.eq(at(4.2, 4.5)?.tier, TERRAIN.ROAD, 'on the road');
+    assert.eq(at(4.2, 4.5).row, null, 'a plain stretch names no theme');
+    assert.eq(at(6.2, 4.6).row, themed, 'its themed section names itself');
+    assert.eq(at(4.2, 4.95), null, 'the same cell, beside the band: off the road');
+    assert.eq(at(4.2, 4.05), null, 'and beside it on the other kerb');
+  });
+
+  test('road tap: in a cell two ways cross, the tap picks the one it is on', () => {
+    const e = entry(), at = (x, y) => StreetVariants.roadAtPoint(e, x, y);
+    const onPath = at(2.5, 4.05);
+    assert.eq(onPath?.tier, TERRAIN.PATH, 'north of the road, on the footway');
+    assert.eq(onPath.row, park, 'which keeps its park-path name');
+    const onRoad = at(2.9, 4.5);
+    assert.eq(onRoad?.tier, TERRAIN.ROAD, 'east of the footway, on the road');
+    assert.eq(onRoad.row, null, 'the footway\'s theme does not leak onto it');
+    assert.eq(at(2.55, 4.5).row, null, 'nor at the crossing\'s centre, where the road\'s centreline is nearer');
+    assert.eq(at(2.9, 4.05), null, 'the cell\'s corner beside both bands is ground');
+  });
+
+  test('road tap: without line geometry the cell still decides', () => {
+    assert.eq(StreetVariants.roadAtPoint({ cellsPerEdge: N, tileEdgeM: E }, 1, 1), undefined);
+  });
+
+  test('flavor: a tap on a road cell but off every band reads as the ground beside the road', () => {
+    const handler = TAP_HANDLERS.find(h => h.name === 'flavor');
+    const said = [];
+    const scene = { depth: 0, flash: text => said.push(text), neighborNonRoadType: () => TERRAIN.GRASS };
+    const base = { scene, sx: 0, sy: 0, save: {}, at: { furnitureIdx: -1 }, cellIX: 4, cellIY: 4,
+      cell: { tx: 7, ty: 9, ix: 4, iy: 4, type: TERRAIN.ROAD, loaded: true } };
+    assert.truthy(handler.try({ ...base, _roadUnderTap: null }));
+    assert.eq(said.pop(), ROADSIDE_FLAVOR, 'the grass verge beside the band');
+    assert.truthy(handler.try({ ...base, _roadUnderTap: { tier: TERRAIN.PATH, row: null } }));
+    assert.eq(said.pop(), TERRAIN_FLAVOR[TERRAIN.PATH], 'a plain footway the tap is on reads as one, whatever the cell');
+    assert.truthy(handler.try({ ...base, _roadUnderTap: { tier: TERRAIN.ROAD, row: StreetVariants.VARIANT_BY_ID.burned } }));
+    assert.eq(said.pop(), StreetVariants.VARIANT_BY_ID.burned.title, 'a themed road names its variant');
+    const underBand = { ...base, cell: { ...base.cell, type: TERRAIN.ROCKY_GROUND, underRoad: true }, _roadUnderTap: null };
+    assert.truthy(handler.try(underBand));
+    assert.eq(said.pop(), TERRAIN_FLAVOR[TERRAIN.ROCKY_GROUND], "a band cell's own ground when the tap misses the band");
+  });
+
+  test('road-repair: a tap beside the band is not a road tap', () => {
+    const handler = TAP_HANDLERS.find(h => h.name === 'road-repair');
+    let offered = 0;
+    const scene = { depth: 0, save: {}, _offerRoadRepair: () => ++offered };
+    const cell = { tx: 7, ty: 9, ix: 4, iy: 4, type: TERRAIN.ROAD, loaded: true };
+    const was = Trail.repairEnabled;
+    Trail.repairEnabled = () => false;
+    try {
+      assert.falsy(handler.try({ scene, cell, _roadUnderTap: null }), 'off the band: falls through');
+      assert.truthy(handler.try({ scene, cell, _roadUnderTap: { tier: TERRAIN.ROAD, row: null } }), 'on it: offered');
+      assert.eq(offered, 1);
+    } finally { Trail.repairEnabled = was; }
+  });
+})();

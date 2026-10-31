@@ -21,6 +21,17 @@
       | (x > 0 && cells.has(i - 1) ? 8 : 0);
     return WALL_FRAME_BY_MASK[mask] ?? null;
   }
+  // Square-ring (Chebyshev) distance from a cell to the nearest corner of
+  // the site's bounding box: 0 at a corner, growing one ring per cell inward.
+  function cornerRing(x, y, left, top, right, bottom) {
+    return Math.min(Math.max(x - left, y - top), Math.max(right - x, y - top),
+      Math.max(x - left, bottom - y), Math.max(right - x, bottom - y));
+  }
+  // Round-ring distance from a cell to the centre of the site's bounding box:
+  // 0 at the centre, one ring per cell outward.
+  function centreRing(x, y, left, top, right, bottom) {
+    return Math.round(Math.hypot(x - (left + right) / 2, y - (top + bottom) / 2));
+  }
   // Fractional budgets round deterministically per site: retain the same
   // leading shafts while reducing the population average by the table scale.
   function entranceCount(s) {
@@ -213,13 +224,29 @@
       if (walls.filter(i => !seats.includes(i)).length < 7) return null;
       return { seats, partial: usable.length !== size*size, available };
     };
-    const foundationSeats = [], verticalBenches = bottom - top > right - left;
-    for (let y = top; y <= bottom; y++) {
+    const foundationSeats = [];
+    // Ring fills: a cell is stone when its ring index is even, so every second
+    // ring is cut and about half the ground is stone. Abandoned quarries step
+    // square rings in from each bounding corner; strip mines cut round rings
+    // about the bounding centre. A sliver narrower than one patch reads as
+    // neither. Abandoned patches seat their finds first; rings fill around them.
+    const ringOf = id === 'quarry-abandoned' ? (x, y) => cornerRing(x, y, left, top, right, bottom)
+      : id === 'quarry-strip-mine' ? (x, y) => centreRing(x, y, left, top, right, bottom) : null;
+    const rings = ringOf && Math.min(right - left, bottom - top) + 1 >= minPatch;
+    const fillRings = function* () {
+      plan.landmarks.push({ kind: id === 'quarry-abandoned' ? 'corner_rings' : 'centre_rings', bounds: [left, top, right, bottom] });
+      for (let n = 0; n < cells.length; n++) {
+        if ((n & 255) === 0) yield 'quarry rings';
+        const i = cells[n], x = i % N, y = Math.floor(i / N);
+        if (ringOf(x, y) % 2 === 0) put(x, y, 'stone');
+      }
+    };
+    if (rings && id === 'quarry-strip-mine') yield* fillRings();
+    for (let y = top; id !== 'quarry-strip-mine' && y <= bottom; y++) {
       yield 'quarry patches';
       for (let x = left; x <= right; x++) {
         let size = id === 'quarry-stronghold' ? settings.foundationSizeCells : minPatch + Math.floor(hash(x, y, 97) * (maxPatch - minPatch + 1));
-        const strip = id === 'quarry-strip-mine';
-        const dimensions = size => strip ? (verticalBenches ? [minPatch, size] : [size, minPatch]) : [size, size];
+        const dimensions = size => [size, size];
         const foundation = id === 'quarry-stronghold' ? foundationAt(x, y, size) : null;
         if (id === 'quarry-stronghold') { if (!foundation) continue; }
         else while (size >= minPatch && !fits(x, y, ...dimensions(size))) size--;
@@ -230,7 +257,6 @@
         }
         const r = x + width - 1, b = y + height - 1, cx = x + Math.floor(width / 2), cy = y + Math.floor(height / 2);
         const module = { kind: id === 'quarry-stronghold' ? 'foundation' : 'patch', bounds: [x, y, r, b], size };
-        if (strip) module.axis = verticalBenches ? 'y' : 'x';
         plan.landmarks.push(module);
         if (id === 'quarry-stronghold') {
           module.partial = foundation.partial; foundationSeats.push(foundation.seats);
@@ -245,25 +271,17 @@
             if (xx === x || xx === r || yy === y || yy === b) put(xx, yy, 'stone');
           }
         } else if (id === 'quarry-abandoned') {
-          for (let yy = y; yy <= b; yy++) for (let xx = x; xx <= r; xx++) {
-            if (xx !== cx && (yy === y || xx === x) && hash(xx, yy, 71) < .65) put(xx, yy, 'stone');
-          }
           if (hash(x, y, 41) < .5) put(cx, cy, 'copper_rock');
           // Keep the existing patch roll and double each old barrel into a
-          // corner pair, clear of the central find and the rubble edges.
+          // corner pair, clear of the central find.
           if (hash(x, y, 47) < .5) {
             put(r, b, 'quarry_barrel');
             put(r, b - 1, 'quarry_barrel');
           }
-        } else if (id === 'quarry-strip-mine') {
-          if (verticalBenches) {
-            for (let xx = x; xx <= r; xx += 2) for (let yy = y; yy <= b; yy++) if (yy !== cy) put(xx, yy, 'stone');
-          } else {
-            for (let yy = y; yy <= b; yy += 2) for (let xx = x; xx <= r; xx++) if (xx !== cx) put(xx, yy, 'stone');
-          }
         }
       }
     }
+    if (rings && id === 'quarry-abandoned') yield* fillRings();
     if (id === 'quarry-strip-mine') {
       const candidates = [...plan.background.keys()].filter(i => {
         const x = i % N, y = Math.floor(i / N); return (x + y) % 7 === 0 || (y % 7 === 2 && x - left > 23);
@@ -277,16 +295,20 @@
       for (const entry of plan.finds) { plan.background.delete(entry.i); plan.clear.add(entry.i); }
     }
     if (id === 'quarry-stronghold') {
-      // Pot seats are interior, outside doors and finite reward seats.
-      for (const m of plan.landmarks) {
-        const [x,y,r,b]=m.bounds;
-        if (hash(x,y,197) >= settings.foundationPotChance) continue;
+      // Pot seats are interior, outside doors and finite reward seats. A room
+      // without a pot may hold a wooden barrel instead, unless it is a chest room.
+      const chestRooms = s.a.owned ? s.variant.finds.count : 0;
+      for (const [n, m] of plan.landmarks.entries()) {
+        const [x,y,r,b]=m.bounds, roll=hash(x,y,197);
+        const material = roll < settings.foundationPotChance ? 'clay_pot'
+          : n >= chestRooms && roll < settings.foundationPotChance + settings.foundationBarrelChance ? 'quarry_barrel' : null;
+        if (!material) continue;
         for (let yy=y+1;yy<b;yy++) {
           let placed=false;
           for (let xx=x+1;xx<r;xx++) {
             const i=yy*N+xx;
             if (!covered.has(i) || plan.clear.has(i) || plan.background.has(i)) continue;
-            put(xx,yy,'clay_pot'); placed=true; break;
+            put(xx,yy,material); placed=true; break;
           }
           if (placed) break;
         }
@@ -353,5 +375,5 @@
   function siteHash(tx, ty, first) {
     return (Math.imul(tx, 73856093) ^ Math.imul(ty, 19349663) ^ Math.imul(first, 83492791)) >>> 0;
   }
-  root.QuarryLayout = { entranceCount, entrancesSteps, planSteps, variantForSteps, wallFrameAt, wallMaskForFrame, weightedIndexForHash, siteHash };
+  root.QuarryLayout = { cornerRing, centreRing, entranceCount, entrancesSteps, planSteps, variantForSteps, wallFrameAt, wallMaskForFrame, weightedIndexForHash, siteHash };
 })(typeof window !== 'undefined' ? window : globalThis);

@@ -1155,6 +1155,9 @@
     // authored by its own ladder: the street's family (the nearest mark's
     // BUILDING_FAMILIES row) never re-themes it into the plant guard's kinds.
     const SVar = root.StreetVariants;
+    // Initial members and fallback seats stay in their road theme and within
+    // its three-cell edge limit. Movement after spawning remains ordinary AI.
+    const roadOwner = cand._street ? SVar?.placementOwner(entry, N) : null;
     const pathAuthored = SVar?.VARIANT_BY_ID[cand._street]?.size === 'path';
     const ownLadder = !!SVar?.EXTRA_ENCOUNTER_TIERS?.has(cand.tier);
     const rawFamily = pathAuthored || ownLadder ? null : root.EnemyHabitats?.buildingKinds(entry, cand);
@@ -1198,7 +1201,10 @@
     const sameOwner = at => {
       if (WG.variantOwnerAt(entry, at) !== sourceOwner) return false;
       if (sourceOwner === 'zone') return entry.zone.coverage[at] === entry.zone.coverage[sourceCell];
-      if (sourceOwner === 'road') return entry.streetArea[at] === entry.streetArea[sourceCell];
+      if (sourceOwner === 'road') {
+        const variants = entry.streetAreaVariants || entry.streetArea.variants;
+        return variants ? variants[at] === variants[sourceCell] : true;
+      }
       return true;
     };
     const out = [];
@@ -1215,7 +1221,8 @@
       if (!kind) continue;                    // no ladder for this tier
       // Every member uses its actual roster profile; street ownership does
       // not turn a slow guard into a fast one or grant an access exception.
-      const guardCell = (ix, iy) => root.CreatureSpawns.isSpawnCell(genGrid, N, N, ix, iy, foeOpts, kind);
+      const guardCell = (ix, iy) => (!roadOwner || roadOwner(ix, iy) === cand._street)
+        && root.CreatureSpawns.isSpawnCell(genGrid, N, N, ix, iy, foeOpts, kind);
       let seat = null;
       let inKeep = false;
       const frontage = front && (!spec.place || spec.place === 'ring');

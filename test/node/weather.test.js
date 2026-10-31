@@ -117,6 +117,28 @@
     assert.eq(Weather.coldGrassPauseMs(scene), 300, 'transition preserves prior pause; mild frames stop adding');
   });
 
+  test('weather: overlay bakes clean drops that lean with the drift, cross the view and stay clipped', () => {
+    const baked = [], made = [];
+    const fakeG = () => ({ fillStyle() {}, fillRect() {}, generateTexture(key, w, h) { baked.push({ key, w, h }); }, destroy() {} });
+    const emitter = { setDepth() {}, setScrollFactor() {}, setMask(m) { this.mask = m; }, destroy() {} };
+    const mask = {};
+    const scene = { depth: 0, viewLeft: 0, viewTop: 96, viewSize: 352, _viewMask: mask,
+      textures: { exists: key => baked.some(b => b.key === key) }, make: { graphics: fakeG },
+      add: { particles: (x, y, key, cfg) => { made.push({ key, cfg }); return emitter; } } };
+    Weather.start(scene);
+    for (const kind of ['drizzle', 'rain', 'sleet', 'snow']) {
+      Weather.accept({ temp: 5, precip: true, kind });
+      const { key, cfg } = made[made.length - 1], row = Weather.KINDS[kind];
+      assert.eq(key, `weather_${kind}`);
+      assert.truthy(cfg.lifespan * row.speedY[0] / 1000 >= scene.viewSize, `${kind} drops reach the bottom of the view`);
+      assert.eq(cfg.advance, cfg.lifespan, `${kind} starts mid-shower`);
+      if (row.shape === 'streak') assert.truthy(cfg.rotate < 0, `${kind} streak leans toward its rightward drift`);
+      assert.eq(emitter.mask, mask, `${kind} is clipped to the map view`);
+    }
+    assert.eq(baked.find(b => b.key === 'weather_rain').w, 1, 'rain is a one-pixel streak, not a sheet frame');
+    Weather.stop(); Weather.accept({ precip: false, kind: 'none' });
+  });
+
   test('weather: scene and sole-render-pass integrations call the shared helpers', () => {
     assert.truthy(SCENE_SRC.includes('Weather.waterContact(this, weatherWater)'));
     assert.truthy(SCENE_SRC.includes('Weather.workCost(this, cost)'));

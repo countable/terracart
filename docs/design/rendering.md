@@ -135,6 +135,13 @@ covers the offset, and the terrain cache records the actual sprite bounds.
 Tilled beds overlay the continuous native ground without removing its dual tile;
 otherwise the neighbouring half-cells would lose their texture.
 Map review deliberately displays each owning material without transitions.
+Every surface ground display is one of these families, so every boundary has a
+transition. Do not add a ground look as a per-cell colour wash, a square
+fallback texture or an untransitioned overlay; add or reuse a family row
+instead, and prefer reusing a similar family to adding one. Player-placed
+stone fences enter the material ring as rock. Exceptions are decals (tilled
+beds, burn soot, webs, grates), roads over the ground, and structural floors,
+whose walls are their boundary.
 Native 16px masks preserve outer/inner corners and disconnected diagonals. The atlas contains 26 families
 (416 native frames), including public residential light slate, cold slate, original square commercial
 concrete, scrub, Grove, selected Nexus grounds and four rocky-ground variants.
@@ -299,8 +306,11 @@ they still interact from their data cells. Walls support steps; hedges are walke
 through without a hop, balancing slowdown or body crop. An isolated
 wall cell keeps its rubble sprite; a lone clipped hedge cell joins the batch as
 its core block, so it turns with the ground like the runs beside it.
-`wall_materials.js` owns the shared cel-pixel atlas: connected hedges use the
-RA-recolored bushy hedge strip across tops and bevels without a pale coping band.
+`wall_materials.js` owns the shared cel-pixel atlas: connected hedges paint a
+leaf-clump mottle (`paintLeafClumps`, 2px texels on a jittered lattice that
+wraps at the slot edges) in the approved clipped-hedge ramp, the side faces one
+step darker, across tops and bevels without a pale coping band. Tiling a
+cropped strip carried its sawtooth divider into every repeat and read as stripes.
 Creeping vines reuse the former procedural green leaf material, with a broad
 24px footprint and a low 4px crown; cardinal masks join neighboring vine cells.
 Hedges have their own profile there
@@ -392,7 +402,8 @@ fallen blocks are 2–4 units tall; their count scales with footprint area up to
 24. Their full rotated bases must fit inside the source ring, including rubble
 beside a breach. No roofs or raised framing remain.
 `tools/build_wreck_plinth.py` uses the study’s FDR masonry crop, warm pale
-speckled caps, and a restrained ground scatter using the same warm stone
+speckled caps (tinted about 16% down by `LOOK.wreck.cap` so they never
+glare above the lit walls), and a restrained ground scatter using the same warm stone
 palette. Broad tarnish patches replace the study’s fine tiled grain and red
 brick flecks. The generator also supports buried-rubble and worn-ground previews.
 A five-unit brown border follows the inside of the footprint at 72% opacity;
@@ -436,7 +447,7 @@ support) before that run's first fill, so a ring of sections and the merlons
 standing on it carry one upper outer outline with no bottom edge or internal seams. Legacy castle and Home prisms retain their flat colors; connected walls and fort pickets use the shared wall atlas.
 
 `scene.activeInterior()` shares Home's interior renderer and outside-darkness
-mask with detected malls and strip malls. Retail footprints come from the same
+mask with castles, detected malls and strip malls. Retail footprints come from the same
 POI census as indoor-mall placement (`entry.retailInteriors`); two contained
 public commercial booths qualify, including small strip centres. The player's
 exact ground position opens the room, and stepping out restores its normal
@@ -445,6 +456,16 @@ repeat scaled to 60% of the original size while its footprint stays unchanged.
 The overlay replaces the host shell with Home's open-roof, per-wall geometry;
 courtyards are excluded from both the floor and the lit interior. This changes
 rendering only: shop rewards retain their existing interior/frontage positions.
+
+Every surface castle opens an interior when the player's feet enter its source
+footprint, before or after claim. The keep, exterior towers and their flags
+are absent indoors; low perimeter walls use the castle family's stone palette.
+The floor keeps its paving beneath a clipped patterned carpet: burgundy/gold
+diamonds for Citadel, terracotta bands for Bastion, and teal checks for Archive.
+Carpets paint on the retained ground canvas with a world-stable phase and stone
+margins, without new textures or world geometry. Leaving restores the exterior;
+peeking never changes occupancy. Temple zones and standalone house turrets do
+not become castle interiors.
 
 Home uses the original nearby building footprint, or a 2×2 footprint stamped
 by `scene_venues.js` when no building is within two cells. It draws no sprite: `Render.houseTextureKey` hands its role
@@ -559,11 +580,16 @@ the surrounding grove’s shrub scale.
 - Named booth signs show the booth kind above at most two words of the rusticified
   place name. If the second word is an article or connector (such as “the” or
   “of”), only the first word appears. Full names remain available in dialogs.
-- Road labels show the first word of the street's official name, then its
+- Road and path labels show the first word of the street's official name, then its
   street variant's name (`StreetVariants.labelName`, read off the dressed
   tile's `streetMarks`): "Athalmer Pottery". Generic suffixes such as Road and
   Lane are omitted. Plain streets show the word alone. Labels use 10px text;
   rotated bounds must leave a small gap, with overlapping anchors hidden.
+  A label is inked from the surface under it (`RoadOverlay.labelInk`: the
+  variant's `ROAD_THEME_COLORS` stone, plain or Nexus-suppressed paving, or
+  `RoadSurfaces.MEAN_COLOR` for MD/LG) so it reads as engraved: a halo in the
+  stone's own tone, glyphs cut darker (lighter on a dark surface), and a light
+  lip one pixel below. `Render.roadLabelView` picks the text and ink once per anchor.
 - The circular map and compass rim sit 55 CSS pixels above the layout baseline;
   the published aperture position follows the canvas so touch targets stay aligned.
 - Zoom is camera-only. The resting view a game opens on spans seven cells
@@ -593,8 +619,10 @@ the surrounding grove’s shrub scale.
   existing resize path, which explicitly restores the logical CSS size before
   refreshing input bounds when returning to scale 1. Explicit `?rscale=N` remains a diagnostic override,
   bounded to 1–2×; game cadence is unchanged.
-- iPhone compass samples with negative headings or negative/non-finite accuracy
-  are ignored, retaining the last usable bearing while the sensor recalibrates.
+- iPhone compass samples with a negative or non-finite heading are ignored,
+  retaining the last usable bearing. `webkitCompassAccuracy` never gates a
+  valid heading: iOS reports -1 for long stretches indoors or while it wants
+  calibration, and rejecting those froze the map.
   The first absolute bearing replaces any relative startup smoothing history.
 - Heading-up is the default (`?headingUp=false` keeps north up). The main
   camera turns about the view centre by `-compassDeg` (Q / E manually rotate on
@@ -658,7 +686,7 @@ the surrounding grove’s shrub scale.
 - Long grass leaves the player at the normal feet-on-ground position, with no
   half-body crop, sinking, step lift or balancing slowdown. Only foreground
   blades naturally obscure the body. Clipped hedges likewise never crop or
-  sink the body; only liquid (below) does. `ObstacleStep`'s `covered` marks
+  sink the body; liquids and quicksand (below) do. `ObstacleStep`'s `covered` marks
   the foliage footprint and is not a waterline.
 - Water, tar-yard terrain and unburned street tar puddles lower the player's
   body to the waterline and crop away the lower half of its current sprite frame.
@@ -668,6 +696,10 @@ the surrounding grove’s shrub scale.
   This spatial pose stays while paused, clears on dry ground, and yields to
   flight, the dragon form, collapse and step-over support. It does not change
   movement, reach or feet-based sorting; heading-up rotates the same cropped body.
+- Quicksand reuses the water crop and `playerBodyDy()`, progressively lowering
+  the body until only the top four source rows remain (the hat tip). Its foreground hazard state
+  owns the progress; the pose never changes world feet, reach or heading.
+  Leaving marked sand, changing floor, flight, support or collapse clears it.
 - Flight raises the body by the consumable row’s `liftPx` through `playerBodyDy()`;
   the shadow, world position and ground sorting remain at the feet. Expiry lowers
   the body automatically. Thrown flight potions also raise creature bodies.
@@ -687,11 +719,15 @@ the surrounding grove’s shrub scale.
   Polygon fort walls and tiled castle
   ramparts live in `buildingWallContainer`, immediately above the footprint
   layer and below pads, traps, shadows and every interactable. Step-over wall
-  and hedge meshes instead live in `raisedPropContainer`, above ground shadows
-  and below world sprites, so the player's ground shadow cannot paint their
-  raised tops. Both layers share the world viewport mask. Wall geometry
-  never adjusts an actor's feet or enters the world depth sort. Legacy tower sprites and
-  flags retain ordinary world ordering; generated castle towers share the castle batch. Legacy tower textures fade fully to transparent
+  and hedge pieces instead join the shared world depth sort, one part per cell
+  piece seated at its cell (`WallPerspective` per-wall parts, as grass, loose
+  props and castle walls), so a hedge or wall hides the props and the player
+  behind it and draws under those in front; ground shadows are ground decals
+  and still sort below them. Both layers share the world viewport mask. Wall geometry
+  never adjusts an actor's feet. Generated castle walls, towers and keeps instead
+  join the world depth sort at their shared ground supports, so props behind
+  them cannot paint over their raised faces. Legacy tower sprites and
+  flags retain ordinary world ordering. Legacy tower textures fade fully to transparent
   across their bottom ten pixels so cell-seated bases blend into angled walls;
   this is baked once for both restoration states. Walls and footprints use a muted
   palette so interactables remain distinct. Unclaimed house and fort floors
@@ -749,6 +785,14 @@ the surrounding grove’s shrub scale.
   buildings select the frontmost drawn owner, with no hits in empty corners of
   pitched roofs. The owner routes through the ordinary interaction registry and
   existing reach/visibility gates; ground-footprint taps remain supported.
+  A tall prop's crown (a tree, a fingerpost, a lamp) is drawn over the cell
+  screen-north of its feet. When the tapped cell holds no object of its own,
+  the 'object' handler passes the tap to the prop whose trimmed drawn art
+  contains the point (`Render.tallPropHit`): the frontmost visible pooled
+  sprite whose owner stands in a neighbouring cell, never its own cell and
+  never further, with a drawn piece (a fingerpost board, `_owner`) answering
+  for its prop. An occupied cell keeps its occupant, so a crown never steals
+  a tap from what stands under it. Wild plants stay cell-only.
   Creature taps test the drawn body box from the foot along screen-up
   (`HeadingUp.toScreenVec`), since bodies stay upright on a turned map; being
   off the cell grid, that padded box is grown 10% about the drawn centre.
@@ -806,8 +850,10 @@ the surrounding grove’s shrub scale.
   apart, and rounding each alone opens an intermittent 1px seam.
 - List actual crop `frames`, not sheet-cell counts. Hash the full id for
   per-cell variation (`wildplantFrame`); do not use id length or transient indices.
-  Legacy `PLAIN_ROCK_VARIANTS` retains rock yields independently of the neutral
-  material silhouettes; loot messages report the actual quantity rolled.
+  Legacy `PLAIN_ROCK_VARIANTS` (pair and single, reached through the four saved
+  `PLAIN_ROCK_SLOTS`) retains rock yields independently of the neutral material
+  silhouettes; loot messages report the actual quantity rolled. A larger
+  variant must be distinct art, never an existing frame at a bigger scale.
 - Map Apple and Worldpeach trees use recoloured RA rounded canopies from
   `tools/build_rogue_fruit_trees.py`: apple foliage is cool green with cream
   blossoms; Worldpeach foliage is warm olive with pink blossoms. Bark, roots
@@ -990,8 +1036,9 @@ Tests: `peek_drag`, `feet_anchor`, `shell_variants`, `rock_yield`, `health_bar`,
   and inventory icons retain their existing art. A stable id hash selects plain
   stone shape independently of biome, mining quantity and small/large size.
   Mining quantities retain their existing variant tables.
-  Thirteen stone contexts use one environmental design each from
-  `rock_variants` frames 52–64: Stone Garden, Broken Masonry, Flint Field, Broken Depot,
+  Thirteen stone contexts use an environmental design from
+  `rock_variants` frames 52–64 (Strip Mine and Abandoned Quarry share the
+  frame 60 cut cube, which `RogueObjects.ZONE_ROCK_ART` keeps on the map): Stone Garden, Broken Masonry, Flint Field, Broken Depot,
   Seep, Work Yard, Black Ring, Pirate Cove, Strip Mine, Stronghold Quarry,
   Crater Quarry, Abandoned Quarry and Mystic Reef. Color, moss and weathering carry
   the place; Work Yard uses a cut stone slab and Crater Quarry has a glowing lava
@@ -1040,6 +1087,19 @@ light; the smooth player glow carries the other half, preserving nearby
 brightness on the surface and underground. This compensation fades beyond
 the reach rim within the existing player-light radius.
 
+- An object put down inside the view fades in (`Render.arrivalAlpha`): one
+  whose first drawn frame finds it nearer the anchor than the inner view, a
+  cell short of the visible rim at the live zoom, rises from clear to whole
+  over `UNMAPPED_REVEAL_MS`, sprite and contact shadow together, and a still
+  frame keeps reconfiguring it until it is whole. That is what a late Overpass
+  bin's detected trees, a spawn pass on a tile already on screen and a rebuilt
+  tile's new records do; an object first seen at the rim walked in and draws
+  whole at once. The first-seen stamp is kept per record in a WeakMap, never
+  written to the record (which may be a save record), so a record fades once
+  in its life. A record the pass builds afresh every frame (`placedAs`'s
+  street lamps, scarecrows and fires; a stump's view) is keyed through
+  `Render.mintedArrival` by kind and id instead, kept only while it is drawn
+  frame to frame; keyed by identity it was new every frame and never drawn.
 - `Visibility` owns current cover, separately from `Fog`'s saved exploration.
   Only cave terrain walls fully block sight beyond their cell. Bushes, hedges,
   short walls, larger standing trees and rocks marked `sightBlocking: true`
@@ -1204,7 +1264,7 @@ the reach rim within the existing player-light radius.
   It is off in normal play. Seams share road-width occlusion and water/building
   keep-outs, and restored seams appear only within restored intervals.
 - Lamp sites use source-road geometry to remove nearby-road clutter before
-  generation reserves their cells or the renderer creates sprites/lights. A
+  the renderer creates sprites/lights; generation reserves no lamp cells. A
   two-cell spatial hash of road segments rejects a foot within another road
   band plus 0.5m clearance. A one-cell lamp hash removes other-road posts closer
   than one cell, preferring the wider road then stable lamp identity. Equal-width
@@ -1212,16 +1272,46 @@ the reach rim within the existing player-light radius.
   are unchanged. Buffered source geometry handles road clearance at tile edges;
   post-to-post deduplication applies within each owning tile. Existing ready-entry
   caches avoid per-frame scans; no global density reduction is applied.
+- Road-variant influence ground has no colour wash: a per-cell overlay has no
+  transition and read as a second grass on square cell edges. The variant's
+  terrain carries its ground; a row's `groundFamily` redraws its recorded
+  influence cells, and its minor-road cobble gaps, with that `GroundMaterials`
+  family and its native transitions (Haunt: RA `brownSoil`). Home, Nexus, caves,
+  discarded areas, water and buildings retain their appearance. It is
+  render-only, like zone ground textures.
+- The debug menu's **Variant ground tint** toggle persists across reloads. Its
+  translucent ground overlay shows the nearest road variant's primary cobble
+  color, including extended dressing outside the reserved corridor. Nexus cells
+  use their dominant material color; Home, cave and discarded cells receive no
+  road tint. It samples only visible cells, caches nearest-road queries, and is
+  hidden underground without changing generated terrain or spawn ownership.
+- Roadside directions are a fingerpost drawn from `StreetSigns.ART`: a baked
+  post (`roadsign_post`) with its feet beside the vector road edge, and one
+  baked board (`roadsign_board`) per listed heading, hung from the top of the
+  post (`StreetSigns.boardRow`) and turned to point along its road
+  (`Render.poseRoadSignBoard`). A board is a horizontal plank, so it takes the
+  flat ground marks' projection (`StreetSigns.boardPose`, `GROUND_MARK.tilt`):
+  full length east/west, foreshortened north/south, the heading turned for
+  heading-up before projecting. Only the centre line is exact; a sprite cannot
+  skew the plank's width. Boards are drawn pieces derived once per sign
+  (`Render.roadSignBoards`), never world objects: the sign record alone owns
+  the tap, the cell and the shadow, and the boards name its contact
+  (`RENDER_SPEC.footFromCentre`) so they sort with it and stay stacked on it
+  as the map turns. Tapping still lists the headings and route names.
 - Small-road and path vector bands carry a variant-coloured 20% tint beneath
   their cobbles. The base pavement tile compensates for the road image alpha;
   restored tiles add no second tint. It follows exact road widths, larger-road
-  occlusion and water/building keep-outs. The cached tint changes vector art,
-  while grid terrain and roadside ground retain their existing rules.
+  occlusion and water/building keep-outs. The cached tint changes vector art
+  only; the surrounding influence ground is untinted.
 - Small-road and path surfaces use sparse, individually shaded cobbles with ground-revealing
   joints, the approved study's layout at two-thirds scale (`SPARSE_SCALE`: 8px
-  grid, 128px repeat). Each theme has its approved colour; unrestored stones retain 35% colour
-  saturation, while restored stones regain colour and add missing cobbles at the
-  same positions. Both states keep the approved Promenade light–dark contrast.
+  grid, 128px repeat). Each theme has its approved colour (a `ROAD_THEME_MIXES` theme, Way of Variety, gives each cobble one of several theme colours off its layout slot); unrestored stones retain 55% colour
+  saturation, while restored stones use 115% of the theme saturation and add
+  missing cobbles at the same positions. Both states keep the approved Promenade light–dark contrast, except Hedged Lane,
+  whose formal setts use a narrower tonal range. Its equal stones follow staggered
+  courses with tight transparent joints; repairs fill the missing setts.
+  Pottery Road mixes the two shipping clay-pot body colours, terracotta and
+  sandy ochre, retaining source texture and shading in both repair states.
   Palette pixels are calculated once per cached theme/state, never per frame.
   Orchard Lane's shared warm source uses solid sandstone faces. Burned Row keeps
   its solid charcoal surface and ember warning. Rail ballast stays solid.
@@ -1245,8 +1335,6 @@ the reach rim within the existing player-light radius.
   remove the old base surface/decor while retaining
   its geometric mask for larger-road occlusion, so the scar and missing pieces
   cannot show through the restored surface. None of this repaints grid terrain.
-  Theme ground verges are disabled: source landcover remains beneath and beside
-  roads, while existing props, hazard rules and route identities remain in place.
   Commercial ground uses original square concrete, independently of road stone.
 - Opaque selected terrain supplies its dominant ink for existing fills,
   sampled once per material when the atlas loads. `SELECTED_TERRAIN` maps landcover
@@ -1300,7 +1388,9 @@ the reach rim within the existing player-light radius.
   restoration; only restored lamps emit light. `RENDER_SPEC._streetlamp`
   and `Lighting.collectLamps` share this table's scale and emitter offsets. Their source pixels and contact seating stay in
   the normal object renderer; there is no alternate foundation painter,
-  per-colour lamp bake or selected-streetlamp derivative. Road restoration
+  per-colour lamp bake or selected-streetlamp derivative. The hanging lantern
+  uses the shared palette bake to colour its bottom contact ink as wood;
+  its source alpha and contact bounds stay unchanged. Road restoration
   and brightness retain their existing site data and gameplay rules.
   Variant and Nexus colours tint emitted light through `Lighting`, not the
   lamp image. Screen-space emission anchors use `StreetLights.ART` per silhouette,
@@ -1308,9 +1398,10 @@ the reach rim within the existing player-light radius.
   `Lighting.liftPx` rotates the offsets into the map frame, keeping radiance
   aligned through camera rotation without depending on a retired canvas size.
   Collect/cache lamps about the camera anchor, only after tiles finish loading.
-  A lamp's footing (`RoadOverlay.lampCellsFor`, the same reserved cells
-  dressing keeps clear) is never tillable: `cellAt` flags it `underLamp` and
-  `isTillableCell` refuses it.
+  Lamp anchors sit 0.5 m outside the vector road boundary, using
+  `Streets.LAMP_EDGE_CLEARANCE_M` beyond half the drawn width. Their continuous coordinates and arclength identities are
+  independent of the grid: lamps reserve no cells and add no planting or
+  scenery exclusions. Existing terrain and access rules still apply.
 - Restoration ladder rewards use `Trail.PRIZE_CONTEXT`; the first reward offers the fixed
   `Trail.firstWeaponChoices()` row. Its earned choice remains in
   `save.trail.firstWeaponPending` until selected, so reloads preserve it while onboarding
@@ -1439,7 +1530,8 @@ Stable plant IDs select canopy frames. Berry textures bake red, teal or gold
 fruit onto all eight olive canopies once at startup; picking retains the same
 foliage frame and transparency. Both clipped-shrub aliases use
 `assets/ArtTrials/RogueProps/flora-zone_hedge_single.png`. Connected hedges retain
-their fifteen cardinal masks; their 3D material uses the approved bushy strip.
+their fifteen cardinal masks; their 3D material is a procedural leaf-clump
+mottle in that sprite's olive ramp.
 The legacy `assets/Objects/Hedges/` sheet remains the flat-renderer fallback.
 
 `SELECTED_CONTAINER_FRAMES` in `loot.js` lists the active atlas frames shared
@@ -1472,7 +1564,7 @@ the legacy ruin slot uses Bastion architecture instead of a separate ruin family
 `BuildingOverlay` passes the castle key and claim state to the renderer and uses
 the same profile for its courtyard floor. Citadel wrecks are dark and foreboding;
 conquest repairs and lightens them. Bastion and Archive damage is a condition
-of the same architecture, with interrupted crowns and missing roof planes.
+of the same complete architecture, expressed through weathered materials.
 
 Square towers align with the longer adjoining curtain, then shift eight game
 pixels outward along the corner bisector. Their original seated base must fit
@@ -1487,6 +1579,9 @@ Merlons are solid geometry with open crenels and full coping support. Their
 regardless of curtain length; longer walls add teeth instead of widening gaps. All clipped bodies and crowns
 of a source curtain share one sorting anchor, so a later fragment cannot erase
 its own teeth at rotated headings. Towers and keeps have their own anchors.
+These retained parts join the same world container and ground-depth sort as
+props and actors in both north-up and heading-up modes. Courtyard floors stay
+in the background; objects one cell north of a wall draw behind its raised faces.
 A keep is placed only where its full courtyard clearance fits. Layout dimensions
 and spacing are part of the bounded local-coordinate cache key. Source rings
 up to 512 vertices can use the generated architecture without simplifying their
@@ -1577,20 +1672,19 @@ Archive towers use two arched window levels in the same wall decal; military
 towers sample one arch from that shared tile. Archive towers and keeps use a
 broader, quieter ashlar tile than their curtains, and flush dark double doors.
 Their fully opaque tower tiles also participate in Canvas seam coverage.
-Archive towers and keeps have four roof triangles when restored and two surviving
-planes over a closed flat cap when wrecked. Archive has no wood, galleries,
+Archive towers and keeps have four roof triangles over a closed flat cap in both
+restored and wrecked states. Archive has no wood, galleries,
 modeled roof framing or book banner. Four restrained teal face values reveal
 each Archive pyramid peak without increasing its four-triangle roof. A shared
 opaque ridge/eave tile adds restrained edge detail; keep roof rise scales with
 its span to preserve tower roof pitch. Military tower crowns include the same shorter, wider
 teeth on all four sides at the same sixteen-unit pitch. End margins absorb
 remaining length, and side rows stop before the front/back rows to avoid
-overlapping corner teeth. Surviving
-wreck teeth vary in height using the same prism faces. Bastion's broader tower shafts
+overlapping corner teeth. Wrecks retain the restored geometry: full-height walls,
+towers and teeth, and complete roofs. Condition changes textures and colours only. Bastion's broader tower shafts
 fill their square cutouts above height four; the same eight basal triangles
 flare two pixels outward at ground level, without adding a plinth mesh or opening
-vertical gaps at curtain joins. Wreck crests lose a few broad sections; teeth
-over those pieces are omitted and adjoining tall pieces expose their step faces.
+vertical gaps at curtain joins.
 Geometry and material faces are retained
 through compass rotation, without per-brick tessellation, pixel readback or
 per-building texture creation. The scene's normal map camera projects the
@@ -1627,10 +1721,12 @@ and stable in-bounds UVs. Reports distinguish this check from visual evidence
 and record coplanar masonry phase discontinuities and material scale ranges;
 passing numerical checks alone does not establish concept fidelity.
 
-Covered castles suppress their old tower sprites while retaining gameplay turret
-records, ownership, range and collision. Flags seat on distinct geometry crowns
-with the existing claim-state rules. Temple zones and house-role turrets keep
-their own renderers. Geometry hit testing includes projecting tower faces.
+Castle tower records retain gameplay, ownership, range and collision, but never
+draw legacy tower sprites, even when generated art is unavailable. Outdoor flags
+require a generated crown and retain the claim-state rules; indoor castles hide
+them. The shared tower sprite source remains only for standalone house turrets
+and UI artwork. Temple zones and house-role turrets keep their own renderers.
+Geometry hit testing includes projecting outdoor tower faces.
 
 ## Building sprite artwork
 
@@ -1656,7 +1752,10 @@ Spooky Woods shrine snags use `selected_dead_tree.png`, an unmodified 64×64
 crop at (384,16) from Rogue Adventure `RA_Jungle.png`. The source manifest sits
 beside the image. `_objectArt: "dead_tree"` selects frame 0 before optional
 ArtTrials routing; trimmed bounds seat the roots and the scale matches the
-existing mature tree width. Ordinary grove trees keep their existing art.
+existing mature tree width. On the surface the Rogue object module draws
+snags as `rogue_tree_dead` at three quarters of the living-tree stage scale,
+since a bare crown at full scale read oversized. Ordinary grove trees keep
+their existing art.
 
 Permanent rear-lot bedrock uses the same flat cold-slate surface as ordinary rock:
 `RA_Ground_Tiles.png`, crop `(352,208,16,16)`, selected-terrain frame 35
@@ -1702,11 +1801,20 @@ atlas and retained geometry.
 suggested route. `tools/build_street_decoration_art.py` exports exact pixels and
 `STREET_DECORATION_ART` bounds. `_streetArt` changes presentation without changing
 pickup, container, mining or hazard behavior. Ground slicks, loose planks and
-fragments remain ground decals. Pottery stacks use the matching broken pot from
-the same source tileset; ordinary pots retain their colour-matched shared shards.
+fragments remain ground decals. Pottery stacks use the shared terracotta ground
+shards; ordinary pots retain their colour-matched shared shards.
 Young fern uses a 14-pixel visible width on the map.
 Mossy, conifer, bare and lavender tree families use the same silhouette at three
 growth sizes; bare trees share one family across burned, thorny and haunted routes.
 The small grass-clump variant retains the longgrass 3D blade material and root
 placement, with one third of blades and 65% blade dimensions. It stays harvestable
-longgrass. Mushroom imports use a muted warm tint to fit the existing caps.
+longgrass. The hedged lane adds white flowers but no grass clumps or trees. Detected trees
+in its three-cell roadside influence use the rounded mossy-tree look. Mushroom imports use a muted warm tint to fit the existing caps.
+
+Road experience briefs live in `design/road-experiences/`.
+`tools/preview_road_experiences.py` pairs the briefs in
+`tools/road-experience-*.json` with shipped story paintings and current 20 × 7
+captures from `tools/capture_road_variant_views.cjs`. Regenerate the variant
+dashboard before capturing, then rebuild the gallery. Each brief describes the
+intended feeling, art cues and player actions; proposed mechanics are labelled
+separately from existing behavior. These briefs do not change runtime behavior.

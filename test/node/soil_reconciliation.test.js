@@ -16,12 +16,12 @@ function soilScene(cells, planted = []) {
   return scene;
 }
 
-test('soil reconciliation: terrain, roads and lamps share eligibility and persist removal', () => {
+test('soil reconciliation: terrain and roads remove soil while boundary lamps leave it intact', () => {
   const scene = soilScene({ '0_0': {}, '1_0': { type: 9 },
     '2_0': { underRoad: true }, '3_0': { underLamp: true }, '4_0': { loaded: false, type: 9 } });
-  assert.eq(Crops.reconcileTilled(scene), 3);
-  assert.eq(scene.save.tilled.join(','), '0_0,4_0');
-  assert.eq(Object.keys(scene.save.tilledQuality).join(','), '0_0,4_0');
+  assert.eq(Crops.reconcileTilled(scene), 2);
+  assert.eq(scene.save.tilled.join(','), '0_0,3_0,4_0');
+  assert.eq(Object.keys(scene.save.tilledQuality).join(','), '0_0,3_0,4_0');
   assert.eq(Crops.reconcileTilled(scene), 0, 'repeating reconciliation is harmless');
 });
 

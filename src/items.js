@@ -52,6 +52,7 @@ const CROPS_SHEET_COLS = 9; // Crops.png is 9 cols wide
 const SPRING_CROPS_COLS = 14;
 // Fruiting and ordinary bushes share every foliage pixel and the same geometry.
 const BUSH_SPRITE = { sheet: 'bushes', custom: true, frames: [0, 1, 2, 3, 4, 5, 6, 7], scale: 1 };
+const MUSHROOM_SPRITE = { sheet: 'selected_mushroom', custom: true, frames: [0], scale: 1.1016, caveFrames: [2, 3] };
 const CROP_SPRITE = {
   creeping_vine: { sheet: 'zone_hedge', custom: true, frame: 0, scale: 1 },
   white_flower: { sheet: 'street_decor_white_flower', custom: true, frame: 0, scale: 1.4 },
@@ -84,7 +85,8 @@ const CROP_SPRITE = {
   shrub: { sheet: 'selected_shrub', custom: true, frames: [0], scale: 1.5,
     looks: { bramble: { sheet: 'bramble', shadow: true, custom: true, frames: [0], scale: 4 / 3 }, clipped: { sheet: 'approved_clipped_hedge', shadow: true, custom: true, frames: [0], scale: 0.8 } } },
   // Surface choices vary stably; the two existing blue cave caps remain distinct.
-  mushroom: { sheet: 'selected_mushroom', custom: true, frames: [0, 1], scale: 1.1016, caveFrames: [2, 3] },
+  mushroom: MUSHROOM_SPRITE,
+  mushroom_bush: MUSHROOM_SPRITE,
   // Keep planted-rock growth stages; mature and wild rocks use the selected art.
   rubble: { mature: { sheet: 'selected_rubble', custom: true, frames: [0], scale: 1.5 } },
   // Approved shell is exported from the original art into a 24px cell.
@@ -161,7 +163,7 @@ const ZONE_ROCK_THEMES = Object.freeze({
   'quarry-strip-mine': { frame: 60, tint: 0xe8d6b6 },
   'quarry-stronghold': { frame: 61, tint: 0xd5d8df },
   'quarry-crater': { frame: 62, tint: 0xcac5d3 },
-  'quarry-abandoned': { frame: 63, tint: 0xcdd9bd },
+  'quarry-abandoned': { frame: 60, tint: 0xcdd9bd }, // the strip mine's cut cube
   mystic_reef: { frame: 64, tint: 0xc1e0dd },
 });
 // One neutral stone palette everywhere; material pairs are adjacent small/large frames.
@@ -190,10 +192,12 @@ const WILDPLANT_CONTEXT_ART = {
   reeds: { crop: 'longgrass', sheet: 'approved_wetland_reeds', custom: true, frame: 0, scale: 1.16 },
 };
 function wildplantSprite(p) {
+  // Keep saved red-cap placements and bush interactions, using the grove giant art.
+  if (p?._streetArt === 'red_mushroom') return { ...CROP_SPRITE.giant_mushroom, crop: p.crop };
   const streetArt = typeof STREET_DECORATION_ART !== 'undefined' && STREET_DECORATION_ART[p?._streetArt];
   if (streetArt) return { crop: p.crop, sheet: 'street_decor_' + p._streetArt, custom: true,
     frame: 0, scale: streetArt.scale, shadow: !streetArt.ground,
-    tint: ['spotted_mushroom', 'red_mushroom'].includes(p._streetArt) ? 0xb0a27c : undefined };
+    tint: p._streetArt === 'spotted_mushroom' ? 0xb0a27c : undefined };
 
   // Authored mineral seams and cover-sized boulders keep their specific silhouettes.
   if (p?.crop === 'rubble' && (p.kind === 'wildplant' || p.wildId)
@@ -266,6 +270,8 @@ const WILDPLANT_RULES = {
   // `nest`: one shrub in twenty is a NEST BUSH (isNestBush) — it wiggles
   // now and then and may shelter a baby, slime or local animal.
   shrub:     { output: 'wood', workRelic: 'axe', barehandMs: 5000, workCharged: true, nest: true, hazardMinTier: 1 },
+  mushroom_bush: { name: 'Mushroom bush', outputs: [{id:'wood',qty:1},{id:'mushroom',qty:1}],
+    workRelic: 'axe', barehandMs: 5000, workCharged: true, light: 'mushroom' },
   giant_mushroom: { name: 'Giant mushroom', outputs: [{id:'wood',qty:1},{id:'mushroom',qty:1}],
     workRelic: 'axe', workCharged: true },
   // Barricades dismantle with a kit, or chop like a full hardwood (T4).
@@ -689,6 +695,8 @@ const MINERAL_ICON_SHEET = {
   vampire_ring:      { sheet: 'icon_rings',   frame: 18 },
   // The banded ring with its pale blue lens (Rings.png row 2).
   xray_ring:         { sheet: 'icon_rings',   frame: 12 },
+  // The rose band trailing a flaming star (Rings.png row 3).
+  comet_ring:        { sheet: 'icon_rings',   frame: 14 },
   regeneration_amulet:      { sheet: 'icon_amulets', frame: 10 },
   vigor_amulet:      { sheet: 'icon_amulets', frame: 17 },
   sleep_powder:  { sheet: 'icon_potions', frame: 3 }, // scoop of violet dream dust
@@ -939,7 +947,7 @@ const BASE_TIER = {
   poison_flask: 2,
   // Unique jewelry is intrinsically magical, never a metal rung.
   portal_stone: 3, depth_key: 4,
-  stealth_ring: 2, perception_ring: 2, coin_ring: 2, invisibility_ring: 4, ember_ring: 3, vampire_ring: 4, xray_ring: 3, regeneration_amulet: 3, vigor_amulet: 5,
+  stealth_ring: 2, perception_ring: 2, coin_ring: 2, invisibility_ring: 4, ember_ring: 3, vampire_ring: 4, xray_ring: 3, comet_ring: 5, regeneration_amulet: 3, vigor_amulet: 5,
   // Tomes: a tome's tier is one above the potion it channels (the books
   // group's top-tier pick makes each tier's chest hand its own tome).
   tome_reach: 3, tome_raven: 4, tome_thunder: 5, tome_fire_wall: 4,
@@ -1204,6 +1212,7 @@ const ITEMS = [
   { id: 'ember_ring',        name: 'Ember Ring',            kind: 'unique_relic', uniqueJewelry: true },
   { id: 'vampire_ring',      name: 'Vampire Ring',          kind: 'unique_relic', uniqueJewelry: true },
   { id: 'xray_ring',         name: 'X-Ray Ring',            kind: 'unique_relic', uniqueJewelry: true },
+  { id: 'comet_ring',        name: 'Comet Ring',            kind: 'unique_relic', uniqueJewelry: true },
   { id: 'regeneration_amulet',      name: 'Amulet of Regeneration', kind: 'unique_relic', uniqueJewelry: true },
   { id: 'vigor_amulet',      name: 'Amulet of Vigour',        kind: 'unique_relic', uniqueJewelry: true },
   // Rope: use it (Use button with it selected) and the dialog asks which way —
@@ -1975,7 +1984,7 @@ const PRICES = {
                        //      effect, not the tier: the T2 butterfly is 100 too)
   frost_powder:  100,  // T3 — every enemy in reach chilled (slowed) for 30 s
   // Initial entries are replaced by fixed-tier equipment values after gearPrice is defined.
-  stealth_ring: 0, perception_ring: 0, coin_ring: 0, invisibility_ring: 0, ember_ring: 0, vampire_ring: 0, xray_ring: 0, regeneration_amulet: 0, vigor_amulet: 0,
+  stealth_ring: 0, perception_ring: 0, coin_ring: 0, invisibility_ring: 0, ember_ring: 0, vampire_ring: 0, xray_ring: 0, comet_ring: 0, regeneration_amulet: 0, vigor_amulet: 0,
   rope:          15,   // T2 — one climb up or down a level, in place (cheaper than a sapphire's brief round trip); crafted from 5 long grass, so not a money pump
   trap_disarm_kit:      20,   // T2 — permanently removes a trap; situational, not a staple
   magic_trap:    40,   // T3 — one tier-3 shot and a staff beat's hold on one foe
@@ -2095,6 +2104,8 @@ const TRAP_KIT_KEEP_CHANCE = 0.8;
 const ITEM_GUIDE_TIPS = {
   workshop: 'I restored a ruined building as a Workshop. Tools, supplies and remembered scrolls take shape here.',
   growth_powder: 'At the workshop I ground nettles with long grass into a green powder. The seedlings stirred before I had finished sprinkling it.',
+  psychosis_powder: 'At the workshop I crushed yellow meadow flowers with young fern. The dust made the room tilt. I opened every window.',
+  sleep_powder: 'I ground golden flowers with white ones into a fine dust. One breath of it and I woke at the bench at dusk.',
   barricade: 'I lashed the spare timber into a barricade at the workshop, then carried it down to the cave. The narrow passage needed less wood than I feared.',
   crow_feather: 'My legs failed on the long road. I pressed the black feather to my lips. Just enough strength to rise. Sometimes that is all a mercy needs to be.',
   scarecrow: 'The deer have kept to the tree line since I dressed the scarecrow in your father’s coat. Even empty, it can still look cross.',
@@ -2179,6 +2190,10 @@ const ITEM_EFFECTS = {
   longgrass: 'Its tough fibres hold fast when twisted together.',
   petnip: 'A fragrant sprig that cheers a pet and strengthens its heart.',
   nettle: 'A stinging herb ground into Growth Powder to wake sleeping crops. Pick it with care.',
+  white_flower: 'A small pale bloom. Its scent makes your eyelids heavy.',
+  yellow_flower: 'Bright pollen dusts your fingers, and the road seems to sway.',
+  golden_flower: 'Golden petals that glitter like the dust of a long dream.',
+  young_fern: 'Old wives hang fern over the door to keep harm outside.',
   rubble: 'Beneath its pale skin lies a stone hard enough for a ruined wall.',
   quartz: 'Soft pink light catches in the stone’s cloudy heart.',
   topaz: 'A honey-gold gleam rests between its sharp edges.',
@@ -2208,6 +2223,8 @@ const ITEM_EFFECTS = {
   ember_ring: 'Its banked ember drinks the heat before it reaches your skin.',
   xray_ring: 'Leaves and branches thin to glass. Whatever crouches in the hedge is plain to see.',
   vampire_ring: 'Each blow you strike by hand sends a fifth of its wound back into you. The dead have nothing left to give.',
+  // The numbers live on UNIQUE_JEWELRY.comet_ring.cometAura; the Snuffed chip quotes them.
+  comet_ring: 'Fire rides at your heels and never touches you. The faster you run, the wider and hotter it burns. Outrun the wind and it snuffs the flame for a while.',
   invisibility_ring: 'The eye forgets the hand it almost saw.',
   regeneration_amulet: 'A slow warmth mends what the day takes.',
   vigor_amulet: 'A quickened warmth mends what the day takes.',
@@ -2984,6 +3001,16 @@ const UNIQUE_JEWELRY = Object.freeze({
   // X-RAY: sees through partial cover and into concealing cells (bushes,
   // hedges, trees — Visibility.hidden); cave rock still hides. Not Perception.
   xray_ring: Object.freeze({ xray: true }),
+  // THE COMET RING: a burning aura round the feet whose reach and bite grow
+  // with the wearer's own PACE (comet_ring.js CometRing.shape is the one
+  // reader of these numbers; scene_consumables.js _tickCometAura burns with
+  // it). The wearer is never inside their own fire. Faster than `maxMps` for
+  // `overspeedMs` running snuffs it for `snuffedMs` (the `cometSnuffed` row
+  // of Buffs.KINDS); then it relights by itself. `texture` is the ground
+  // disc scene_create.js bakes and render.js draws exactly as wide as it burns.
+  comet_ring: Object.freeze({ cometAura: Object.freeze({
+    maxMps: 8, minRadiusCells: 0.75, maxRadiusCells: 3, restIntensity: 0.15, maxDps: 6,
+    overspeedMs: 3000, snuffedMs: 10000, texture: 'aura_comet' }) }),
   regeneration_amulet: Object.freeze({ regenMs: 4000 }),
   vigor_amulet: Object.freeze({ regenMs: 2000 }),
 });
@@ -3029,6 +3056,14 @@ function jewelryMeleeLifesteal(save) {
     if (row.meleeLifesteal && carriesItem(save, id)) frac = Math.max(frac, row.meleeLifesteal);
   }
   return frac;
+}
+// The carried Comet Ring's aura spec (UNIQUE_JEWELRY.comet_ring.cometAura),
+// null without one. A second ring is the same fire: nothing stacks.
+function jewelryCometAura(save) {
+  for (const [id, row] of Object.entries(UNIQUE_JEWELRY)) {
+    if (row.cometAura && carriesItem(save, id)) return row.cometAura;
+  }
+  return null;
 }
 function jewelryRegenIntervalMs(save) {
   let interval = Infinity;
@@ -3084,6 +3119,9 @@ const HOME_RECIPES = [
   { id: 'trap_disarm_kit', station: 'workshop', cost: [{ id: 'rubble', qty: 4 }] },
   { id: 'sugar_potion', station: 'workshop', cost: [{ id: 'berry', qty: 2 }] },
   { id: 'growth_powder', station: 'workshop', cost: [{ id: 'nettle', qty: 3 }, { id: 'longgrass', qty: 5 }] },
+  // Roadside flora: same-tier inputs, like Growth Powder's nettles and grass.
+  { id: 'psychosis_powder', station: 'workshop', cost: [{ id: 'yellow_flower', qty: 5 }, { id: 'young_fern', qty: 2 }] },
+  { id: 'sleep_powder', station: 'workshop', cost: [{ id: 'golden_flower', qty: 3 }, { id: 'white_flower', qty: 3 }] },
   ...ITEMS.filter(item => item.scroll).map(item => ({
     id: item.id, station: 'workshop', cost: [{ id: 'blank_scroll', qty: 1 }],
   })),
@@ -3100,6 +3138,7 @@ const BREW_RECIPES = [
   { id: 'blight_potion', cost: [{ id: 'marigold', qty: 2 }, { id: 'meat', qty: 1 }], coins: 5 },
   { id: 'shielding_potion', cost: [{ id: 'starflower', qty: 2 }, { id: 'milk', qty: 1 }], coins: 20 },
   { id: 'shrinking_potion', cost: [{ id: 'mango', qty: 2 }], coins: 4 },
+  { id: 'protection_potion', cost: [{ id: 'young_fern', qty: 4 }, { id: 'white_flower', qty: 2 }], coins: 25 },
 ];
 // Spears are known from the start in every difficulty. Other recipes
 // are learned by first finding their output in the wild, never by buying,
@@ -3156,10 +3195,9 @@ function isTillable(type) { return !NON_TILLABLE.has(type); }
 // soil-ish terrain AND no drawn road band over it. A cell's terrain says
 // "grass" for most of the ground a road actually covers (see cellAt's
 // underRoad note), so type-only checks let players till the middle of a
-// street. Nor is a street lamp's footing (cellAt's underLamp: the cells
-// RoadOverlay.lampCellsFor reserves, lit or broken). Takes a cellAt() result;
-// a stub cell without those flags (tests) behaves like the type-only check.
-function isTillableCell(cell) { return isTillable(cell.type) && !cell.underRoad && !cell.underLamp; }
+// street. Boundary lamps do not occupy cells or change tilling eligibility.
+// A stub cell without the road flag behaves like the type-only check.
+function isTillableCell(cell) { return isTillable(cell.type) && !cell.underRoad; }
 
 // ── The inventory's type tabs ──────────────────────────────────────────────
 // The two-bar inventory's category row. Order here is the on-screen left→right

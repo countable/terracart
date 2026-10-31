@@ -33,7 +33,7 @@
     return null;
   }
   function plan(ctx) {
-    const out = { reserved: new Set(), areas: [], diagnostics: [], terrain: new Map(), objects: [], wildplants: [], moves: [], replacements: [], encounters: [] };
+    const out = { reserved: new Set(), quicksand: new Set(), areas: [], diagnostics: [], terrain: new Map(), objects: [], wildplants: [], moves: [], replacements: [], encounters: [] };
     const WG = root.WorldGen, V = root.ZoneVariants;
     const { surface, grid, N, tx, ty, tileEdgeM, depth } = ctx;
     const field = surface && surface.zone, coverage = field && (field.coverage || field.idx);
@@ -243,6 +243,17 @@
       else out.objects.push(W.makeObject(objectKind,p.x,p.y,slot,attrs));
       used.add(c.i); return true;
     };
+    if (kind === 'quicksand_cavern') {
+      // Preserve the dry cardinal approaches, focus, routes and landmark halos.
+      // The explicit mask makes ordinary sand elsewhere harmless.
+      area.quicksand = new Set();
+      for (const c of usable.filter(c => free(c) && !court(c))) {
+        out.terrain.set(c.i, W.T.SAND);
+        out.quicksand.add(c.i); area.quicksand.add(c.i);
+      }
+      diagnostic.status = 'placed';
+      return;
+    }
     const shrine = kind === 'goblin_warrens' ? 'ember_altar' : kind === 'mushroom_cavern' ? 'toad_idol' : null;
     if (shrine) {
       const seat = usable.filter(free).sort((a,b) => Math.hypot(a.u,a.v)-Math.hypot(b.u,b.v) || a.i-b.i)

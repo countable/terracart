@@ -1,7 +1,7 @@
 // Content-addressed resources survive deployments. HTML stays network-first;
 // tiles retain their independent offline cache. Keep two shell generations so
 // old tabs can still request their exact script URLs after a worker update.
-const SHELL_VERSION = 'shell-053eefad';
+const SHELL_VERSION = 'shell-57817a4b';
 
 const RESOURCE_CACHE = 'terracart-resources-v1';
 const RESOURCE_MANIFEST = './__terracart_resource_manifest__';
@@ -13,7 +13,6 @@ const ASSET_HASHES = {
   "assets/ArtTrials/RogueObjects/fruit-worldpeach-blossom.png": "78c23a02",
   "assets/ArtTrials/RogueObjects/fruit-worldpeach.png": "8fe83508",
   "assets/ArtTrials/RogueObjects/lamp.png": "531900a1",
-  "assets/ArtTrials/RogueObjects/rain.png": "f67d59ca",
   "assets/ArtTrials/RogueObjects/rock-mid.png": "05ddc979",
   "assets/ArtTrials/RogueObjects/shrub-olive.png": "b1fdfd56",
   "assets/ArtTrials/RogueObjects/snare_open.png": "7fd994c9",
@@ -263,7 +262,7 @@ const ASSET_HASHES = {
   "assets/Icons/RPG icons/Weapons and Armor/7. Frost/Staff.png": "b2484a06",
   "assets/Icons/RPG icons/Weapons and Armor/7. Frost/Sword.png": "232136a0",
   "assets/Icons/SelectedItems/items.png": "5aa36f2f",
-  "assets/Icons/StatusEffects/status-icons.png": "5c063f56",
+  "assets/Icons/StatusEffects/status-icons.png": "bd28bf04",
   "assets/Icons/coin.png": "4c9e7ebc",
   "assets/Icons/dom-atlas.png": "0d0d4819",
   "assets/NPC/Ayo_human_idle.png": "39297eca",
@@ -627,6 +626,7 @@ const ASSET_HASHES = {
   "assets/art/street_berry.webp": "2afa8398",
   "assets/art/street_berry_trail.webp": "bfd3530f",
   "assets/art/street_burned.webp": "f638e5bc",
+  "assets/art/street_causeway.webp": "fb82e775",
   "assets/art/street_confusion_path.webp": "0af2c225",
   "assets/art/street_fire_path.webp": "afb9ee43",
   "assets/art/street_goblin_gang.webp": "175abbe5",

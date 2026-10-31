@@ -3,7 +3,7 @@
 // enemy's roster-tier gem (gemForTier over GEM_DEPOSITS), an ANIMAL_FOOD row on
 // an enemy kind overriding (the slimes' sapphire). Giving a wild one its
 // favourite starts the catch at once — one favourite spent, the net wheel run
-// for Pets.catchMs (2 × current HP at the net's tool rate) — and during the
+// for Pets.catchMs (current HP at the net's tool rate) — and during the
 // attempt it is nobody's enemy (Combat.isEnemy: _beingCaught). Anything else
 // is refused and kept. The hunt (deer/crow, empty hand, weapon active) is not
 // a catch.
@@ -67,12 +67,12 @@ test('favourite: every live roster enemy has one — its tier gem, unless an ANI
   assert.truthy(Pets.likes({ kind: 'goblin' }, 'amethyst')); assert.falsy(Pets.likes({ kind: 'goblin' }, 'quartz'));
 });
 
-test('favourite: a catch takes 2 × current HP at the net\'s rate', () => {
+test('favourite: a catch takes current HP at the net\'s rate', () => {
   const save = newSave();
   const g = foe('goblin');
   const full = Pets.catchMs(save, g);
   const netRate = Combat.dpsForDurationMs(toolDurationMs(save.relics, 'net'));
-  assert.inRange(full, 2 * Combat.maxHp(g) / netRate * 1000 - 1e-6, 2 * Combat.maxHp(g) / netRate * 1000 + 1e-6, 'HP × 2 at the net rate');
+  assert.inRange(full, Combat.maxHp(g) / netRate * 1000 - 1e-6, Combat.maxHp(g) / netRate * 1000 + 1e-6, 'HP at the net rate');
   const hurt = { ...g, _hp: Combat.maxHp(g) / 2 };
   assert.inRange(Pets.catchMs(save, hurt), full / 2 - 1e-6, full / 2 + 1e-6, 'half the HP: half the time');
   const better = Pets.catchMs(newSave({ relics: { net: { tier: 5 } } }), foe('goblin'));
@@ -285,4 +285,30 @@ test('hunt by default: livestock is game, a companion kind is not', () => {
 test('favourite: a shore crab favours a shell', () => {
   assert.eq(JSON.stringify(favouriteOverride('crab')), JSON.stringify(['shell']));
   assert.truthy(ITEM_BY_ID.shell, 'the shell is a real item');
+});
+
+// The catch wheel does not root the body (app.js _followStep): the creature
+// bolts for the edge of your reach, so you may walk after it. A work wheel
+// (chop, mine) still holds you on its cell. The real _followStep runs on a
+// stub, the detour_commit idiom.
+test('favourite: you can walk during a catch, not during a work wheel', () => {
+  const start = SCENE_SRC.indexOf('\n  _followStep(dt, capMS) {');
+  const end = SCENE_SRC.indexOf('\n  }\n', start);
+  assert.truthy(start > 0 && end > start, 'found _followStep');
+  const num = (name) => parseFloat(SCENE_SRC.match(new RegExp(`const ${name} = ([\\d.]+);`))[1]);
+  const methods = new Function('WALK_M_S', 'DEBUG_SPEED_MUL', 'FOLLOW_RAMP_M', 'DETOUR_COMMIT_MS', 'performance', 'steerSpeedMul',
+    `return {\n${SCENE_SRC.slice(start + 1, end + 4)}\n};`)(
+    num('WALK_M_S'), num('DEBUG_SPEED_MUL'), num('FOLLOW_RAMP_M'), num('DETOUR_COMMIT_MS'), { now: () => 0 }, () => 1);
+  const walkWith = (wheel) => {
+    const s = Object.assign({
+      cellM: 5, feetOffsetM: 0, startWorldM: { x: 0, y: 0 }, playerM: { x: 0, y: 0 }, _targetM: { x: 20, y: 0 },
+      compassDeg: 0, _followPaused: false, _stickHeading: null, _detourHold: null,
+      _busyWheel: () => wheel, _stickPushed: () => false, _walkRelics: () => [],
+      _playDirected() {}, _startAutoMine() {}, _cellBlocked: () => false,
+    }, methods);
+    for (let i = 0; i < 30; i++) s._followStep(1 / 30);
+    return s.playerM.x;
+  };
+  assert.gt(walkWith({ flee: { kind: 'dog' } }), 0, 'a catch wheel lets the body walk');
+  assert.eq(walkWith({ toolSlot: 'axe' }), 0, 'a work wheel holds the body');
 });

@@ -95,7 +95,7 @@
         const p=position(i), c=at(i);
         out.objects.push(WG.makeObject(m.kind,p.x,p.y,WG.cellId(`reef_ore_${s.a.key}`,tx,ty,c.ix,c.iy),
           {...extra,zoneLayer:'reef_ore',_ix:c.ix,_iy:c.iy,deposit:m.deposit,yieldTier:m.yieldTier,
-            requiredTier:m.requiredTier,_zoneObjectFrame:m._zoneObjectFrame,rockVariant:root.SpriteLayout?.[m.rockVariant] || 3}));
+            requiredTier:m.requiredTier,_zoneObjectFrame:m._zoneObjectFrame,rockVariant:root.SpriteLayout?.[m.rockVariant] ?? 1}));
         occupied.add(i);
       }
       // Park-shore anchors have no POI chest to become the site's daily

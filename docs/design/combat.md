@@ -29,12 +29,14 @@ mechanics.
   temple gift only once, even after re-entry or reload.
 
 - Confusing gas scales each `confused` dose with local density: a full
-  0.3-density puff applies five seconds; thinner gas applies proportionally less,
+  0.3-density puff applies five seconds; thinner gas applies proportionally less
+  but never under the row's three-second floor (`MushroomGas.KINDS.confusion.minDurationMs`),
   denser gas applies longer doses up to the shared 60-second condition cap,
   preserving any longer active confusion.
   A single outdoor puff carries 0.3 mass: natural diffusion and the thin-gas threshold
   limit it to the source and four neighbours, dissipating in about ten seconds
-  (at most about ten seconds of confusion from that puff). Overlapping or repeated
+  (at most about twelve seconds of confusion from that puff, since its last thin
+  breath still grants the three-second floor). Overlapping or repeated
   puffs can extend exposure; sources can puff again after sixteen seconds. Gas
   spreads to cardinal neighbours and removes thin cells once every two foreground
   seconds. Contact still refreshes conditions each second; rock, masonry and
@@ -86,7 +88,8 @@ mechanics.
   movement/targeting in `SpriteLayout.CREATURE_BEHAVIOUR` and reuse the pet
   combat lane. Persist contract expiry and any durable health state, not live
   map instances. Test reload, tile replacement and expiry when adding a kind.
-- Splitting slimes divide reactively on a blow. Only healing and summoning
+- Splitting slimes divide reactively on a blow; the two halves land
+  `FOE_SPACING_CELLS` apart, flanking the striker. Only healing and summoning
   abilities use the support cadence; splitting never replaces their normal
   melee attack.
 - An elite has a rank, a row of `Combat.ELITE_RANKS`: a plain elite (2×
@@ -157,6 +160,21 @@ mechanics.
   and a charmed bat's bite); the Vampire Ring (`UNIQUE_JEWELRY.vampire_ring`,
   `jewelryMeleeLifesteal`) returns 20% of a melee blow as banked whole energy,
   capped at the bar.
+- THE COMET RING (`UNIQUE_JEWELRY.comet_ring.cometAura`, read by
+  `CometRing` in `comet_ring.js`; the Fire Elemental's rare elite drop): while
+  carried, a ring of fire round the feet grows with the player's own pace —
+  `CometRing.shape` turns the smoothed metres-per-second the feet actually
+  moved into the disc's radius and intensity, an ember at a standstill and a
+  comet's tail at `maxMps`. `_tickCometAura` (scene_consumables.js) sets
+  every enemy inside alight as the player's kill (`Combat.ignite`, the lit
+  torch's call) and burns the aura's `dps × dt` through `_damageEnemy`; the
+  wearer and their allies are never targets. Faster than `maxMps` for
+  `overspeedMs` running and `CometRing.step` snuffs it: the tick lends the
+  `cometSnuffed` Buffs row `snuffedMs` (its chip is the only sign) and the
+  fire relights when that ends. The ground disc (render.js) and the warmth on
+  the lightmap (`Lighting.KINDS.comet_aura`) read the same state, so the
+  edge the player sees is the edge that burns. A jump past
+  `CometRing.TELEPORT_MPS` or a floor change never counts as running.
 - BOOK CLUB LENDING: lifetime Books collected provide one reusable credit
   each. The existing value-ordered tome shelf unlocks one new title every
   three Books; unlocks do not repeat. Each borrowed copy reserves its item
@@ -220,9 +238,10 @@ mechanics.
 - A status effect is a row of `Conditions.DEFINITIONS` (poison, burning, a trap's pin): the
   player's condition, a foe's (`Combat.ignite` / `burnTick` read the same row),
   the HUD chip and the body tint all derive from it. Conditions count foreground
-  play and follow each row's contact rule (reset, preserve or exposure growth);
-  they do not bank like a repeated timed consumable, whose epoch writer is
-  `Buffs.extend` / `extendField`. A new status is a row there, never a timer,
+  play; an additional hit leaves the greater of the time remaining and the time
+  it inflicts (a `refresh: false` row such as frozen keeps its first clock, and
+  burning also grows with exposure). They do not bank like a repeated timed
+  consumable, whose epoch writer is `Buffs.extend` / `extendField`. A new status is a row there, never a timer,
   colour or label of its own. BLINDED (a ghost's touch,
   its roster row's `condition`) carries `lightMul`: `Conditions.lightMul`
   halves the base reach before Inner Light upgrade steps (`reachRadiusM`,
@@ -233,8 +252,11 @@ mechanics.
 - Tapping a well within reach clears every harmful condition through
   `Conditions.clearDebuffs`, including burning and a trap's pin. Positive
   buffs survive; the well costs no item or energy and remains reusable.
-- Confusion chooses a random compass heading and turn direction, then rotates
-  at the condition row's constant `turnRadS` for the whole effect. Walking input
+- Confusion starts from the player's true direction (the way the body faces,
+  else the device heading, else the way to the follow target) and a random
+  turn direction, then rotates at the condition row's constant `turnRadS` for
+  the whole effect, so its onset never jumps; the shown compass starts at its
+  real reading and drifts by the same turn. Walking input
   and collisions affect movement only, never this heading. The heading-up map
   follows this spin without sensor smoothing or a dead zone. Its share
   of movement increases linearly with the remaining duration: five seconds
@@ -264,6 +286,12 @@ mechanics.
   the choice survives reloads and temporary wand expiry. Feeding and catching
   remain available. Explicit Equip or obtaining a new weapon resumes the normal
   equipment flow. Enemies still attack an unarmed player.
+- Quicksand uses actual world-foot movement: below 1 m/s the player sinks
+  over four foreground seconds; at 1 m/s or faster they rise over two seconds.
+  At the hat-tip limit, each full second costs 2 base energy through
+  `Combat.incomingDamage` / `Combat.playerDamage`, including armour, difficulty
+  and protection. Leaving, flight, support, death or changing floors resets
+  exposure. Offline time and teleports add no exposure.
 - Death cancels current work without completion or refund, clears the swing and
   staff charge, and blocks new melee and ranged attacks. Revival does not resume
   the cancelled job. Already launched projectiles continue their flight.
@@ -298,8 +326,9 @@ mechanics.
   the kind's tier squared in seconds (a runt 59 s, a T3 goblin 51 s, never
   below zero); a wild animal takes the calm of the same length. A charmed body
   reads as calm (`Combat.isCalm`), so it does not flee the net either. Giving a wild one its favourite starts
-  a catch attempt (`Pets.catchMs`: current HP × 2 at the net's tool rate)
-  while it flees for the edge of reach; no attack runs and it is no one's
+  a catch attempt (`Pets.catchMs`: current HP at the net's tool rate)
+  while it flees for the edge of reach (you may walk after it: the catch
+  wheel, unlike a work wheel, does not root the body); no attack runs and it is no one's
   enemy until the attempt ends. A refused item is never consumed. Story foes
   and `untameable` kinds (the crow: hunted for its feather, never a pet; old
   saves drop a kept one) are not catchable (`Pets.catchable`). Only one pet per species, including
@@ -327,14 +356,17 @@ mechanics.
 - Magic Shop brewing uses `BREW_RECIPES` in items.js. Each batch consumes the
   recipe's ingredients and fixed coin fee for one potion. Finding its output in
   the wild unlocks a recipe through `homeRecipeLocked`; buying or brewing never
-  unlocks one. Antidote, Hardworking, Grip, Healing, Stoneskin, Blight, Shielding
-  and Shrinking are brewable; Revival and Resurrection remain unbrewable.
+  unlocks one. Antidote, Hardworking, Grip, Healing, Stoneskin, Blight, Shielding,
+  Shrinking and Protection are brewable; Revival and Resurrection remain unbrewable.
   Healing uses berries and onions; Blight uses Marigolds and Meat;
-  Shielding uses Starflowers and Milk. Shrinking
+  Shielding uses Starflowers and Milk; Protection uses Young Ferns and White
+  Flowers. Shrinking
   uses two Mango and four coins, an intentional exception to same-tier inputs
   and the otherwise conservative recipe economics. Sugar Potion retains its
   workshop recipe. Growth Powder is crafted at a workshop from three Nettles
-  and five Long Grass after finding the powder in the wild. Brewing does not change potion effects.
+  and five Long Grass after finding the powder in the wild. The roadside flora
+  make two more workshop powders the same way: Psychosis from Yellow Meadow
+  Flowers and Young Ferns, Sleep from Golden and White Flowers. Brewing does not change potion effects.
 - Home light and ward retain `HOME_R` and surface-only `homeWorldPos()`.
   Home rest uses `isRestingAtHome`: the player's owned Home building cells
   and their four edge-sharing neighbours, never corner-only contact. Ownership

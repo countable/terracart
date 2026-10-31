@@ -66,6 +66,21 @@ test('craft stations: recipes include the starter Spear and the Sugar Potion fro
   }
 });
 
+test('craft stations: roadside flora grind into Psychosis and Sleep powders', () => {
+  for (const [id, cost] of Object.entries({
+    psychosis_powder: [['yellow_flower', 5], ['young_fern', 2]],
+    sleep_powder: [['golden_flower', 3], ['white_flower', 3]],
+  })) {
+    const s = scene(cost);
+    s.save.foundWild = { [id]: 1 };
+    s.presentWorkshop(0, 0, s.workshop, id);
+    assert.truthy(last(s).canAfford, id);
+    craft(s);
+    assert.eq(Inventory.count(s.save, id), 1, id);
+    for (const [ingredient] of cost) assert.eq(Inventory.count(s.save, ingredient), 0, `${id} spends ${ingredient}`);
+  }
+});
+
 test('craft stations: discovered Growth Powder consumes nettles and grass once', () => {
   const s = scene([['nettle', 3], ['longgrass', 5]]);
   s.save.foundWild = { growth_powder: 1 };

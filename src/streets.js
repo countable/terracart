@@ -37,9 +37,8 @@
 // tying the "gets a lamp at all" floor to a 200 m rung left ordinary
 // suburban blocks (routinely under 100 m) dark however much of the town was
 // actually restored. See the note above LAMP_SPACING_M. ACROSS the way it
-// stands on the VERGE, `lampOffsetM` off the centreline — half the band's own
-// drawn width plus the lamp's own footprint — so it just touches the kerb
-// instead of standing in the traffic.
+// stands just outside the vector boundary, `lampOffsetM` off the centreline,
+// with no grid cell assigned to the lamp.
 //
 // Pure arithmetic on purpose — no Phaser, no DOM, no scene — which is what
 // lets test/node/streets.test.js pin the real shipping maths rather than a
@@ -455,28 +454,10 @@
   }
 
   // ── ACROSS the way: THE VERGE ───────────────────────────────────────────
-  // A lamp stands BESIDE the carriageway, its stone just touching the kerb —
-  // never out in the traffic, which is where every one of them stood until
-  // Sep 2026 (the point came straight off the centreline). `lampsAlong` says
-  // how far ALONG the way a lamp is; this says how far OFF it, and app.js
-  // hands both to the one resolver (`pointAtM(line, mvtToM, s, offM)`).
-  //
-  // DERIVED, not tuned, and from the number that already says how wide the
-  // road IS: half of WorldGen.roadOverlayWidthM — the same width
-  // road_overlay.js strokes the band with and rasterizeTile stamps roadMask
-  // from — plus the lamp's own footprint radius, so the ART kisses the edge
-  // rather than sitting on it or floating out in the grass. That is the
-  // roadOverlayWidthM discipline: one width, every reader. A motorway's lamps
-  // stand further out than a footpath's by construction, and a band that is
-  // ever widened takes its lamps out with it.
-  //
-  // Both halves are guarded rather than trusted: a class with no width guess
-  // and art that has not loaded are each a zero, not a NaN that would put the
-  // lamp at the tile's corner.
-  function lampOffsetM(widthM, footRM) {
-    const w = widthM > 0 ? widthM : 0;
-    const r = footRM > 0 ? footRM : 0;
-    return w / 2 + r;
+  // Posts stand a small distance beyond the drawn road edge.
+  const LAMP_EDGE_CLEARANCE_M = 0.5;
+  function lampOffsetM(widthM) {
+    return widthM > 0 ? widthM / 2 + LAMP_EDGE_CLEARANCE_M : 0;
   }
 
   // Is the arclength `s` inside one of `list`'s intervals? The lamp test:
@@ -721,7 +702,7 @@
     EPS,
     lineKey, lineBounds, lineLengthM, pointAtM, subLineM, tileSpans, reachIntervals,
     runPtsWorld, pointAtWorld,
-    LAMP_SPACING_M, lampSpacingM, lampsAlong, lampOffsetM, covers,
+    LAMP_SPACING_M, LAMP_EDGE_CLEARANCE_M, lampSpacingM, lampsAlong, lampOffsetM, covers,
     LAMP_PATH_SPACING_DIV, LAMP_PATH_SPACING_M, LAMP_PATH_MIN_LEN_M, isWalkingPath, lampLayFor,
     LAMP_DIM_FLOOR, LAMP_BRIGHT_PEAK, LAMP_FADE_MS, LAMP_BRIGHT_STEPS, LAMP_VISITS_MAX, LAMP_REFRESH_MS,
     LAMP_CREDIT_SHARE, lampFade, quantBrightness, lampBrightness, lampCreditM, lampCredit,

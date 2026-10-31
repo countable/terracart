@@ -47,6 +47,7 @@ test('bushes are centred, joined hedges give cover without lift, standing plants
   const bush = { kind: 'wildplant', crop: 'shrub', x: 0, y: 0 };
   const hedge = { ...bush, _plantArt: 'zone_hedge', _hedgeFrame: 1 };
   assert.eq(ObstacleStep.sample(0, 0, [bush], 1).liftPx, 3);
+  assert.eq(ObstacleStep.sample(0, 0, [{ ...bush, crop: 'mushroom_bush' }], 1).liftPx, 3, 'medium mushrooms support feet like bushes');
   assert.eq(ObstacleStep.sample(0.45, 0, [hedge], 1).liftPx, 0);
   assert.eq(ObstacleStep.sample(0, 0.45, [hedge], 1).liftPx, 0);
   assert.truthy(ObstacleStep.sample(0, 0.45, [hedge], 1).covered);

@@ -127,6 +127,9 @@
   const LAMP_GLOW = (typeof UI_LAMP_GLOW === 'string')
     ? parseInt(UI_LAMP_GLOW.replace('#', ''), 16) : 0x9a8cff;
 
+  // How far past the Comet Ring's burning disc its light reaches, in cells.
+  const COMET_LIGHT_PAD_CELLS = 0.75;
+
   const KINDS = {
     // The player: white, out to the furthest visible pixel (the viewport's
     // half-diagonal) plus PLAYER_RAMP_PAST_CORNER_CELLS, so the corners stay
@@ -159,6 +162,13 @@
     // A placed campfire (burned from a coal). Breathes.
     fire_rock: { radiusCells: 1.25, colour: 0xff7d36, peak: 0.65, flicker: 0.035 },
     ground_fire: { radiusCells: 1.5, colour: 0xff852b, peak: 0.75, flicker: 0.12 },
+    // The Comet Ring's fire round the player's feet (comet_ring.js —
+    // scene._cometAura, the tick's state): a campfire's warmth as wide as the
+    // aura burns plus COMET_LIGHT_PAD_CELLS (the entry's `r`), as bright as
+    // it is stoked (`g`), breathing like the fire it is, dimmed by the sun
+    // like the hand torch. The row's radius is the widest it can throw.
+    comet_aura: { radiusCells: () => UNIQUE_JEWELRY.comet_ring.cometAura.maxRadiusCells + COMET_LIGHT_PAD_CELLS,
+                  colour: 0xff9a3c, peak: 0.85, flicker: 0.18 },
     fire:     { radiusCells: () => (typeof FIRE_REST_R !== 'undefined' ? FIRE_REST_R : 3),
                 colour: 0xff9a3c, peak: 1.00, flicker: 0.18 },
     // A live POI — a chest with something still in it (loose supply crates
@@ -1167,6 +1177,23 @@
     return kind;
   }
 
+  // The Comet Ring's fire at the feet (scene._cometAura, lit): collected on
+  // top of the player's own ramp like the hand torch, so the plateau is
+  // untouched and only the dark around it warms; sized and stoked by the
+  // aura's own state, dimmed by the sun as a torch is.
+  function collectCometAura(scene, ax, ay, halfM, now) {
+    const aura = scene?._cometAura;
+    if (!aura?.lit || !(aura.radiusCells > 0) || !scene.playerM || !scene.startWorldM) return 0;
+    const w = playerWorldM(scene);
+    const dx = w.x - ax, dy = w.y - ay;
+    if (!inRange(scene, dx, dy, 'comet_aura', halfM)) return 0;
+    const t = now ?? lightClock(Date.now());
+    const a = torchStrength(scene.depth, daylight(scene, t));
+    scene._lights.push({ kind: 'comet_aura', dx, dy, id: 'comet_aura',
+      r: aura.radiusCells + COMET_LIGHT_PAD_CELLS, g: aura.intensity, ...(a < 1 ? { a } : {}) });
+    return 1;
+  }
+
   // ── BRIGHTNESS AT A POINT ─────────────────────────────────────────────────
   // How much light the lightmap ADDS at world point (wx, wy) — 0 in the dark
   // (the ambient floor alone), clamped at 1 — for anything in the game that
@@ -1188,7 +1215,7 @@
   //     list — the scan has not looked there.
   // Each cookie is its baked shape: peak · (1 - r/R)² times the row's flicker
   // or pulse and the entry's own alpha / scale, at the colour's luminance.
-  const COLLECTED_KINDS = new Set(['player', 'handtorch', 'evertorch', 'fire', 'ground_fire', 'magic_trap', 'cobble', 'blast', 'bolt', 'gps']);
+  const COLLECTED_KINDS = new Set(['player', 'handtorch', 'evertorch', 'comet_aura', 'fire', 'ground_fire', 'magic_trap', 'cobble', 'blast', 'bolt', 'gps']);
   function cookieLevel(L, qx, qy, cellM, now, pulseNow) {
     const row = KINDS[L.kind];
     if (!row || !(row.peak > 0)) return 0;
@@ -1263,6 +1290,7 @@
       collectFires(scene, wx, wy, 0);
       collectLamps(scene, wx, wy, 0);
       if (scene.playerM && scene.startWorldM) collectPlayer(scene, wx, wy, 0);
+      collectCometAura(scene, wx, wy, 0, now);
       collectBlasts(scene, wx, wy, 0, now);
     } finally {
       scene._lights = frame;
@@ -1747,6 +1775,7 @@
     collectFires(scene, ax, ay, halfM);
     collectLamps(scene, ax, ay, halfM);
     collectPlayer(scene, ax, ay, halfM, now);
+    collectCometAura(scene, ax, ay, halfM, now);
     collectBolts(scene, ax, ay, halfM);
     collectGps(scene, ax, ay, halfM);
     // The live blasts, converted against THIS frame's anchor (they are stored
@@ -1900,7 +1929,7 @@
   }
 
   // ── Indoors ───────────────────────────────────────────────────────────────
-  // While the player stands inside Home or retail (scene_venues.js
+  // While the player stands inside Home, retail or a castle (scene_venues.js
   // activeInterior hands over its ring), everything OUTSIDE the walls goes dark: the lightmap
   // multiplies the world, so a near-black fill over the outside, with the
   // house cut out, is the room's four walls shutting the street out. The cut

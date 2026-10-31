@@ -4,8 +4,9 @@
 (() => {
   // 8 px cells: TILE_PX 256 / 32 cells; cellM 5 → mPerPx 5/8.
   function makeScene() {
-    const list = [], architecture = [];
+    const list = [], architecture = [], world = [];
     return { _headingUp: true, depth: 0, mapRot: 0, list,
+      worldContainer: { list: world, add(g) { world.push(g); } },
       startWorldM: { x: 0, y: 0 }, originPx: { x: 0, y: 0 }, mPerPx: 5 / 8,
       cellsPerTile: 32, cellM: 5, playerM: { x: 0, y: 0 },
       viewCenterX: 176, viewCenterY: 176, viewLeft: 0, viewTop: 0, viewSize: 352,
@@ -67,14 +68,30 @@
     assert.falsy(drawn.has(items[2]), 'a tree stays a sprite');
     assert.truthy(drawn.has(plants[1]), 'a lone clipped hedge leaves the sprite pool');
     const group = s._wallPerspective.props;
-    assert.truthy(s.raisedPropContainer.list.includes(group.gfx),
-      '3D props cover ground shadows instead of receiving them on their caps');
     assert.eq(s.buildingWallContainer.list.length, 0, 'props do not enter the background architecture layer');
     assert.eq(group.blocks.length, 4, 'one joined material mesh per cell');
     const wallHeight = ObstacleStep.PROFILES.wall.liftPx, hedgeHeight = ObstacleStep.PROFILES.hedge.heightPx;
     assert.eq(group.blocks.filter(b => b.top === wallHeight).length, 2, 'walls rise by their step-over lift');
     assert.eq(group.blocks.filter(b => b.top === hedgeHeight).length, 2, 'hedges retain their visual height without player lift');
-    assert.truthy(group.gfx.triangles.length > 0, 'the batch painted');
+    // Each piece is a part of the shared world sort, seated at its cell, so a
+    // hedge hides what stands behind it and draws under what stands in front
+    // (owner, Oct 2026) — not one flat batch under every sprite.
+    assert.truthy(group.perWall, 'one part per cell piece');
+    const parts = group.parts.filter(p => p.visible);
+    assert.eq(parts.length, 4, 'a visible part per piece');
+    assert.truthy(parts.every(p => s.worldContainer.list.includes(p)), 'parts live in the world container');
+    assert.truthy(parts.some(p => p.triangles.length > 0), 'the parts painted');
+    assert.eq(group.gfx.triangles.length, 0, 'the flat batch stays empty');
+    const pieces = WallPerspective.worldPieces(s);
+    assert.eq(pieces.length, 4, 'every piece joins the world sort');
+    // The walls stand on row 0, the hedges on rows 2 and 3: every hedge
+    // piece sorts in front of every wall piece.
+    const rows = group.blocks.map((b, i) => ({ wall: b.top === wallHeight, piece: pieces.find(w => w.sprite === group.parts[i]) }));
+    const wallRow = rows.filter(r => r.wall), hedgeRow = rows.filter(r => !r.wall);
+    assert.eq(wallRow.length, 2); assert.eq(hedgeRow.length, 2);
+    assert.truthy(wallRow.every(w => hedgeRow.every(h => w.piece.groundY < h.piece.groundY)),
+      'a piece further south sorts in front');
+    assert.truthy(pieces.every(w => w.layer === WorldLayers.STANDING_PROP && w.rank === 1), 'standing props, like grass and castle walls');
   });
 
   test('connected wall prisms: neighbouring pieces share their seam exactly and the batch is retained while panning', () => {

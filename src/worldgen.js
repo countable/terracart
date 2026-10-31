@@ -20,8 +20,8 @@
   // no row around it) is the rare find, so it rolls at PEACH_ONE_IN_LONE.
   const PEACH_ONE_IN = 50;
   const PEACH_ONE_IN_LONE = 10;
-  function fruitTreeSpecies(hash, oneIn = PEACH_ONE_IN) {
-    return (hash >>> 0) % oneIn === 0 ? 'worldpeach' : 'apple';
+  function fruitTreeSpecies(hash, oneIn = PEACH_ONE_IN, rareSpecies = ['worldpeach']) {
+    return rareSpecies[(hash >>> 0) % oneIn] || 'apple';
   }
   // Opt in to satellite detections for areas with extracted crowns. Elsewhere
   // keep the procedural residential canopy until detection coverage expands.
@@ -125,14 +125,25 @@
           ^ Math.imul(ix | 0, 83492791) ^ Math.imul(iy | 0, 0x27D4EB2F));
   }
 
-  const HIVE_SPEC = { cellChance: 1 / 192, syrup: 3, bees: 3 };
+  const HIVE_SPEC = { cellChance: 1 / 192, syrup: 3, bees: 3, beeKind: 'bee', beeReachCells: 2 };
+  // A hive stands only where its tap can succeed: on ground that admits its
+  // defenders' own spawn class (bees are fast, so tier 1 — not calm woodland),
+  // with seats for the whole swarm within the reach planHiveBees searches.
   function spawnForestHives(grid, w, h, tx, ty, tileEdgeM, opts = {}) {
-    const out = [];
+    const out = [], cls = creatureSpawnClass(HIVE_SPEC.beeKind), R = HIVE_SPEC.beeReachCells;
+    const beeSeats = (cx, cy) => {
+      let n = 0;
+      for (let dy = -R; dy <= R; dy++) for (let dx = -R; dx <= R; dx++) {
+        if ((dx || dy) && dx * dx + dy * dy <= R * R
+          && isSpawnCell(grid, w, h, cx + dx, cy + dy, opts, cls)) n++;
+      }
+      return n;
+    };
     for (let cy = 0; cy < h; cy++) for (let cx = 0; cx < w; cx++) {
       const i = cy * w + cx;
       if (grid[i] !== T.FOREST || opts.zoneCoverage?.[i]) continue;
       if (makeRng(cellHash(tx, ty, cx, cy) ^ 0xbee517)() >= HIVE_SPEC.cellChance) continue;
-      if (!isSpawnCell(grid, w, h, cx, cy, opts, 'minor')) continue;
+      if (!isSpawnCell(grid, w, h, cx, cy, opts, cls) || beeSeats(cx, cy) < HIVE_SPEC.bees) continue;
       out.push(makeObject('hive', tx * tileEdgeM + (cx + 0.5) * tileEdgeM / w,
         ty * tileEdgeM + (cy + 0.5) * tileEdgeM / h, cellId('hive', tx, ty, cx, cy)));
       opts.occupied?.add(i);
@@ -2595,7 +2606,7 @@
     }
     return 7;
   }
-  // How many looks a plain rock has — SpriteLayout.PLAIN_ROCK_VARIANTS.length,
+  // How many slots a plain rock rolls — SpriteLayout.PLAIN_ROCK_SLOTS.length,
   // kept as a literal so this file has no load-order dependency on it.
   const PLAIN_ROCK_VARIANT_N = 4;
   // VEINS: a cluster that rolls under `veinChance` has ONE randomly chosen
@@ -6494,14 +6505,14 @@
     // LABEL_PERIOD road cells, rotated to the local road direction. This
     // Angles are normalized to (-90°, 90°] so a label never renders upside
     // down regardless of the way's digitized direction.
-    // Stored as { "ix_iy": { text, angle } } — anchor cells only, vehicle road
-    // tiers only (PATH pebbles are too small to carry a label).
+    // Stored as { "ix_iy": { text, angle } } — anchor cells only, on vehicle
+    // road and PATH tiers alike (a named footpath is labelled like a street).
     //
     const roadLabels = {};
     const LABEL_PERIOD = 12;   // cells between label repeats (~84 m)
     const LABEL_OFFSET = 2;    // first label a couple of cells in from the line start
     const tnLayer = layersByName['transportation_name'];
-    const LABEL_TYPES = new Set([T.ROAD, T.ROAD_MD, T.ROAD_LG]);
+    const LABEL_TYPES = new Set([T.ROAD, T.ROAD_MD, T.ROAD_LG, T.PATH]);
     if (tnLayer) {
       for (const f of tnLayer.features) {
         if (f.type !== 2) continue;
@@ -6711,7 +6722,9 @@
     const streetGround = new Uint8Array(w * h);
     const streetTerrain = typeof StreetVariants !== 'undefined'
       ? yield* StreetVariants.paintTerrainSteps({ index: streetIndex, scenic,
-        transportation: layersByName.transportation, grid, N: w, roadMask, roadClass, spawnWhy, zone, streetGround }) : null;
+        transportation: layersByName.transportation, grid, N: w, roadMask, roadClass, spawnWhy, zone, streetGround,
+        occupied: occupiedIndexSet(tileFrame({ cellsPerEdge: w }, tx, ty, tileEdgeM),
+          deduped.filter(o => !isGeneralAmbientRecord(o))) }) : null;
     const hasStreetTerrain = streetTerrain && streetTerrain.some(Boolean);
     if (hasStreetTerrain) yield* clearStreetAmbientSteps({ area: streetTerrain,
       objects: deduped, wildplants: filtered, tx, ty, N: w, tileEdgeM });
@@ -6738,13 +6751,6 @@
       ? yield* ZoneDressing.reserveWrecksSteps({ field: zone, tx, ty, N: w, tileEdgeM, grid, chests: deduped,
         spawnOpts: dressOpts() })
       : null;
-    // Future lamp feet stay clear through both scenic and street dressing,
-    // then leave no phantom occupancy behind for unrelated zone spawns.
-    const lampReservations = typeof RoadOverlay !== 'undefined'
-      ? RoadOverlay.lampReservedCells(tx, ty, { layers, tileEdgeM, cellsPerEdge: w, streetIndex, scenic, zone })
-      : new Set();
-    const temporaryLampCells = [...lampReservations].filter(cell => !dressOcc.has(cell));
-    for (const cell of temporaryLampCells) dressOcc.add(cell);
     if (scenic) {
       scenicDress = yield* Scenic.dressSteps({ scenic, zone, tx, ty, N: w, tileEdgeM, grid, chests: deduped,
         spawnOpts: dressOpts() });
@@ -6758,7 +6764,6 @@
         grid: caveSource.grid,
         spawnOpts: dressOpts({ spawnWhy: caveSource.spawnWhy }) });
     }
-    for (const cell of temporaryLampCells) dressOcc.delete(cell);
     if (zone) {
       zone.legacyRemoved += yield* clearZoneAmbientSteps({ field: zone, objects: deduped,
         wildplants: filtered, occupied: dressOcc, streetDress, scenicDress, tx, ty, N: w, tileEdgeM });
@@ -6820,7 +6825,7 @@
     // Tier seeds last: zones and scenic have stamped their nexus/vista
     // chests, so the quota pyramid knows exactly which chests are budgeted.
     seedChestTiers(deduped);
-    const topUpOpts = dressOpts({ occupied: new Set([...dressOcc, ...lampReservations]) });
+    const topUpOpts = dressOpts({ occupied: new Set(dressOcc) });
     const chestTopUp = yield* topUpChestsSteps({ objects: deduped, dressings: [zoneDress, streetDress, scenicDress],
       zone, streetDress, grid, N: w, tx, ty, tileEdgeM, spawnOpts: topUpOpts });
     chestTopUp.ambient = yield* topUpAmbientCratesSteps({ objects: deduped, dressings: [zoneDress, streetDress, scenicDress],
@@ -9493,7 +9498,7 @@
   //   flintRockP   share of ordinary cave rocks with a guaranteed flint seam
   //   streetGems   gemstone region and ordinary deposit probabilities
   const caveAreaProfile = (weights, carveWalls, goblins, spearGoblins) => Object.freeze({
-    weights: Object.freeze(['spring_cave', 'goblin_warrens', 'mushroom_cavern', 'gemstone_cavern', 'dungeon_maze']
+    weights: Object.freeze(['spring_cave', 'goblin_warrens', 'mushroom_cavern', 'gemstone_cavern', 'dungeon_maze', 'quicksand_cavern']
       .map((id, i) => Object.freeze({ id, weight: weights[i] }))),
     carveWalls, goblins, spearGoblins
   });
@@ -9505,13 +9510,13 @@
     // The original natural cave geology reads the surface directly, so adding
     // the sewer above cannot change its Small-road/building/water wall mask.
     Object.freeze({ depth: 2, generationDepth: 1, floorTorches: true, ambientBarrels: true, flintRockP: .25, arrivalStory: 'cave', entryKey: null, vents: Object.freeze(['confusion']),
-      pressureTraps: false, caveAreas: caveAreaProfile([50, 0, 30, 5, 15], false, 0, false),
+      pressureTraps: false, caveAreas: caveAreaProfile([50, 0, 30, 5, 15, 10], false, 0, false),
       streetGems: Object.freeze({ region: .05, ordinary: 0 }), biome: 'cave', terrain: 'surfacePaint', roadWalls: 'small', streetMirror: true,
       fallLandings: false, chestSource: 'surface', quarryProvenance: true, lava: false }),
     Object.freeze({ depth: 3, arrivalStory: 'dungeon_city', entryKey: null,
       vents: Object.freeze(['poison', 'fire', 'paralysis']),
       warren: Object.freeze({ roomCells: 10, enemyChance: .45, enemies: Object.freeze(['club_goblin', 'spear_goblin', 'archer_goblin', 'goblin_trapper']) }),
-      pressureTraps: true, caveAreas: caveAreaProfile([20, 45, 25, 10, 15], true, 16, true),
+      pressureTraps: true, caveAreas: caveAreaProfile([20, 45, 25, 10, 15, 10], true, 16, true),
       streetGems: Object.freeze({ region: .10, ordinary: .08 }), biome: 'goblin_city', terrain: 'city', streetMirror: true,
       fallLandings: true, chestSource: 'above', quarryProvenance: false, lava: false }),
     Object.freeze({ depth: 4, arrivalStory: 'dungeon_stone', entryKey: null,

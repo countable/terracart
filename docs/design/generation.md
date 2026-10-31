@@ -284,8 +284,8 @@ access or tile lifecycle mechanics.
   still exclude placement. Grove ghost plates retain their existing visibility.
 
 - L2 carries the natural cave profile previously used on L1: its authored
-  areas have no goblin warrens, and `generationDepth: 1` preserves the original
-  anchor selection and deterministic slot ordering. L1 sewer has no authored
+  areas have no goblin warrens, and `generationDepth: 1` retains the original
+  depth seed and deterministic slot ordering. L1 sewer has no authored
   natural areas. Physical-depth encounter, ore and travel progression remain
   unchanged by this wall update; saved object IDs still include actual depth.
 - Authored cave areas use `ZoneVariants.anchorFrame` and run before ordinary
@@ -294,6 +294,10 @@ access or tile lifecycle mechanics.
   floors from `geologyGrid`, before authored terrain changes. Ordinary cleanup
   and gem conversion must leave `caveArea` pieces intact. Authored warren
   stores spend `WorldGen.caveContainerBudget` before ambient barrels.
+  Quicksand caverns are grove variants on floors 2–3. Native sand tiles mark
+  their pools; `caveAreas.quicksand` records the hazardous cells. Ordinary sand
+  remains safe. Cardinal approaches, the focus, routes, occupied ground and
+  landmark halos stay dry; ambient dressing respects the area reservation.
   Dungeon mazes on floors 2–3 repeat the reviewed 34 × 33 braided wall mask
   (spacing 3, loops 77%) in canonical anchor coordinates across eligible grove
   coverage. Fill is diggable `CAVE_WALL`, not rock objects. Clipped boundaries,
@@ -372,7 +376,7 @@ access or tile lifecycle mechanics.
   Placement occupancy uses `PlacedFloor.indexAt` for crops and placed objects;
   surface-only tilled cells must not block placements on other floors.
   `Crops.reconcileTilled` checks saved surface plots after tile loading and
-  crop raids, using `isTillableCell` for terrain, roads and lamp footings.
+  crop raids, using `isTillableCell` for terrain and roads.
   Unloaded plots and plots with a live surface crop retain their soil. Invalid
   empty plots lose both their tilled marker and bed quality through the saved
   set binding; rendering never repairs farming state.
@@ -405,6 +409,13 @@ access or tile lifecycle mechanics.
   placement or the enclosed-mall classification. Entering a footprint uses
   the shared Home interior floor and outside-darkening engine; courtyard
   holes remain outside.
+- Every surface castle footprint also supplies an indoor view, regardless of
+  claim state. Occupancy reads `buildingShapes` at the player's exact world
+  position, including footprints owned by another loaded tile. Home takes
+  precedence; temple zones and fort footprints do not count. Camera peeking
+  does not enter or leave a room, and evicted shapes cannot leave stale
+  occupancy. This is rendering state; castle ownership and encounters are
+  unchanged.
 - A POI chest's tier is its tile's QUOTA SEAT (`WorldGen.seedChestTiers`):
   each tile seeds ~1 T5, 5 T4, 11 T3, 36 T2 (x1..x2 over 100..1000
   budgeted POIs) onto its best-ranked POIs (the MVT `rank` tag),
@@ -480,16 +491,16 @@ access or tile lifecycle mechanics.
   surface, plus the unopened starter relic chest (from Home's door); supply
   crates never get one. The line is faint dashed black ink (`Starter.TRAIL_STYLE`).
   Each frame clips the cached route to the player's distance from its treasure
-  (`behindCells`, 0: no slack beyond the feet): the line recedes ahead of
+  (`behindCells`, -1: the line stops a cell short of the feet): it recedes ahead of
   approaching feet and returns when walking away. Segment clipping preserves dash positions and
   separate visible stretches, without adding pathfinding as the player moves.
   The chest at a trail's end rolls `CHEST_TRAIL_TIER_BONUS` tier higher, within
   its depth cap; an X at a trail's end (`Starter.isTrailTreasure`) shows and
   digs without waiting for the feet to stand beside it.
 - Each Pilgrim's Way street key owns one tile-local set of 3–6 waystones.
-  Stable cell hashes choose a compact cluster on safe verge cells, within ten
-  cells of its anchor and without crossing an arterial. Geometry fragments
-  share the set; fewer than three legal, spaced seats produces no puzzle.
+  Waystones scatter deterministically within the two-cell painted verge, at least
+  two cells apart. Geometry fragments share the set; fewer than three spaced
+  legal seats produces no puzzle.
   Each stone carries `waystoneSet` and the actual `waystoneCount`; all seats
   are claimed together before later ambient dressing. Grounded feet light a stone
   for `Waystones.LIGHT_MS` and toasts the set's progress (“2/5 waystones
@@ -667,6 +678,7 @@ access or tile lifecycle mechanics.
   unloaded tiles and offline time never advance growth. Saved cells and the
   visible-time ledger survive reloads; cut cells stay cleared. Growth uses the
   hazard spawn gate and avoids roads, water, buildings, Home and occupied cells.
+  Road-seeded colonies keep their source variant and remain inside its influence.
 - Spider Path retains its authored path selection weight. A seeded 35% of cell-spaced
   path samples receive permanent webs, with a small seeded lateral offset.
   Webs use the hazard spawn gate and reserve their cells; restricted land,
@@ -689,25 +701,36 @@ access or tile lifecycle mechanics.
   between special sections. The existing special-theme roll retains its rarity;
   its remaining stretches select a common route theme. Paths also select these
   common themes alongside their existing choices. Rocky Road / Path has simple
-  rocks and loose stone at cell-spaced attempts on both verges (three times the former attempt density); Grassy Lane fills eligible road cells and two verge
-  cells on each side with harvestable long grass, with herbs and bushes farther
-  out. Grass uses ordinary clearing and regrowth, deterministic cell IDs, and
+  common rocks, flint and rubble on the road and first verge row; no outer rock
+  decorations. Grassy Lane fills eligible road cells and two verge
+  cells on each side with harvestable long grass only. Grass uses ordinary clearing and regrowth, deterministic cell IDs, and
   the shared land/occupancy gates. Old Growth Path has
-  mature trees, shrubs and mushrooms; Haunted Forest Path uses the shared dead-tree art,
-  headstones and mushrooms. Way of Variety densely fills both verges with
-  deterministic common plants, rocks, mature trees, pots and barrels, with its first row directly beside the road. All use
-  existing interactions and shared spawn gates; Grassy Lane intentionally covers
-  its road surface too.
+  mature trees and mushrooms, with no generated stumps or bushes; Haunt lays dark cobbles with the shared dead-tree art,
+  headstones and mushrooms. Way of Variety densely fills its road or path
+  surface and two verge cells on each side (Grassy Lane's cross-section) with
+  deterministic common plants, rocks, pots and barrels, with occasional T1–T2 crop
+  plants, copper and rose quartz. It adds no trees; detected trees retain their
+  themed appearance. None
+  blocks movement. All use existing interactions and shared spawn gates; Grassy
+  Lane and Way of Variety intentionally cover their road surfaces.
+- Road-variant scenery starts in the first adjacent verge cell. Additional
+  authored rows sit behind that first row. All additions and initial guards
+  stay within their painted influence zone and at most three cells from their
+  road edge, including fallback placements. Paths without ground paint use
+  their tree-influence reach.
+  Orchard Lane uses only the first verge row; blocked seats are omitted.
+  Single-row placement skips blocked seats instead of shifting outward.
 - Road-variant verge spawning counts a cell with at most 20% overlap with
   the drawn road band as adjacent (verge cell 1). Cells above that threshold
   are skipped before counting outward, including on diagonals. The boundary
   is inclusive. Existing occupancy, access and geographic spawn gates still
   apply; this does not change the shared road mask or road safety tiers.
 - Hedged Lane uses normal street-lamp spacing. Continuous clipped hedge rows
-  stand on both sides, one cell behind the kerb so lamp foot reservations do
-  not erase a row. Occupied or restricted cells still leave gaps.
-- Approved street decorations use `StreetVariants.APPROVED_DECORATIONS` for all
-  routes suggested by each approved scout crop. Cell-derived IDs and shared
+  stand in the first adjacent verge cell on both sides. Lamps occupy continuous
+  points half a metre outside the road edge and reserve no cells. Occupied or restricted cells still
+  leave gaps; they do not displace hedges away from the road.
+- Approved street decorations use `StreetVariants.APPROVED_DECORATIONS` for the
+  routes listed in each row. Cell-derived IDs and shared
   occupancy gates keep repeated generation stable. Decorations fill a sparse
   inner-verge layer and a separate outer tree row around the main theme rows.
   Golden-route decorations reserve cells before coin seats to avoid overlaps.
@@ -721,23 +744,38 @@ access or tile lifecycle mechanics.
 - Roadside lights use `StreetLights.VARIANTS`: hanging lanterns for Hedged Lane
   and Trade Row, a wooden lantern for Lantern Row, a tall lantern on Promenade,
   street lamps on Park Path, fire pedestals for Pilgrim/Burned/Fire routes, and
-  green orbs on Poison and Confusion paths. Restoration still owns their light.
+  green orbs on Poison and Confusion paths. Barricade uses warm upright torches. Restoration still owns their light.
   A sign reserves a free verge cell near each section's canonical endpoint.
   Its directions come from actual nearby same-level road geometry and theme
   names; the sign never invents a destination across an unrelated crossing.
-- Hedged Lane uses connected 3D hedge walls textured with the approved bushy
-  strip in Rogue Adventure colours, plus mossy trees and flowers. There is no
-  separate hedge-strip prop. Mossy, conifer and bare
+- Hedged Lane uses connected 3D hedge walls textured with a leaf-clump mottle
+  in the approved clipped-hedge colours, with flowers and no grass clumps.
+  Detected satellite trees within three cells get rounded mossy crowns; no
+  extra trees are added. Every road variant selects its satellite-tree look
+  through `materialLooks.tree`, using rounded mossy, conifer, dead or lavender
+  art to match its theme. Other variants retain their two-cell influence;
+  Nexus and Home take precedence. There is no separate hedge-strip prop. Mossy, conifer and bare
   trees share the normal three growth sizes; all bare-tree routes use one art
   family. Paralysis and Confusion paths use the large lavender tree. Gone to
-  Seed's grass clumps use the long-grass 3D material with fewer, smaller blades.
+  Seed fills one verge with equally sized groups of seedlings, young trees,
+  mature pines, dead trees and stumps, in that order. Each group’s count scales
+  with road length; seats are two cells apart, leaving one empty cell between trees. Its
+  selected shrine occupies the next seat after the stumps. Occupancy and
+  safety gates can leave gaps. It adds no rocks, grass, ferns or scattered trees.
   Chopped trees leave non-blocking visual stumps, including saved planted-tree
   stumps. Underdark ground cover intersperses pale luminous fungus clusters.
-- Toadstool Lane fills both two-cell verges with small mushrooms around its
-  existing giant-cap groups, up to 200 extra small caps per line piece.
-  Snare Lane keeps its trapped chest and adds up to 12 seeded scattered
+- Toadstool Lane mixes small pickups and medium mushroom bushes on the road
+  and along both two-cell verges, with occasional giants. Ordinary surface caps use one art
+  frame; cave caps retain their two frames. Red mushroom bushes use the grove
+  giant artwork, including saved placements. Medium clumps use bush chopping
+  and cover, yielding one wood and one mushroom; small caps remain pickups.
+  Snare Lane paints three cells of dirt on each side, with rocks and bones
+  scattered across the strip. It keeps its trapped chest and adds up to 12 seeded scattered
   snares, spaced at least two cells apart. Barricade Road adds up to six
   seeded ground stakes along its verges without adding guard posts.
+- Causeway places water pools within three cells of both verges, with dry gaps.
+  Whole road cells, diagonal road corners, crossings and protected occupied
+  cells stay dry. Pools use ordinary water movement and submersion.
 - Medium roads are always **Old Trade Road**, and large roads are always
   **Ancient Highway**. Neither receives road variants, themed obstacles,
   themed guards or variant flora. Both retain road suppression. Selected mapped bus stops off the MD carriageway can retain
@@ -1036,6 +1074,13 @@ retained because its full extent is unknown; do not discard a cross-tile variant
 from one tile's partial count. Spawn-class-specific suppression is still an
 eligibility gate, not a universal subtraction from variant area.
 
+A prop whose interaction births creatures is placed only where those births can
+succeed: the prop's cell must pass the creatures' own spawn class, with enough
+free seats in the reach its runtime planner searches. Forest hives
+(`WorldGen.HIVE_SPEC`) therefore stand only on tier-1 forest, because their bees
+are `fastEnemy` and calm woodland refuses them. A hive placed on calm woodland
+could never seat its swarm, so every tap would answer "No room around the hive."
+
 Higher-priority placements and their access space take precedence in this order:
 
 1. Saved player-owned objects, Home and story placements. Preserve saved ids and
@@ -1057,6 +1102,9 @@ Higher-priority placements and their access space take precedence in this order:
    A live street-index copy uses the same boundary intervals as Nexus road
    suppression, including paths; pavement, labels, stories and hot-road effects
    read it through `StreetVariants.indexFor`. Shared generation reads the original.
+   Ground inside the circle reverts from variant terrain to `variantBaseGrid`
+   once per cell (`_homeGroundRestored`): the starter pass paints between the
+   prepare and final passes, and its paint can equal the variant's own ground.
    Apply this per-player overlay after shared generation, retaining the
    original grids, dressing and zone metadata for cave generation and stable
    spawn identities. The floor viewer uses the same overlay and starter placers.
@@ -1081,7 +1129,18 @@ Higher-priority placements and their access space take precedence in this order:
    legal ground is available, so Tori can point out repair supplies onscreen.
    A farther route seat moves to the closest eligible nearby cell without
    changing its id or remaining contents. All seats
-   use the spawn gate and avoid Home's footing. Supply ids retain suffixes 1, 3
+   use the spawn gate and avoid Home's footing. The soil plot
+   (`Starter.carveStarterPlot`, frozen in `save.starterPlotAt`) is a 2x2 of
+   tillable grass chosen nearest the anchor through the same gate, off Home's
+   footing, the saved wagon's house and the firepit (read from the save: a
+   fresh tile build runs the carve before either is stamped back into the
+   grid), and repainted at the same cells on every rebuild. Only a plot the
+   player has worked (a bed, crop, tree, rock or fire on one of its cells) is
+   repainted unconditionally; an untouched plot whose cells would no longer be
+   chosen (a prop now standing there, a widened road band) is chosen again
+   while the ladder still guides and dropped after, so the starter arrow never
+   points at soil nobody can till. The firepit keeps off the plot in turn
+   (`Starter.onStarterPlot`). Supply ids retain suffixes 1, 3
    and 4 so old opened crates stay spent. Picked former satellite piles deduct
    their known three items each from the replacement crate. A picked main pile
    retires that material group: old saves recorded no quantity and that pile
@@ -1096,10 +1155,20 @@ Higher-priority placements and their access space take precedence in this order:
 5. Road variants, across their defined corridor and verge, including
    deliberately empty gaps. The claim reaches two cells past the road band
    (`StreetVariants.TERRAIN_VERGE_CELLS`) for ownership and placement priority.
+   Overlapping roads partition cells by the nearest centerline, with stable
+   road-key/variant ties. Plain intervals compete as well. Terrain, reserved
+   variant codes, story marks, props, hazards, rewards and relocated encounter
+   seeds all respect that same partition, including dressing beyond the reserved
+   corridor. Initial lair members remain in their source road's variant; ordinary
+   movement afterwards is unchanged. A bounding-volume tree and memoized cell
+   queries avoid scanning every road for each spawn candidate.
+   Direction signs sit 0.2 cells outside the vector road half-width, trying
+   either side and claiming the cell containing the post. Blocked seats are
+   skipped rather than moving the sign farther from its road.
    Small-road themes also paint ground beneath the road and within their
    configured verge: two cells by default, Orchard one cell of grass,
-   Pilgrim Old Stones churchyard ground, and Thorny its existing four-cell
-   verge. Old Growth, Grassy, Spider and Poison path themes opt into forest,
+   Pilgrim two cells of Old Stones churchyard ground, and Snare, Barricade and Thorny
+   three cells. Old Growth, Grassy, Spider and Poison path themes opt into forest,
    grass, cave floor and wetland buffers respectively. Other paths retain
    source ground. Water, buildings, Nexus coverage, access exclusions and
    major-road buffers are protected; cave generation retains its original
@@ -1118,7 +1187,7 @@ Higher-priority placements and their access space take precedence in this order:
    and their guards retain the fast-enemy spawn gate.
    Berry Lane (a Small-road row) and Berry Trail (a path row) line both
    verges with bushes of every kind (`BERRY_LANE_BUSHES`: shrubs, berry and
-   poisonberry bushes, and brambles never more than a third), one sample a
+   poisonberry bushes, and occasional brambles), one sample a
    cell with a quarter left empty; `GOLDEN_BUSH_SHARE.street` (one in
    fifty) of those bushes is the golden berry bush, and every other ambient
    bush the world seats (the biome scatter, yards, park pads, mapped tree
@@ -1129,20 +1198,23 @@ Higher-priority placements and their access space take precedence in this order:
    third of them held (`BERRY_RUNT_CHANCE`), seats the `street_berry`
    garrison one cell behind the bush row: one ambusher that hides in the
    nearest bush.
+   Berry Lane uses 50% ordinary shrubs, 25% berry bushes, 15% poisonberry
+   and 10% brambles before the golden roll, with no yellow flowers.
    Berry Trail uses a denser, gap-free first-verge row: 80% berry bushes,
    10% poisonberry, 5% ordinary shrubs and 5% brambles before the shared
    golden roll. One existing giant-bear encounter is seated behind the bushes.
    Pottery Road (a Small-road row, sections up to 250 m) lines both verges
    with two ranks of generated clay pots (`VERGE_ROWS.pottery`): one sample
-   a cell without random gaps (`POTTERY_GAP` and `POTTERY_BACK_GAP` are zero), each pot the first free cell
-   from the second verge cell out, and a back rank on the third verge cell
-   alone, both on the reward
-   gate, so none stands on the kerb cell or a Major-and-Medium kerb. No guards and no POI: a pot is a smashable
+   a cell without random gaps (`POTTERY_GAP` and `POTTERY_BACK_GAP` are zero).
+   The front rank uses the first verge cell; the back rank uses the second.
+   A third row places pots directly on the road every two cells. All use
+   the shared reward gate and road safety rules. No guards and no
+   POI: a pot is a smashable
    prop (`CLAY_POT_LOOT`, a coin a quarter of the time). It is the only
    street that stands clay pots.
    Trade Row (a Small-road row, sections up to 250 m) lines both verges with
    generated wooden barrels the same way (`VERGE_ROWS.trade`,
-   `TRADE_BARREL_GAP` 30% left empty, a cell back from the kerb on the reward
+   `TRADE_BARREL_GAP` 30% left empty, directly beside the road on the reward
    gate) and seats a two-runt `street_trade` garrison post every 25 m
    (`TRADE_GRUNT_STEP_M`), two thirds of them held (`TRADE_GRUNT_CHANCE`),
    a cell behind the barrel row on the fast-foe gate.
@@ -1166,7 +1238,9 @@ Higher-priority placements and their access space take precedence in this order:
    mapped trees retain their original mix.
    Fruit-tree species roll once per stable cell through `fruitTreeSpecies`.
    Planted rows (orchard landcover, Orchard streets, zone dressing) draw a
-   Worldpeach one time in `PEACH_ONE_IN` (50). A standalone fruit tree (an
+   Worldpeach one time in `PEACH_ONE_IN` (50). Orchard Lane additionally assigns
+   oranges to a separate one-in-50 slot, retaining existing peach cells and
+   leaving other orchard sources unchanged. A standalone fruit tree (an
    `individual` OSM-mapped or DeepForest-detected tree in the sidecar bins)
    is the lone rare find and draws one in `PEACH_ONE_IN_LONE` (10); the
    DeepForest classifier's own apple/peach label is never used.
@@ -1186,6 +1260,9 @@ Higher-priority placements and their access space take precedence in this order:
    imported static/Overpass trees and ambient ordinary/yard timber. Detected crowns supersede generated scenery, including Nexus and street
    dressing. Explicit variant `treeSpecies`, tree material replacements and
    tree looks apply at the final seat; without a mapping, the detected type stays.
+   The hedged lane extends its influence three cells from the road edge and
+   applies the rounded mossy-tree look to detected trees without adding trees
+   or changing their detected species. Nexus and Home ownership still win.
    Mapped species are fixed against the near-home overlay and drop the source
    crown tint. Buildings, planted/player trees and hard placement gates remain
    authoritative. Outside coverage the existing sources remain. Conifer maps

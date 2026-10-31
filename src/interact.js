@@ -281,6 +281,16 @@ const TERRAIN = {
 // `flavor` and consumes every water tap, bare-handed included, so that line
 // is unreachable in play — it exists because the non-tillable sweep in
 // interact_tap.test.js covers every code and a hole would read as a bug.)
+// The Nexus zone variant that owns a surface cell (WorldGen.zoneAnchorAt:
+// the coverage winner, never a Home, cave or discarded cell), by name.
+function zoneVariantNameAt(scene, cell) {
+  if ((scene.depth ?? 0) !== 0 || typeof ZoneVariants === 'undefined' || cell?.tx == null) return null;
+  const entry = WorldGen.tileCache.get(WorldGen.tileKey(cell.tx, cell.ty)), N = entry?.cellsPerEdge;
+  if (!(N > 0) || !(cell.ix >= 0) || !(cell.iy >= 0) || cell.ix >= N || cell.iy >= N) return null;
+  const anchor = WorldGen.zoneAnchorAt(entry, cell.iy * N + cell.ix);
+  return (anchor && ZoneVariants.pick(anchor)?.name) || null;
+}
+
 const TERRAIN_FLAVOR = {
   [TERRAIN.WATER]:          'Open water, cold and deep.',
   [TERRAIN.ROAD]:           'Hard road, packed and worn.',
@@ -301,9 +311,9 @@ const TERRAIN_FLAVOR = {
   [TERRAIN.EXCLUSION_ROCK]: 'Solid bedrock, unbroken.',
   [TERRAIN.ROCKY_GROUND]: 'Rocky ground, loose stone.',
 };
-
-// …and the label on soil a street lamp stands on (cellAt's underLamp).
-const LAMP_FOOT_FLAVOR = 'A lamp post stands here.';
+// A road cell tapped beside its band (roadUnderTap null) whose ground has no
+// line of its own: the grass verge a cell of road only clips.
+const ROADSIDE_FLAVOR = 'The verge, just off the road.';
 
 // ── Naming things the player can see ────────────────────────────────────────
 // Two helpers behind the till refusal and the plant flash, both here for the
@@ -640,6 +650,25 @@ function inStarterPond(scene, cell) {
   return dx >= 0 && dx <= 1 && dy >= 0 && dy <= 1;
 }
 
+// The road a tap actually lands on (StreetVariants.roadAtPoint), read at the
+// tap's own point inside its cell rather than for the whole cell: a cell a
+// band only clips, or that two ways cross, answers by where the finger fell.
+// { tier, row } on a band, null on the ground beside every band, undefined
+// when the tap or the tile has no geometry to test (the cell then decides).
+// Cached on the ctx: the road-repair offer and the flavor line share it.
+function roadUnderTap(ctx) {
+  if ('_roadUnderTap' in ctx) return ctx._roadUnderTap;
+  const { scene, wm, cell } = ctx;
+  let under;
+  if (wm && cell && scene.startWorldM && typeof worldMetersToTilePx === 'function') {
+    const p = worldMetersToTilePx(scene, wm.x, wm.y), f = tilePxToTileCellF(scene, p.x, p.y);
+    if (f.tx === cell.tx && f.ty === cell.ty && Math.floor(f.cx) === cell.ix && Math.floor(f.cy) === cell.iy) {
+      under = StreetVariants.roadAtPoint(WorldGen.tileCache.get(WorldGen.tileKey(cell.tx, cell.ty)), f.cx, f.cy);
+    }
+  }
+  return (ctx._roadUnderTap = under);
+}
+
 const TAP_HANDLERS = [
   // -1) Work-progress guard — any tap while a chop/break is in progress cancels it.
   // Ignore taps in the first 150ms after start so the same tap that LAUNCHED
@@ -918,7 +947,7 @@ const TAP_HANDLERS = [
     // THE CATCH (owner, Oct 2026): GIVING a wild animal or an enemy its
     // favourite starts the attempt — nothing is prepared beforehand. The
     // favourite is given (spent) as the wheel starts; the difficulty is the
-    // creature's current HP times two (Pets.catchMs); it bolts for the edge
+    // creature's current HP (Pets.catchMs); it bolts for the edge
     // of your reach the whole time (startCatchProgress' flee) and the
     // attempt fails if it gets out. While it runs you do not fight
     // (app.js: no auto-fire, no throw) and it is nobody's enemy
@@ -1279,8 +1308,16 @@ const TAP_HANDLERS = [
     // sprites) had to be at least the cell half-diagonal to cover their own
     // cell, which necessarily spilled into the four neighbours — that is what
     // made a tall tree / turret / market stall tappable from the empty cell
-    // above it.
+    // above it from anywhere in that cell.
+    // The one deliberate exception is the DRAWN CROWN: when the tapped cell
+    // holds no object of its own, a tap that lands on the art a tall prop in
+    // a neighbouring cell draws over it (ctx.spill, Render.tallPropHit) goes
+    // to that prop — the top of a tree, a fingerpost's boards — instead of
+    // the bare ground or road behind them. An occupied cell keeps its own
+    // occupant, so the crown never steals a tap from what stands under it.
     const tapCell = worldMetersToAbsCell(scene, wm.x, wm.y);
+    const spill = ctx.spill && !allObjs.some(o => itemContainsTapCell(scene, o, tapCell)) ? ctx.spill : null;
+    const hits = o => itemContainsTapCell(scene, o, tapCell) || (spill != null && (o === spill || o.id === spill.id));
     // interactables.js › chestCellDedup — literally the predicate render.js
     // builds, so the tap-target set and the draw set can't disagree. One
     // instance per tap: it is stateful (first-seen-wins in this iteration).
@@ -1296,7 +1333,7 @@ const TAP_HANDLERS = [
       if (o.kind === 'chest' && isDupTapChest(o)) continue;
       // Ground-cell fallback. Buildings also accept their visible raised art
       // above, and the building-zone handler accepts the rest of the footprint.
-      if (!itemContainsTapCell(scene, o, tapCell)) continue;
+      if (!hits(o)) continue;
       if (typeof Visibility !== 'undefined' && Visibility.hidden(scene, o.x, o.y, true)) continue;
       if (tooFar(ctx, o.x, o.y)) return 'far';
       if (typeof PushBlocks !== 'undefined' && PushBlocks.isBlock(o)) return PushBlocks.interact(ctx, o);
@@ -1888,20 +1925,55 @@ const TAP_HANDLERS = [
   }},
 
   // Object actions keep priority; only a bare road offers the initial repair.
-  { name: 'road-repair', try: ({ scene, cell }) => {
+  { name: 'road-repair', try: (ctx) => {
+    const { scene, cell } = ctx;
     if ((scene.depth ?? 0) !== 0 || Trail.repairEnabled(scene.save)) return false;
     if (!cell.underRoad && !WorldGen.isRoadTerrain(cell.type) && cell.type !== TERRAIN.PATH) return false;
+    if (roadUnderTap(ctx) === null) return false;   // the ground beside the band
     return scene._offerRoadRepair?.() || false;
   }},
 
   // 2b) Tap non-tillable terrain → flavor label. A road-BAND cell (grass in
   // the grid, asphalt on screen — see isTillableCell) lands here too and
-  // reads as road, matching what the player is looking at.
+  // reads as road, matching what the player is looking at. Which road is
+  // read at the tap's own point (roadUnderTap): the band it lands on names
+  // itself by its variant's title (the feet tell the story) or its tier's
+  // ground line, and a tap on the cell's grass beside every band reads as
+  // that ground. Without line geometry the cell decides, as the feet do
+  // (StreetVariants.streetNameAt: the feet story's row, or a themed path's
+  // own inside a Nexus). Other ground inside a Nexus, the verge beside a
+  // band included, names its zone variant (zoneVariantNameAt) instead of
+  // the generic terrain line.
   { name: 'flavor', try: (ctx) => {
     const { scene, sx, sy, cell } = ctx;
     if (isTillableCell(cell) || planterAt(ctx)) return false;
-    const flavor = cell.underRoad ? TERRAIN_FLAVOR[TERRAIN.ROAD]
-      : cell.underLamp && isTillable(cell.type) ? LAMP_FOOT_FLAVOR
+    const roadCell = (scene.depth ?? 0) === 0 && (cell.underRoad || WorldGen.isRoadTerrain(cell.type) || cell.type === TERRAIN.PATH);
+    const under = roadCell ? roadUnderTap(ctx) : undefined;
+    if (under === null) {
+      const zone = zoneVariantNameAt(scene, cell);
+      if (zone) {
+        scene.flash(zone, sx, sy);
+        return true;
+      }
+      const ground = cell.underRoad ? cell.type
+        : (scene.neighborNonRoadType?.(ctx.cellIX, ctx.cellIY) ?? TERRAIN.GRASS);
+      const flavor = TERRAIN_FLAVOR[ground] || ROADSIDE_FLAVOR;
+      scene.flash(flavor, sx, sy);
+      return true;
+    }
+    const street = under ? under.row : roadCell
+      ? StreetVariants.streetNameAt(WorldGen.tileCache.get(WorldGen.tileKey(cell.tx, cell.ty)), cell.ix, cell.iy) : null;
+    if (street) {
+      scene.flash(street.title, sx, sy);
+      return true;
+    }
+    const zone = zoneVariantNameAt(scene, cell);
+    if (zone) {
+      scene.flash(zone, sx, sy);
+      return true;
+    }
+    const flavor = under ? TERRAIN_FLAVOR[under.tier] || TERRAIN_FLAVOR[TERRAIN.ROAD]
+      : cell.underRoad ? TERRAIN_FLAVOR[TERRAIN.ROAD]
       : TERRAIN_FLAVOR[cell.type] || '·';
     scene.flash(flavor, sx, sy);
     return true;
@@ -2071,6 +2143,15 @@ const TAP_HANDLERS = [
       }
     } });
   }},
+
+  // Bare tillable ground with no seed selected: inside a Nexus, name its
+  // zone variant (the same line non-tillable ground gives in `flavor`).
+  { name: 'zone-name', try: (ctx) => {
+    const name = ctx.cell && zoneVariantNameAt(ctx.scene, ctx.cell);
+    if (!name) return false;
+    ctx.scene.flash(name, ctx.sx, ctx.sy);
+    return true;
+  }},
 ];
 
 // Tap diagnostics. "Taps randomly stop working" is otherwise invisible — the
@@ -2123,7 +2204,11 @@ function interactTap(scene, sx, sy) {
   // tooFar → cellInReach (coords.js), which reads the player's feet cell off
   // the scene itself, so the handlers only need the tap.
   const building = buildingTapTarget(scene, sx, sy);
-  const ctx = { scene, save: scene.save, wm, sx, sy, building, dirty: false };
+  // The prop whose drawn crown the tap landed on from a neighbouring cell
+  // (Render.tallPropHit). The 'object' handler honours it only once the
+  // tapped cell itself has turned out to hold nothing.
+  const spill = typeof Render !== 'undefined' && Render.tallPropHit ? Render.tallPropHit(scene, sx, sy, wm) : null;
+  const ctx = { scene, save: scene.save, wm, sx, sy, building, spill, dirty: false };
   // Ground behind partial cover is still drawn (only what stands on it is
   // hidden, per-handler), so only FULL cover's darkness gates a ground tap.
   const coverPoint = building || wm;

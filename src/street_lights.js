@@ -15,7 +15,7 @@ const StreetLights = (() => {
   const VARIANTS = {
     hedgerow:'hanging_lantern', trade:'hanging_lantern',
     lantern:'wooden_lantern', promenade:'tall_lantern', parkpath:'street_lantern',
-    pilgrim:'fire_pedestal', burned:'flame_pillar', fire_path:'upright_flame',
+    pilgrim:'fire_pedestal', burned:'flame_pillar', fire_path:'upright_flame', barricade:'upright_flame',
     golden_path:'paired_candles',
     poison_path:'green_orb', confusion_path:'green_orb',
   };

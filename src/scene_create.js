@@ -274,7 +274,7 @@ class SceneCreate {
     // time against the fix and could silently skip the capture.)
 
     _phase('authored buildings');
-    // Bake terrain patterns and the two castle restoration-state atlases once.
+    // Bake terrain patterns and building textures once.
     AuthoredBuildings.prepare(this, { review: false });
     _phase('biome textures');
     makeBiomeTextures(this, CELL_PX);
@@ -282,9 +282,8 @@ class SceneCreate {
     if (typeof TerrainTransitions !== 'undefined') TerrainTransitions.prepare(this);
     if(typeof RogueObjects!=='undefined'&&RogueObjects.enabled&&typeof BuildingLowPoly!=='undefined')BuildingLowPoly.prepareRogueWreck(this);
     makeBerryBushTexture(this);
+    // Standalone house-role turrets still use this sprite; castles use geometry.
     makeTowerTexture(this);
-    // Both tower atlases share their colours with the walls and courtyard.
-    makeTowerTexture(this, CASTLE_STONE_UNCLAIMED, 'tower_unclaimed');
     // Pot of gold — procedural art (the ATM's look before it became a bank booth).
     makePotOfGoldTexture(this);
     // Traps: the barely-there scuff of a hidden one and the sprung iron jaw of
@@ -680,14 +679,13 @@ class SceneCreate {
     // They join the standing-object pass and need no per-colour canvas bake.
 
     // Road-label pool: compact whole-word street names (one anchor every ~12
-    // road cells, rotated along the road by render.js), drawn low-alpha in
-    // dark ink — the road band is a light warm stone, so black reads like
-    // worn paint markings on them (white washed out over pale stone).
+    // road cells, rotated along the road by render.js). Each label is inked
+    // from the surface it is printed on (RoadOverlay.labelInk, applied by
+    // render.js): glyphs cut deeper than the stone, a halo in the stone's own
+    // tone, and a light lip below, so the word reads as engraved in the road.
     // A road cell is only PART stone, though: the ground the road was painted
-    // over shows around the band, so on a road crossing grass or forest
-    // dark glyphs disappear into the dark background. A pale
-    // stone-coloured halo around each glyph carries the word over both — the
-    // lettering stays dark on the stones and stays readable off them.
+    // over shows around the band, and the stone-toned halo carries the word
+    // over that ground too.
     // Pool is sized one slot per visible cell because render walks cells — at
     // most one anchor can occupy a cell, and most slots simply stay invisible.
     // (letterContainer itself is created earlier, next to cobbleContainer, so it
@@ -880,10 +878,12 @@ class SceneCreate {
       [[0, `rgba(${rgb}, 1)`], [0.4, `rgba(${rgb}, 0.45)`], [1, `rgba(${rgb}, 0)`]]));
     // Every influence circle shares its baked fill and boundary; the drawn
     // outer edge is the gameplay radius. Baking also preserves colour in Canvas.
-    for (const [key, color] of [['aura_blight', 0xd2285a], ['aura_frost', FROZEN_TINT]]) {
+    for (const [key, color] of [['aura_blight', 0xd2285a], ['aura_frost', FROZEN_TINT],
+      [UNIQUE_JEWELRY.comet_ring.cometAura.texture, 0xff8c2a]]) {
       this._ensureCanvasTex(key, 128, (ctx, S) => paintAuraDisc(ctx, S, color));
     }
     makeCastleSkullFlagTexture(this);
+    makeRoadSignTextures(this);
     // The banner a CLAIMED castle flies — a cream pennant on a short pole with
     // a green heart on it. Green because that is already this game's word for
     // energy (UI_GREEN, "success / ready / energy gain"), and the heart is
@@ -940,7 +940,7 @@ class SceneCreate {
     const maskG = this.make.graphics({ x: 0, y: 0, add: false });
     maskG.fillStyle(0xffffff);
     maskG.fillRect(this.viewLeft, this.viewTop, this.viewSize, this.viewSize);
-    const mask = maskG.createGeometryMask();
+    const mask = this._viewMask = maskG.createGeometryMask();
     this.cellGfx.setMask(mask);
     this.gridContainer.setMask(mask);
     this.noiseContainer.setMask(mask);
@@ -1509,6 +1509,10 @@ class SceneCreate {
     this._steerDistAccrue = 0;
     this._steerCostAccrue = 0;
 
+
+    let debugVariantTint = false;
+    try { debugVariantTint = localStorage.getItem('terracart.debugVariantTint') === '1'; } catch (_) {}
+    Render.setVariantTint(this, debugVariantTint);
 
     let debugGpsStick = false;
     try { debugGpsStick = localStorage.getItem('terracart.debugGpsStick') === '1'; } catch (_) {}

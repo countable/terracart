@@ -43,7 +43,7 @@ rows=[
 ('rocky_path', '#9b9b91', 'Flint grey', 'Loose stones and low rocks.', 'The rock props carry the plain rugged identity; avoid a second gravel band.'),
 ('grassy_lane', '#92a087', 'Soft grey-green', 'Herbs, grass and small bushes.', 'Let the real grass dominate between the stones.'),
 ('old_growth_path', '#777c68', 'Shaded moss-grey', 'Mature trees, shrubs and mushrooms.', 'Tall trees distinguish age; darker stone is sufficient without another forest-floor strip.'),
-('haunted_forest_path', '#807d91', 'Cold violet-grey', 'Dark trees, headstones and mushrooms.', 'Cold stone plus grave silhouettes conveys the haunting; keep clear space around headstones.'),
+('haunted_forest_path', '#5a5766', 'Cold violet-grey', 'Dark trees, headstones and mushrooms.', 'Cold stone plus grave silhouettes conveys the haunting; keep clear space around headstones.'),
 ('way_of_variety', '#a89d86', 'Warm mixed fieldstone', 'Herbs, berries, mushrooms, rocks, trees and pots.', 'A neutral warm route holds the deliberately mixed props together; no extra edge motif.'),
 ]
 choices={r[0]:dict(zip(['color','palette','props','reason'],r[1:])) for r in rows}

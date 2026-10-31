@@ -10,7 +10,7 @@ const read = (name) => fs.readFileSync(path.join(root, 'src', name + '.js'), 'ut
 const ctx = { console, performance, addEventListener() {} };
 ctx.window = ctx;
 vm.createContext(ctx);
-for (const name of ['enemy_roster', 'sprite_layout', 'util', 'coords', 'polygon_geometry', 'zone_variant_data', 'terrain', 'zone_variants', 'shrines', 'streets', 'street_variants', 'street_lights', 'street_signs', 'biome_profiles', 'selected_item_art', 'items', 'macros', 'interactables', 'loot', 'gameplay_tiers', 'worldgen', 'scenic', 'road_overlay']) {
+for (const name of ['enemy_roster', 'sprite_layout', 'util', 'coords', 'polygon_geometry', 'zone_variant_data', 'terrain', 'zone_variants', 'shrines', 'streets', 'street_variants', 'street_lights', 'street_signs', 'biome_profiles', 'selected_item_art', 'items', 'macros', 'interactables', 'loot', 'gameplay_tiers', 'conditions', 'combat', 'creature_ai', 'worldgen', 'scenic', 'road_overlay']) {
   vm.runInContext(read(name), ctx, { filename: name + '.js' });
 }
 // Use the same shared geometry pass as the scene street-lamp renderer.
@@ -77,8 +77,7 @@ function preview(row) {
   // rasterized terrain, road band and all spawn reasons / kerb buffers.
   const dress = SV.dress({ index: tile.streetIndex, tx, ty, N, tileEdgeM, grid: tile.grid,
     spawnOpts: { roadMask: tile.roadMask, roadClass: tile.roadClass,
-      spawnWhy: tile.spawnWhy, occupied: ctx.RoadOverlay.lampReservedCells(tx, ty,
-        { ...tile, layers, tileEdgeM, cellsPerEdge: N }), pois: [] } });
+      spawnWhy: tile.spawnWhy, occupied: new Set(), pois: [] } });
   const lamps = ctx.RoadOverlay.lampSitesForTile(tx, ty,
     { ...tile, layers, tileEdgeM, cellsPerEdge: N }).map(local);
   const objects = [...dress.objects, ...dress.wildplants, ...(dress.traps || []).map(t => ({ ...t, kind: 'trap', recordType: 'surface_trap' }))].map(local);
@@ -130,7 +129,7 @@ function previewPath(row) {
     throw new Error(`Wrong assigned path theme for ${row.id}`);
   if (kind && (!scenic || scenic.census[kind] < lengthM - SC.SAMPLE_M)) throw new Error(`Wrong scenic classification for ${row.id}`);
   const spawnOpts = { roadMask: tile.roadMask, roadClass: tile.roadClass, spawnWhy: tile.spawnWhy,
-    occupied: ctx.RoadOverlay.lampReservedCells(tx, ty, entry), pois: [] };
+    occupied: new Set(), pois: [] };
   const scenicDress = SC.dress({ scenic, tx, ty, N, tileEdgeM, grid: tile.grid, chests: [], spawnOpts });
   const streetDress = SV.dress({ index: tile.streetIndex, tx, ty, N, tileEdgeM, grid: tile.grid, spawnOpts });
   const objects = [scenicDress, streetDress].flatMap(dress => [...dress.objects, ...dress.wildplants,
@@ -142,10 +141,10 @@ function previewPath(row) {
     lampSpacingM: SV.lampSpacingFor(row.id, ctx.Streets.lampLayFor(tags).spacingM), objects,
     lamps, vents: (streetDress.vents || []).map(local), webs: (streetDress.webs || []).map(local), lairs: streetDress.lairs.map(o => ({ tier: o.tier, kind: o.tier + ' guard site', x: o.lx, y: o.ly })),
     slowKinds: [...new Set(objects.filter(o => SV.isSlowKind(o.kind)).map(o => o.kind))], geography, scenicKind: kind,
-    selection: !kind ? row.selection : kind === 'shore' ? 'Off-road walking path beside qualifying shore water.' :
-      kind === 'greenway' ? 'Off-road walking path with a greenway name or route.' : 'Off-road walking path inside a named or sufficiently large park.',
-    rewards: !kind ? row.rewards : `${SC.SCENIC_MUL[kind]}× first-restoration metre credit; one T${SC.VISTA_CHEST_TIER[kind]} one-time vista chest per eligible stretch of at least ${SC.VISTA_STRETCH_MIN_M} m. Daily path-lamp credit is unchanged.`,
-    placement: !kind ? row.placement : 'Geography selects the scenic row; real scenic stretch dressing seats vista chests off the path. ' + (kind === 'greenway' ? `Grass along both verges every ${SC.GREENWAY_GRASS_STEP_M} m where ground permits.` : 'No additional themed verge plants.'),
+    selection: !kind ? row.selection : kind === 'shore' ? 'Walking path beside qualifying shoreline.' :
+      kind === 'greenway' ? 'Walking path with a greenway name or route.' : 'Walking path in a named or large park.',
+    rewards: !kind ? row.rewards : `${SC.SCENIC_MUL[kind]}× first-restoration credit. One T${SC.VISTA_CHEST_TIER[kind]} vista chest per eligible stretch of at least ${SC.VISTA_STRETCH_MIN_M} m, collected once.`,
+    placement: !kind ? row.placement : 'Vista chests sit beside the path. ' + (kind === 'greenway' ? `Grass grows along both verges every ${SC.GREENWAY_GRASS_STEP_M} m where space permits.` : ''),
     line: line.map(p => ({ x: p.x * tileEdgeM / extent, y: p.y * tileEdgeM / extent })) };
 }
 
@@ -156,29 +155,31 @@ const affinityContexts = Object.fromEntries(['neutral', 'cultivated', 'woodland'
   [trait, Object.fromEntries(['minor'].map(size =>
     [size, SV.selectionWeights('Preview', size, trait === 'neutral' ? {} : {[trait]: 1})]))]));
 const rules = {
-  slime_trail: `Glossy slime paving. One seeded species per section, chosen from green, purple, fire or splitting slimes. Two guards at each eligible post every ${SV.VARIANT_BY_ID.slime_trail.enemyStepM} m; short sections use a midpoint post. No daily reset.`,
-  spider_path: `Permanent seeded webs on ${SV.VARIANT_BY_ID.spider_path.webDensity * 100}% of eligible cell-spaced samples, with scattered lateral offsets. Webs cause six seconds of paralysis on entry; flying actors are immune. One two-spider garrison per section, where safe ground permits.`,
-  golden_path: 'An activation shrine at each safe end shares one daily activation. Coins appear directly on the path centerline, so either direction works without backtracking or a second payout.',
-
-  hedgerow: `Two straight rows of cut hedges, one per ${cellM} m cell, one cell behind each kerb to clear the lamps. Normal street-lamp spacing; blocked hedge slots stay empty. One encounter anchor holds two ordinary slimes where safe ground permits.`,
-  thorny: `Irregular bramble clusters at ${SV.THORNY_CLUSTER_DENSITY * 100}% density cross the road and reach up to ${SV.THORNY_VERGE_MAX_CELLS} cells beyond either edge, stopping at the first obstruction. Selected streets enclose a moss cairn in brambles when the whole ring fits. Brambles burn and cost 1 energy per second while crossed.`,
-  overgrown: `One attempt every ${SV.OVERGROWN_STEP_M} m; a sapling-to-mature tree progression, at most ${SV.OVERGROWN_MAX} trees per line piece.`,
-  orchard: `One attempt every ${SV.ORCHARD_STEP_M} m, both verges; at most ${SV.ORCHARD_MAX} trees per line piece, alternating half fruit trees (rare Worldpeach among apples) and half mature deciduous maples.`,
-  snare: `One T${SV.SNARE_CHEST_TIER} cave-loot chest at the street midpoint, surrounded by up to ${(2 * SV.SNARE_TRAP_RADIUS_CELLS + 1) ** 2 - 1} traps on eligible verge ground. At least ${SV.SNARE_MIN_TRAPS} traps must fit. Up to ${SV.SNARE_STRAYS} additional seeded snares scatter along the road and first verge cells, at least ${SV.SNARE_STRAY_GAP_CELLS} cells apart.`,
-  golden: `A golden idol holds eligible coin seats along both verges, sampled every ${SV.GOLDEN_STEP_M} m. Visiting it starts the daily coin spree; coins are not permanent street dressing. Road, lamp and occupied cells stay clear.`,
-  pilgrim: 'One compact set of 3–6 rounded waystones per street per tile; step on all before their light fades.',
-  lantern: `Lamps at ${SV.lampSpacingFor('lantern', ctx.Streets.lampLayFor({class: 'path'}).spacingM)} m target spacing (${SV.LANTERN_SPACING_DIV}× the usual path density); no extra verge props.`,
-  burned: `Glowing ember paving damages the player like lava. One attempt every ${SV.BURNED_STEP_M} m; at most ${SV.BURNED_MAX} tar/stakes per line piece. Placed torches punctuate the verges; red lamps have ${SV.lampSpacingFor('burned')} m target spacing. One fire-slime guard site per stretch, seated back from the kerb.`,
-  barricade: `Perpendicular lines of stakes and barricades cross the road every ${SV.BARRICADE_STEP_M} m and extend up to ${SV.BARRICADE_VERGE_MAX_CELLS} cells beyond either edge, stopping at obstacles; a target of ${SV.BARRICADE_MAX} pieces per line piece, finishing the last cross-road line. Up to ${SV.BARRICADE_STRAY_MAX} extra ground stakes scatter along the verges. A Trap Kit removes each piece. One encounter anchor and its goblin guard site per street per tile.`,
-  toadstool: `One attempt every ${SV.TOADSTOOL_STEP_M} m; giant-cap groups retain varied setbacks, with up to ${SV.TOADSTOOL_COVER_MAX} extra small mushrooms densely filling both two-cell verges. Blocked ground and lamp seats stay clear.`,
-  trade: `Wooden barrels along both verges, one sample a cell with ${SV.TRADE_BARREL_GAP * 100}% left empty, a cell back from the kerb on the reward gate; a two-grunt post every ${SV.TRADE_GRUNT_STEP_M} m, ${Math.round(SV.TRADE_GRUNT_CHANCE * 100)}% of them held, seated behind the barrels.`,
-  pottery: `Clay pots fill two rows on both verges without random gaps, a cell back from the kerb on the reward gate. Obstacles and lamp seats stay clear. Both pot styles are 15% smaller. No guards.`,
-  berry_trail: 'Dense berry bushes directly beside both trail edges, with 80% ordinary berries before the rare golden roll and only 5% brambles. One large bear encounter per section where safe ground permits.',
-  goblin_gang: `${SV.VARIANT_BY_ID.goblin_gang.clusters} candidate gangs beside barrel stacks, with up to ${SV.VARIANT_BY_ID.goblin_gang.barrelsPerCluster} barrels per cluster where eligible verge cells remain.`,
+  way_of_variety: 'Common finds cover the road and two-cell verges, with occasional T1–T2 crop plants, copper and rose quartz. No added trees.',
+  rocky_path: 'Common rocks, flint and rubble fill the road and first verge row.',
+  causeway: `Water pools extend up to ${SV.VARIANT_BY_ID.causeway.terrainVergeCells} cells beside both verges. Road surfaces and crossings stay dry.`,
+  slime_trail: `One slime species per section. Two guards per eligible post, spaced ${SV.VARIANT_BY_ID.slime_trail.enemyStepM} m apart; short sections use the midpoint.`,
+  spider_path: `Permanent webs on ${SV.VARIANT_BY_ID.spider_path.webDensity * 100}% of eligible samples. Webs paralyse grounded actors. One two-spider garrison per section.`,
+  golden_path: 'Either end shrine starts the same daily coin run along the path.',
+  hedgerow: `Hedge rows at ${cellM} m spacing in the first verge row. White flowers fill the verges. Detected trees within 3 cells of the road edge use rounded crowns; no extra trees. One ambush where space permits.`,
+  thorny: `Bramble clusters cross the road and extend up to ${SV.THORNY_VERGE_MAX_CELLS} cells beyond it. Some streets enclose a moss cairn. Brambles burn and drain energy on contact.`,
+  overgrown: `One verge row with one empty cell between trees. Equal groups of seedlings, young pines, large pines, dead trees, then stumps; group size follows road length. The shrine sits after the stumps.`,
+  orchard: `Fruit trees and mature maples alternate on both sides every ${SV.ORCHARD_STEP_M} m, up to ${SV.ORCHARD_MAX} per line piece. Fruit trees are mostly apples, with occasional oranges and Worldpeaches. Flowers and stumps use the first verge row only; blocked seats are omitted.`,
+  snare: `Dirt extends ${SV.VARIANT_BY_ID.snare.terrainVergeCells} cells, with scattered rocks and bones. One T${SV.SNARE_CHEST_TIER} chest surrounded by ${SV.SNARE_MIN_TRAPS}-${(2 * SV.SNARE_TRAP_RADIUS_CELLS + 1) ** 2 - 1} traps. Up to ${SV.SNARE_STRAYS} extra snares lie along the road and verges.`,
+  golden: 'Visit the golden idol to start a daily coin spree along both verges.',
+  pilgrim: '3-6 waystones scattered within the two-cell verge. Step on all before their light fades.',
+  lantern: `Lamps spaced about ${SV.lampSpacingFor('lantern', ctx.Streets.lampLayFor({class: 'path'}).spacingM)} m apart.`,
+  burned: `Hot ember paving, tar, stakes and torches. Up to ${SV.BURNED_MAX} debris pieces per line piece; one fire-slime guard site per stretch.`,
+  barricade: `Barriers cross the road every ${SV.BARRICADE_STEP_M} m and extend up to ${SV.BARRICADE_VERGE_MAX_CELLS} cells beyond it. A Trap Kit removes each piece. Rocks, planks and stray stakes scatter across the three-cell verge. Goblins guard the route.`,
+  toadstool: `Small and medium mushrooms grow on the road and both two-cell verges, with occasional giants. Groups every ${SV.TOADSTOOL_STEP_M} m; up to ${SV.TOADSTOOL_COVER_MAX} extra caps.`,
+  trade: `Barrels line both verges with ${SV.TRADE_BARREL_GAP * 100}% gaps. Two-grunt posts are sampled every ${SV.TRADE_GRUNT_STEP_M} m; ${Math.round(SV.TRADE_GRUNT_CHANCE * 100)}% are occupied.`,
+  pottery: 'Clay pots sit on the road and in two verge rows where space permits.',
+  berry_trail: 'Dense berry bushes line both edges, with occasional brambles and golden berries. One large bear encounter per section.',
+  goblin_gang: `Up to ${SV.VARIANT_BY_ID.goblin_gang.clusters} gangs beside stacks of ${SV.VARIANT_BY_ID.goblin_gang.barrelsPerCluster} barrels, where space permits.`,
 };
 for (const row of rows) {
   row.placement = rules[row.id] || row.placement;
-  if (row.ventKind) row.placement = `Seeded ${row.ventKind} geysers alongside the path, where hazard placement is safe. A matching daily shrine stands on each eligible section.`;
+  if (row.ventKind) row.placement = `${row.ventKind} geysers beside the path, with a matching daily shrine on eligible sections.`;
 }
 process.stdout.write(JSON.stringify({ cellM, terrainVergeCells: Number(read('street_variants').match(/const TERRAIN_VERGE_CELLS = ([\d.]+)/)[1]), affinityContexts, fixture: { tx, ty, cellsPerEdge: N }, rows, baseline: SV.BANDIT_STORY,
   maxVariantLengthM: SV.MAX_VARIANT_LENGTH_M, wagonStopShare: SV.WAGON_STOP_SHARE, rockStreetShare: SV.ROCK_STREET_SHARE,

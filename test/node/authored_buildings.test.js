@@ -87,6 +87,24 @@
     assert.eq(tops.length, 8, 'a top band per wall');
     const [tu, tv] = house.faces.find(f => f.fallbackUV).fallbackUV;
     assert.truthy(tops.every(f => f.points.every(p => p.tu === tu && p.tv === tv)), 'tops take the plain wall texel');
+    // The door overlay (layer .1) stands 0.2 clear of its facade outside so it
+    // never z-fights it. Inside it keeps that clearance on BOTH copies: the
+    // outer copy 0.2 beyond the thick wall's outer line, the inner copy 0.2
+    // into the room — flattened onto the wall it flickered in place when the
+    // player saw the door from inside (owner, Oct 2026).
+    const T = BuildingLowPoly.LOOK.wallThickness;
+    const doors = room.faces.filter(f => f.kind === 'wall' && f.layer === .1);
+    assert.eq(doors.length, house.faces.filter(f => f.kind === 'wall' && f.layer === .1).length * 2, 'the door shows on both sides');
+    const clearance = (f, p) => {
+      const a = lot[f.edge], b = lot[(f.edge + 1) % lot.length], len = Math.hypot(b.x - a.x, b.y - a.y);
+      // Outward for this clockwise-on-screen lot: the edge's right-hand normal.
+      return ((p.x - a.x) * (b.y - a.y) - (p.y - a.y) * (b.x - a.x)) / len;
+    };
+    for (const f of doors) for (const p of f.points) {
+      const want = f.interior ? -.2 : T + .2;
+      assert.truthy(Math.abs(clearance(f, p) - want) < 1e-6,
+        `${f.interior ? 'inner' : 'outer'} door stands ${want.toFixed(1)} from its wall line, not ${clearance(f, p).toFixed(3)}`);
+    }
   });
   test('authored smithy: a broad textured stack survives the lot-outline skin', () => {
     const spec = AuthoredBuildings.SPECS.fdr;
