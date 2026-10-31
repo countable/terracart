@@ -891,12 +891,16 @@
     if (!c?._burnState) return false;
     return c._burnState.remainingMs > (c._burnExposed ? 0 : Math.max(0, now - c._burnAtT));
   }
-  function ignite(c, now = performance.now(), by = 'fire') {
+  // `opts.durationMul` scales the row's duration for a weaker flame (the
+  // Meteor Ring's third, UNIQUE_JEWELRY.meteor_ring.cometAura
+  // burnDurationMul); a body already alight keeps the clock it has.
+  function ignite(c, now = performance.now(), by = 'fire', opts = {}) {
     if (root.Conditions?.fireImmune(c)) return false;
     if (!canBurn(c)) return false;
     if (c._burnState?.remainingMs > 0) { c._burnBy = by; return false; }
     const def = burnDef();
-    c._burnState = { remainingMs: def.durationMs, nextTickMs: def.intervalMs };
+    const mul = opts.durationMul > 0 ? opts.durationMul : 1;
+    c._burnState = { remainingMs: Math.max(1, Math.round(def.durationMs * mul)), nextTickMs: def.intervalMs };
     c._burnAtT = now;
     c._burnExposed = false;
     c._burnBy = by;

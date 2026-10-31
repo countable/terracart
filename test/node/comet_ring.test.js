@@ -26,8 +26,12 @@
     assert.truthy(item && item.kind === 'unique_relic' && item.uniqueJewelry, 'a carried unique relic');
     assert.eq(inventoryIconSource('comet_ring').sheet, 'icon_rings');
     assert.eq(inventoryIconSource('comet_ring').frame, 14);
-    assert.eq(item.baseTier, 5);
-    assert.gt(PRICES.comet_ring, PRICES.ember_ring, 'dearer than the Ember Ring it outshines');
+    assert.eq(item.baseTier, 6);
+    assert.eq(ITEM_BY_ID.meteor_ring.baseTier, 3, 'the Meteor Ring is the lesser rung');
+    assert.gt(PRICES.comet_ring, PRICES.meteor_ring, 'and priced as such');
+    assert.gt(PRICES.meteor_ring, 0);
+    assert.eq(inventoryIconSource('meteor_ring').sheet, 'icon_rings');
+    assert.eq(inventoryIconSource('meteor_ring').frame, 17);
     assert.truthy(Gear.uniqueRelics().some(i => i.id === 'comet_ring'), 'in the rare unique-relic lane');
     assert.eq(jewelryCometAura({}), null);
     assert.eq(jewelryCometAura(bag('ember_ring')), null);
@@ -37,8 +41,39 @@
     assert.truthy(/never touches you/.test(copy), 'copy says the wearer is immune to their own fire');
     assert.truthy(/faster/i.test(copy) && /snuffs/.test(copy), 'copy hints at pace and the snuff; the numbers stay on the chip');
     const drops = Combat.monster('fire_elemental').eliteDrops;
-    assert.eq(drops[2].id, 'comet_ring', 'the Fire Elemental\'s 10% signature');
+    assert.eq(drops[2].id, 'meteor_ring', 'the Fire Elemental\'s 10% signature');
     assert.falsy(drops[2].qtyBonus, 'a unique relic is always one');
+    assert.eq(Combat.monster('fiend').eliteDrops[2].id, 'comet_ring', 'the Fiend\'s');
+    for (const id of ['meteor_ring', 'comet_ring']) {
+      assert.truthy(ITEM_BY_ID[id].uniqueJewelry && UNIQUE_JEWELRY[id].equippable, id + ': worn by choice');
+      assert.truthy(ITEM_EFFECTS[id], id + ': effect copy');
+    }
+  });
+
+  test('meteor ring: the same fire, a third of the burn; worn with the Comet, the Comet\'s burn is the one', () => {
+    const M = UNIQUE_JEWELRY.meteor_ring.cometAura;
+    for (const k of Object.keys(S)) if (k !== 'burnDurationMul') assert.eq(M[k], S[k], k + ': one shared fire (COMET_AURA)');
+    assert.eq(S.burnDurationMul, 1);
+    assert.inRange(M.burnDurationMul, 1 / 3 - 1e-9, 1 / 3 + 1e-9);
+    assert.eq(jewelryCometAura(bag('meteor_ring')), M);
+    assert.eq(jewelryCometAura(bag('meteor_ring', 'comet_ring')), S, 'the longer burn wins, nothing stacks');
+    const both = bag('meteor_ring', 'comet_ring');
+    Gear.wearJewelry(both, 'comet_ring', false);
+    assert.eq(jewelryCometAura(both), M, 'the Comet taken off leaves the Meteor\'s fire');
+    // Combat.ignite scales the burning row's duration for the lesser flame;
+    // a body already alight keeps the clock it has.
+    const def = Conditions.DEFINITIONS.burning;
+    const a = { kind: 'skeleton' }, b = { kind: 'skeleton' };
+    assert.truthy(Combat.ignite(a, 0, 'player', { durationMul: M.burnDurationMul }));
+    assert.eq(a._burnState.remainingMs, Math.round(def.durationMs / 3), 'a third of the burn');
+    assert.truthy(Combat.ignite(b, 0, 'player', { durationMul: S.burnDurationMul }));
+    assert.eq(b._burnState.remainingMs, def.durationMs, 'the whole of it');
+    assert.eq(Combat.ignite({ kind: 'skeleton' }, 0, 'player')._burnState, undefined);
+    const plain = { kind: 'skeleton' }; Combat.ignite(plain, 0, 'player');
+    assert.eq(plain._burnState.remainingMs, def.durationMs, 'no option: the row\'s duration, as the torch lights it');
+    assert.falsy(Combat.ignite(a, 100, 'player', { durationMul: 1 }), 'already alight: the clock stays');
+    assert.eq(a._burnState.remainingMs, Math.round(def.durationMs / 3));
+    assert.truthy(/Combat\.ignite\(c, nowT, 'player', \{ durationMul: spec\.burnDurationMul \}\)/.test(SCENE_SRC), 'the tick lights for the worn ring\'s share');
   });
 
   test('comet ring: shape — an ember at rest, a comet\'s tail at maxMps, never past it', () => {
@@ -136,7 +171,7 @@
     assert.truthy(/playerWorldM\(this\)/.test(body), 'measured from the feet');
     assert.truthy(/Combat\.isEnemy\(c\)/.test(body) && /caughtSet\.has\(c\.id\)/.test(body) && /Combat\.canBurn\(c\)/.test(body),
       'enemies only, never a caught one, never one fire cannot touch');
-    assert.truthy(/Combat\.ignite\(c, nowT, 'player'\)/.test(body), 'alight as the player\'s own kill');
+    assert.truthy(/Combat\.ignite\(c, nowT, 'player', \{ durationMul: spec\.burnDurationMul \}\)/.test(body), 'alight as the player\'s own kill');
     assert.truthy(/this\._damageEnemy\(c, rate \* dt, 'player', \{ bypassArmor: true \}\)/.test(body), 'through the one damage lane');
     assert.truthy(/Buffs\.extend\(this\.save, this, 'cometSnuffed', spec\.snuffedMs\)/.test(body), 'the snuff is the Buffs row, through its one writer');
     assert.truthy(/CometRing\.step\(this\._cometAura/.test(body), 'the pure clock drives it');
