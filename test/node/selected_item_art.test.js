@@ -72,7 +72,15 @@ test('dialog item art: large icons use detailed frames and preserve variant iden
   for (const id of ['badged', 'shiny', 'variant', 'filtered']) {
     assert.truthy(draw(id, 96).includes('dialog-test.png'), `${id}: use detailed variant art`);
   }
-  assert.falsy(draw('missing', 96).includes('dialog-test.png'), 'unknown detail retains fallback');
+  // No painted portrait (the sewer's fish, a fresh item): the 16px inventory
+  // icon itself, scaled to the slot and kept pixel-sharp, never a blank.
+  const missing = draw('missing', 96);
+  assert.falsy(missing.includes('dialog-test.png'), 'unknown detail retains fallback');
+  assert.truthy(missing.includes('small.png'), 'the small icon stands in');
+  assert.truthy(missing.includes('background-size:96px 96px'), 'scaled 6x to fill the 96px slot');
+  assert.truthy(missing.includes('image-rendering:pixelated'), 'and scaled crisp');
+  // The sewer's fish have no painted portrait yet; they ride this path.
+  for (const id of ['sewer_eel', 'blind_cavefish']) assert.truthy(inventoryIconSource(id), `${id} has a small icon to scale`);
   assert.truthy(draw('badged', 96).includes('position:absolute'), 'badge is preserved on large icon');
   assert.truthy(draw('badged', 96, 'block').innerHTML.includes('small.png'), 'DOM badge keeps its source');
   assert.truthy(draw('shiny', 96).includes('saturate(3.2)'), 'shiny variant keeps gold tint');
