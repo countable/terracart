@@ -48,13 +48,22 @@
     assert.falsy(DungeonProgression.ropeCanDescend(2) || DungeonProgression.ropeCanDescend(3)
       || DungeonProgression.ropeCanDescend(4) || DungeonProgression.ropeCanDescend(6));
   });
-  test('dungeon progression: stone requires L4, T3+, and at least one kilometre', () => {
-    const eligible = { depth: 4, tier: 4, distanceM: 1000 };
-    assert.truthy(DungeonProgression.portalStoneDue({}, eligible));
-    assert.falsy(DungeonProgression.portalStoneDue({}, { ...eligible, distanceM: 999.99 }));
-    assert.falsy(DungeonProgression.portalStoneDue({}, { ...eligible, tier: 3 }), 'effective T3 is the floor-4 minimum and never enough');
-    assert.falsy(DungeonProgression.portalStoneDue({}, { ...eligible, depth: 3 }));
-    assert.falsy(DungeonProgression.portalStoneDue({ dungeonProgression: { portalStoneFound: true } }, eligible));
+  test('dungeon progression: tenth base-T2 treasure is a floor-specific progression reward', () => {
+    const save = {inv: []};
+    for (const depth of [1, 4]) {
+      for (let i = 0; i < 9; i++) {
+        assert.eq(DungeonProgression.treasureDue(save, {depth, tier: 2}), null);
+        DungeonProgression.recordTreasure(save, depth, 1);
+        DungeonProgression.recordTreasure(save, depth, 2);
+      }
+      assert.eq(DungeonProgression.treasureCount(save, depth), 9);
+      assert.eq(DungeonProgression.treasureDue(save, {depth, tier: 3}), null);
+      const id = depth === 1 ? 'commerce_key' : 'portal_stone';
+      assert.eq(DungeonProgression.treasureDue(save, {depth, tier: 2}), id);
+      Inventory.add(save, id, 1);
+      DungeonProgression.recordTreasure(save, depth, 2);
+      assert.eq(DungeonProgression.treasureDue(save, {depth, tier: 2}), null);
+    }
   });
   test('dungeon progression: elevator repair is atomic, permanent and opens its routes', () => {
     const save = { inv: [{ id: 'wood', count: 9 }, { id: 'rubble', count: 8 }] };
@@ -111,7 +120,7 @@
   });
   test('dungeon progression: first eligible chest grants one stone and ordinary loot resumes', () => {
     const original = globalThis.pickReward;
-    const save = { inv: [], opened: [], relics: {}, armor: {}, money: 0 };
+    const save = { inv: [], opened: [], relics: {}, armor: {}, money: 0, dungeonProgression: {treasureCounts: {4: 9}} };
     let modal;
     const scene = makeScene({
       depth: 4, save, _elevatorHomePosition: () => ({ x: 0, y: 0 }),
@@ -122,7 +131,7 @@
     try {
       globalThis.pickReward = () => ({ kind: 'item', id: 'potato', qty: 1 });
       const ctx = makeCtx(scene, save);
-      const chest = { kind: 'chest', id: 'progression_first', x: 1000, y: 0, depth: 4, tierSeed: 3 };
+      const chest = { kind: 'chest', id: 'progression_first', x: 1000, y: 0, depth: 4, tierSeed: 2 };
       INTERACTABLES.chest.custom(ctx, chest);
       assert.eq(Inventory.count(save, 'portal_stone'), 1);
       assert.truthy(save.dungeonProgression.portalStoneFound);
@@ -241,7 +250,7 @@
   });
 
   function chestHarness(over = {}) {
-    const save = { inv: [], opened: [], relics: {}, armor: {}, money: 0 };
+    const save = { inv: [], opened: [], relics: {}, armor: {}, money: 0, dungeonProgression: {treasureCounts: {4: 9}} };
     const harness = {save, modal: null, room: null};
     const scene = makeScene({
       depth: 4, save, _elevatorHomePosition: () => ({x: 0,y: 0}),
@@ -254,19 +263,18 @@
       try {
         globalThis.pickReward = () => ({kind: 'item',id: 'potato',qty: 1});
         return INTERACTABLES.chest.custom(makeCtx(scene,save), {
-          kind: 'chest',id: 'boundary_chest',x: 1000,y: 0,depth: scene.depth,tierSeed: 3,...chestOver,
+          kind: 'chest',id: 'boundary_chest',x: 1000,y: 0,depth: scene.depth,tierSeed: 2,...chestOver,
         });
       } finally { globalThis.pickReward = original; }
     };
     return harness;
   }
-  test('dungeon progression: actual chest boundaries reject near-home, other depths and low-tier treasure', () => {
+  test('dungeon progression: actual chest boundaries reject other depths, supplies and non-T2 treasure', () => {
     for (const candidate of [
-      {name: 'just short', scene: {}, chest: {x: 999.999}},
       {name: 'surface', scene: {depth: 0}, chest: {}},
       {name: 'L3', scene: {depth: 3}, chest: {}},
       {name: 'L5', scene: {depth: 5}, chest: {}},
-      {name: 'T2', scene: {}, chest: {tierSeed: 1}},
+      {name: 'T1', scene: {}, chest: {tierSeed: 1}},
       {name: 'supply box', scene: {}, chest: {crate: true}},
     ]) {
       const h = chestHarness(candidate.scene);
@@ -277,18 +285,36 @@
     }
     for (const point of [{x: 1000,y: 0},{x: 600,y: 800},{x: -1000,y: 0}]) {
       const h = chestHarness(); h.open({...point,tierSeed: 2});
-      assert.eq(Inventory.count(h.save,'portal_stone'),1,'exact one kilometre at effective T4');
+      assert.eq(Inventory.count(h.save,'portal_stone'),1,'tenth base-T2 treasure');
     }
   });
-  test('dungeon progression: searched chest and unknown home cannot award the portal stone', () => {
+  test('dungeon progression: searched chest cannot award the stone; no home anchor is needed', () => {
     const opened = chestHarness(); opened.save.opened.push('boundary_chest'); opened.open();
     assert.eq(Inventory.count(opened.save,'portal_stone'),0);
     const originalHome = HomeArea.worldM;
     try {
       HomeArea.worldM = null;
       const unknown = chestHarness({_elevatorHomePosition: () => null}); unknown.open();
-      assert.eq(Inventory.count(unknown.save,'portal_stone'),0);
+      assert.eq(Inventory.count(unknown.save,'portal_stone'),1);
     } finally { HomeArea.worldM = originalHome; }
+  });
+  test('dungeon progression: commerce key and coinciding elevator parts are both granted once', () => {
+    const h = chestHarness({depth: 1});
+    h.save.dungeonProgression = {treasureCounts: {1: 9}};
+    h.save.elevators = {chests: {1: 9}, level1Chests: 9};
+    h.open(); h.open();
+    assert.eq(Inventory.count(h.save, 'commerce_key'), 1);
+    assert.eq(DungeonProgression.treasureCount(h.save, 1), 10);
+    assert.truthy(Elevators.hasParts(h.save));
+    assert.truthy(Elevators.unlockedFloors(h.save).includes(1));
+  });
+  test('dungeon progression: a held ordinary chest claimed tenth becomes progression treasure', () => {
+    const h = chestHarness();
+    h.save.chestHold = {boundary_chest: {id: 'potato', n: 1}};
+    h.open();
+    assert.eq(Inventory.count(h.save, 'portal_stone'), 1);
+    assert.eq(Inventory.count(h.save, 'potato'), 0);
+    assert.eq(DungeonProgression.treasureCount(h.save, 4), 10);
   });
   test('dungeon progression: full ordinary stacks do not prevent a unique portal reward', () => {
     const h = chestHarness();

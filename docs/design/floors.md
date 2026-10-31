@@ -96,8 +96,13 @@ unlocks - his tower's lessons train dragon hunters (`story.txt`).
   floor 3. Until the lift serves the floor you are on (the repair for
   floor 1, or that floor's own parts find), it offers no trip Home: climb
   out by ladder or rope.
-- The portal stone, found on floor 4, opens the arena portal when carried to
-  the surface.
+- Progression treasure replaces the tenth base-tier T2 chest reward obtained
+  on each floor, independently of depth bonuses and distance from Home.
+  L1 awards the Key of Commerce (shops offer two items instead of one);
+  L4 awards the reusable Portal Stone, which opens the arena on the surface.
+  Other floors' rewards are not yet assigned. Supplies and recurring rewards
+  do not count; leaving loot for later does not advance the count. Elevator
+  parts still unlock when their milestone coincides with progression treasure.
 
 ## Tower floors (aboveground, climbing challenges)
 

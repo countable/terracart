@@ -59,6 +59,7 @@ const ASSETS = {
   // the approved wall and roof crops, packed by tools/build_approved_materials.py.
   approved_materials_v1: { kind: 'image', path: 'assets/Objects/BuildingMaterials/approved-materials-v1.png' },
   progression_tiles: { kind: 'spritesheet', path: 'assets/Objects/Progression/tiles.png', frameWidth: 24, frameHeight: 24 },
+  icon_commerce_key: { kind: 'image', path: 'assets/Icons/Items/commerce_key.png' },
   icon_progression: { kind: 'spritesheet', path: 'assets/Objects/Progression/icons.png', frameWidth: 16, frameHeight: 16 },
   pet_story_clearing: { deferred: true, kind: 'image', path: 'assets/art/pet_clearing.webp' },
   cave_props: { kind: 'spritesheet', path: 'assets/Objects/Cave/props.png', frameWidth: 24, frameHeight: 24,

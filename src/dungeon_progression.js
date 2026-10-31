@@ -29,11 +29,32 @@
     if (source === 'rope' && target > from && !ropeCanDescend(from)) return false;
     return (target <= from || canEnterDepth(save, target)) && !(from === 1 && target > from && source !== 'rope' && source !== 'elevator');
   }
-  // The stone rides the first GOOD chest far from home on floor 4: the depth
-  // bonus there lifts every chest to effective T3, so the bar is T4 or better
-  // (the same not-the-first-junk-chest intent the T3 bar served on floor 3).
-  function portalStoneDue(save, { depth, tier, distanceM }) {
-    return !save?.dungeonProgression?.portalStoneFound && depth === 4 && tier >= 4 && Number.isFinite(distanceM) && distanceM >= 1000;
+  // Base-tier T2 treasure is counted independently on each floor. Keep the
+  // reward table sparse until the other floors' progression items are designed.
+  const TREASURE_REQUIRED = 10;
+  const TREASURE = Object.freeze({ 1: 'commerce_key', 4: 'portal_stone' });
+  function treasureCount(save, depth) {
+    const n = save?.dungeonProgression?.treasureCounts?.[depth];
+    return Number.isInteger(n) && n > 0 ? n : 0;
+  }
+  function treasureDue(save, { depth, tier }) {
+    const id = TREASURE[depth];
+    if (tier !== 2 || !id || treasureCount(save, depth) < TREASURE_REQUIRED - 1) return null;
+    if (save?.dungeonProgression?.treasures?.[depth] || Inventory.count(save, id) > 0
+        || (id === 'portal_stone' && save?.dungeonProgression?.portalStoneFound)) return null;
+    return id;
+  }
+  function recordTreasure(save, depth, tier) {
+    if (!Number.isInteger(depth) || depth < 0 || tier !== 2) return;
+    const progress = state(save);
+    progress.treasureCounts ||= {};
+    progress.treasureCounts[depth] = treasureCount(save, depth) + 1;
+    const id = TREASURE[depth];
+    if (id && Inventory.count(save, id) > 0) {
+      progress.treasures ||= {};
+      progress.treasures[depth] = id;
+      if (id === 'portal_stone') progress.portalStoneFound = true;
+    }
   }
   function completeChallenge(save, id) {
     if (typeof id !== 'string' || !id) return false;
@@ -44,6 +65,6 @@
     if (progress.challenges.length >= 5) progress.level4Key = true;
     return true;
   }
-  root.DungeonProgression = { state, canEnterDepth, canUseDescent, portalStoneDue, completeChallenge,
+  root.DungeonProgression = { state, canEnterDepth, canUseDescent, treasureDue, recordTreasure, treasureCount, TREASURE, TREASURE_REQUIRED, completeChallenge,
     ROPE_SEALED_FLOORS, ropeCanDescend };
 })(typeof globalThis !== 'undefined' ? globalThis : window);

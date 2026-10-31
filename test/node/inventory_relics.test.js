@@ -45,7 +45,7 @@
     assert.eq(INV_CATS.length, 9);
     assert.falsy(INV_CAT_BY_KEY.unique_relic);
     const ids = ITEMS.filter(i => i.kind === 'unique_relic').map(i => i.id);
-    assert.eq(ids.length, 33, 'twenty-two finds, two progression relics and nine reusable tomes');
+    assert.eq(ids.length, 34, 'twenty-two finds, three progression relics and nine reusable tomes');
     for (const id of ids) assert.eq(invCatForItem(id), 'relics', id);
   });
 
