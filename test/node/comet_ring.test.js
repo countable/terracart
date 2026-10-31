@@ -1,8 +1,9 @@
 // The Comet Ring (items.js UNIQUE_JEWELRY.comet_ring.cometAura, read by
 // comet_ring.js CometRing): a ring of fire round the wearer's feet that grows
-// with their own pace, snuffed for a spell by outrunning it. The burn lives in
-// a scene method (scene_consumables.js _tickCometAura), lifted here onto a
-// stub scene so the whole clock — pace, snuff, relight, the bite — runs.
+// with their REAL pace (the GPS speed lane, never the body on the map),
+// snuffed for a spell by outrunning it. The burn lives in a scene method
+// (scene_consumables.js _tickCometAura), lifted here onto a stub scene so the
+// whole clock — pace, snuff, relight, the bite — runs.
 (function () {
   const S = UNIQUE_JEWELRY.comet_ring.cometAura;
   const bag = (...ids) => ({ inv: ids.map(id => ({ id, count: 1 })) });
@@ -14,7 +15,7 @@
   function run(state, mps, seconds, { dt = 0.1, snuffed = false } = {}) {
     const snuffs = [];
     for (let t = 0; t < seconds - 1e-9; t += dt) {
-      state = CometRing.step(state, { movedM: mps * dt, dt, snuffed }, S);
+      state = CometRing.step(state, { mps, dt, snuffed }, S);
       if (state.snuff) { snuffs.push(+t.toFixed(3)); break; }
     }
     return { state, snuffs };
@@ -58,23 +59,42 @@
     assert.eq(CometRing.shape(NaN, S).intensity, S.restIntensity, 'no pace is rest');
   });
 
-  test('comet ring: step smooths the pace, drops a teleport and starts afresh across a floor', () => {
+  test('comet ring: step smooths the pace and drops a GPS jump', () => {
     let { state } = run(null, 4, 2);
     assert.inRange(state.mps, 3.99, 4.01, 'two seconds of steady running reads as that pace');
     assert.truthy(state.lit); assert.falsy(state.snuff);
     assert.inRange(state.radiusCells, CometRing.shape(4, S).radiusCells - 0.01, CometRing.shape(4, S).radiusCells + 0.01);
-    const one = CometRing.step(state, { movedM: 0, dt: 0.1 }, S);
+    const one = CometRing.step(state, { mps: 0, dt: 0.1 }, S);
     assert.gt(one.mps, 2, 'a stop eases the fire down over a stride, not a frame');
     assert.lt(one.mps, 4);
-    const jump = CometRing.step(state, { movedM: 200, dt: 0.1 }, S);
-    assert.inRange(jump.mps, 3.99, 4.01, 'a 2000 m/s jump is a placement: the sample is dropped');
+    const jump = CometRing.step(state, { mps: 200, dt: 0.1 }, S);
+    assert.inRange(jump.mps, 3.99, 4.01, 'a 200 m/s sample is a GPS jump: dropped');
     assert.eq(jump.overMs, 0);
-    const floor = CometRing.step(state, { movedM: null, dt: 0.1 }, S);
-    assert.eq(floor.mps, 0, 'a floor change starts the pace at zero');
-    assert.truthy(floor.lit);
-    const idle = CometRing.step(null, { movedM: 0, dt: 0 }, S);
+    const none = CometRing.step(state, { mps: NaN, dt: 0.1 }, S);
+    assert.inRange(none.mps, 3.99, 4.01, 'no reading keeps the last pace');
+    const idle = CometRing.step(null, { mps: 0, dt: 0 }, S);
     assert.eq(idle.mps, 0); assert.truthy(idle.lit);
     assert.eq(idle.radiusCells, S.minRadiusCells);
+  });
+
+  test('comet ring: the pace is the GPS lane\'s last sample — fresh, never the stick, and standing without GPS', () => {
+    assert.eq(CometRing.gpsPace(null, T0), 0, 'no gate (sandbox, stick override, teleport): standing');
+    assert.eq(CometRing.gpsPace({ lastT: T0 }, T0), 0, 'a gate with no sample yet');
+    assert.eq(CometRing.gpsPace({ mps: 3.2, mpsAt: T0, lastT: T0 }, T0 + 1000), 3.2, 'the sample, while fresh');
+    assert.eq(CometRing.gpsPace({ mps: 3.2, mpsAt: T0, lastT: T0 }, T0 + CometRing.PACE_STALE_MS + 1), 0, 'stale: standing');
+    assert.eq(CometRing.gpsPace({ mps: -1, lastT: T0 }, T0), 0, 'never negative');
+    // util.js speedGateStep keeps the sample it judged: the device's own
+    // speed when reported, else the leg from the last reliable fix.
+    const fix = (i, speed) => ({ lat: 49.88 + (2 * i) / (6371000 * Math.PI / 180), lon: -119.49, accuracy: 8, timestamp: T0 + i * 1000, speed });
+    let g = speedGateStep(null, fix(0), T0);
+    assert.falsy(Number.isFinite(g.mps), 'the first fix has no leg');
+    g = speedGateStep(g, fix(1), T0 + 1000);
+    assert.inRange(g.mps, 1.99, 2.01, 'the leg: two metres a second'); assert.eq(g.mpsAt, T0 + 1000);
+    g = speedGateStep(g, fix(2, 6.5), T0 + 2000);
+    assert.eq(g.mps, 6.5, 'the device\'s own speed wins');
+    g = speedGateStep(g, { ...fix(3), accuracy: 500 }, T0 + 3000);
+    assert.eq(g.mps, 6.5, 'an unreliable fix leaves the sample as it was');
+    assert.eq(CometRing.gpsPace(g, T0 + 3500), 6.5);
   });
 
   test('comet ring: past maxMps for overspeedMs it snuffs once, burns nothing while out, and relights after', () => {
@@ -120,6 +140,8 @@
     assert.truthy(/this\._damageEnemy\(c, rate \* dt, 'player', \{ bypassArmor: true \}\)/.test(body), 'through the one damage lane');
     assert.truthy(/Buffs\.extend\(this\.save, this, 'cometSnuffed', spec\.snuffedMs\)/.test(body), 'the snuff is the Buffs row, through its one writer');
     assert.truthy(/CometRing\.step\(this\._cometAura/.test(body), 'the pure clock drives it');
+    assert.truthy(/mps: CometRing\.gpsPace\(this\._speedGate, now\)/.test(body), 'the pace is the GPS lane, never the body');
+    assert.falsy(/_cometSample|movedM/.test(body), 'nothing measures the feet on the map');
     assert.truthy(/this\._tickCometAura\(\);/.test(SCENE_SRC), 'the update loop runs it');
 
     // Lift it onto a stub scene and run the whole clock.
@@ -136,14 +158,15 @@
       _damageEnemy(c, amount, source, options) { hits.push({ c, amount, source, options }); return false; },
     };
     const slime = { id: 'near', kind: 'slime', x: 5, y: 0, _hp: 20 };
-    const far = { id: 'far', kind: 'slime', x: 40, y: 0, _hp: 20 };
+    const far = { id: 'far', kind: 'slime', x: 25, y: 0, _hp: 20 };   // 2.5 cells: past the ember, inside the tail
     const fireSlime = { id: 'fire', kind: 'fire_slime', x: 3, y: 0, _hp: 20 };
     const pet = { id: 'pet', kind: 'slime', x: 2, y: 0, pet: true, _hp: 20 };
     creatures.push(slime, far, fireSlime, pet);
     const oldNow = Date.now; let now = T0; Date.now = () => now;
     try {
-      const frame = (dx) => { now += 100; scene.playerM.x += dx; tick.call(scene); };
-      tick.call(scene);                 // the first frame only samples
+      // A frame: the phone reports `mps` (the gate's last sample, fresh).
+      const frame = (mps) => { now += 100; scene._speedGate = { mps, mpsAt: now, lastT: now }; tick.call(scene); };
+      tick.call(scene);                 // the first frame only starts the clock
       assert.eq(hits.length, 0);
       frame(0);                         // at rest: an ember half a cell wide bites the near slime
       assert.eq(hits.length, 1, 'only the slime inside the ember, not the pet, the far one or the fire slime');
@@ -154,14 +177,24 @@
       assert.truthy(Combat.burning(slime, now), 'set alight');
       assert.falsy(Combat.burning(fireSlime, now), 'fire cannot touch a fire slime');
       assert.falsy(Combat.burning(pet, now), 'never a pet');
-      // Run at 1.5× maxMps: the fire swells to the far slime, then the wind takes it.
+      // A stick walk away from the fix (the body moving, the phone still):
+      // the ember does not stir.
       hits.length = 0;
-      for (let i = 0; i < 20; i++) frame(S.maxMps * 1.5 * 0.1);
-      assert.truthy(hits.some(h => h.c === far), 'the swollen aura reaches three cells');
+      for (let i = 0; i < 20; i++) { scene.playerM.x -= 1.2; frame(0); }
+      assert.eq(scene._cometAura.radiusCells, S.minRadiusCells, 'the body on the map is not the player running');
+      assert.falsy(hits.some(h => h.c === far), 'the ember never reached the far slime');
+      scene.playerM.x = 0;
+      // No GPS at all (the sandbox, the stick taking over): an ember too.
+      scene._speedGate = null; now += 100; tick.call(scene);
+      assert.eq(scene._cometAura.radiusCells, S.minRadiusCells);
+      // Run at 1.5× maxMps for real: the fire swells to the far slime, then the wind takes it.
+      hits.length = 0;
+      for (let i = 0; i < 20; i++) frame(S.maxMps * 1.5);
+      assert.truthy(hits.some(h => h.c === far), 'the swollen aura reaches two and a half cells');
       assert.truthy(scene._cometAura.lit);
       const ranFrom = now;
       let snuffAt = null;
-      for (let i = 0; i < 40 && snuffAt == null; i++) { frame(S.maxMps * 1.5 * 0.1); if (!scene._cometAura.lit) snuffAt = now; }
+      for (let i = 0; i < 40 && snuffAt == null; i++) { frame(S.maxMps * 1.5); if (!scene._cometAura.lit) snuffAt = now; }
       assert.truthy(snuffAt, 'snuffed within four more seconds');
       assert.gt(snuffAt - ranFrom + 2000, S.overspeedMs, 'after at least the over-speed clock');
       assert.eq(Buffs.until('cometSnuffed', scene.save, scene), snuffAt + S.snuffedMs, 'the row runs from the snuff');

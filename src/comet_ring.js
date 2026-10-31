@@ -13,21 +13,40 @@
 // frame; the scene keeps the state (scene._cometAura) and the save keeps
 // nothing (a reload starts the pace at zero, like the quicksand's clock).
 //
-// The PACE is the player's actual world feet (playerWorldM) over the frame,
-// so GPS, the stick and a blocked step agree, smoothed over SMOOTH_S so a
-// jittery fix neither flares nor flickers the fire. A jump past TELEPORT_MPS
-// is a placement (a GPS snap, a portal), not a run: the sample is dropped and
-// the last pace kept. A floor change (`movedM` null) starts the pace afresh.
+// The PACE is the player's REAL pace: the GPS speed lane (util.js — the
+// device's own speed when it reports one, else the leg from the last
+// reliable fix, as the passenger gate reads it; `gpsPace` takes the gate
+// state's last sample). Never the body on the map: a stick walk away from
+// the fix, the walk home after it and a GPS catch-up chase are the
+// character moving, not the player, and light nothing (owner, Oct 2026).
+// With no GPS (the sandbox, a desktop, the stick taking over) the ring is
+// an ember. Smoothed over SMOOTH_S so a jittery fix neither flares nor
+// flickers the fire; a sample past TELEPORT_MPS is a jump, not a run, and
+// is dropped; a gate with no sample for PACE_STALE_MS reads as standing.
 (function (root) {
   'use strict';
 
   // The pace reading's time constant, seconds: the aura swells and shrinks
   // over about a stride, and the 3 s over-speed clock dominates it.
   const SMOOTH_S = 0.3;
-  // Faster than this between two frames is a placement, never running.
+  // Faster than this is a jump between fixes, never running.
   const TELEPORT_MPS = 40;
+  // A gate whose last sample is older than this reads as standing still:
+  // fixes come about once a second, so a stopped phone goes dark quickly
+  // rather than holding the last stride's fire for the gate's two minutes.
+  const PACE_STALE_MS = 10000;
 
   function spec() { return UNIQUE_JEWELRY.comet_ring.cometAura; }
+
+  // The real pace the GPS lane last read, in m/s: the speed gate state's
+  // last sample (util.js speedGateStep `mps`, judged at `lastT` on the
+  // caller's clock) while it is fresh, else 0. No gate (the sandbox, the
+  // stick's manual override, a teleport) is 0 too.
+  function gpsPace(gate, now = Date.now()) {
+    if (!gate || gate.lastT == null || !Number.isFinite(gate.mps)) return 0;
+    if (now - gate.lastT > PACE_STALE_MS) return 0;
+    return Math.max(0, gate.mps);
+  }
 
   // The aura `mps` of pace lights: its radius in cells, its intensity (0..1,
   // `restIntensity` at a standstill, 1 at `maxMps` and above) and the HP a
@@ -45,9 +64,9 @@
   const OUT = Object.freeze({ radiusCells: 0, intensity: 0, dps: 0 });
 
   // One frame of the ring: `state` is the last step's result (or null),
-  // `sample` is { movedM, dt, snuffed } — the metres the feet moved this
-  // frame (null across a floor change), the frame's seconds, and whether
-  // the `cometSnuffed` row still runs. Returns the next state:
+  // `sample` is { mps, dt, snuffed } — the real pace this frame (gpsPace),
+  // the frame's seconds, and whether the `cometSnuffed` row still runs.
+  // Returns the next state:
   //   mps       the smoothed pace
   //   overMs    how long the pace has run past maxMps, continuously
   //   snuff     true on the one frame the over-speed clock fills: the caller
@@ -58,10 +77,9 @@
     const prev = state || { mps: 0, overMs: 0 };
     const dt = Number(sample?.dt) || 0;
     let mps = Number(prev.mps) || 0;
-    if (sample?.movedM == null) mps = 0;
-    else if (dt > 0) {
-      const v = Math.max(0, sample.movedM) / dt;
-      if (v <= TELEPORT_MPS) mps += (v - mps) * Math.min(1, dt / SMOOTH_S);
+    const v = Number(sample?.mps);
+    if (dt > 0 && Number.isFinite(v) && v <= TELEPORT_MPS) {
+      mps += (Math.max(0, v) - mps) * Math.min(1, dt / SMOOTH_S);
     }
     let overMs = Number(prev.overMs) || 0, snuff = false;
     if (sample?.snuffed) overMs = 0;
@@ -73,5 +91,5 @@
     return { mps, overMs, snuff, lit, ...(lit ? shape(mps, s) : OUT) };
   }
 
-  root.CometRing = { SMOOTH_S, TELEPORT_MPS, spec, shape, step };
+  root.CometRing = { SMOOTH_S, TELEPORT_MPS, PACE_STALE_MS, spec, gpsPace, shape, step };
 })(typeof globalThis !== 'undefined' ? globalThis : this);

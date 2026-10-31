@@ -165,10 +165,14 @@ mechanics.
   capped at the bar.
 - THE COMET RING (`UNIQUE_JEWELRY.comet_ring.cometAura`, read by
   `CometRing` in `comet_ring.js`; the Fire Elemental's rare elite drop): while
-  worn, a ring of fire round the feet grows with the player's own pace —
-  `CometRing.shape` turns the smoothed metres-per-second the feet actually
-  moved into the disc's radius and intensity, an ember at a standstill and a
-  comet's tail at `maxMps`. `_tickCometAura` (scene_consumables.js) sets
+  worn, a ring of fire round the feet grows with the player's REAL pace —
+  the GPS speed lane (`util.js speedGateStep` keeps its last sample;
+  `CometRing.gpsPace` reads it, stale after `PACE_STALE_MS`), never the body
+  on the map: a stick walk off the fix, the walk home after it and a
+  catch-up chase light nothing, and without GPS the ring is an ember.
+  `CometRing.shape` turns the smoothed metres-per-second into the disc's
+  radius and intensity, an ember at a standstill and a comet's tail at
+  `maxMps`. `_tickCometAura` (scene_consumables.js) sets
   every enemy inside alight as the player's kill (`Combat.ignite`, the lit
   torch's call) and burns the aura's `dps × dt` through `_damageEnemy`; the
   wearer and their allies are never targets. Faster than `maxMps` for
@@ -176,8 +180,8 @@ mechanics.
   `cometSnuffed` Buffs row `snuffedMs` (its chip is the only sign) and the
   fire relights when that ends. The ground disc (render.js) and the warmth on
   the lightmap (`Lighting.KINDS.comet_aura`) read the same state, so the
-  edge the player sees is the edge that burns. A jump past
-  `CometRing.TELEPORT_MPS` or a floor change never counts as running.
+  edge the player sees is the edge that burns. A sample past
+  `CometRing.TELEPORT_MPS` is a GPS jump, never running.
   It is the one `equippable` jewelry row: found, it is worn at once; the
   Equip / Unequip button under the inventory bar (`syncEquipButton`, the
   weapons' button) takes it off and puts it on through `Gear.wearJewelry`,
