@@ -9142,7 +9142,16 @@ class MapScene extends Phaser.Scene {
     });
     // The compass reveals its money badge after the first earned-coin story.
     if (this.moneyEl) {
-      const money = `${this.save.money ?? 0}`;
+      const balance = this.save.money ?? 0;
+      // Coins earned lift the chip and roll the number up to the new balance
+      // (CompassHUD.moneyGain / coinRoll); the first paint and a spend paint
+      // flat. _moneyShown is the last balance seen, _coinRoll the live climb.
+      if (this._moneyShown != null && balance > this._moneyShown) CompassHUD.moneyGain(this, this._moneyShown, balance);
+      else if (this._moneyShown != null && balance < this._moneyShown) this._coinRoll = null;
+      this._moneyShown = balance;
+      const roll = CompassHUD.coinRoll(this._coinRoll, Date.now());
+      if (roll?.done) this._coinRoll = null;
+      const money = `${roll ? roll.value : balance}`;
       this._paintIfChanged('_moneyDOM', money, () => {
         // The chip is a coin icon plus a bare number span (#money-num); the
         // icon is the symbol, so the number carries no `$`. Fall back to the
