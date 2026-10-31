@@ -3,12 +3,13 @@
 (function (root) {
   'use strict';
   const KEY = 'grove-temple';
-  const TITLES = { blocks: 'Chromatic stones', tower: 'The three ascents', duel: 'The grove champion', ballista: 'Guard the heart' };
+  const TITLES = { blocks: 'Chromatic stones', tower: 'The three ascents', duel: 'The grove champion', ballista: 'Guard the heart', maze: 'The gorgon’s maze' };
   const HELP = {
     blocks: 'Push each stone onto its matching pressure plate. Tap a neighboring cell or use arrow keys. Retry resets a trapped stone.',
     tower: 'Reach the golden ladder three times. Walls and monsters change each ascent. Your weapon attacks adjacent guards automatically.',
     duel: 'Defeat the elite grove champion. Move next to it to attack automatically; step away to evade.',
     ballista: 'Protect the center from wall drones. Frost arrows fire automatically along your compass heading. Without a compass, tap to aim or use Q / E.',
+    maze: 'Reach the golden ladder through the maze. Medusa stalks it: face her in clear sight and her gaze turns you to stone for five seconds. Your weapon strikes her when adjacent.',
   };
   const COLORS = { red: 0xe36c78, blue: 0x619ee8, green: 0x7bc896 };
 
@@ -65,7 +66,13 @@
       const x = Math.round((a + b) / 2), y = Math.round((b - a) / 2);
       if (this.state.kind === 'ballista') {
         if (this.source.compassDeg == null) this.aim = { x: x - this.state.player.x, y: y - this.state.player.y };
-      } else this.accept(root.TemplePuzzles.move(this.state, x - this.state.player.x, y - this.state.player.y));
+      } else {
+        const dx = x - this.state.player.x, dy = y - this.state.player.y;
+        // No compass: the body faces the way it last stepped (the maze's gaze
+        // reads it), as the surface does (app.js `facing`).
+        if (this.source.compassDeg == null && Math.abs(dx) + Math.abs(dy) === 1) this.aim = { x: dx, y: dy };
+        this.accept(root.TemplePuzzles.move(this.state, dx, dy));
+      }
     });
     this.hadModalClass = document.body.classList.contains('modal-open');
     document.body.classList.add('modal-open');
@@ -86,14 +93,14 @@
   function restartTrial() {
     if (this.rewarded) return;
     const combat = root.Combat, save = this.source.save;
-    const enemyKind = this.plan.enemyKind || 'cave_slime';
+    const authored = root.TemplePuzzles.foeKind(this.plan), enemyKind = authored || 'cave_slime';
     const elite = this.plan.kind === 'duel' && !this.plan.enemyKind;
     const foe = combat.monster(enemyKind);
     this.state = root.TemplePuzzles.create(this.plan, {
       playerHp: Math.max(1, save.energy ?? 100),
       enemyHp: combat.maxHp({ kind: enemyKind, shiny: elite }),
       enemyDamage: combat.playerDamage(foe.dmg * (elite ? combat.ELITE_MUL : 1), save.armor, 1, save.mode, combat.armorBonus(save)),
-      enemyStepSeconds: this.plan.enemyKind ? foe.damageIntervalSeconds : 1,
+      enemyStepSeconds: authored ? foe.damageIntervalSeconds : 1,
       shotSpeed: combat.SHOT.bow.speedCps, shotRange: combat.SHOT.bow.rangeCells,
       shotInterval: this.plan.kind === 'ballista' ? combat.fireIntervalMs('bow') / 1000 : .01,
     });
@@ -126,7 +133,10 @@
     if (this.moveClock <= 0 && this.state.status === 'playing' && k) {
       const dx = k.RIGHT.isDown ? 1 : k.LEFT.isDown ? -1 : 0;
       const dy = dx ? 0 : k.DOWN.isDown ? 1 : k.UP.isDown ? -1 : 0;
-      if (dx || dy) { this.accept(root.TemplePuzzles.move(this.state, dx, dy)); this.moveClock = .17; }
+      if (dx || dy) {
+        if (this.source.compassDeg == null) this.aim = { x: dx, y: dy };
+        this.accept(root.TemplePuzzles.move(this.state, dx, dy)); this.moveClock = .17;
+      }
     }
     if (this.state.status === 'fallen') return;
     if (this.source.compassDeg != null) this.aim = { ...this.source.facing };
@@ -134,14 +144,16 @@
       const angle = Math.atan2(this.aim.y, this.aim.x) + dt * (k.E.isDown ? 1 : -1) * 2;
       this.aim = { x: Math.cos(angle), y: Math.sin(angle) };
     }
-    this.accept(root.TemplePuzzles.tick(this.state, dt));
+    // The facing the maze's gaze reads: the compass heading, or the way the
+    // body last stepped or was turned without one.
+    this.accept(root.TemplePuzzles.tick(this.state, dt, { facing: this.aim }));
     this.attackClock -= dt;
     const s = this.state, combat = root.Combat, save = this.source.save;
-    if (s.status === 'playing' && this.attackClock <= 0) {
+    if (s.status === 'playing' && this.attackClock <= 0 && !(s.player.petrified > 0)) {
       if (s.kind === 'ballista') {
         this.accept(root.TemplePuzzles.attack(s, this.aim, combat.shotDamage({ bow: { tier: 7 } }, 'bow')));
         this.attackClock = combat.fireIntervalMs('bow') / 1000;
-      } else if (s.kind === 'duel' || s.kind === 'tower') {
+      } else if (s.kind === 'duel' || s.kind === 'tower' || s.kind === 'maze') {
         const foe = s.enemies.find(e => Math.abs(e.x - s.player.x) + Math.abs(e.y - s.player.y) <= 1);
         if (foe) {
           const slot = root.Gear?.activeWeapon(save) || 'sword';
@@ -212,7 +224,7 @@
     if (s.center) diamond(s.center.x, s.center.y, 0x96d6d2, 2);
     for (const e of s.enemies) {
       const p = this.point(e.x, e.y, 8), r = this.tw * .3;
-      const art = root.SpriteLayout?.CREATURE_ART[s.kind === 'ballista' ? 'bee' : (this.plan.enemyKind || 'cave_slime')];
+      const art = root.SpriteLayout?.CREATURE_ART[s.kind === 'ballista' ? 'bee' : (root.TemplePuzzles.foeKind(this.plan) || 'cave_slime')];
       const tint = e.frost > 0 ? 0x8edaf5 : e.elite ? 0xffe3a0 : (art?.tint || 0xffffff);
       if (!actor(p.x, p.y, art?.sheet, art?.directions?.down?.idle?.[0] ?? 0, tint, this.tw * 1.15)) {
         g.fillStyle(tint); g.fillCircle(p.x, p.y, r);
@@ -227,9 +239,12 @@
     }
     const p = this.point(s.player.x, s.player.y, 9);
     const sourcePlayer = this.source.player;
-    if (!actor(p.x, p.y - 3, sourcePlayer?.texture?.key, sourcePlayer?.frame?.name ?? 0, 0xffffff, this.tw * 1.25)) {
-      g.fillStyle(0x243d42); g.fillCircle(p.x, p.y + 6, this.tw * .27);
-      g.fillStyle(0xf2cc93); g.fillCircle(p.x, p.y - 3, this.tw * .2);
+    // Stone wears the petrified row's grey (conditions.js — the same tint the
+    // surface body would wear), as every status tints the body.
+    const petrified = s.player.petrified > 0, playerTint = petrified ? root.Conditions.DEFINITIONS.petrified.tint : 0xffffff;
+    if (!actor(p.x, p.y - 3, sourcePlayer?.texture?.key, sourcePlayer?.frame?.name ?? 0, playerTint, this.tw * 1.25)) {
+      g.fillStyle(petrified ? playerTint : 0x243d42); g.fillCircle(p.x, p.y + 6, this.tw * .27);
+      g.fillStyle(petrified ? playerTint : 0xf2cc93); g.fillCircle(p.x, p.y - 3, this.tw * .2);
     }
     if (s.kind === 'ballista') {
       const len = Math.hypot(this.aim.x, this.aim.y) || 1;
@@ -240,6 +255,7 @@
     let progress = `${this.plan.enemyKind === 'giant_reaper' ? 'Old Stones' : 'Grove'} Nexus · Floor +1`;
     if (s.kind === 'tower') progress += ` · Ascent ${s.round}/3 · Health ${Math.ceil(s.player.hp)}`;
     if (s.kind === 'duel') progress += ` · Health ${Math.ceil(s.player.hp)}`;
+    if (s.kind === 'maze') progress += ` · Health ${Math.ceil(s.player.hp)}` + (s.player.petrified > 0 ? ` · ${root.Conditions.DEFINITIONS.petrified.label} ${Math.ceil(s.player.petrified)}s` : '');
     if (s.kind === 'ballista') progress += `\nHeart ${s.centerHp}/100 · Drones ${s.defeated}/${s.totalDrones}`;
     if (s.status !== 'playing') progress = s.status === 'won' ? `Trial complete · ${root.TemplePuzzles.winCondition(this.plan)}\nReturn to the ground when ready.` : 'Trial failed · Retry to begin again.';
     this.statusText.setPosition(w / 2, this.visibleBottom - 117).setWordWrapWidth(w - 24).setText(progress);

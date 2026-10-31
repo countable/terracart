@@ -48,11 +48,16 @@
       const b = build();
       const it = scene().spawnInTileSteps(b, TX, TY);
       let yields = 0;
+      const phases = new Set();
       for (let r = it.next(); !r.done; r = it.next()) {
         yields++;
+        phases.add(r.value);
+        assert.falsy(b._residents, 'resident preparation stays private until the final slice');
         assert.falsy(b._spawned, `a yield (${r.value}) after entry._spawned — the flag must come in the last slice`);
         assert.falsy(b.creatures, 'and the creatures are only committed at the end');
       }
+      assert.truthy(phases.has('spawn treasure candidates'), 'treasure eligibility finishes before publication');
+      assert.truthy(phases.has('spawn residents'), 'resident work ends its own slice before publication');
       assert.gt(yields, 10, `the pass yields between its phases (${yields})`);
       assert.truthy(a._spawned && b._spawned, 'both passes finished');
       assert.gt(a.creatures.length, 50, 'the fixture spawns a real population');
@@ -107,6 +112,22 @@
       window.__TEST_MODE = was;
       if (had === undefined) cache.delete(key); else cache.set(key, had);
     }
+  });
+
+  test('spawn sliced: aborting after resident preparation publishes no population', () => {
+    const entry = build(), it = scene().spawnInTileSteps(entry, TX, TY);
+    let prepared = false;
+    for (let r = it.next(); !r.done; r = it.next()) {
+      if (r.value !== 'spawn residents') continue;
+      prepared = true;
+      it.return();
+      break;
+    }
+    assert.truthy(prepared, 'reached the last preparation yield');
+    assert.falsy(entry._spawned);
+    assert.falsy(entry.creatures);
+    assert.falsy(entry._residents);
+    assert.falsy(entry._homeVariantGenerating, 'closing the generator releases its generation guard');
   });
 
   test('spawn sliced: the neighbour ring slices, the centre stays whole (source pin)', () => {

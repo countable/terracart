@@ -218,7 +218,8 @@
       WorldGen.tileCacheFor(0).clear(); for (const [k, v] of cache) WorldGen.tileCacheFor(0).set(k, v);
     }
     // The call sites: the tile spawn hands the draw to arrivals, the update loop runs the pass.
-    assert.truthy(/entry\._residents = NPC\.spawn\(this, entry, tx, ty, _spawnOpts\);/.test(SCENE_SRC), 'the draw is kept on the entry');
+    assert.truthy(/const residents = NPC\.spawn\(this, entry, tx, ty, _spawnOpts\);/.test(SCENE_SRC), 'the draw is prepared before publication');
+    assert.truthy(/entry\._residents = residents;/.test(SCENE_SRC), 'the prepared draw is kept on the entry');
     assert.truthy(/NPC\.arrivals\(this, entry, tx, ty\);/.test(SCENE_SRC), 'and seated through arrivals');
     assert.falsy(/creatures\.push\(\.\.\.NPC\.spawn\(/.test(SCENE_SRC), 'never pushed whole');
     assert.truthy(/NPC\.tickArrivals\(this, Date\.now\(\)\);/.test(SCENE_SRC), 'the pass runs from update()');

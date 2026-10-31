@@ -314,7 +314,8 @@ by the start chest is a second bank). A repeatable
 crate, permanent barrel and clay pot, a chest whose stable ID passes the
 real mimic roll, and a clay pot whose stable ID passes the real snake roll
 compare container behavior. The southern encounter area adds mushroom
-monster, disguised treant, fire elemental, mimic, wurm, zombie and snake
+monster, disguised treant, fire elemental, mimic, wurm, zombie, snake and
+Medusa (her gaze is the grove temple's maze trial, not a surface mechanic)
 recipients for weapons, thrown potions, tomes and conditions.
 
 `meadow` visits the real ordinary-bush dressing at its current 31.5% density;

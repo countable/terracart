@@ -167,7 +167,7 @@
     const frame = tileFrame({ cellsPerEdge: N }, tx, ty, tileEdgeM);
     const cell = o => frame.idxOf(o.x, o.y);
     const streetLists = streetDress ? [streetDress.objects, streetDress.wildplants,
-      streetDress.treasures, streetDress.coins, streetDress.traps, streetDress.webs, streetDress.vents] : [];
+      streetDress.treasures, streetDress.coins, streetDress.traps, streetDress.webs, streetDress.vents, streetDress.guards] : [];
     const scenicLists = scenicDress ? [scenicDress.objects, scenicDress.wildplants] : [];
     let count = 0;
     field.legacyRemovedByAnchor = field.legacyRemovedByAnchor || {};

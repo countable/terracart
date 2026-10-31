@@ -1471,6 +1471,25 @@
     }
     return result;
   }
+  // Mesh geometry survives camera crossings; so can its eave/atlas splits.
+  // Cache only local material-independent data. Placement below owns fresh
+  // faces and points because tint, facade UVs and projection mutate them.
+  // Weak keys let the bounded mesh cache release these derived parts too.
+  const preparedMeshParts = new WeakMap();
+  function preparedParts(mesh, roofPeriod = 288) {
+    let periods = preparedMeshParts.get(mesh);
+    if (!periods) preparedMeshParts.set(mesh, periods = new Map());
+    if (periods.has(roofPeriod)) return periods.get(roofPeriod);
+    const parts = mesh.pieces ? [
+      ...mesh.pieces.map((edge, i) => ({ ...mesh, faces: mesh.faces.filter(f => f.piece === i), edge, noInk: true })).filter(p => p.faces.length),
+      { ...mesh, faces: mesh.faces.filter(f => f.debris), ground: true, noInk: true },
+    ] : mesh.edges ? mesh.edges.map(edge => ({ ...mesh,
+      faces: mesh.faces.filter(f => f.edge === edge.index), edge, noInk: true })).filter(p => p.faces.length) : [mesh];
+    const prepared = parts.map(part => ({ part,
+      faces: part.authored ? part.faces : atlasFaces(part, roofPeriod) }));
+    periods.set(roofPeriod, prepared);
+    return prepared;
+  }
   const DOOR={width:10,height:13,margin:4,reach:192};
   // Points and streets share the unrotated map projection. Winding determines
   // the outward wall normal; a street behind the wall cannot select it.
@@ -1897,8 +1916,7 @@
     // while the player is inside) is one object PER WALL (interiorGeometry's
     // `edge`), each sorted at its own wall — see place(). Wreck plinths
     // likewise split raised sections from their ground decal.
-    const parts=cached.pieces?[...cached.pieces.map((edge,i)=>({...cached,faces:cached.faces.filter(f=>f.piece===i),edge,noInk:true})).filter(p=>p.faces.length),
-      {...cached,faces:cached.faces.filter(f=>f.debris),ground:true,noInk:true}]:cached.edges?cached.edges.map((edge)=>({...cached,faces:cached.faces.filter(f=>f.edge===edge.index),edge,noInk:true})).filter(p=>p.faces.length):[cached];
+    const parts=preparedParts(cached,texture.roofPeriod);
     let first=null;const placed=[];
     for(const part of parts){const mesh=place(part);placed.push(mesh);first=first||mesh;}
     // NO INK INSIDE (owner, Oct 2026): the walls, drawn as parts of their
@@ -1909,8 +1927,9 @@
     if(cached.pieces){const faces=placed.flatMap(p=>p.faces);
       return {...first,faces,roofTriangles:faces.filter(f=>f.kind==='roof').length,wallTriangles:faces.filter(f=>f.kind==='wall').length,trimTriangles:faces.filter(f=>f.kind==='trim').length};}
     return first;
-    function place(cached){
-    const mesh={...cached,faces:cached.authored?cached.faces:atlasFaces(cached,texture.roofPeriod)};
+    function place(prepared){
+    const cached=prepared.part;
+    const mesh={...cached,faces:prepared.faces.map(face=>({...face,points:face.points.map(p=>({...p}))}))};
     mesh.roofTriangles=mesh.faces.filter(f=>f.kind==='roof').length;mesh.wallTriangles=mesh.faces.filter(f=>f.kind==='wall').length;mesh.trimTriangles=mesh.faces.filter(f=>f.kind==='trim').length;
     mesh.key=key;mesh.footprint=pts;mesh.role=recipe.role;mesh.x=left;mesh.y=top;mesh.smoke=recipe.smoke?cached.chimneyMouths||[]:[];state.buildings.push(mesh);if(key&&mesh.faces.length)state.keys.add(key);
     // A wall's sort point is its baseline's point in the player's screen

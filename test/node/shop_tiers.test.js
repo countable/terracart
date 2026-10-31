@@ -55,8 +55,9 @@ test('trader stock: every non-gear item is available at exactly its own tier', (
   for (const item of Object.values(ITEM_BY_ID)) {
     const tier = Shops.itemTier(item.id);
     if (tier < 1 || tier > Shops.SHOP_TIER_MAX) continue;
-    // A live animal is never a bag item (Inventory.add refuses kind 'animal'), so the trader never offers one.
-    const offered = !equipment.has(item.id) && !item.progressionOnly && item.kind !== 'animal';
+    // A live animal is never a bag item (Inventory.add refuses kind 'animal'), so the trader never offers one;
+    // a find-only item (the serpent idols) is never a ware.
+    const offered = !equipment.has(item.id) && !item.progressionOnly && !item.findOnly && item.kind !== 'animal';
     assert.eq(Shops.traderStock(tier).includes(item.id), offered, item.id);
     if (offered) assert.eq(Shops.traderPrices()[item.id], itemValue(item.id), item.id + ' value');
   }

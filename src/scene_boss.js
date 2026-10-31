@@ -8,18 +8,26 @@
 //
 // THE SERPENT (a Serpent Idol's boss). Raised by _useSerpentIdol — never on
 // the Major-and-Medium road group's kerb or junctions (SERPENT_ROAD_BITS) —
-// it is one creature per piece (enemy_roster.js serpent_head / _body /
-// _tail, ids `<key>_head`, `<key>_c<i>`, `<key>_tail`): the head snakes
-// about the player inside the row's leashCells, the coils and the tail tip
-// follow the head's own trail, and every coil touching the player bites for
-// the row's dmg once a damageIntervalSeconds. Coils are struck like any foe
-// (10 hp; a slain coil is a save.caught id, and the chain closes up behind
-// it); the head and tail tip are untargetable. When only they are left it
-// dies: the idol is consumed and a T4 boss chest (loot.js chestThemeFor —
-// equipment or a unique relic) is left where the head fell. The chest is a
-// save record (save.bossChests) until opened, so a tile rebuild keeps it.
-// The pieces are never saved: a reload re-raises the survivors of a fight
-// still on the clock beside the player.
+// at the IDOL'S TIER (items.js SERPENT_IDOLS → the record's `tier` → the
+// rows of that rung, EnemyRoster.SERPENT_TIERS / serpentKind). It is one
+// creature per piece (`bossPart` head / coil / tail; ids `<key>_head`,
+// `<key>_c<i>`, `<key>_tail`): the head snakes about the player inside the
+// row's leashCells, the coils and the tail tip follow the head's own trail,
+// and every coil touching the player bites for the row's dmg once a
+// damageIntervalSeconds. Coils are struck like any foe (a slain coil is a
+// save.caught id, and the chain closes up behind it); the tail tip is
+// untargetable. The HEAD is struck too, but its fall is not a kill
+// (_bossPieceFelled, from app.js _damageEnemy): it stays on the map, beaten
+// (`_beaten` — Combat.isConcealed takes it out of every further strike), and
+// the serpent moves at KINDS.serpent.headBeatenSpeedMul of its pace for the
+// rest of the fight; the record remembers it (`headBeaten`) across a reload.
+// When only the head and the tail tip are left it dies: the idol is consumed
+// and a boss chest of the serpent's tier (loot.js chestThemeFor — equipment
+// or a unique relic) is left where the head fell, with no name: a plain
+// chest, never a point of interest with a label. The chest is a save record
+// (save.bossChests) until opened, so a tile rebuild keeps it. The pieces are
+// never saved: a reload re-raises the survivors of a fight still on the clock
+// beside the player.
 //   SHARED (multiplayer.js `boss` frames): the starter's device drives the
 // head and sends its pose; a nearby player ADOPTS the fight (_adoptSerpent —
 // the same key, start and piece ids) and their copy's head follows that
@@ -30,7 +38,9 @@
 // ends, the feed stops and every adopted copy resets (BossEncounters staleMs).
 const SERPENT_ROAD_BITS = () => WorldGen.ROAD_CLASS_MAJOR_BAND | WorldGen.ROAD_CLASS_MAJOR_BUFFER
   | WorldGen.ROAD_CLASS_JUNCTION_EXCLUDE;
-const BOSS_CHEST_TIER = 4;
+// The tier of a boss chest recorded before the serpent ladder (the one
+// serpent's T4 hoard): a record without `tier`.
+const LEGACY_BOSS_CHEST_TIER = 4;
 class SceneBoss {
   _tickBossEncounters(now = Date.now()) {
     const ended = BossEncounters.abandon(this.save,
@@ -49,9 +59,9 @@ class SceneBoss {
     }
   }
 
-  // Why the idol cannot be raised here and now, or null.
-  _serpentIdolRefusal() {
-    if (Inventory.count(this.save, 'serpent_idol') < 1) return 'No idol';
+  // Why the idol `id` cannot be raised here and now, or null.
+  _serpentIdolRefusal(id) {
+    if (!(ITEM_BY_ID[id]?.bossTier > 0) || Inventory.count(this.save, id) < 1) return 'No idol';
     if (Combat.playerDowned(this.save.energy)) return 'Too weak';
     if ((this.depth || 0) === Arena.DEPTH) return 'Not in the arena';
     if (BossEncounters.list(this.save).some(e => e.kind === 'serpent')) return 'The serpent is risen';
@@ -60,13 +70,14 @@ class SceneBoss {
     return null;
   }
 
-  // The idol's use (items.js CONSUMABLE_SPEC.serpent_idol `method`). Raising
-  // never spends it; _serpentDefeated does.
-  _useSerpentIdol() {
-    const why = this._serpentIdolRefusal();
+  // An idol's use (items.js CONSUMABLE_SPEC `method`, handed the idol's id):
+  // the serpent of the idol's tier. Raising never spends it; _serpentDefeated
+  // does.
+  _useSerpentIdol(id = serpentIdolId(1)) {
+    const why = this._serpentIdolRefusal(id);
     if (why) { this.flashAtPlayer(kept(why, 'idol')); return false; }
     const now = Date.now(), key = `serpent_${now}`;
-    if (!BossEncounters.start(this.save, 'serpent', key, { depth: this.depth || 0 }, now)) return false;
+    if (!BossEncounters.start(this.save, 'serpent', key, { depth: this.depth || 0, tier: ITEM_BY_ID[id].bossTier }, now)) return false;
     this._spawnSerpent(key);
     persistSave(this.save);
     this.flashAtPlayer('The serpent rises!');
@@ -78,8 +89,9 @@ class SceneBoss {
     const prefix = `${key}_`, out = { head: null, tail: null, coils: [] };
     for (const entry of WorldGen.tileCache.values()) for (const c of entry.creatures || []) {
       if (!String(c.id).startsWith(prefix)) continue;
-      if (c.kind === 'serpent_head') out.head = c;
-      else if (c.kind === 'serpent_tail') out.tail = c;
+      const part = EnemyRoster.get(c.kind)?.bossPart;
+      if (part === 'head') out.head = c;
+      else if (part === 'tail') out.tail = c;
       else out.coils.push(c);
     }
     out.coils.sort((a, b) => a.segIndex - b.segIndex);
@@ -87,10 +99,14 @@ class SceneBoss {
   }
 
   // Seat the head SPAWN_CELLS from the player at a random bearing, the body
-  // laid straight out behind it; slain coils (save.caught) stay slain.
-  // `at` ({ x, y, h }) seats the head on a fed pose (an adopted fight).
+  // laid straight out behind it, in the rows of the record's tier; slain
+  // coils (save.caught) stay slain and a beaten head (record.headBeaten)
+  // stays beaten. `at` ({ x, y, h }) seats the head on a fed pose (an
+  // adopted fight).
   _spawnSerpent(key, at = null) {
     const row = BossEncounters.KINDS.serpent, cellM = this.cellM;
+    const record = BossEncounters.get(this.save, 'serpent', key), tier = record?.tier || 1;
+    const kindOf = part => EnemyRoster.serpentKind(tier, part);
     const p = playerWorldM(this), entry = this._serpentHostEntry(p);
     if (!entry) return false;
     const a = at ? at.h + Math.PI : Math.random() * Math.PI * 2, r = row.spawnCells * cellM;
@@ -102,13 +118,14 @@ class SceneBoss {
       entry.creatures.push(WorldGen.makeCreature(kind, hx + back.x * d, hy + back.y * d, id,
         { shiny: false, boss: key, segIndex: i, _heading: heading, _sharedId: true, ...extra }));
     };
-    piece('serpent_head', `${key}_head`, -1, 0, { _trail: [{ x: hx, y: hy }, { x: hx, y: hy }, {
+    piece(kindOf('head'), `${key}_head`, -1, 0, { _trail: [{ x: hx, y: hy }, { x: hx, y: hy }, {
       x: hx + back.x * (row.coils + 2) * row.spacingCells * cellM,
-      y: hy + back.y * (row.coils + 2) * row.spacingCells * cellM }] });
+      y: hy + back.y * (row.coils + 2) * row.spacingCells * cellM }],
+      ...(record?.headBeaten ? { _beaten: true, _hp: 0 } : {}) });
     for (let i = 0; i < row.coils; i++) {
-      piece('serpent_body', `${key}_c${i}`, i, (i + 1) * row.spacingCells * cellM, { _splitShare: 1 / row.coils });
+      piece(kindOf('coil'), `${key}_c${i}`, i, (i + 1) * row.spacingCells * cellM, { _splitShare: 1 / row.coils });
     }
-    piece('serpent_tail', `${key}_tail`, row.coils, (row.coils + 1) * row.spacingCells * cellM);
+    piece(kindOf('tail'), `${key}_tail`, row.coils, (row.coils + 1) * row.spacingCells * cellM);
     return true;
   }
 
@@ -140,17 +157,18 @@ class SceneBoss {
   }
 
   // ANOTHER PLAYER'S SERPENT (multiplayer.js onBoss): `pose` is its head in
-  // this save's world metres ({ x, y, h }), `startedAt` the starter's clock.
-  // The first frame adopts the fight (BossEncounters start, own: false) and
-  // raises this copy on the pose; every frame refreshes the feed. Refused
-  // while this player has a serpent of their own up, or after it is over.
-  _adoptSerpent(key, startedAt, depth, pose, now = Date.now()) {
+  // this save's world metres ({ x, y, h }), `startedAt` the starter's clock,
+  // `tier` its rung. The first frame adopts the fight (BossEncounters start,
+  // own: false) and raises this copy on the pose; every frame refreshes the
+  // feed. Refused while this player has a serpent of their own up, or after
+  // it is over.
+  _adoptSerpent(key, startedAt, depth, pose, now = Date.now(), tier = 1) {
     if ((depth || 0) !== (this.depth || 0)) return false;
     let record = BossEncounters.get(this.save, 'serpent', key);
     if (!record) {
       if (BossEncounters.list(this.save, now).some(e => e.kind === 'serpent')) return false;
       if (now >= startedAt + BossEncounters.KINDS.serpent.durationMs) return false;
-      record = BossEncounters.start(this.save, 'serpent', key, { own: false, depth: depth || 0 }, startedAt);
+      record = BossEncounters.start(this.save, 'serpent', key, { own: false, depth: depth || 0, tier }, startedAt);
       if (!record) return false;
       persistSave(this.save);
     }
@@ -172,7 +190,7 @@ class SceneBoss {
       head._goal = null;
       if (mode === 'encircle') head._orbitDirection = Math.random() < 0.5 ? -1 : 1;
     }
-    const leash = EnemyRoster.get('serpent_head').movement.leashCells * cellM;
+    const leash = EnemyRoster.get(EnemyRoster.serpentKind(record.tier || 1, 'head')).movement.leashCells * cellM;
     if (Math.hypot(head.x - p.x, head.y - p.y) > leash) {
       head._goal = { ...p };
       head._goalUntil = t;
@@ -212,7 +230,7 @@ class SceneBoss {
     const caught = setOf(this.save.caught || []);
     const coils = pieces.coils.filter(c => !caught.has(c.id) && !(c._hp <= 0));
     if (!coils.length) { this._serpentDefeated(key, pieces); return; }
-    const head = pieces.head, row = EnemyRoster.get('serpent_head');
+    const head = pieces.head, row = EnemyRoster.get(head.kind);
     const p = playerWorldM(this);
     // Keep every piece in the player's tile entry (see _serpentHostEntry).
     const host = this._serpentHostEntry(p);
@@ -237,7 +255,7 @@ class SceneBoss {
       head._heading += Math.max(-maxTurn, Math.min(maxTurn, turn));
       const charging = head._movementMode === 'charge';
       const step = row.movement.speedMetersPerSecond * dt * Combat.paceMul(head)
-        * (charging ? kind.chargeSpeedMul : 1);
+        * (charging ? kind.chargeSpeedMul : 1) * (head._beaten ? kind.headBeatenSpeedMul : 1);
       head.x += Math.cos(head._heading) * step;
       head.y += Math.sin(head._heading) * step;
     }
@@ -272,7 +290,7 @@ class SceneBoss {
     }
     // THE BITE: each coil on the player, once a damageIntervalSeconds.
     if (Combat.playerDowned(this.save.energy) || this._storyPause) return;
-    const reach = kind.touchCells * cellM, coil = EnemyRoster.get('serpent_body');
+    const reach = kind.touchCells * cellM, coil = EnemyRoster.get(coils[0].kind);
     for (const c of coils) {
       if (Math.hypot(c.x - p.x, c.y - p.y) > reach || t < (c._touchNextT || 0)) continue;
       c._touchNextT = t + coil.damageIntervalSeconds * 1000;
@@ -280,16 +298,35 @@ class SceneBoss {
     }
   }
 
+  // THE HEAD STRUCK TO ZERO (app.js _damageEnemy, before resolveDefeat) is
+  // beaten, not slain: it stays at the front of the chain, takes nothing
+  // more (Combat.isConcealed), and the serpent slows (KINDS.serpent
+  // headBeatenSpeedMul) until its last coil falls. Any other piece — and a
+  // head already beaten, which a late blow may still reach — returns true
+  // only for the head, so no serpent head is ever caught or announced as a
+  // kill. The record keeps `headBeaten` for a reload (_spawnSerpent).
+  _bossPieceFelled(c) {
+    if (EnemyRoster.get(c?.kind)?.bossPart !== 'head') return false;
+    if (c._beaten) return true;
+    c._beaten = true;
+    const record = BossEncounters.get(this.save, 'serpent', c.boss);
+    if (record) { record.headBeaten = true; persistSave(this.save); }
+    this.flashAtPlayer('The serpent\'s head drops. It slows.');
+    return true;
+  }
+
   // Only the head and tail tip are left: the serpent dies. The starter's idol
-  // is spent, the record goes, and a hoard is left where the head fell — one
-  // for every player who saw it die, in their own save.
+  // (the record's tier's) is spent, the record goes, and a chest of that tier
+  // is left where the head fell — one for every player who saw it die, in
+  // their own save.
   _serpentDefeated(key, pieces) {
-    const head = pieces.head, own = BossEncounters.get(this.save, 'serpent', key)?.own === true;
+    const head = pieces.head, record = BossEncounters.get(this.save, 'serpent', key);
+    const tier = record?.tier || 1;
     this._resetSerpent(key);
     delete BossEncounters.store(this.save, 'serpent')?.[key];
-    if (own) Inventory.remove(this.save, 'serpent_idol', 1);
+    if (record?.own === true) Inventory.remove(this.save, serpentIdolId(tier), 1);
     const id = `${key}_hoard`;
-    (this.save.bossChests ||= {})[id] = { x: head.x, y: head.y, depth: this.depth || 0 };
+    (this.save.bossChests ||= {})[id] = { x: head.x, y: head.y, depth: this.depth || 0, tier };
     this._ensureBossChests();
     persistSave(this.save);
     this.buildInventoryDOM?.();
@@ -297,7 +334,9 @@ class SceneBoss {
   }
 
   // Seat every unopened boss chest of this floor into its loaded tile; an
-  // opened one's record goes.
+  // opened one's record goes. A plain chest at the serpent's tier: no `name`
+  // and no poiClass, so render.js hangs no label over it and the map never
+  // treats it as a point of interest.
   _ensureBossChests() {
     const chests = this.save.bossChests;
     if (!chests) return;
@@ -308,8 +347,8 @@ class SceneBoss {
       const tile = worldMetersToTile(this, rec.x, rec.y);
       const entry = WorldGen.tileCache.get(WorldGen.tileKey(tile.tx, tile.ty));
       if (!entry || entry.objects?.some(o => o.id === id)) continue;
-      (entry.objects ||= []).push({ kind: 'chest', id, x: rec.x, y: rec.y, name: 'Serpent hoard',
-        bossChest: true, chestTopUp: true, tierSeed: BOSS_CHEST_TIER, _synthetic: true, playerOwned: true });
+      (entry.objects ||= []).push({ kind: 'chest', id, x: rec.x, y: rec.y, bossChest: true, chestTopUp: true,
+        tierSeed: rec.tier || LEGACY_BOSS_CHEST_TIER, _synthetic: true, playerOwned: true });
     }
   }
 }

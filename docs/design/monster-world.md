@@ -100,7 +100,7 @@ the shared placement gate still excludes their unsafe ground. These surface foes
 750 m of the starter anchor, through the existing Home safety rules. Road,
 private-land and occupied-cell exclusions still apply.
 
-The giant serpent remains a draft prototype and has no live spawn entry.
+The serpent has no live spawn entry: it is raised only by a Serpent Idol, one per material tier (`docs/design/combat.md`, Boss encounters).
 
 Quarries are peaceful: no quarry variant has enemies, lava, fire vents,
 spikes or cave-ins on the surface (`docs/design/zone-variants.md`). Cyclic

@@ -155,7 +155,8 @@
     // flowers stay find-only).
     seed:   () => (typeof BUY_LIST !== 'undefined' ? BUY_LIST.slice() : []),
     supply: () => ['wood', 'rubble', 'torch', 'rope', 'trap_disarm_kit', 'throwing_spear', 'javelin', 'scarecrow', 'barricade', 'magic_trap', 'sugar_potion', 'renovation_permit'],
-    potion: () => ITEMS.filter(item => item.kind === 'magic' && !item.uniqueJewelry && !item.progressionOnly).map(item => item.id),
+    // A find-only magic item (items.js `findOnly` — the serpent idols) is never on a shelf.
+    potion: () => ITEMS.filter(item => item.kind === 'magic' && !item.uniqueJewelry && !item.progressionOnly && !item.findOnly).map(item => item.id),
     pet:    () => ITEMS.filter(it => it.petAccessory).map(it => it.id),
     // The bookshop's line: only the Book, at the price ladder (shops_math.js listPrice).
     book:   () => ['book'],
@@ -368,7 +369,7 @@
       // Live animals are catalog rows for the pet UI, never a bag item
       // (Inventory.add refuses kind 'animal'): offered, the barter would take
       // the ask and hand over nothing.
-      prices = Object.fromEntries(ITEMS.filter(item => !item.progressionOnly && item.kind !== 'animal' && !gearIds.has(item.id)).map(item => [item.id, itemValue(item.id)]));
+      prices = Object.fromEntries(ITEMS.filter(item => !item.progressionOnly && !item.findOnly && item.kind !== 'animal' && !gearIds.has(item.id)).map(item => [item.id, itemValue(item.id)]));
     }
     return prices;
   }

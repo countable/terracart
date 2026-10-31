@@ -299,6 +299,8 @@ access or tile lifecycle mechanics.
   remains safe. Cardinal approaches, the focus, routes, occupied ground and
   landmark halos stay dry; ambient dressing respects the area reservation.
   Dungeon mazes on floors 2–3 repeat the reviewed 34 × 33 braided wall mask
+  (`CaveAreas.mazeBraid`, the one maze generator — the grove temple's maze
+  trial draws its own small braid with it, [combat](combat.md))
   (spacing 3, loops 77%) in canonical anchor coordinates across eligible grove
   coverage. Fill is diggable `CAVE_WALL`, not rock objects. Clipped boundaries,
   tile seams, routes, landmark approaches and the focus stay open; shortest
@@ -736,7 +738,14 @@ access or tile lifecycle mechanics.
   common rocks, flint and rubble on the road and first verge row; no outer rock
   decorations. Grassy Lane fills eligible road cells and two verge
   cells on each side with harvestable long grass only. Grass uses ordinary clearing and regrowth, deterministic cell IDs, and
-  the shared land/occupancy gates. Old Growth Path has
+  the shared land/occupancy gates. One pet hides in the grass of every Grassy
+  Lane per owning tile (the row's `hiddenPets`: a cat, dog or chicken chosen
+  off the street key; fast fauna cannot seat on the Passing verge). The
+  dressing seats it in a grass cell before the grass rows walk, as a
+  `guards` record that `spawnInTile` lays on the zone guards' lane; it is
+  `hidden` (`HiddenObjects`: still and invisible until the feet reach a
+  neighbouring cell, remembered in `save.hiddenDiscoveries`), and once
+  caught its seat stays empty through `save.caught`. Old Growth Path has
   mature trees and mushrooms, with no generated stumps or bushes; Haunt lays dark cobbles with the shared dead-tree art,
   headstones and mushrooms. A deterministic third of Haunt headstones have a
   one-cell approach trigger: `PressureTraps` reuses its ghost-plate logic through
@@ -1072,6 +1081,12 @@ access or tile lifecycle mechanics.
 - Yield during tile-wide cell/object/polygon passes in `rasterizeTileSteps`,
   including helpers via `yield*`. Keep unsliced post-rasterize work linear.
   A profile's worst-block label identifies the block ending at that yield.
+  Surface spawn passes prepare shore/yard treasure eligibility in bounded
+  chunks and yield after resident generation before publishing `_spawned`.
+  Treasure selection still follows live Home/starter overlays and keeps the
+  original seeded draw order. The final live-state commit remains atomic;
+  `spawn commit …` profile counters split its NPC, starter, treasure, saved
+  object, fauna, cull and Home work so a remaining stall names its owner.
 - Park and beach coverage unions scan conservative polygon bounds including
   their fringe. Footprint cleanup uses numeric local cell keys; preserve its
   insertion, component traversal and bridge tie order because later ownership

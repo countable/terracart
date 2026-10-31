@@ -547,6 +547,32 @@ function furnitureFrame(itemOrId) {
   return spec?.tierSheetFrame?.[itemTierOf(id)] ?? spec?.frame ?? 0;
 }
 
+// THE SERPENT IDOLS (scene_boss.js _useSerpentIdol): one per rung of the
+// serpent ladder — EnemyRoster.SERPENT_TIERS owns tier, material and name —
+// each raising its tier's serpent and, when it falls, spent for a chest of
+// that tier. A FIND and never a ware (owner, Oct 2026): `findOnly` keeps them
+// off every shop shelf and barter list (shops.js) and out of the fort's slots
+// (scene_venues.js), and `dropWeight` keeps them scarce beside their tier's
+// other magic (rarity.js pickItemInClass, chest_themes.js members). The Wood
+// idol is also the trail's fifth prize (trail.js FIXED_PRIZES). Saves from
+// before the ladder held a 'serpent_idol': save.js rewrites it as the Wood one.
+const SERPENT_IDOL_DROP_WEIGHT = 0.15;
+const SERPENT_IDOL_PRICES = { 1: 45, 2: 70, 3: 110, 4: 180, 5: 280, 6: 450, 7: 800 };
+const SERPENT_IDOL_FLAVOUR = {
+  wood: 'A serpent carved in dark wood, cold and heavy. Something vast sleeps in it, and it is not friendly.',
+  copper: 'A copper serpent, green at the joints. Whatever sleeps in it bites harder than the wooden one.',
+  iron: 'An iron serpent, cold enough to ache in the hand. It sleeps lightly.',
+  gold: 'A golden serpent, far heavier than it looks. What sleeps in it has grown fat on its hoard.',
+  platinum: 'A platinum serpent with a faint lavender sheen. It is not asleep so much as waiting.',
+  crimson: 'A crimson serpent, warm to the touch. Something in it is hungry.',
+  frost: 'A serpent of blue ice that never melts. What sleeps in it has slept since the first winter.',
+};
+const SERPENT_IDOLS = (typeof EnemyRoster !== 'undefined' ? EnemyRoster.SERPENT_TIERS : []).map(t => ({
+  id: `${t.material}_serpent_idol`, name: `${t.name} Serpent Idol`, kind: 'magic', baseTier: t.tier,
+  boss: 'serpent', bossTier: t.tier, material: t.material, dropWeight: SERPENT_IDOL_DROP_WEIGHT, findOnly: true }));
+// The idol that raises a serpent of `tier` (the Wood idol for an unknown tier).
+function serpentIdolId(tier) { return (SERPENT_IDOLS.find(i => i.bossTier === tier) || SERPENT_IDOLS[0])?.id; }
+
 const MINERAL_ICON_SHEET = {
   ...Object.fromEntries(Object.keys(FURNITURE).map(id => [id, { sheet: 'furniture_icons', get frame() { return furnitureFrame(id); } }])),
   field_scope: { sheet: 'icon_field_scope', frame: 0 },
@@ -665,7 +691,7 @@ const MINERAL_ICON_SHEET = {
   bones_scroll: { sheet: 'icon_bones_scroll', frame: 0 },
   wraith_scroll: { sheet: 'icon_wraith_scroll', frame: 0 },
   raven_scroll:  { sheet: 'icon_raven_scroll', frame: 0 },
-  serpent_idol:  { sheet: 'icon_serpent_idol', frame: 0 },
+  ...Object.fromEntries(SERPENT_IDOLS.map(i => [i.id, { sheet: `icon_${i.id}`, frame: 0 }])),
   // Potion of Blight — the red flask of the next row down (row 3, y=48:
   // frame 17), so it doesn't read as the Speed potion's red beside it.
   blight_potion: { sheet: 'icon_potions', frame: 17 },
@@ -700,8 +726,11 @@ const MINERAL_ICON_SHEET = {
   vampire_ring:      { sheet: 'icon_rings',   frame: 18 },
   // The banded ring with its pale blue lens (Rings.png row 2).
   xray_ring:         { sheet: 'icon_rings',   frame: 12 },
-  // The rose band trailing a flaming star (Rings.png row 3).
+  // The rose band trailing a flaming star (Rings.png row 3) — the Meteor
+  // Ring is the same band in the sheet's outlined column, as the Ring of
+  // Gathering (7) and Perception (10) share theirs; the tier badge tells them.
   comet_ring:        { sheet: 'icon_rings',   frame: 14 },
+  meteor_ring:       { sheet: 'icon_rings',   frame: 17 },
   regeneration_amulet:      { sheet: 'icon_amulets', frame: 10 },
   vigor_amulet:      { sheet: 'icon_amulets', frame: 17 },
   sleep_powder:  { sheet: 'icon_potions', frame: 3 }, // scoop of violet dream dust
@@ -924,7 +953,6 @@ const BASE_TIER = {
   blight_potion: 3,
   // The Spirit Raven: Blight's tier — see its PRICES row for the comparison.
   raven_scroll: 2,
-  serpent_idol: 4,
   bones_scroll: 3, wraith_scroll: 4,
   dragon_powder: 4, flight_potion: 4, shrinking_potion: 4, giant_potion: 4, fire_resistance_potion: 4,
   // Revival: getting up where you fell instead of walking Home at a crawl.
@@ -955,7 +983,7 @@ const BASE_TIER = {
   poison_flask: 2,
   // Unique jewelry is intrinsically magical, never a metal rung.
   portal_stone: 3, depth_key: 4,
-  stealth_ring: 2, perception_ring: 2, coin_ring: 2, invisibility_ring: 4, ember_ring: 3, vampire_ring: 4, xray_ring: 3, comet_ring: 5, regeneration_amulet: 3, vigor_amulet: 5,
+  stealth_ring: 2, perception_ring: 2, coin_ring: 2, invisibility_ring: 4, ember_ring: 3, vampire_ring: 4, xray_ring: 3, meteor_ring: 3, comet_ring: 6, regeneration_amulet: 3, vigor_amulet: 5,
   // Tomes: a tome's tier is one above the potion it channels (the books
   // group's top-tier pick makes each tier's chest hand its own tome).
   tome_reach: 3, tome_raven: 4, tome_thunder: 5, tome_fire_wall: 4,
@@ -1183,9 +1211,8 @@ const ITEMS = [
   { id: 'bones_scroll', name: 'Scroll of Bones', kind: 'magic', scroll: true },
   { id: 'wraith_scroll', name: 'Scroll of the Wraith', kind: 'magic', scroll: true },
   { id: 'raven_scroll',  name: 'Scroll of the Raven', kind: 'magic', scroll: true },
-  // The trail's fifth prize (trail.js FIXED_PRIZES), never a find or a
-  // ware: `progressionOnly` keeps it out of every loot pool and the trailer.
-  { id: 'serpent_idol', name: 'Serpent Idol', kind: 'magic', progressionOnly: true },
+  // The serpent idols (SERPENT_IDOLS above): scarce finds, never wares.
+  ...SERPENT_IDOLS,
   // Drunk while DOWN (zero energy) to get back up on the spot — see
   // REVIVE_POTION_FRAC and drinkRevivePotion in app.js.
   { id: 'revival_potion',       name: 'Potion of Revival',       kind: 'magic', potion: true },
@@ -1221,6 +1248,7 @@ const ITEMS = [
   { id: 'ember_ring',        name: 'Ember Ring',            kind: 'unique_relic', uniqueJewelry: true },
   { id: 'vampire_ring',      name: 'Vampire Ring',          kind: 'unique_relic', uniqueJewelry: true },
   { id: 'xray_ring',         name: 'X-Ray Ring',            kind: 'unique_relic', uniqueJewelry: true },
+  { id: 'meteor_ring',       name: 'Meteor Ring',           kind: 'unique_relic', uniqueJewelry: true },
   { id: 'comet_ring',        name: 'Comet Ring',            kind: 'unique_relic', uniqueJewelry: true },
   { id: 'regeneration_amulet',      name: 'Amulet of Regeneration', kind: 'unique_relic', uniqueJewelry: true },
   { id: 'vigor_amulet',      name: 'Amulet of Vigour',        kind: 'unique_relic', uniqueJewelry: true },
@@ -1731,14 +1759,15 @@ const CONSUMABLE_SPEC = {
     get: 'A cold shade slips from the ink to hunt your foes.',
     used: { title: 'You read the Scroll of the Wraith', body: (scene, spec) => spec.get },
   },
-  // THE SERPENT IDOL raises a boss (scene_boss.js, BossEncounters kind
-  // 'serpent'). Raising it does not spend it: a fight that resets leaves the
-  // idol in the bag; only the serpent's death consumes it.
-  serpent_idol: {
+  // THE SERPENT IDOLS raise a boss (scene_boss.js, BossEncounters kind
+  // 'serpent') of the idol's tier. Raising one does not spend it: a fight
+  // that resets leaves the idol in the bag; only the serpent's death consumes
+  // it. `method` is handed the idol's id (scene_consumables.js _useConsumable).
+  ...Object.fromEntries(SERPENT_IDOLS.map(i => [i.id, {
     method: '_useSerpentIdol',
-    verb: 'Raise', title: 'Raise the Serpent Idol?',
-    get: 'A great serpent coils out of the earth. Cut it down coil by coil before it slips away.',
-  },
+    verb: 'Raise', title: `Raise the ${i.name}?`,
+    get: `The ${i.name.replace(/ Idol$/, '')} coils out of the earth. Cut it down coil by coil before it slips away.`,
+  }])),
   raven_scroll: {
     durationMs: _CONSUMABLE_MINUTE_MS, buff: 'raven',
     verb: 'Read', title: 'Read the Scroll of the Raven?',
@@ -1998,7 +2027,8 @@ const PRICES = {
   shielding_potion: 250,  // T5 — half monster damage for 1 min
   blight_potion: 90,   // T3 — 1 min of a 1.5-cell aura at app.js's BLIGHT_DPS
   raven_scroll: 55, // T2 — one minute of a slime-strength ally
-  serpent_idol: 180, // T4 — a boss and its hoard; never sold (progressionOnly)
+  // The serpent idols: a boss and its chest at the idol's tier; never sold (findOnly).
+  ...Object.fromEntries(SERPENT_IDOLS.map(i => [i.id, SERPENT_IDOL_PRICES[i.bossTier]])),
   bones_scroll: 90, // T3 — one minute of a skeleton-strength ally
   wraith_scroll: 160, // T4 — one minute of a ghost-strength ally
   revival_potion: 40,   // T3 — get up where you fell with 30% of the bar
@@ -2011,7 +2041,7 @@ const PRICES = {
                        //      effect, not the tier: the T2 butterfly is 100 too)
   frost_powder:  100,  // T3 — every enemy in reach chilled (slowed) for 30 s
   // Initial entries are replaced by fixed-tier equipment values after gearPrice is defined.
-  stealth_ring: 0, perception_ring: 0, coin_ring: 0, invisibility_ring: 0, ember_ring: 0, vampire_ring: 0, xray_ring: 0, comet_ring: 0, regeneration_amulet: 0, vigor_amulet: 0,
+  stealth_ring: 0, perception_ring: 0, coin_ring: 0, invisibility_ring: 0, ember_ring: 0, vampire_ring: 0, xray_ring: 0, meteor_ring: 0, comet_ring: 0, regeneration_amulet: 0, vigor_amulet: 0,
   rope:          15,   // T2 — one climb up or down a level, in place (cheaper than a sapphire's brief round trip); crafted from 5 long grass, so not a money pump
   trap_disarm_kit:      20,   // T2 — permanently removes a trap; situational, not a staple
   magic_trap:    40,   // T3 — one tier-3 shot and a staff beat's hold on one foe
@@ -2253,6 +2283,7 @@ const ITEM_EFFECTS = {
   xray_ring: 'Leaves and branches thin to glass. Whatever crouches in the hedge is plain to see.',
   vampire_ring: 'Each blow you strike by hand sends a fifth of its wound back into you. The dead have nothing left to give.',
   // The numbers live on UNIQUE_JEWELRY.comet_ring.cometAura; the Snuffed chip quotes them.
+  meteor_ring: 'A stone that fell burning rides at your heels and never touches you. The faster you run, the wider and hotter it burns, though what it lights soon gutters. Outrun the wind and it snuffs the flame for a while.',
   comet_ring: 'Fire rides at your heels and never touches you. The faster you run, the wider and hotter it burns. Outrun the wind and it snuffs the flame for a while.',
   invisibility_ring: 'The eye forgets the hand it almost saw.',
   regeneration_amulet: 'A slow warmth mends what the day takes.',
@@ -2296,7 +2327,7 @@ const ITEM_EFFECTS = {
   bones_scroll: 'The skull-marked parchment rattles softly in your hand.',
   wraith_scroll: 'Cold gathers around the shade stamped into the parchment.',
   raven_scroll: 'A pale wing stirs beneath the raven-marked ink.',
-  serpent_idol: 'A stone serpent, cold and heavy. Something vast sleeps in it, and it is not friendly.',
+  ...Object.fromEntries(SERPENT_IDOLS.map(i => [i.id, SERPENT_IDOL_FLAVOUR[i.material]])),
   thunder_scroll: 'A distant storm stirs between the inked lines.',
   revival_potion: 'A faint pulse waits to call a fallen traveller back.',
   resurrection_potion: 'A deep warmth waits where a fallen traveller’s heart has quieted.',
@@ -3042,6 +3073,11 @@ function steerEnergyCost(gear) {
   return Math.max(0.05, 1 - (t - 1) * (0.85 / 6)) * mul;
 }
 
+// The fire the Meteor and Comet rings share (UNIQUE_JEWELRY below).
+const COMET_AURA = Object.freeze({
+  maxMps: 8, minRadiusCells: 0.75, maxRadiusCells: 3, restIntensity: 0.15, maxDps: 6,
+  overspeedMs: 3000, snuffedMs: 10000, texture: 'aura_comet',
+});
 // Unique jewelry owns intrinsic effects instead of material tiers. Carrying
 // both variants takes the stronger effect; values never stack.
 const UNIQUE_JEWELRY = Object.freeze({
@@ -3056,19 +3092,23 @@ const UNIQUE_JEWELRY = Object.freeze({
   // X-RAY: sees through partial cover and into concealing cells (bushes,
   // hedges, trees — Visibility.hidden); cave rock still hides. Not Perception.
   xray_ring: Object.freeze({ xray: true }),
-  // THE COMET RING: a burning aura round the feet whose reach and bite grow
-  // with the wearer's own PACE (comet_ring.js CometRing.shape is the one
-  // reader of these numbers; scene_consumables.js _tickCometAura burns with
-  // it). The wearer is never inside their own fire. Faster than `maxMps` for
-  // `overspeedMs` running snuffs it for `snuffedMs` (the `cometSnuffed` row
-  // of Buffs.KINDS); then it relights by itself. `texture` is the ground
-  // disc scene_create.js bakes and render.js draws exactly as wide as it burns.
+  // THE METEOR RING (T3) and THE COMET RING (T6): a burning aura round the
+  // feet whose reach and bite grow with the wearer's own PACE
+  // (comet_ring.js CometRing.shape is the one reader of these numbers;
+  // scene_consumables.js _tickCometAura burns with it). The wearer is never
+  // inside their own fire. Faster than `maxMps` for `overspeedMs` running
+  // snuffs it for `snuffedMs` (the `cometSnuffed` row of Buffs.KINDS); then
+  // it relights by itself. `texture` is the ground disc scene_create.js
+  // bakes and render.js draws exactly as wide as it burns. The two share
+  // one fire (COMET_AURA); the Meteor's catches for `burnDurationMul` of
+  // the burning row's duration (Combat.ignite) — a third — and the Comet's
+  // for the whole of it. Worn together, the Comet's fire is the one that
+  // burns (jewelryCometAura takes the longer burn; nothing stacks).
   // `equippable`: worn by choice — the Equip / Unequip button under the
   // Relics tab (app.js syncEquipButton, Gear.wearJewelry); a ring just found
   // is worn until it is taken off (jewelryWorn).
-  comet_ring: Object.freeze({ equippable: true, cometAura: Object.freeze({
-    maxMps: 8, minRadiusCells: 0.75, maxRadiusCells: 3, restIntensity: 0.15, maxDps: 6,
-    overspeedMs: 3000, snuffedMs: 10000, texture: 'aura_comet' }) }),
+  meteor_ring: Object.freeze({ equippable: true, cometAura: Object.freeze({ ...COMET_AURA, burnDurationMul: 1 / 3 }) }),
+  comet_ring: Object.freeze({ equippable: true, cometAura: Object.freeze({ ...COMET_AURA, burnDurationMul: 1 }) }),
   regeneration_amulet: Object.freeze({ regenMs: 4000 }),
   vigor_amulet: Object.freeze({ regenMs: 2000 }),
 });
@@ -3123,13 +3163,15 @@ function jewelryMeleeLifesteal(save) {
   }
   return frac;
 }
-// The carried Comet Ring's aura spec (UNIQUE_JEWELRY.comet_ring.cometAura),
-// null without one. A second ring is the same fire: nothing stacks.
+// The worn Meteor or Comet Ring's aura spec (UNIQUE_JEWELRY `cometAura`),
+// null without one. Both worn, the longer burn (the Comet's) is the fire:
+// one aura, nothing stacks.
 function jewelryCometAura(save) {
+  let best = null;
   for (const [id, row] of Object.entries(UNIQUE_JEWELRY)) {
-    if (row.cometAura && jewelryWorn(save, id)) return row.cometAura;
+    if (row.cometAura && jewelryWorn(save, id) && (!best || row.cometAura.burnDurationMul > best.burnDurationMul)) best = row.cometAura;
   }
-  return null;
+  return best;
 }
 function jewelryRegenIntervalMs(save) {
   let interval = Infinity;

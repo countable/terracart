@@ -1011,7 +1011,10 @@ the surrounding grove’s shrub scale.
   per building: `getParameter` synchronizes the driver even without a pixel
   read. Wreck mesh keys round local footprint and road coordinates to four
   decimals, matching the ordinary mesh cache, so camera-origin subtraction
-  cannot retriangulate unchanged geometry while walking.
+  cannot retriangulate unchanged geometry while walking. Local eave/atlas splits
+  and per-wall part lists are retained with those meshes as well. Each rebuild
+  clones the mutable face/UV/projection state, so a palette or facade treatment
+  cannot leak into another building or a later camera crossing.
 
 Tests: `peek_drag`, `feet_anchor`, `shell_variants`, `rock_yield`, `health_bar`,
 `tilled_bed`, `still_frames`, `chunk_index`, `building_overlay`; also
@@ -1488,8 +1491,12 @@ continue using their existing saved identities. The full mapping is maintained
 in [low-poly building styles](../art/lowpoly-building-styles.md).
 
 Source images load through `ASSETS`. `AuthoredBuildings.prepare` bakes shared
-materials and roof palettes at scene startup; cell rebuilds clone cached faces
-and skin the procedural lot-outline shape with them: walls on the lot ring, the
+materials and roof palettes at scene startup. Each source atlas is read and
+indexed once per preparation batch; its roof colors reuse that index, and the
+scratch arrays are released after preparation. `test/authored-startup.cjs`
+checks runtime pixels, geometry and plaque parity against a source baseline,
+and reports source reads and preparation timings separately. Cell rebuilds
+clone cached faces and skin the procedural lot-outline shape with them: walls on the lot ring, the
 roof over the lot (`BuildingLowPoly.authoredOutline`, details in the styles
 doc). A shell fit inside a lot leaves its plank floor showing as a deck, so
 only wizard towers and the fort hall keep whole fitted shells. The depth

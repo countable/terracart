@@ -694,11 +694,13 @@
     return !!c && !c._disguiseRevealed && !!root.EnemyRoster?.get(c.kind)?.disguise;
   }
   // Out of reach of every strike, tap and shot (and dealt no damage): hidden,
-  // burrowed, disguised — or a roster row that is never struck at all (the
-  // serpent's head and tail tip, `untargetable`).
+  // burrowed, disguised, a roster row that is never struck at all (the
+  // serpent's tail tip, `untargetable`) — or a boss piece already BEATEN
+  // (`_beaten`: the serpent's head struck to zero, scene_boss.js
+  // _bossPieceFelled), which stays on the map but takes nothing more.
   function isConcealed(c) {
     return !!((c?.hidden || c?.stealthy) && !c._discovered) || isBurrowed(c) || isDisguised(c)
-      || !!root.EnemyRoster?.get(c?.kind)?.untargetable;
+      || !!root.EnemyRoster?.get(c?.kind)?.untargetable || !!c?._beaten;
   }
   // What a status may land on: a HOSTILE instance whether or not it is
   // charmed right now (isEnemy, with the charm's clock pushed past every
@@ -891,12 +893,16 @@
     if (!c?._burnState) return false;
     return c._burnState.remainingMs > (c._burnExposed ? 0 : Math.max(0, now - c._burnAtT));
   }
-  function ignite(c, now = performance.now(), by = 'fire') {
+  // `opts.durationMul` scales the row's duration for a weaker flame (the
+  // Meteor Ring's third, UNIQUE_JEWELRY.meteor_ring.cometAura
+  // burnDurationMul); a body already alight keeps the clock it has.
+  function ignite(c, now = performance.now(), by = 'fire', opts = {}) {
     if (root.Conditions?.fireImmune(c)) return false;
     if (!canBurn(c)) return false;
     if (c._burnState?.remainingMs > 0) { c._burnBy = by; return false; }
     const def = burnDef();
-    c._burnState = { remainingMs: def.durationMs, nextTickMs: def.intervalMs };
+    const mul = opts.durationMul > 0 ? opts.durationMul : 1;
+    c._burnState = { remainingMs: Math.max(1, Math.round(def.durationMs * mul)), nextTickMs: def.intervalMs };
     c._burnAtT = now;
     c._burnExposed = false;
     c._burnBy = by;
