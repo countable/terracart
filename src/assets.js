@@ -424,6 +424,8 @@ const ASSETS = {
   // worker + browser HTTP cache key on the full URL, so the new query forces
   // a fresh fetch instead of serving the stale image.
   house_wreck:      { unclaimedArt: true, kind: 'image', path: 'assets/Objects/Approved/house_wreck.png' },
+  // Existing Fae Mushroom Grove sheet: the red-cap house occupies the first 96px tile.
+  hive_mushroom: { kind: 'spritesheet', path: 'assets/Objects/Hives/mushroom-grove.png', frameWidth: 96, frameHeight: 96 },
   // BEGIN approved map-art states and contexts
   house_fort_unclaimed: {"kind": "image", "path": "assets/Objects/Approved/house_fort_unclaimed.png", "unclaimedArt": true},
   approved_wetland_reeds: {"kind": "spritesheet", "path": "assets/ArtTrials/RogueProps/flora-approved_wetland_reeds.png", "frameWidth": 16, "frameHeight": 16},

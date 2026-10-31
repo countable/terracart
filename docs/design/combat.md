@@ -6,6 +6,19 @@ mechanics.
 
 ## Combat, energy and Home
 
+- Roadside hives are wrecks occupied by a hostile building. `Hives.KINDS`
+  owns their HP, sprite and spawning rules. The Mushroom House has 120 HP
+  and births one Mushroom Monster per foreground minute, up to four living
+  children per house. Births obey the ordinary enemy spawn gate and live
+  collision checks. Only nearby, loaded surface hives advance; leaving the
+  area restarts the minute, and background time never produces catch-up waves.
+  Player swings use their ordinary weapon damage and cooldown. Damage and
+  destruction persist in `save.hives`; zero HP reveals the original repairable
+  wreck permanently. Existing children remain after the house falls. Claimed,
+  restored and player-owned houses cannot activate. Birth serials are saved so
+  a replacement never reuses a defeated creature's ID; these locally timed
+  children are not multiplayer-shared world creatures.
+
 - Creeping vines use the shared thorn contact rule: five energy on entry and
   one per second while touching, with flight immunity. They can be chopped
   with the normal axe/wood harvest interaction; clearing a cell is permanent.

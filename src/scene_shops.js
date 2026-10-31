@@ -237,6 +237,11 @@ class SceneShops {
     // Single-modal guard: if a confirmation modal is already open, ignore the tap so
     // rapid double-taps can't stack two modals or stale closures.
     if (document.getElementById('offer-modal') || document.getElementById('slots-modal')) return;
+    if (typeof Hives !== 'undefined' && Hives.active(this.save, house)) {
+      if (!Gear.meleeActive(this.save)) this.flash('Equip a melee weapon.', sx, sy);
+      else this.startCombat(house);
+      return;
+    }
     // Wreck → restoration modal (the player picks what it becomes —
     // Houses.BUILD_OPTIONS). Every tier-9 small house starts as a wreck (see
     // save.restoredHouses); the trailer is exempt and forts / castles never

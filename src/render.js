@@ -1835,11 +1835,19 @@ Render.buildingStoreysFor = (o, scene) => {
   return tier == null ? null : tier >= 2 ? 2 : 1;
 };
 Render.buildingStyleFor = (o, scene) => Render.buildingProfileFor(o, scene).style;
-Render.proceduralHouse = (o, scene) => Render.proceduralBuildings()
+Render.hiveSpec = (o, scene) => typeof Hives !== 'undefined' && Hives.isActive(scene.save, o)
+  ? Hives.KINDS[o.hive] : null;
+Render.hiveLabel = (o, scene) => {
+  const spec = Render.hiveSpec(o, scene);
+  return spec ? `${spec.name} · ${Math.ceil(Hives.health(scene.save, o))}/${spec.hp} HP` : null;
+};
+Render.proceduralHouse = (o, scene) => !Render.hiveSpec(o, scene) && Render.proceduralBuildings()
   && typeof BuildingOverlay !== 'undefined' && BuildingOverlay.enabled()
   && (scene.depth ?? 0) === 0 && scene._proceduralBuildings?.has(o.id);
 // Map sprites and restoration cards use the original role artwork.
 Render.houseTextureFrame = (role, o, scene, theme) => {
+  const hive = Render.hiveSpec(o, scene);
+  if (hive) return hive.frame;
   if (role === 'plain') return 'front';
   if (role === 'wizard') return 3;
   if (role === 'turret') return CastleStyles.get(CastleStyles.TURRET_STYLE).towerFrame;
@@ -1847,6 +1855,8 @@ Render.houseTextureFrame = (role, o, scene, theme) => {
 };
 // Baked unclaimed art already contains its wear: never apply a second wash.
 Render.houseTextureKey = (role, o, scene) => {
+  const hive = Render.hiveSpec(o, scene);
+  if (hive) return hive.texture;
   // Home (the player's house) has no sprite: the building overlay draws it
   // from its footprint — walls, doorway and roof (building_overlay.js
   // drawHome). A null key is an invisible sprite (resolveAppearance).
@@ -5446,6 +5456,8 @@ Render.drawObjects = function drawObjects(scene) {
     return n >= full.length ? full : full.slice(0, n);
   };
   const _houseSignText = (o) => {
+    const hiveLabel = Render.hiveLabel(o, scene);
+    if (hiveLabel) return hiveLabel;
     const role = _houseRole(o);
     // Wrecks have no sign - their identity is hidden until the player
     // restores them. The owner then returns the correct shop / house role.
@@ -6640,8 +6652,8 @@ const { RENDER_SPEC, resolveAppearance, _houseRole, _houseKey, _houseScale, _hou
     house:  {
       key: (o, scene, pass) => Render.proceduralHouse(o, scene) ? null : _houseKey(o, scene, pass),
       frame: _houseFrame,
-      layer: (o, scene, pass) => _houseRole(o, scene, pass) === 'wreck' ? WorldLayers.GROUND_DECAL : WorldLayers.STANDING_PROP,
-      scaleYMul: (o, scene, pass) => _houseRole(o, scene, pass) === 'wreck' ? 0.4 : 1,
+      layer: (o, scene, pass) => _houseRole(o, scene, pass) === 'wreck' && !Render.hiveSpec(o, scene) ? WorldLayers.GROUND_DECAL : WorldLayers.STANDING_PROP,
+      scaleYMul: (o, scene, pass) => _houseRole(o, scene, pass) === 'wreck' && !Render.hiveSpec(o, scene) ? 0.4 : 1,
       // Every building stands its bottom-middle on its footprint's centre of
       // mass (_houseFootPx): the object sits on the footprint cell nearest
       // that point, so the art is nudged by the remainder.

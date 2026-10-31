@@ -4003,6 +4003,7 @@ class MapScene extends Phaser.Scene {
     // away, nor stop one under you from biting).
     PressureTraps.tick(this, dt);
     ExplosiveBarrels.tick(this, dt);
+    Hives.tick(this, dt);
     Waystones.tick(this);
     EnvironmentHazards.tick(this, dt);
     MushroomGas.tick(this, dt);
@@ -5267,7 +5268,8 @@ class MapScene extends Phaser.Scene {
       }
       return false;
     }
-    if (!Combat.isEnemy(victim) || !Gear.meleeActive(this.save)
+    const hive = typeof Hives !== 'undefined' && Hives.active(this.save, victim);
+    if ((!Combat.isEnemy(victim) && !hive) || !Gear.meleeActive(this.save)
         || this.save.caught?.includes(victim.id)) return false;
     const c = victim;
     const now = performance.now();
@@ -5287,6 +5289,10 @@ class MapScene extends Phaser.Scene {
           ? (SelectedItemArt.relics[weapon]?.[equipped.tier]?.frame ?? 0) : 0 };
       const blow = (Combat.meleeSwingDamage(this.save.relics, this._attackMul(), this.save.playerClass, Gear.activeWeapon(this.save), isRiding(this.save))
         + this._attackFlat('melee')) * PotionEffects.meleeMul(this.save);
+      if (hive) {
+        Hives.damage(this, c, blow);
+        return true;
+      }
       const hpBefore = Combat.hp(c);
       const felled = this._damageEnemy(c, blow);
       // THE VAMPIRE RING (jewelryMeleeLifesteal): a share of what the blow

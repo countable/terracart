@@ -1232,7 +1232,18 @@ Higher-priority placements and their access space take precedence in this order:
    remains available for stable cave entrances. Buildings,
    piers and other land-access exclusions keep their paint. Nexus variants
    override road variants where they overlap; the physical road and its
-   safety restrictions remain intact. Goblin Gang Street is a Small-road
+   safety restrictions remain intact.
+   Road rows can declare `hives` (kind, count and nearby wreck reach).
+   Toadstool Lane requests one mushroom house per street key and tile;
+   fragments share that budget. Before ordinary verge dressing, legal
+   off-road enemy seats identify nearby ordinary tier-9 wrecks in the same
+   corridor. Selected wrecks retain their identity and footprint; when none
+   is suitable, a legal empty verge cell receives a sprite-based house with
+   a tile/cell identity. Specialty buildings and Nexus-owned buildings are
+   excluded. Generation preserves the original cave substrate records, and
+   runtime hive eligibility preserves restored houses, Home and starter
+   buildings. The hive defeat ledger leaves the building as a regular wreck.
+   Goblin Gang Street is a Small-road
    variant with compact sections up to 250 m. Per street key in a tile, six
    paired clusters target 30 breakable barrels and 30 goblin grunts (five
    per gang, in either difficulty). Fragments share that budget; blocked

@@ -6761,7 +6761,7 @@
       // Zone painting runs earlier for scenic measurements, but the street's
       // own hard gates still read the original ground and spawn reasons.
       streetDress = yield* StreetVariants.dressSteps({ index: streetIndex, tx, ty, N: w, tileEdgeM,
-        grid: caveSource.grid,
+        grid: caveSource.grid, objects: deduped, zone,
         spawnOpts: dressOpts({ spawnWhy: caveSource.spawnWhy }) });
     }
     if (zone) {
