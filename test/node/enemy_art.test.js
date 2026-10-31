@@ -165,3 +165,16 @@ test('enemy art: exact palette mode leaves every unmapped detail and alpha uncha
   window.recolorEnemyPixels(pixels, { colors: { '#4ebcb9': '#ffd28a' }, preserveUnmapped: true });
   assert.eq(pixels.join(), '255,210,138,255,211,160,97,255,78,188,185,0');
 });
+
+// A reveal keeps the disguise's footprint, while palettes affect only this enemy.
+test('enemy art: mimic shares chest display size and its own orange and dark-metal palette', () => {
+  const row = EnemyRoster.get('mimic'), art = SpriteLayout.creatureArt('mimic');
+  assert.eq(art.fw * art.scale, 16 * SpriteLayout.CHEST_SCALE);
+  assert.eq(art.sheet, 'mimic');
+  const window = {};
+  new Function('window', 'EnemyRoster', 'SpriteLayout', ASSETS_SRC)(window, EnemyRoster, SpriteLayout);
+  const pixels = [145,109,86,255,66,71,48,255,109,113,115,255,145,109,86,0];
+  window.recolorEnemyPixels(pixels, row.palette);
+  assert.eq(pixels.join(), '194,113,61,255,55,62,88,255,250,214,178,255,145,109,86,0');
+  assert.truthy(window.ASSETS.mimic.onLoad);
+});
