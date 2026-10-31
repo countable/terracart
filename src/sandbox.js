@@ -515,6 +515,7 @@
       s.chest('bus', 'Sandbox Clay Pot', 11, 18, { barrel: true, barrelStyle: 'clay_pot', _sandboxProbe: 'plain_pot' });
       s.chest('bus', 'Sandbox Snake Pot', 14, 18, { barrel: true, barrelStyle: 'clay_pot', _sandboxProbe: 'snake' });
       s.creature('snake', 14, 21, 1, {});
+      s.creature('medusa', 14, 28, 1, {});
       ['mushroom_monster', 'treant', 'fire_elemental', 'mimic', 'wurm', 'zombie'].forEach((kind, i) =>
         s.creature(kind, 3 + (i % 2) * 8, 22 + Math.floor(i / 2) * 7, 1,
           kind === 'zombie' ? { emergeFromGround: true, _burrowed: true }

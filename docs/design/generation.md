@@ -299,6 +299,8 @@ access or tile lifecycle mechanics.
   remains safe. Cardinal approaches, the focus, routes, occupied ground and
   landmark halos stay dry; ambient dressing respects the area reservation.
   Dungeon mazes on floors 2–3 repeat the reviewed 34 × 33 braided wall mask
+  (`CaveAreas.mazeBraid`, the one maze generator — the grove temple's maze
+  trial draws its own small braid with it, [combat](combat.md))
   (spacing 3, loops 77%) in canonical anchor coordinates across eligible grove
   coverage. Fill is diggable `CAVE_WALL`, not rock objects. Clipped boundaries,
   tile seams, routes, landmark approaches and the focus stay open; shortest

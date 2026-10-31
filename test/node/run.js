@@ -115,7 +115,7 @@ const FILES = [
   // Derelict lairs — pure, reads WorldGen at CALL time like traps.js.
   'lairs.js',
   'dungeon_progression.js', 'elevators.js', 'arena.js', 'schoolyard_game.js', 'schoolyard_fields.js', 'cave_hazards.js', 'cave_areas.js', 'underground.js', 'underground_stories.js', 'geometry.js', 'gameplay_tiers.js', 'worldgen.js', 'save.js',
-  'compass_modules.js', 'art_atlas.js', 'selected_world_atlas.js', 'selected_item_art.js', 'items.js', 'inventory.js', 'energy.js', 'conditions.js', 'player_time.js', 'potion_effects.js', 'crops.js', 'rest.js', 'delivery.js', 'save_state.js', 'gear.js', 'rewards.js', 'shops_math.js', 'shops.js', 'egg_hatch.js', 'chest_themes.js', 'loot_contexts.js', 'rarity.js', 'loot.js',
+  'compass_modules.js', 'art_atlas.js', 'selected_world_atlas.js', 'selected_item_art.js', 'items.js', 'inventory.js', 'energy.js', 'conditions.js', 'player_time.js', 'potion_effects.js', 'crops.js', 'rest.js', 'delivery.js', 'save_state.js', 'gear.js', 'comet_ring.js', 'rewards.js', 'shops_math.js', 'shops.js', 'egg_hatch.js', 'chest_themes.js', 'loot_contexts.js', 'rarity.js', 'loot.js',
   // The macro stalls' rules (inn, chapel, apothecary, …). Pure; reads the modules around it at CALL time.
   'macros.js',
   'hidden_objects.js', 'push_blocks.js', 'temple_puzzles.js', 'temple_layout.js', 'temple_scene.js', 'temples.js', 'interactables.js', 'boss_encounters.js', 'houses.js',
@@ -1145,6 +1145,10 @@ ctx.INDEX_HTML_SRC = fs.readFileSync(path.join(ROOT, 'index.html'), 'utf8');
 // The compass skin's stylesheet (css/compass_hud.css): where the skin seats
 // the HUD's rows (buffs.test.js pins the status row's seat).
 ctx.COMPASS_CSS_SRC = fs.readFileSync(path.join(ROOT, 'css/compass_hud.css'), 'utf8');
+// The compass skin's script, as text: it is not in FILES because a loaded
+// CompassHUD would make CompassModules.drain reach for the DOM in every
+// compass test. money_chip.test.js evaluates it for the coin chip's rise.
+ctx.COMPASS_HUD_SRC = fs.readFileSync(path.join(ROOT, 'src/compass_hud.js'), 'utf8');
 // The speech bubbles' stylesheet (css/speech_bubbles.css): where a bubble
 // sizes its portrait (character_portraits.test.js pins it to CELL_PX).
 ctx.SPEECH_CSS_SRC = fs.readFileSync(path.join(ROOT, 'css/speech_bubbles.css'), 'utf8');
