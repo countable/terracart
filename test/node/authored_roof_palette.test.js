@@ -9,6 +9,56 @@
     assert.eq(dice.length,9);assert.eq(dice[4],'#...#...#','five-pip dice identity');
   });
 
+  test('roof palette batches read each source once and preserve alpha and excluded faces', () => {
+    const previous = globalThis.Phaser;
+    globalThis.Phaser = { Textures: { FilterMode: { NEAREST: 0 } } };
+    try {
+      const input = new Uint8ClampedArray([
+        160, 50, 30, 255, 160, 50, 30, 128, 90, 90, 90, 255, 0, 0, 0, 0,
+        30, 60, 160, 255, 30, 60, 160, 255,
+      ]);
+      const image = { width: 6, height: 1 }, textures = new Map();
+      let reads = 0;
+      const source = { key: 'source', getSourceImage: () => image };
+      const scene = { textures: {
+        exists: key => textures.has(key), get: key => textures.get(key),
+        createCanvas(key) {
+          const context = {
+            drawImage() {},
+            getImageData() { reads++; return { data: input.slice() }; },
+            createImageData() { return { data: new Uint8ClampedArray(input.length) }; },
+            putImageData(pixels) { this.pixels = pixels.data; },
+          };
+          const texture = { key, getContext: () => context, refresh() {}, setFilter() {} };
+          textures.set(key, texture); return texture;
+        },
+      } };
+      const sources = new WeakMap();
+      const model = () => ({ authoredKey: 'trader', faces: [
+        { kind: 'roof', roofPalette: true }, { kind: 'roof', roofPalette: false },
+      ] });
+      const blueModel = model(), redModel = model();
+      const blue = AuthoredRoofPalette.prepare(scene, source, blueModel, 'blue', sources);
+      const red = AuthoredRoofPalette.prepare(scene, source, redModel, 'red', sources);
+      assert.eq(reads, 1, 'source atlas is read once across palette variants');
+      for (const texture of [blue, red]) {
+        const pixels = texture.getContext().pixels;
+        assert.eq(Array.from(pixels.slice(0, 16)).join(), Array.from(input.slice(0, 16)).join(),
+          'warm timber, grayscale, alpha and transparent pixels stay exact');
+        assert.eq(Array.from(pixels.slice(16, 20)).join(), Array.from(pixels.slice(20, 24)).join(),
+          'repeated colors share the same remapping');
+      }
+      assert.truthy(blue.getContext().pixels[16] !== red.getContext().pixels[16], 'palettes remain distinct');
+      assert.eq(blueModel.faces[0].texture, blue);
+      assert.eq(blueModel.faces[1].texture, source, 'excluded faces keep the original material');
+      assert.eq(AuthoredRoofPalette.prepare(scene, source, model(), 'blue', sources), blue);
+      assert.eq(reads, 1, 'cached texture needs no new read');
+    } finally {
+      if (previous === undefined) delete globalThis.Phaser;
+      else globalThis.Phaser = previous;
+    }
+  });
+
   test('cottage embossing preserves roof paint and warms shared textures only once', () => {
     const previous = globalThis.Phaser;
     globalThis.Phaser = { Textures: { FilterMode: { NEAREST: 0 } } };

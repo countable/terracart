@@ -1074,6 +1074,12 @@ access or tile lifecycle mechanics.
 - Yield during tile-wide cell/object/polygon passes in `rasterizeTileSteps`,
   including helpers via `yield*`. Keep unsliced post-rasterize work linear.
   A profile's worst-block label identifies the block ending at that yield.
+  Surface spawn passes prepare shore/yard treasure eligibility in bounded
+  chunks and yield after resident generation before publishing `_spawned`.
+  Treasure selection still follows live Home/starter overlays and keeps the
+  original seeded draw order. The final live-state commit remains atomic;
+  `spawn commit …` profile counters split its NPC, starter, treasure, saved
+  object, fauna, cull and Home work so a remaining stall names its owner.
 - Park and beach coverage unions scan conservative polygon bounds including
   their fringe. Footprint cleanup uses numeric local cell keys; preserve its
   insertion, component traversal and bridge tie order because later ownership

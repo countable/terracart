@@ -350,7 +350,7 @@ let source=uv.map(([u,v])=>[u,v+(['market','trader'].includes(key)?800:16)]);
  const reviewPrepared=new WeakSet();
  function prepare(scene,{review=true}={}){
   if(caches.has(scene.textures)&&(!review||reviewPrepared.has(scene.textures)))return;
-  const models=caches.get(scene.textures)||new Map(),variants=new Map(),emblems=new Map(),nativeModels=new Map();
+  const models=caches.get(scene.textures)||new Map(),variants=new Map(),emblems=new Map(),nativeModels=new Map(),paletteSources=new WeakMap();
   for(const key of RESIDENCES){const palette=residencePalette(key);variants.set(key+':'+palette,{key,palette});}
   for(const role of ['home','workshop','blacksmith','trader','wizard','fort',...Object.keys(SHOP_ROOFS)])for(const tier of [1,2,4])for(const second of [false,true]){
    const r=recipeFor(role,'',tier,second);variants.set(r.key+':'+r.palette,r);
@@ -367,7 +367,7 @@ let source=uv.map(([u,v])=>[u,v+(['market','trader'].includes(key)?800:16)]);
    // material's geometry once, then give each palette its own face records.
    if(!nativeModels.has(key))nativeModels.set(key,buildNative(scene,key));
    const native=nativeModels.get(key),model={...native,faces:native.faces.map(face=>({...face}))};
-   AuthoredRoofPalette.prepare(scene,model.texture,model,palette);
+   AuthoredRoofPalette.prepare(scene,model.texture,model,palette,paletteSources);
    models.set(id,model);
    if(['dreamland_house','dreamland_corner'].includes(key))models.set(key+'_chimney:'+palette,buildNative(scene,key,true));
   }

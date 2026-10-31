@@ -45,7 +45,33 @@
     return rgb.map(v => Math.round((v+m)*255));
   }
 
-  function prepare(scene, texture, model, colorName) {
+  // One temporary indexed image per source during a preparation batch. Multiple
+  // roof palettes reuse its pixel read and color lookup; placement retains only
+  // the finished textures, not these full-atlas scratch arrays.
+  function indexedSource(texture, context, image, sources) {
+    const cached = sources?.get(texture);
+    if (cached) return cached;
+    context.drawImage(image, 0, 0);
+    const pixels = context.getImageData(0, 0, image.width, image.height);
+    const words = new Uint32Array(pixels.data.buffer, pixels.data.byteOffset, pixels.data.length / 4);
+    const colors = new Map([[0, 0]]), palette = [0], indices = new Uint32Array(words.length);
+    for (let i = 0; i < words.length; i++) {
+      const word = words[i];
+      if (!word) continue;
+      let index = colors.get(word);
+      if (index === undefined) {
+        index = palette.length;
+        colors.set(word, index);
+        palette.push(word);
+      }
+      indices[i] = index;
+    }
+    const result = { indices, palette: new Uint32Array(palette) };
+    sources?.set(texture, result);
+    return result;
+  }
+
+  function prepare(scene, texture, model, colorName, sources) {
     if (!texture || !model || !COLORS[colorName]) return texture;
     const key = model.authoredKey || model.key || '';
     const cacheKey = texture.key + ':roof:' + key + ':' + colorName;
@@ -56,23 +82,19 @@
       variant = scene.textures.createCanvas(cacheKey, image.width, image.height);
       const context = variant.getContext();
       context.imageSmoothingEnabled = false;
-      context.drawImage(image, 0, 0);
-      const pixels = context.getImageData(0, 0, image.width, image.height);
-      const data = pixels.data;
-      // Pixel-art atlases repeat a small palette over many texels. Resolve
-      // each RGB once rather than repeating HSL math for every occurrence.
-      const colors = new Map();
-      for (let i=0; i<data.length; i+=4) {
-        if (!data[i+3]) continue;
-        const source = (data[i] << 16) | (data[i+1] << 8) | data[i+2];
-        let target = colors.get(source);
-        if (target === undefined) {
-          const rgb = recolor(data[i], data[i+1], data[i+2], COLORS[colorName], key);
-          target = (rgb[0] << 16) | (rgb[1] << 8) | rgb[2];
-          colors.set(source, target);
-        }
-        data[i] = target >>> 16; data[i+1] = (target >>> 8) & 255; data[i+2] = target & 255;
+      const source = indexedSource(texture, context, image, sources);
+      const palette = source.palette.slice();
+      // View the packed colors as RGBA bytes, so this also works on big-endian
+      // hosts. Alpha (including transparent pixels) remains exactly unchanged.
+      const rgba = new Uint8Array(palette.buffer);
+      for (let i = 0; i < rgba.length; i += 4) {
+        if (!rgba[i + 3]) continue;
+        const rgb = recolor(rgba[i], rgba[i + 1], rgba[i + 2], COLORS[colorName], key);
+        rgba[i] = rgb[0]; rgba[i + 1] = rgb[1]; rgba[i + 2] = rgb[2];
       }
+      const pixels = context.createImageData(image.width, image.height);
+      const words = new Uint32Array(pixels.data.buffer, pixels.data.byteOffset, pixels.data.length / 4);
+      for (let i = 0; i < words.length; i++) words[i] = palette[source.indices[i]];
       context.putImageData(pixels, 0, 0);
       variant.refresh();
       variant.setFilter(Phaser.Textures.FilterMode.NEAREST);
