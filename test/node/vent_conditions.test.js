@@ -29,12 +29,16 @@
     Conditions.apply(save, 'poison', 0, { durationMs: 30000 });
     assert.eq(save.conditions.poison.remainingMs, 59250);
     assert.eq(save.conditions.poison.nextTickMs, 1250);
-    Conditions.apply(save, 'burning', 0, { durationMs: 6000 });
+    // A vent's eruption is CONTACT (environment_hazards.js passes stack:
+    // false): it tops the burn up and never banks; a HIT of fire banks.
+    Conditions.apply(save, 'burning', 0, { durationMs: 6000, stack: false });
     Conditions.tick(save, 1000);
-    Conditions.apply(save, 'burning', 0, { durationMs: 6000 });
+    Conditions.apply(save, 'burning', 0, { durationMs: 6000, stack: false });
     assert.eq(save.conditions.burning.remainingMs, 6000);
+    Conditions.apply(save, 'burning', 0, { stack: false });
+    assert.eq(save.conditions.burning.remainingMs, 6000, 'a default contact never shortens a longer one');
     Conditions.apply(save, 'burning', 0);
-    assert.eq(save.conditions.burning.remainingMs, 6000, 'a default burn never shortens a longer one');
+    assert.eq(save.conditions.burning.remainingMs, 11000, 'a hit of fire banks on top');
     assert.falsy(Conditions.apply({ fireResistancePotionUntil: 100 }, 'burning', 0, { durationMs: 6000 }));
     assert.falsy(Conditions.apply(save, 'poison', 0, { durationMs: NaN }));
   });

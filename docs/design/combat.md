@@ -175,8 +175,9 @@ mechanics.
   radius and intensity, an ember at a standstill and a comet's tail at
   `maxMps`. `_tickCometAura` (scene_consumables.js) sets
   every enemy inside alight as the player's kill (`Combat.ignite`, the lit
-  torch's call, for the row's `burnDurationMul` of the burning row's
-  duration: the Meteor's third, the Comet's whole) and burns the aura's
+  torch's call, once a burn interval while the foe stays inside, each dose
+  the row's `burnDurationMul` of the burning row's duration banked on the
+  burn it carries: the Meteor's third, the Comet's whole) and burns the aura's
   `dps × dt` through `_damageEnemy`; worn together, the Comet's longer burn
   is the one fire (`jewelryCometAura`); the
   wearer and their allies are never targets. Faster than `maxMps` for
@@ -266,8 +267,14 @@ mechanics.
   player's condition, a foe's (`Combat.ignite` / `burnTick` read the same row),
   the HUD chip and the body tint all derive from it. Conditions count foreground
   play; an additional hit leaves the greater of the time remaining and the time
-  it inflicts (a `refresh: false` row such as frozen keeps its first clock, and
-  burning also grows with exposure). They do not bank like a repeated timed
+  it inflicts (a `refresh: false` row such as frozen keeps its first clock).
+  BURNING is the one `stack` row: a HIT of fire (a torch blow, an elemental's
+  touch, a blast, a Meteor or Comet Ring's dose once a burn interval) banks
+  its duration on top of what is left, up to the row's 60 s cap, for the
+  player (`Conditions.apply`) and a foe (`Combat.ignite`) alike; CONTACT with
+  fire (lava, a hearth, burning ground: `stack: false`, the scene's
+  `_ignitePlayer` and the foe tick) only lights it, and exposure grows it
+  through `advanceBurn`. They do not bank like a repeated timed
   consumable, whose epoch writer is `Buffs.extend` / `extendField`. A new status is a row there, never a timer,
   colour or label of its own. BLINDED (a ghost's touch,
   its roster row's `condition`) carries `lightMul`: `Conditions.lightMul`

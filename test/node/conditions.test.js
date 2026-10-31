@@ -75,15 +75,18 @@
   });
   test('conditions: an additional hit keeps the greater of remaining and inflicted duration', () => {
     const save = { energy: 100 };
+    // Burning is the `stack` row: a hit banks instead (its own test below);
+    // contact with fire (`stack: false`) takes this top-up rule.
     for (const id of ['confused', 'jellyfish_stun', 'poison', 'paralysis', 'pinned', 'blinded', 'burning']) {
       const def = Conditions.DEFINITIONS[id];
-      Conditions.apply(save, id, 0);
+      const hit = () => Conditions.apply(save, id, 0, id === 'burning' ? { stack: false } : {});
+      hit();
       Conditions.tick(save, Math.floor(def.durationMs / 2));
-      Conditions.apply(save, id, 0);
+      hit();
       assert.eq(save.conditions[id].remainingMs, def.durationMs, `${id}: a hit on a fading effect tops it back up`);
       const longer = Math.min(def.durationMs + 1000, def.maxDurationMs || def.durationMs);
       save.conditions[id].remainingMs = longer;
-      Conditions.apply(save, id, 0);
+      hit();
       assert.eq(save.conditions[id].remainingMs, longer, `${id}: a hit never shortens a longer effect`);
       Conditions.cure(save, id);
     }
@@ -244,11 +247,36 @@
     assert.truthy(result.expired);
     assert.falsy(Conditions.active(save, 'burning'));
   });
+  test('burning: a hit banks on top of what is left, capped at sixty seconds; contact only tops up', () => {
+    const def = Conditions.DEFINITIONS.burning;
+    assert.truthy(def.stack, 'the one stacking row');
+    const save = { energy: 100 };
+    assert.truthy(Conditions.apply(save, 'burning'));
+    assert.eq(save.conditions.burning.remainingMs, 5000);
+    assert.falsy(Conditions.apply(save, 'burning'), 'not fresh');
+    assert.eq(save.conditions.burning.remainingMs, 10000, 'a second hit banks its five seconds');
+    Conditions.apply(save, 'burning', Date.now(), { durationMs: 6000 });
+    assert.eq(save.conditions.burning.remainingMs, 16000, 'a blast banks its own length');
+    Conditions.apply(save, 'burning', Date.now(), { stack: false });
+    assert.eq(save.conditions.burning.remainingMs, 16000, 'contact with fire never shortens or adds');
+    save.conditions.burning.remainingMs = 2000;
+    Conditions.apply(save, 'burning', Date.now(), { stack: false });
+    assert.eq(save.conditions.burning.remainingMs, 5000, 'contact tops a fading burn back up');
+    save.conditions.burning.remainingMs = 58000;
+    Conditions.apply(save, 'burning');
+    assert.eq(save.conditions.burning.remainingMs, def.maxDurationMs, 'capped');
+    Conditions.tick(save, 1000);
+    assert.eq(save.conditions.burning.nextTickMs, 1000, 'the tick phase is kept across hits');
+    const poison = { energy: 100 };
+    Conditions.apply(poison, 'poison'); poison.conditions.poison.remainingMs = 30000;
+    Conditions.apply(poison, 'poison');
+    assert.eq(poison.conditions.poison.remainingMs, 60000, 'the other rows still top up, never bank');
+  });
   test('burning: exposure grows five seconds per second, caps at sixty and preserves cadence', () => {
     const save = { energy: 100 };
     Conditions.apply(save, 'burning');
     Conditions.tick(save, 700, { burningExposure: true });
-    assert.falsy(Conditions.apply(save, 'burning'));
+    assert.falsy(Conditions.apply(save, 'burning', Date.now(), { stack: false }));
     assert.eq(save.conditions.burning.remainingMs, 8500);
     assert.eq(Conditions.tick(save, 300, { burningExposure: true }).lost, 1);
     assert.eq(save.conditions.burning.remainingMs, 10000);

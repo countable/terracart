@@ -71,9 +71,11 @@
     assert.eq(Combat.ignite({ kind: 'skeleton' }, 0, 'player')._burnState, undefined);
     const plain = { kind: 'skeleton' }; Combat.ignite(plain, 0, 'player');
     assert.eq(plain._burnState.remainingMs, def.durationMs, 'no option: the row\'s duration, as the torch lights it');
-    assert.falsy(Combat.ignite(a, 100, 'player', { durationMul: 1 }), 'already alight: the clock stays');
-    assert.eq(a._burnState.remainingMs, Math.round(def.durationMs / 3));
+    assert.truthy(Combat.ignite(a, 100, 'player', { durationMul: 1 }), 'already alight: a hit banks on top');
+    assert.eq(a._burnState.remainingMs, Math.round(def.durationMs / 3) + def.durationMs);
     assert.truthy(/Combat\.ignite\(c, nowT, 'player', \{ durationMul: spec\.burnDurationMul \}\)/.test(SCENE_SRC), 'the tick lights for the worn ring\'s share');
+    assert.truthy(/c\._cometLitT = nowT;/.test(SCENE_SRC) && /Conditions\.DEFINITIONS\.burning\.intervalMs/.test(SCENE_SRC),
+      'one dose a burn interval while the foe stays inside, banked like any hit');
   });
 
   test('comet ring: shape — an ember at rest, a comet\'s tail at maxMps, never past it', () => {
@@ -210,6 +212,10 @@
       const rest = Combat.mitigate(S.maxDps * S.restIntensity, 0) * 0.1;
       assert.inRange(hits[0].amount, rest - 1e-6, rest + 1e-6, 'a one-second packet mitigated, × dt');
       assert.truthy(Combat.burning(slime, now), 'set alight');
+      assert.eq(slime._burnState.remainingMs, Conditions.DEFINITIONS.burning.durationMs, 'the Comet\'s whole dose');
+      for (let i = 0; i < 25; i++) frame(0);   // 2.5 s inside: two more doses banked, one a burn interval
+      const burnDef = Conditions.DEFINITIONS.burning;
+      assert.eq(slime._burnState.remainingMs, burnDef.durationMs * 3, 'three doses banked, one a burn interval (the stub never runs the burn tick)');
       assert.falsy(Combat.burning(fireSlime, now), 'fire cannot touch a fire slime');
       assert.falsy(Combat.burning(pet, now), 'never a pet');
       // A stick walk away from the fix (the body moving, the phone still):

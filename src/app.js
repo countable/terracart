@@ -4636,7 +4636,10 @@ class MapScene extends Phaser.Scene {
     const now = performance.now();
     if (now < (this._igniteNextT || 0) || Combat.playerDowned(this.save.energy) || Conditions.flying(this.save)) return false;
     this._igniteNextT = now + Conditions.DEFINITIONS.burning.intervalMs;
-    this._applyCondition('burning');
+    // CONTACT with fire (lava, embers, a hearth, burning ground): it lights
+    // the burn and exposure grows it (Conditions.tick burningExposure); a
+    // HIT of fire (an elemental's touch, a blast) banks on top instead.
+    this._applyCondition('burning', { stack: false });
     return true;
   }
   _tickFireTouch() {

@@ -891,16 +891,26 @@
     if (!c?._burnState) return false;
     return c._burnState.remainingMs > (c._burnExposed ? 0 : Math.max(0, now - c._burnAtT));
   }
-  // `opts.durationMul` scales the row's duration for a weaker flame (the
-  // Meteor Ring's third, UNIQUE_JEWELRY.meteor_ring.cometAura
-  // burnDurationMul); a body already alight keeps the clock it has.
+  // The DOSE is the row's duration (or `opts.durationMs`), times
+  // `opts.durationMul` for a weaker flame (the Meteor Ring's third,
+  // UNIQUE_JEWELRY.meteor_ring.cometAura burnDurationMul). A HIT on a body
+  // already alight BANKS the dose on top of what is left, up to the row's
+  // cap (the `stack` rule Conditions.apply keeps for the player); CONTACT
+  // (`opts.stack: false` — standing in fire, scene_fire.js) only takes the
+  // credit and leaves the clock to exposure. True when the fire grew.
   function ignite(c, now = performance.now(), by = 'fire', opts = {}) {
     if (root.Conditions?.fireImmune(c)) return false;
     if (!canBurn(c)) return false;
-    if (c._burnState?.remainingMs > 0) { c._burnBy = by; return false; }
     const def = burnDef();
     const mul = opts.durationMul > 0 ? opts.durationMul : 1;
-    c._burnState = { remainingMs: Math.max(1, Math.round(def.durationMs * mul)), nextTickMs: def.intervalMs };
+    const dose = Math.max(1, Math.round((opts.durationMs > 0 ? opts.durationMs : def.durationMs) * mul));
+    if (c._burnState?.remainingMs > 0) {
+      c._burnBy = by;
+      if (opts.stack === false) return false;
+      c._burnState.remainingMs = Math.min(def.maxDurationMs, c._burnState.remainingMs + dose);
+      return true;
+    }
+    c._burnState = { remainingMs: dose, nextTickMs: def.intervalMs };
     c._burnAtT = now;
     c._burnExposed = false;
     c._burnBy = by;

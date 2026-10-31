@@ -28,7 +28,11 @@
   //             plateau (coords.js reachRadiusM), the light ramp and a carried
   //             torch (lighting.js playerLightMul) — read live by lightMul().
   const DEFINITIONS = Object.freeze({
-    burning: Object.freeze({ icon: 'burning', durationMs: 5000, maxDurationMs: 60000, exposureRate: 5, intervalMs: 1000, energyLoss: 1,
+    // `stack`: a HIT of fire banks its duration on top of what is left (owner,
+    // Nov 2026 — a torch blow, an elemental's touch, a blast; capped at
+    // maxDurationMs); CONTACT (standing in fire: apply's `stack: false`, the
+    // scene's _ignitePlayer) only lights it, and exposure grows it.
+    burning: Object.freeze({ icon: 'burning', durationMs: 5000, maxDurationMs: 60000, exposureRate: 5, intervalMs: 1000, energyLoss: 1, stack: true,
       label: 'Burning', tint: 0xff8c42, flicker: true, ink: '#ffb36b', bg: '#2e1a0ee8' }),
     poison: Object.freeze({ icon: 'poison', durationMs: 60000, intervalMs: 2000, energyLoss: 1,
       label: 'Poison', tint: 0x9fdc8c, flicker: false, ink: '#d9b1ff', bg: '#22132ee8' }),
@@ -151,9 +155,13 @@
     // An additional hit leaves the greater of what remains and what it
     // inflicts: a short exposure never shortens a longer effect, and a hit
     // on a fading one tops it back up. The damage-tick phase is kept. A
-    // `refresh: false` row (frozen) keeps its first clock; burning also grows
-    // with exposure through advanceBurn.
-    else if (def.refresh !== false) save.conditions[id].remainingMs = Math.max(save.conditions[id].remainingMs, duration);
+    // `refresh: false` row (frozen) keeps its first clock. A `stack` row
+    // (burning) BANKS the hit on top of what is left, up to its cap — unless
+    // the caller says `stack: false` (contact with fire, which exposure
+    // grows through advanceBurn instead).
+    else if (def.stack && options.stack !== false) {
+      save.conditions[id].remainingMs = Math.min(def.maxDurationMs || Infinity, save.conditions[id].remainingMs + duration);
+    } else if (def.refresh !== false) save.conditions[id].remainingMs = Math.max(save.conditions[id].remainingMs, duration);
     return fresh;
   }
   function cure(save, id) {

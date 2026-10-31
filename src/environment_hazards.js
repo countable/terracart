@@ -499,7 +499,10 @@
         const lost = damage > 0 ? scene._losePlayerEnergy(damage, { closeShop: true }) : 0;
         if (lost > 0) scene._popEnergy(-lost);
         const v = VENTS[h.kind];
-        root.Conditions.apply(scene.save, v.condition, now, { durationMs: v.durationMs });
+        // Standing in the eruption is CONTACT: it lights or tops the row up
+        // each contact beat and never banks (the fire vent's burning grows
+        // by exposure on its ring of burning ground, like any fire).
+        root.Conditions.apply(scene.save, v.condition, now, { durationMs: v.durationMs, stack: false });
       } else if (h.type !== 'vent' && h.phase === 'open' && !h.fallTriggered
           && !h.fallPending && !scene._hazardFallPending && h.elapsedMs >= (h.nextFallMs || 0)) {
         h.fallPending = true;
