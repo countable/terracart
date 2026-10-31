@@ -180,9 +180,10 @@ mechanics.
   and a charmed bat's bite); the Vampire Ring (`UNIQUE_JEWELRY.vampire_ring`,
   `jewelryMeleeLifesteal`) returns 20% of a melee blow as banked whole energy,
   capped at the bar.
-- THE COMET RING (`UNIQUE_JEWELRY.comet_ring.cometAura`, read by
-  `CometRing` in `comet_ring.js`; the Fire Elemental's rare elite drop): while
-  worn, a ring of fire round the feet grows with the player's REAL pace —
+- THE METEOR RING (T3, the Fire Elemental's rare elite drop) and THE COMET
+  RING (T6, the Fiend's) share one fire, `COMET_AURA`, each `UNIQUE_JEWELRY`
+  row's `cometAura`, read by `CometRing` in `comet_ring.js`: while worn, a
+  ring of fire round the feet grows with the player's REAL pace —
   the GPS speed lane (`util.js speedGateStep` keeps its last sample;
   `CometRing.gpsPace` reads it, stale after `PACE_STALE_MS`), never the body
   on the map: a stick walk off the fix, the walk home after it and a
@@ -191,7 +192,10 @@ mechanics.
   radius and intensity, an ember at a standstill and a comet's tail at
   `maxMps`. `_tickCometAura` (scene_consumables.js) sets
   every enemy inside alight as the player's kill (`Combat.ignite`, the lit
-  torch's call) and burns the aura's `dps × dt` through `_damageEnemy`; the
+  torch's call, for the row's `burnDurationMul` of the burning row's
+  duration: the Meteor's third, the Comet's whole) and burns the aura's
+  `dps × dt` through `_damageEnemy`; worn together, the Comet's longer burn
+  is the one fire (`jewelryCometAura`); the
   wearer and their allies are never targets. Faster than `maxMps` for
   `overspeedMs` running and `CometRing.step` snuffs it: the tick lends the
   `cometSnuffed` Buffs row `snuffedMs` (its chip is the only sign) and the
@@ -199,7 +203,7 @@ mechanics.
   the lightmap (`Lighting.KINDS.comet_aura`) read the same state, so the
   edge the player sees is the edge that burns. A sample past
   `CometRing.TELEPORT_MPS` is a GPS jump, never running.
-  It is the one `equippable` jewelry row: found, it is worn at once; the
+  They are the `equippable` jewelry rows: found, a ring is worn at once; the
   Equip / Unequip button under the inventory bar (`syncEquipButton`, the
   weapons' button) takes it off and puts it on through `Gear.wearJewelry`,
   the one writer of `save.wornJewelry`, which `jewelryWorn` reads. Off, it
