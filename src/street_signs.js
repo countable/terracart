@@ -98,24 +98,32 @@ const StreetSigns = (() => {
   // that points along its road in WORLD space, so a compass turn shows its
   // other faces instead of turning a flat picture. Dimensions are mesh px:
   // screen px at 1× on the north-up map (CELL_PX a cell); heights project
-  // straight up like every low-poly solid. Colours are flat cel steps by face
-  // orientation (`faceColour`): the light sits west and a little south, so a
-  // post always shows one lit and one shaded face when two are visible. The
-  // sprite fallback (textures.js makeRoadSignTextures, RENDER_SPEC.roadsign)
-  // bakes the post alone from these same rows.
+  // straight up like every low-poly solid. The wood is the cel wall sheet's
+  // own wood (WallMaterials woodSide / woodTop, through the `texel` the
+  // renderer hands mesh()), tinted by face: a cel step by orientation
+  // (`faceTint`; the light sits west and a little south, so a post always
+  // shows one lit and one shaded face when two are visible) and, on the post,
+  // a step darker for each lower third (`bands`). The sprite fallback
+  // (textures.js makeRoadSignTextures, RENDER_SPEC.roadsign) bakes the post
+  // alone from these same rows, in the sheet's flat wood colours (`wood`).
   //   post:  side of the square section, height from the ground.
   //   board: length from the post axis, height, thickness; `tip` is the
-  //          pointed length from the shoulders to the tip. Rows hang from
-  //          `topInset` under the post top at `height + gap`, compressed so
-  //          the lowest board stays `minBottom` above the ground.
+  //          pointed length from the shoulders to the tip. Boards hang one
+  //          under another from `topInset` below the post top, a board
+  //          height and `gap` apart, compressed so the lowest stays
+  //          `minBottom` above the ground; which heading takes the top is the
+  //          sign's own (`rows`, by its id).
+  //   grain: the slice of the wood slot each surface samples (s across the
+  //          slot, 0..1): the post's faces a dark edge into the mid band, the
+  //          boards' faces the light centre band along their length.
   const ART = Object.freeze({
-    post: Object.freeze({ side: 5, height: 30 }),
-    board: Object.freeze({ length: 24, height: 7, thickness: 2, tip: 6, gap: 1, topInset: 2, minBottom: 3 }),
-    colours: Object.freeze({
-      post: Object.freeze({ top: 0xa88a5c, lit: 0x8a6d45, mid: 0x7a5f3c, shade: 0x5c4630 }),
-      board: Object.freeze({ top: 0xe0cc98, lit: 0xd2b87e, mid: 0xc9b07a, shade: 0x9a7f52 }),
-      ink: 0x14110c,
-    }),
+    post: Object.freeze({ side: 4, height: 24 }),
+    board: Object.freeze({ length: 19, height: 5.6, thickness: 1.6, tip: 4.8, gap: .8, topInset: 1.6, minBottom: 2.4 }),
+    grain: Object.freeze({ post: [.05, .25], board: [.22, .42] }),
+    tint: Object.freeze({ top: 1, lit: 1, mid: .86, shade: .7 }),
+    bands: Object.freeze([1, .86, .72]),
+    wood: Object.freeze({ side: 0x9e7e50, top: 0xb59969 }),
+    ink: 0x14110c,
     // The plan light, unit length: west with a touch of south.
     light: Object.freeze({ x: -0.9578, y: 0.2873 }),
   });
@@ -123,23 +131,17 @@ const StreetSigns = (() => {
     const i = COMPASS.indexOf(direction);
     return i < 0 ? null : { x: Math.cos(i * Math.PI / 4), y: Math.sin(i * Math.PI / 4) };
   }
-  // ROWS. Like a real fingerpost, boards for different headings share a row
-  // when they cannot meet — their headings at least a right angle apart, so
-  // each hangs off its own face of the post — and only boards that would
-  // cross (two roads leaving to the same quarter) stack. Eight compass
-  // headings fill two rows. Greedy in the listed order, which candidates()
-  // already sorts, so the same junction always wears the same sign.
-  function rows(directions) {
-    const out = [], members = [];
-    for (const d of directions || []) {
-      const v = vector(d.direction);
-      if (!v) continue;
-      let row = members.findIndex(list => list.every(u => u.x * v.x + u.y * v.y <= 1e-9));
-      if (row < 0) { row = members.length; members.push([]); }
-      members[row].push(v);
-      out.push({ vector: v, row });
-    }
-    return out;
+  // ROWS. One board under another: the top one, then each a board height
+  // lower (rowTop). Which heading takes the top is drawn from the sign's id,
+  // so every junction wears its own arrangement and the same one every time.
+  function rows(directions, id = '') {
+    const listed = (directions || []).map(d => vector(d.direction)).filter(Boolean);
+    let seed = 2166136261;
+    for (const c of String(id)) seed = Math.imul(seed ^ c.charCodeAt(0), 16777619);
+    const next = () => { seed ^= seed << 13; seed ^= seed >>> 17; seed ^= seed << 5; return (seed >>> 0) / 4294967296; };
+    const order = listed.map((_, i) => i);
+    for (let i = order.length - 1; i > 0; i--) { const j = Math.floor(next() * (i + 1)); [order[i], order[j]] = [order[j], order[i]]; }
+    return order.map((at, row) => ({ vector: listed[at], row }));
   }
   // The top of row `row` of `count` rows, in mesh px above the ground.
   function rowTop(row, count) {
@@ -148,45 +150,68 @@ const StreetSigns = (() => {
     return start - row * pitch;
   }
   // Cel step for a face by its outward normal: the top, or the plan light.
-  function faceColour(palette, normal) {
-    if (normal.z > 0.5) return palette.top;
+  function faceTint(normal) {
+    if (normal.z > 0.5) return ART.tint.top;
     const len = Math.hypot(normal.x, normal.y) || 1;
     const d = (normal.x * ART.light.x + normal.y * ART.light.y) / len;
-    return d > 0.3 ? palette.lit : d < -0.3 ? palette.shade : palette.mid;
+    return d > 0.3 ? ART.tint.lit : d < -0.3 ? ART.tint.shade : ART.tint.mid;
   }
+  const grey = f => { const c = Math.round(255 * Math.min(1, f)); return (c << 16) | (c << 8) | c; };
+  const shade = (color, f) => [16, 8, 0].reduce((out, sh) => out | Math.min(255, Math.round(((color >>> sh) & 255) * f)) << sh, 0);
   // One convex solid from its polygons, each wound outward (flipped when its
   // normal points at the solid's centre) and fanned into the triangles the
-  // mesh renderer draws. Every vertex carries the caller's texel (`uv`), the
-  // wall sheet's white one in the game, so flat colours tint it.
-  function solid(polygons, palette, uv) {
-    const all = polygons.flat();
+  // mesh renderer draws. A polygon is { ring, material, [tint] }: its colour
+  // is its tint (the orientation step unless given) as a grey the renderer
+  // multiplies the wood texel by; `flatColor` is the same over the slot's
+  // flat colour, for the untextured path.
+  function solid(polygons) {
+    const all = polygons.flatMap(p => p.ring);
     const centre = { x: 0, y: 0, z: 0 };
     for (const p of all) { centre.x += p.x / all.length; centre.y += p.y / all.length; centre.z += p.z / all.length; }
     const faces = [];
-    for (let ring of polygons) {
+    for (const { ring: given, material, tint } of polygons) {
+      let ring = given;
       const [a, b, c] = ring;
       let n = { x: (b.y-a.y)*(c.z-a.z)-(b.z-a.z)*(c.y-a.y), y: (b.z-a.z)*(c.x-a.x)-(b.x-a.x)*(c.z-a.z), z: (b.x-a.x)*(c.y-a.y)-(b.y-a.y)*(c.x-a.x) };
       const mid = ring.reduce((m, p) => ({ x: m.x + p.x / ring.length, y: m.y + p.y / ring.length, z: m.z + p.z / ring.length }), { x: 0, y: 0, z: 0 });
       if (n.x * (mid.x - centre.x) + n.y * (mid.y - centre.y) + n.z * (mid.z - centre.z) < 0) {
         ring = ring.slice().reverse(); n = { x: -n.x, y: -n.y, z: -n.z };
       }
-      const color = faceColour(palette, n);
-      for (let i = 1; i < ring.length - 1; i++) faces.push({ points: [ring[0], ring[i], ring[i + 1]], color, flatColor: color });
+      const f = (tint ?? 1) * faceTint(n), color = grey(f), flatColor = shade(ART.wood[material], f);
+      for (let i = 1; i < ring.length - 1; i++) faces.push({ points: [ring[0], ring[i], ring[i + 1]], color, flatColor });
     }
     return faces;
   }
   // The sign's solids about its foot (x, y): the post first, then a board per
   // listed heading. Each is { points (plan footprint), faces, colors }, ready
-  // for WallPerspective.prism with the faces as its materialFaces.
-  function mesh(sign, { x = 0, y = 0, uv = null } = {}) {
-    const { post, board, colours } = ART, h = post.side / 2;
-    const v = (px, py, z) => ({ x: px, y: py, z, ...(uv || {}) });
-    const square = z => [v(x - h, y - h, z), v(x + h, y - h, z), v(x + h, y + h, z), v(x - h, y + h, z)];
-    const base = square(0), cap = square(post.height);
-    const sides = base.map((a, i) => [a, base[(i + 1) % 4], cap[(i + 1) % 4], cap[i]]);
-    const out = [{ points: base.map(({ x, y }) => ({ x, y })), colors: { face: colours.post.mid, top: colours.post.top },
-      faces: solid([base, cap, ...sides], colours.post, uv) }];
-    const listed = rows(sign.directions), count = listed.reduce((m, b) => Math.max(m, b.row + 1), 0);
+  // for WallPerspective.prism with the faces as its materialFaces. `texel`
+  // (material, s, t) → { u, v } places a point of a wood slot (s across, t
+  // down, both 0..1) on the sheet; without it the vertices carry no texel.
+  function mesh(sign, { x = 0, y = 0, texel = null } = {}) {
+    const { post, board, grain, bands, wood } = ART, h = post.side / 2;
+    const v = (px, py, z, material, s, t) => ({ x: px, y: py, z, ...(texel ? texel(material, s, t) : {}) });
+    const [g0, g1] = grain.post;
+    const across = s => g0 + (g1 - g0) * s;
+    const corner = i => [[-h, -h], [h, -h], [h, h], [-h, h]][i % 4];
+    const polygons = [];
+    // The post: its cap, and each side in `bands` stacked quads, the grain
+    // running up the pole and the lower quads tinted darker.
+    const cap = z => [0, 1, 2, 3].map(i => { const [cx, cy] = corner(i); return v(x + cx, y + cy, z, 'top', (cx + h) / post.side, (cy + h) / post.side); });
+    polygons.push({ ring: cap(0), material: 'top', tint: bands.at(-1) }, { ring: cap(post.height), material: 'top' });
+    for (let i = 0; i < 4; i++) {
+      const [ax, ay] = corner(i), [bx, by] = corner(i + 1);
+      for (let b = 0; b < bands.length; b++) {
+        const z0 = post.height * (1 - (b + 1) / bands.length), z1 = post.height * (1 - b / bands.length);
+        const t0 = 1 - z0 / post.height, t1 = 1 - z1 / post.height;
+        polygons.push({ material: 'side', tint: bands[b], ring: [
+          v(x + ax, y + ay, z0, 'side', across(0), t0), v(x + bx, y + by, z0, 'side', across(1), t0),
+          v(x + bx, y + by, z1, 'side', across(1), t1), v(x + ax, y + ay, z1, 'side', across(0), t1)] });
+      }
+    }
+    const out = [{ points: [0, 1, 2, 3].map(i => { const [cx, cy] = corner(i); return { x: x + cx, y: y + cy }; }),
+      colors: { face: wood.side, top: wood.top }, faces: solid(polygons) }];
+    const listed = rows(sign.directions, sign.id), count = listed.length;
+    const [b0, b1] = grain.board;
     for (const { vector: dir, row } of listed) {
       // The root sits on the post's own face (its corner for a diagonal), so
       // no board reaches inside the post and draw order never shows a root.
@@ -194,17 +219,22 @@ const StreetSigns = (() => {
       const shoulder = root + board.length - board.tip, tip = root + board.length;
       const zt = rowTop(row, count), zb = zt - board.height, zm = (zt + zb) / 2;
       const n = { x: -dir.y, y: dir.x }, t = board.thickness / 2;
-      const at = (u, s, z) => v(x + dir.x * u + n.x * s, y + dir.y * u + n.y * s, z);
+      // Grain runs along the plank: its length down the slot, its height
+      // across the light centre band. The thin edges take the flat top wood.
+      const at = (u, s, z) => v(x + dir.x * u + n.x * s, y + dir.y * u + n.y * s, z, 'side', b0 + (b1 - b0) * (zt - z) / board.height, (u - root) / board.length);
+      const edge = (u, s, z) => v(x + dir.x * u + n.x * s, y + dir.y * u + n.y * s, z, 'top', (u - root) / board.length, (s + t) / board.thickness);
       const side = s => ({ a: at(root, s, zb), b: at(shoulder, s, zb), tip: at(tip, s, zm), c: at(shoulder, s, zt), d: at(root, s, zt) });
-      const L = side(t), R = side(-t);
-      const polygons = [[L.a, L.b, L.tip, L.c, L.d], [R.a, R.b, R.tip, R.c, R.d],
-        [L.a, L.d, R.d, R.a], [L.a, L.b, R.b, R.a], [L.d, L.c, R.c, R.d],
-        [L.b, L.tip, R.tip, R.b], [L.c, L.tip, R.tip, R.c]];
-      out.push({ points: [L.a, L.tip, R.tip, R.a].map(({ x, y }) => ({ x, y })), colors: { face: colours.board.mid, top: colours.board.top },
-        faces: solid(polygons, colours.board, uv) });
+      const rim = s => ({ a: edge(root, s, zb), b: edge(shoulder, s, zb), tip: edge(tip, s, zm), c: edge(shoulder, s, zt), d: edge(root, s, zt) });
+      const L = side(t), R = side(-t), l = rim(t), r = rim(-t);
+      const faces = solid([
+        { ring: [L.a, L.b, L.tip, L.c, L.d], material: 'side' }, { ring: [R.a, R.b, R.tip, R.c, R.d], material: 'side' },
+        { ring: [l.a, l.d, r.d, r.a], material: 'top' }, { ring: [l.a, l.b, r.b, r.a], material: 'top' },
+        { ring: [l.d, l.c, r.c, r.d], material: 'top' }, { ring: [l.b, l.tip, r.tip, r.b], material: 'top' },
+        { ring: [l.c, l.tip, r.tip, r.c], material: 'top' }]);
+      out.push({ points: [L.a, L.tip, R.tip, R.a].map(({ x, y }) => ({ x, y })), colors: { face: wood.side, top: wood.top }, faces });
     }
     return out;
   }
-  return {direction,candidates,cornerSeats,ART,vector,rows,rowTop,faceColour,mesh};
+  return {direction,candidates,cornerSeats,ART,vector,rows,rowTop,faceTint,mesh};
 })();
 if (typeof window !== 'undefined') window.StreetSigns = StreetSigns;

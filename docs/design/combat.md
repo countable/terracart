@@ -27,6 +27,23 @@ mechanics.
   share this fall behavior, except the hidden way, which is walked on the sky
   floor ([floors](floors.md#sky-floor-depth--1)). Awakening remains permanent and winning grants the
   temple gift only once, even after re-entry or reload.
+- THE GORGON'S MAZE (`TemplePuzzles` kind `maze`, one of the grove trials
+  `TempleLayout.plan` draws): the one maze generator, the cave braid
+  (`CaveAreas.mazeBraid` — the dungeon maze reads its lines as walls between
+  wide corridors; the trial reads them as one-cell passages, `MAZE_BRAID`),
+  drawn off the plan's seed until the walk from the player's corner to the
+  golden ladder detours (`MAZE_DETOUR_CELLS`), and MEDUSA (`TRIAL_FOE`; her
+  roster row prices, paces and draws her) in the cell farthest from both ends
+  (`mazeSeatRank`), stalking a step toward the player
+  on her attack cadence and striking when adjacent. Her GAZE is the row's
+  `gaze`: the player's facing (`this.aim` — the compass heading, or the way
+  the body last stepped or was turned by Q / E without one) within
+  `halfAngleDeg` of the line to her, within `cells`, with no wall between
+  (`gazeMeets`), lands PETRIFIED on the trial's player: stone for the
+  `petrified` row's duration, topped up while the gaze holds, never stacked,
+  no step and no blow; the trial draws the body in the row's grey. The trial's
+  petrify is trial state, like its health, read off the same row and the same
+  one-dose-a-second clock as a surface status.
 
 - Confusing gas scales each `confused` dose with local density: a full
   0.3-density puff applies five seconds; thinner gas applies proportionally less
@@ -163,6 +180,35 @@ mechanics.
   and a charmed bat's bite); the Vampire Ring (`UNIQUE_JEWELRY.vampire_ring`,
   `jewelryMeleeLifesteal`) returns 20% of a melee blow as banked whole energy,
   capped at the bar.
+- THE METEOR RING (T3, the Fire Elemental's rare elite drop) and THE COMET
+  RING (T6, the Fiend's) share one fire, `COMET_AURA`, each `UNIQUE_JEWELRY`
+  row's `cometAura`, read by `CometRing` in `comet_ring.js`: while worn, a
+  ring of fire round the feet grows with the player's REAL pace —
+  the GPS speed lane (`util.js speedGateStep` keeps its last sample;
+  `CometRing.gpsPace` reads it, stale after `PACE_STALE_MS`), never the body
+  on the map: a stick walk off the fix, the walk home after it and a
+  catch-up chase light nothing, and without GPS the ring is an ember.
+  `CometRing.shape` turns the smoothed metres-per-second into the disc's
+  radius and intensity, an ember at a standstill and a comet's tail at
+  `maxMps`. `_tickCometAura` (scene_consumables.js) sets
+  every enemy inside alight as the player's kill (`Combat.ignite`, the lit
+  torch's call, for the row's `burnDurationMul` of the burning row's
+  duration: the Meteor's third, the Comet's whole) and burns the aura's
+  `dps × dt` through `_damageEnemy`; worn together, the Comet's longer burn
+  is the one fire (`jewelryCometAura`); the
+  wearer and their allies are never targets. Faster than `maxMps` for
+  `overspeedMs` running and `CometRing.step` snuffs it: the tick lends the
+  `cometSnuffed` Buffs row `snuffedMs` (its chip is the only sign) and the
+  fire relights when that ends. The ground disc (render.js) and the warmth on
+  the lightmap (`Lighting.KINDS.comet_aura`) read the same state, so the
+  edge the player sees is the edge that burns. A sample past
+  `CometRing.TELEPORT_MPS` is a GPS jump, never running.
+  They are the `equippable` jewelry rows: found, a ring is worn at once; the
+  Equip / Unequip button under the inventory bar (`syncEquipButton`, the
+  weapons' button) takes it off and puts it on through `Gear.wearJewelry`,
+  the one writer of `save.wornJewelry`, which `jewelryWorn` reads. Off, it
+  is a plain carried stack with no fire; the choice survives a reload. The
+  other unique jewelry works while carried, as before.
 - BOOK CLUB LENDING: lifetime Books collected provide one reusable credit
   each. The existing value-ordered tome shelf unlocks one new title every
   three Books; unlocks do not repeat. Each borrowed copy reserves its item
@@ -240,7 +286,12 @@ mechanics.
   it inflicts (a `refresh: false` row such as frozen keeps its first clock, and
   burning also grows with exposure). They do not bank like a repeated timed
   consumable, whose epoch writer is `Buffs.extend` / `extendField`. A new status is a row there, never a timer,
-  colour or label of its own. BLINDED (a ghost's touch,
+  colour or label of its own. ONE DOSE A SECOND: a status landing again within
+  `Conditions.APPLY_DEBOUNCE_MS` of its last landing on the same body is
+  ignored (`apply` returns false, nothing stamps), so a gaze, a web walked cell
+  by cell or a cloud stood in tops a status up at most once a second.
+  PETRIFIED (the gorgon's gaze, the grove temple's maze trial) is the
+  paralysis rule in stone grey. BLINDED (a ghost's touch,
   its roster row's `condition`) carries `lightMul`: `Conditions.lightMul`
   halves the base reach before Inner Light upgrade steps (`reachRadiusM`,
   never under one cell), the light ramp's and a carried torch's radius
@@ -374,6 +425,11 @@ mechanics.
   enemies inside Home's ring. Campfires burn for 24 real hours, including offline
   time (`Campfires.active`, saved `litAt`). After expiry their smoking pits give
   no rest, ward, light or burning contact; flint relights them for another day.
+- Explosive barrels arm on tap with a saved five-second foreground fuse.
+  They flash and show a countdown, then become permanently spent. The blast
+  deals 20 base damage within one cell, applies six seconds of burning and
+  ignites eligible ground cells for ten seconds. It reuses normal damage,
+  immunity, ground-fire and explosion effects; unloaded floors pause the fuse.
 - Fire slimes resist burning and fireball damage through their roster row. Each accepted cell
   exit lights the cell left behind through `GroundFire`, including while
   wandering or retreating. The occupied destination stays unlit until they
@@ -411,12 +467,23 @@ mechanics.
   Gifts reset by UTC day without accumulating missed days. A partly full bag
   retains today's uncollected portion; successful collection fixes today's
   allowance so furniture changes cannot repeat a gift.
-- The Quilted Cot restores all missing energy through `_restoreEnergy` and
-  `Energy.set`, with no coin or daily-use cost. It works only on an owned Home
-  building cell and refuses full energy or `_zeroEnergyLocked()`, both before
-  sleeping and when the shared sleep fade commits. The Inn uses that same fade
-  with its existing paid, once-per-day transaction. Washing Tub clears only
-  `Conditions` debuffs; buffs, energy, food cooldown and terrain remain unchanged.
+- A night's rest is `Rest.sleep` (`src/rest.js`), the one routine behind the
+  Quilted Cot and the Inn: all missing energy at once through `Energy.set`,
+  then `Rest.PASS_MS` (four hours) of the world's clocks passed, then no bed
+  anywhere until `Rest.COOLDOWN_MS` (four hours) has run, on `save.restedAt`;
+  `Rest.waitMs` is the one gate and both refuse on it. The hours move a watered
+  crop's stamp and advance it one stage if its hold has run (as the growth tick
+  would; a slower crop only comes closer), age planted trees, fruit picks and
+  cleared grass, and bring the bite and tome gates closer; nothing else, so a
+  potion drunk before bed keeps its clock. The scene's half (`_afterRest`) pops
+  the gain and re-seats live planted trees. The cot is a workshop recipe
+  (seven wood, `known` from the start) that works only on an owned Home
+  building cell and refuses the gate, `_zeroEnergyLocked()` and full energy,
+  both before sleeping and when the shared sleep fade commits. The Inn is the
+  same night for coin (`Macros.innRest`, the Healing potion's coins per energy
+  × `INN_RATE`) with no ledger of its own. The Potion of Time clears the gate
+  with the other action gates. Washing Tub clears only `Conditions` debuffs;
+  buffs, energy, food cooldown and terrain remain unchanged.
 - Home is `save.starterShopId`: the player's house, placed by `_placeHome`
   centred one cell north of the player (`HomeArea.WAGON_OFFSET` — the anchor
   keeps the save's old name) so they start in its doorway row, with an empty

@@ -33,6 +33,13 @@
     assert.eq(HazardFalls.dropCreatures(scene, [flier]).length, 0, 'a flier crosses');
   }));
 
+  test('Haunt: grounded enemies fall through surface maws using the existing gap lookup', () => fixture(({ scene, here, below }) => {
+    here.objects.push(WorldGen.makeObject('ground_hole', 28, 28, 'haunt-maw', { depth: 0 }));
+    const falling = foe(28, 28); here.creatures.push(falling);
+    assert.eq(HazardFalls.dropCreatures(scene, [falling]).length, 1);
+    assert.truthy(below.creatures.includes(falling));
+  }, 0));
+
   test('enemy falls: pets and charmed creatures fall too; neighbours and wild animals do not', () => fixture(({ scene, here, below }) => {
     here.objects.push(WorldGen.makeObject('ground_hole', 28, 28, 'chasm_1_0_0_3_3', { depth: 1 }));
     const pet = foe(28, 28, { pet: true }), charmed = foe(27, 27, { _charmUntil: Date.now() + 60000 });

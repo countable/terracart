@@ -10,19 +10,15 @@
     ],
     "mechanics": [
       {
-        "text": "A hedge ambush can emerge from behind the first verge row.",
+        "text": "Two goblin runts hide in the clipped hedge. One ambush is attempted per hedged street per map tile, where a valid spawn spot exists.",
         "status": "existing"
-      },
-      {
-        "text": "Walking the route restores its paving.",
-        "status": "existing"
-      },
-      {
-        "text": "Give the occupied hedge a brief rustle before the ambush activates, so an attentive walker can prepare.",
-        "status": "proposed"
       }
     ],
-    "loop": "Enjoy the order, notice the rustle, clear the ambush, continue restoring."
+    "adjectives": [
+      "Orderly",
+      "Reassuring",
+      "Watchful"
+    ]
   },
   {
     "id": "overgrown",
@@ -31,7 +27,8 @@
     "art": [
       "Keep one verge row with one empty cell between specimens and clearly distinct growth stages.",
       "Use the existing pine, dead-tree and stump art; omit shrubs and extra tree rows.",
-      "Keep grass sparse and low so the sequence and final shrine remain readable."
+      "Keep the ground free of grass and shrubs so the tree sequence and final shrine remain readable.",
+      "Leave scattered water puddles on the verge opposite the tree sequence."
     ],
     "mechanics": [
       {
@@ -43,11 +40,15 @@
         "status": "existing"
       },
       {
-        "text": "Make the final shrine visibly brighten when the whole local sequence has been walked, using restoration progress as the trigger.",
-        "status": "proposed"
+        "status": "existing",
+        "text": "Concealed seed cache, with its own themed T1\u2013T3 loot roll."
       }
     ],
-    "loop": "Follow the tree sequence, deal with wildlife, reach the shrine."
+    "adjectives": [
+      "Reflective",
+      "Wild",
+      "Weathered"
+    ]
   },
   {
     "id": "orchard",
@@ -68,11 +69,15 @@
         "status": "existing"
       },
       {
-        "text": "Use a brief fruit sparkle on harvestable trees, disappearing after collection, to make a worthwhile stop readable while walking.",
-        "status": "proposed"
+        "status": "existing",
+        "text": "Concealed fruit cache, with its own themed T1\u2013T3 loot roll."
       }
     ],
-    "loop": "Spot ripe fruit, check for a guard, harvest, move to the next tree."
+    "adjectives": [
+      "Inviting",
+      "Fruitful",
+      "Vulnerable"
+    ]
   },
   {
     "id": "pilgrim",
@@ -93,11 +98,15 @@
         "status": "existing"
       },
       {
-        "text": "Let active stones pulse faster as their remaining time runs low, communicating urgency without another timer panel.",
-        "status": "proposed"
+        "status": "existing",
+        "text": "Concealed sacred cache, with its own themed T1\u2013T3 loot roll."
       }
     ],
-    "loop": "Read the scattered layout, choose an order, keep every stone lit."
+    "adjectives": [
+      "Quiet",
+      "Deliberate",
+      "Contemplative"
+    ]
   },
   {
     "id": "lantern",
@@ -112,17 +121,13 @@
       {
         "text": "Lamps are placed more densely than on ordinary routes.",
         "status": "existing"
-      },
-      {
-        "text": "Walking restores the route through the shared street-restoration system.",
-        "status": "existing"
-      },
-      {
-        "text": "Give each newly restored lamp a short warm ignition pulse, making forward progress visible down the chain.",
-        "status": "proposed"
       }
     ],
-    "loop": "Follow the lights and leave a visibly restored trail behind."
+    "adjectives": [
+      "Warm",
+      "Sheltered",
+      "Welcoming"
+    ]
   },
   {
     "id": "burned",
@@ -141,13 +146,13 @@
       {
         "text": "Tar, stakes and a fire-slime guard create obstacles along the stretch.",
         "status": "existing"
-      },
-      {
-        "text": "Place a small visibly cool rest pocket at each end, giving players a clear place to prepare and recover before crossing.",
-        "status": "proposed"
       }
     ],
-    "loop": "Prepare on safe ground, cross decisively, deal with the guard, recover beyond the heat."
+    "adjectives": [
+      "Scorching",
+      "Urgent",
+      "Hostile"
+    ]
   },
   {
     "id": "barricade",
@@ -166,13 +171,13 @@
       {
         "text": "A Trap Kit removes individual barrier pieces.",
         "status": "existing"
-      },
-      {
-        "text": "Give the final piece blocking a continuous passage a distinct break sound and brief dust burst, marking the moment the road opens.",
-        "status": "proposed"
       }
     ],
-    "loop": "Assess the blockage, clear the defenders, open a passage."
+    "adjectives": [
+      "Occupied",
+      "Defiant",
+      "Liberating"
+    ]
   },
   {
     "id": "toadstool",
@@ -185,19 +190,19 @@
     ],
     "mechanics": [
       {
-        "text": "Small mushrooms can be collected; medium mushroom bushes use bush chopping and cover.",
+        "text": "Small mushrooms can be collected; medium mushroom bushes use bush chopping and cover. Candidate caps are reduced by 30%.",
         "status": "existing"
       },
       {
         "text": "Spider guards make dense fungal patches worth checking before entering.",
         "status": "existing"
-      },
-      {
-        "text": "Let disturbed medium clumps shed a brief harmless spore puff, making harvesting and an approaching creature readable through the cover.",
-        "status": "proposed"
       }
     ],
-    "loop": "Collect small caps, inspect the cover, chop a clump or skirt the danger."
+    "adjectives": [
+      "Curious",
+      "Lush",
+      "Secretive"
+    ]
   },
   {
     "id": "promenade",
@@ -216,13 +221,13 @@
       {
         "text": "Eligible scenic stretches can place a one-time vista chest.",
         "status": "existing"
-      },
-      {
-        "text": "Use a subtle glint from the vista chest when it first enters view, encouraging a short shoreward detour without a quest marker.",
-        "status": "proposed"
       }
     ],
-    "loop": "Follow the shoreline, restore new ground, step aside for the vista reward."
+    "adjectives": [
+      "Open",
+      "Restful",
+      "Expansive"
+    ]
   },
   {
     "id": "greenway",
@@ -241,13 +246,13 @@
       {
         "text": "Scenic greenway stretches grant increased first-restoration credit and can hold a one-time vista chest.",
         "status": "existing"
-      },
-      {
-        "text": "Let nearby deer briefly look toward a slow or stationary player before resuming their existing behavior, rewarding attention without another collectible.",
-        "status": "proposed"
       }
     ],
-    "loop": "Follow the green corridor, notice wildlife, continue toward the next opening."
+    "adjectives": [
+      "Alive",
+      "Gentle",
+      "Attentive"
+    ]
   },
   {
     "id": "parkpath",
@@ -266,38 +271,13 @@
       {
         "text": "Eligible scenic stretches can place a one-time vista chest.",
         "status": "existing"
-      },
-      {
-        "text": "Fade the leaf-and-weed edge clutter back locally as paving is restored, giving this route a clear before-and-after payoff with existing art.",
-        "status": "proposed"
       }
     ],
-    "loop": "Follow the neglected path and watch its shape return as you walk."
-  },
-  {
-    "id": "golden",
-    "feeling": "A lucky discovery becomes a small daily ritual.",
-    "arrival": "The gilded shrine draws you off the ordinary road before the reward appears.",
-    "art": [
-      "Use the original Golden Road story art to introduce the shrine.",
-      "Keep the gilded shrine brighter than the muted stone and ordinary lamps.",
-      "Leave both coin rows visually clear of decorative clutter."
-    ],
-    "mechanics": [
-      {
-        "text": "Touching the shrine starts a daily green-coin run along both road verges.",
-        "status": "existing"
-      },
-      {
-        "text": "The themed section is capped at 250 m.",
-        "status": "existing"
-      },
-      {
-        "text": "Briefly pulse the first available coins after activation so the collection route reads immediately.",
-        "status": "proposed"
-      }
-    ],
-    "loop": "Notice shrine \u2192 activate \u2192 sweep both verges \u2192 return another day."
+    "adjectives": [
+      "Neglected",
+      "Peaceful",
+      "Hopeful"
+    ]
   },
   {
     "id": "snare",
@@ -316,13 +296,13 @@
       {
         "text": "Scattered bones, rocks and planks occupy the three-cell dusty verge.",
         "status": "existing"
-      },
-      {
-        "text": "Highlight the nearest armed trap on approach without revealing traps elsewhere.",
-        "status": "proposed"
       }
     ],
-    "loop": "Spot cache \u2192 inspect approach \u2192 avoid or handle traps \u2192 claim chest."
+    "adjectives": [
+      "Tempting",
+      "Tense",
+      "Treacherous"
+    ]
   },
   {
     "id": "thorny",
@@ -341,20 +321,20 @@
       {
         "text": "Brambles drain energy on contact and can burn; some streets enclose a moss cairn.",
         "status": "existing"
-      },
-      {
-        "text": "Give brambles a brief contact shake to distinguish their damage from nearby enemies.",
-        "status": "proposed"
       }
     ],
-    "loop": "Read thorn gaps \u2192 choose passage or clearance \u2192 reach cairn \u2192 continue."
+    "adjectives": [
+      "Neglected",
+      "Prickly",
+      "Resistant"
+    ]
   },
   {
     "id": "goblin_gang",
     "feeling": "You have walked into someone else\u2019s territory.",
-    "arrival": "Barrel stacks and grouped goblins signal occupied ground rather than an isolated encounter.",
+    "arrival": "Barrel stacks and grouped goblins guard the road; red barrels offer a dangerous opening.",
     "art": [
-      "Make existing barrel stacks the landmark for each gang.",
+      "Red explosive barrels punctuate the wooden stacks.",
       "Keep goblin silhouettes visible around the stacks.",
       "Use dusty ground and plank fragments to connect each group without adding new fortifications."
     ],
@@ -368,11 +348,15 @@
         "status": "existing"
       },
       {
-        "text": "Add a short shared alert gesture when one gang notices the player.",
-        "status": "proposed"
+        "text": "Red barrels always explode; 10% of ordinary barrels do too. Tap to start a flashing five-second fuse, then a one-cell blast, burning and ground fire.",
+        "status": "existing"
       }
     ],
-    "loop": "Spot gang \u2192 choose engagement or bypass \u2192 inspect barrels \u2192 assess next group."
+    "adjectives": [
+      "Territorial",
+      "Confrontational",
+      "Dangerous"
+    ]
   },
   {
     "id": "golden_path",
@@ -391,13 +375,13 @@
       {
         "text": "Coins appear along the path centreline.",
         "status": "existing"
-      },
-      {
-        "text": "Show a brief directional glint down the coin line after activation.",
-        "status": "proposed"
       }
     ],
-    "loop": "Touch either shrine \u2192 follow centreline coins \u2192 leave at the far end."
+    "adjectives": [
+      "Inviting",
+      "Effortless",
+      "Satisfying"
+    ]
   },
   {
     "id": "slime_trail",
@@ -416,13 +400,13 @@
       {
         "text": "Eligible posts hold two guards about 70 m apart; short sections use a midpoint post.",
         "status": "existing"
-      },
-      {
-        "text": "Let cleared posts briefly lose their strongest slime shimmer so progress feels visible.",
-        "status": "proposed"
       }
     ],
-    "loop": "Recognize species \u2192 approach pair \u2192 fight or bypass \u2192 read next colony post."
+    "adjectives": [
+      "Sticky",
+      "Infested",
+      "Persistent"
+    ]
   },
   {
     "id": "spider_path",
@@ -435,7 +419,7 @@
     ],
     "mechanics": [
       {
-        "text": "Lasting webs occupy 35% of eligible samples and paralyse grounded actors.",
+        "text": "Permanent webs occur on 35% of eligible path samples and 20% of eligible verge cells. Contact paralyses grounded actors.",
         "status": "existing"
       },
       {
@@ -443,11 +427,15 @@
         "status": "existing"
       },
       {
-        "text": "Add a short silk-tension animation when a web catches an actor.",
-        "status": "proposed"
+        "status": "existing",
+        "text": "Concealed supply cache, with its own themed T1\u2013T3 loot roll."
       }
     ],
-    "loop": "Identify webs \u2192 choose clear footing \u2192 manage spiders \u2192 cross the section."
+    "adjectives": [
+      "Fragile",
+      "Exposed",
+      "Claustrophobic"
+    ]
   },
   {
     "id": "poison_path",
@@ -466,13 +454,13 @@
       {
         "text": "The daily shrine grants eight minutes of Mending regeneration, not poison immunity.",
         "status": "existing"
-      },
-      {
-        "text": "Strengthen the vent warning pulse at the edge of the visible screen.",
-        "status": "proposed"
       }
     ],
-    "loop": "Watch vent cycle \u2192 avoid gas \u2192 visit shrine if useful \u2192 move onward."
+    "adjectives": [
+      "Noxious",
+      "Oppressive",
+      "Urgent"
+    ]
   },
   {
     "id": "fire_path",
@@ -491,13 +479,13 @@
       {
         "text": "The daily ember shrine strengthens magic for five minutes; it does not grant fire immunity.",
         "status": "existing"
-      },
-      {
-        "text": "Make the last warning beat visually sharper before eruption.",
-        "status": "proposed"
       }
     ],
-    "loop": "Observe warning \u2192 cross a safe interval \u2192 avoid lingering fire \u2192 consider altar."
+    "adjectives": [
+      "Volatile",
+      "Perilous",
+      "Demanding"
+    ]
   },
   {
     "id": "paralysis_path",
@@ -518,11 +506,15 @@
         "status": "existing"
       },
       {
-        "text": "Make safe gaps between vines and vent footprints easier to read with restrained edge contrast.",
-        "status": "proposed"
+        "status": "existing",
+        "text": "Concealed magic-consumable cache, with its own themed T1\u2013T3 loot roll."
       }
     ],
-    "loop": "Read vents and vines \u2192 choose a clear crossing \u2192 avoid becoming trapped \u2192 reach watcher if useful."
+    "adjectives": [
+      "Constraining",
+      "Tense",
+      "Unforgiving"
+    ]
   },
   {
     "id": "confusion_path",
@@ -543,11 +535,15 @@
         "status": "existing"
       },
       {
-        "text": "Keep a subtle stable path-edge cue visible through the effect to aid reorientation.",
-        "status": "proposed"
+        "status": "existing",
+        "text": "Concealed magic-consumable cache, with its own themed T1\u2013T3 loot roll."
       }
     ],
-    "loop": "Read vapour \u2192 avoid exposure \u2192 regain bearings if affected \u2192 follow the route out."
+    "adjectives": [
+      "Uncanny",
+      "Disorienting",
+      "Uncertain"
+    ]
   },
   {
     "id": "berry",
@@ -556,7 +552,8 @@
     "art": [
       "Use the existing plain, fruiting and poison-berry bush silhouettes; keep plain bushes dominant.",
       "Keep thorns sparse and omit yellow flowers so fruit and movement remain the strongest signals.",
-      "Use the existing warm lamp glow to reveal gaps between bushes."
+      "Use the existing warm lamp glow to reveal gaps between bushes.",
+      "Two bush rows on each side: 48% plain, 25% berry, 15% poison, 10% thorn and 2% golden; no yellow flowers."
     ],
     "mechanics": [
       {
@@ -566,13 +563,13 @@
       {
         "text": "Goblin runts can lurk behind the bush row; brambles punish careless contact.",
         "status": "existing"
-      },
-      {
-        "text": "Give a concealed runt a brief foliage rustle before its first approach, rewarding a pause before harvesting.",
-        "status": "proposed"
       }
     ],
-    "loop": "Notice fruit \u2192 inspect cover \u2192 harvest or skirt the bushes \u2192 continue."
+    "adjectives": [
+      "Appetizing",
+      "Sheltered",
+      "Suspicious"
+    ]
   },
   {
     "id": "berry_trail",
@@ -581,23 +578,24 @@
     "art": [
       "Use denser existing berry-bush art than Berry Lane, with a few poison bushes and brambles.",
       "Keep the bear readable through breaks in the bushes rather than adding new scenery.",
-      "Retain the narrow path silhouette so approaching the fruit feels like a deliberate detour."
+      "Retain the narrow path silhouette so approaching the fruit feels like a deliberate detour.",
+      "Two bush rows on each side: 48% plain, 25% berry, 15% poison, 10% thorn and 2% golden; no yellow flowers."
     ],
     "mechanics": [
       {
-        "text": "The trail uses a fruit-heavy bush mix and adds one large forest-bear encounter where a legal seat exists.",
+        "text": "The trail shares Berry Lane\u2019s bush mix and adds one large forest-bear encounter where a legal seat exists.",
         "status": "existing"
       },
       {
         "text": "Berry-runts may also lurk behind the first bush row; fruit picking and thorn contact use the shared rules.",
         "status": "existing"
-      },
-      {
-        "text": "Let the bear visibly investigate a nearby berry bush while idle, explaining its presence before combat.",
-        "status": "proposed"
       }
     ],
-    "loop": "Spot the bear \u2192 choose a safe approach \u2192 take nearby fruit or pass by."
+    "adjectives": [
+      "Abundant",
+      "Contested",
+      "Intimidating"
+    ]
   },
   {
     "id": "pottery",
@@ -618,40 +616,44 @@
         "status": "existing"
       },
       {
-        "text": "Vary the existing ceramic break sound by pot size so a run of pots has a tactile rhythm.",
-        "status": "proposed"
+        "text": "Eligible surface pots have a stable 20% chance of releasing a snake when smashed.",
+        "status": "existing"
       }
     ],
-    "loop": "Choose a pot \u2192 smash \u2192 inspect the result \u2192 follow the next intact group."
+    "adjectives": [
+      "Playful",
+      "Tactile",
+      "Surprising"
+    ]
   },
   {
     "id": "trade",
     "feeling": "Useful supplies are close at hand, but someone is already scavenging them.",
-    "arrival": "Rows of barrels make the rewards obvious; pairs of goblin grunts turn browsing into a tactical choice.",
+    "arrival": "Rows of barrels offer supplies; a thief and two goblin grunts contest each occupied post.",
     "art": [
       "Use existing wooden barrels and their broken states as the route's main visual rhythm.",
       "Keep hanging lantern posts and warm light around the barrel rows.",
-      "Leave readable gaps between barrels so both members of a grunt pair can be spotted."
+      "Leave readable gaps around the thief and goblin pair."
     ],
     "mechanics": [
       {
-        "text": "Barrels use existing container loot and smashing interactions.",
+        "text": "Most barrels yield normal container loot; 10% instead start a five-second explosive fuse when tapped.",
         "status": "existing"
       },
       {
-        "text": "Eligible roadside posts can hold two goblin grunts, with gaps between encounters.",
+        "text": "Each occupied roadside post holds a thief and two goblin grunts.",
         "status": "existing"
-      },
-      {
-        "text": "Give idle grunts a short barrel-inspection animation, making guarded supplies legible before they notice the player.",
-        "status": "proposed"
       }
     ],
-    "loop": "Scan a barrel group \u2192 assess its guards \u2192 fight or bypass \u2192 collect supplies."
+    "adjectives": [
+      "Resourceful",
+      "Contested",
+      "Opportunistic"
+    ]
   },
   {
     "id": "rocky_path",
-    "feeling": "A practical gathering route where useful stone is always underfoot.",
+    "feeling": "Useful stone rewards a careful walker on ground that can give way.",
     "arrival": "Common rocks, flint and rubble extend onto the route itself and stop at the first verge row.",
     "art": [
       "Use only the existing common-rock, flint and rubble forms; omit outer decorative rock types.",
@@ -668,11 +670,15 @@
         "status": "existing"
       },
       {
-        "text": "Use distinct existing impact sounds for mining rock and picking loose flint, reinforcing the two gathering actions.",
-        "status": "proposed"
+        "status": "existing",
+        "text": "Stepping on an eligible cave-in seed has an 8% chance to start a 2\u20135-cell collapse. Cracks warn for five seconds before permanent holes open; the static preview shows intact ground."
       }
     ],
-    "loop": "Spot a useful piece \u2192 pick or mine \u2192 move to the next find."
+    "adjectives": [
+      "Rugged",
+      "Unstable",
+      "Tense"
+    ]
   },
   {
     "id": "grassy_lane",
@@ -691,13 +697,13 @@
       {
         "text": "Individual grass plants have the existing rare coin and egg finds.",
         "status": "existing"
-      },
-      {
-        "text": "Add a quiet grass-brushing footstep layer while crossing uncleared tufts, fading it on cleared cells.",
-        "status": "proposed"
       }
     ],
-    "loop": "Walk through grass \u2192 clear an inviting patch \u2192 inspect any small find \u2192 move on."
+    "adjectives": [
+      "Soft",
+      "Easygoing",
+      "Unassuming"
+    ]
   },
   {
     "id": "old_growth_path",
@@ -718,11 +724,15 @@
         "status": "existing"
       },
       {
-        "text": "Lower ambient wind and add a subdued canopy sound on entry, making the enclosure perceptible without extra props.",
-        "status": "proposed"
+        "status": "existing",
+        "text": "Concealed forage cache, with its own themed T1\u2013T3 loot roll."
       }
     ],
-    "loop": "Enter the shade \u2192 inspect the tree line \u2192 forage or chop \u2192 return to the path."
+    "adjectives": [
+      "Sheltered",
+      "Ancient",
+      "Nourishing"
+    ]
   },
   {
     "id": "haunted_forest_path",
@@ -735,7 +745,7 @@
     ],
     "mechanics": [
       {
-        "text": "The route is marked as a haunting habitat and participates in the shared haunting rules.",
+        "text": "After dark, eligible unlit spots can raise 1\u20133 ghosts per attempt every 4\u20136 minutes. Tapping a headstone has a 1-in-3 chance to raise a ghost at any hour.",
         "status": "existing"
       },
       {
@@ -743,11 +753,23 @@
         "status": "existing"
       },
       {
-        "text": "Introduce a brief distant rustle at the first headstone, without adding an enemy or implying a guaranteed ambush.",
-        "status": "proposed"
+        "status": "existing",
+        "text": "Permanent maws occur about every 70 m where safe placement permits. Stepping into one drops a grounded player one level."
+      },
+      {
+        "status": "existing",
+        "text": "About one-third of graves raise one ghost when approached within one cell. Each approach trigger fires once per save; flying players do not trigger it."
+      },
+      {
+        "status": "existing",
+        "text": "Concealed occult cache, with its own themed T1\u2013T3 loot roll."
       }
     ],
-    "loop": "Read the changed ground \u2192 watch the gaps between dead trees \u2192 gather cautiously or keep moving."
+    "adjectives": [
+      "Uneasy",
+      "Mournful",
+      "Familiar"
+    ]
   },
   {
     "id": "way_of_variety",
@@ -768,11 +790,15 @@
         "status": "existing"
       },
       {
-        "text": "Briefly name a newly encountered find on approach, encouraging players to learn the different interactions without creating a collection quest.",
-        "status": "proposed"
+        "status": "existing",
+        "text": "Up to three small snakes inhabit the tile\u2019s eligible Variety corridor. Decorated verge rows fill every available cell."
       }
     ],
-    "loop": "Notice an unfamiliar find \u2192 identify its action \u2192 gather \u2192 look for a different kind."
+    "adjectives": [
+      "Varied",
+      "Engaging",
+      "Resourceful"
+    ]
   },
   {
     "id": "causeway",
@@ -785,18 +811,18 @@
     ],
     "mechanics": [
       {
-        "text": "The terrain pass creates water pools beside the road, up to three cells outward.",
+        "text": "Rocky ground with water pools extends up to three cells beside the road.",
         "status": "existing"
       },
       {
         "text": "Road footprints and crossings are excluded from those pools, preserving the dry route.",
         "status": "existing"
-      },
-      {
-        "text": "Add a quiet shoreline sound near the verge pools that fades at the centre of the road, reinforcing the safe crossing.",
-        "status": "proposed"
       }
     ],
-    "loop": "Notice water flanking the road \u2192 follow the dry crossing \u2192 emerge onto ordinary ground."
+    "adjectives": [
+      "Dependable",
+      "Exposed",
+      "Reassuring"
+    ]
   }
 ]

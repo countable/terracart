@@ -49,17 +49,19 @@ test('street signs: the post stands in the corner between the two roads, steppin
   assert.eq(StreetSigns.cornerSeats(sign, 7, { lineSide: -1 }).map(s => s.side).join(), '-1,-1,-1', 'a kept verge leaves only the other side');
   assert.eq(StreetSigns.cornerSeats({ ...sign, lineSign: -1 }, 7, { lineSide: -1 }).map(s => s.side).join(), '1,1,1', 'in the road\'s own terms, whichever end the junction is');
 });
-test('street signs: headings share a row only when their boards cannot meet', () => {
+test('street signs: boards stack one under another, the top one the sign\'s own pick', () => {
   const { post, board } = StreetSigns.ART;
-  const rows = (...names) => StreetSigns.rows(names.map(direction => ({ direction }))).map(b => b.row).join();
-  assert.eq(rows('East', 'North'), '0,0', 'a right angle apart, each hangs off its own post face');
-  assert.eq(rows('East', 'Northeast'), '0,1', 'boards that would cross stack');
-  assert.eq(rows('East', 'East'), '0,1', 'two roads leaving the same way stack');
-  assert.eq(rows('East', 'West', 'North', 'South'), '0,0,0,0', 'four cardinals fill one row');
-  assert.eq(rows('East', 'North', 'Northeast', 'Northwest', 'South', 'Southeast', 'Southwest', 'West'), '0,0,1,1,0,1,1,0', 'the compass fills two rows');
-  assert.eq(rows('East', 'Nowhere'), '0', 'only compass headings have a board');
+  const dirs = (...names) => names.map(direction => ({ direction }));
+  const rows = (id, ...names) => StreetSigns.rows(dirs(...names), id);
+  const three = rows('sign_a', 'East', 'North', 'West');
+  assert.eq(three.map(b => b.row).sort().join(), '0,1,2', 'one row per board, none shared');
+  assert.eq(JSON.stringify(rows('sign_a', 'East', 'North', 'West')), JSON.stringify(three), 'the same sign stacks the same way every time');
+  const tops = new Set();
+  for (let i = 0; i < 40; i++) tops.add(rows('sign_' + i, 'East', 'North', 'West').find(b => b.row === 0).vector.x);
+  assert.gt(tops.size, 1, 'another sign may hang another heading at the top');
+  assert.eq(rows('x', 'East', 'Nowhere').length, 1, 'only compass headings have a board');
   assert.eq(StreetSigns.rowTop(0, 1), post.height - board.topInset, 'the first row hangs under the post top');
-  assert.eq(StreetSigns.rowTop(1, 2), post.height - board.topInset - board.height - board.gap, 'the next a gap below it');
+  assert.lt(Math.abs(StreetSigns.rowTop(1, 2) - (post.height - board.topInset - board.height - board.gap)), 1e-9, 'the next a board height and a gap below it');
   for (const n of [1, 2, 3, 4, 8]) {
     assert.eq(StreetSigns.rowTop(0, n), post.height - board.topInset, `${n} rows: the first hangs at the top`);
     assert.gte(StreetSigns.rowTop(n - 1, n) - board.height, board.minBottom - 1e-9, `${n} rows: the last stays above the ground`);
@@ -69,37 +71,48 @@ test('street signs: headings share a row only when their boards cannot meet', ()
 test('street signs: the mesh is a square post with no footing and pentagonal boards', () => {
   const { post, board } = StreetSigns.ART;
   const near = (a, b, msg) => assert.truthy(Math.abs(a - b) < 1e-9, `${msg}: ${a} ≠ ${b}`);
-  assert.lte(post.height, 32, 'half the old sprite: about one cell tall');
-  const sign = { directions: [{ direction: 'East', title: 'A' }, { direction: 'North', title: 'B' }, { direction: 'Northeast', title: 'C' }, { direction: 'Nowhere', title: 'D' }] };
-  const parts = StreetSigns.mesh(sign, { x: 0, y: 0, uv: { u: .25, v: .75 } });
+  assert.lte(post.height, 26, 'four fifths of the first mesh: well under a cell tall');
+  const sign = { id: 'sign_1', directions: [{ direction: 'East', title: 'A' }, { direction: 'North', title: 'B' }, { direction: 'Northeast', title: 'C' }, { direction: 'Nowhere', title: 'D' }] };
+  const sampled = [];
+  const texel = (material, s, t) => { sampled.push({ material, s, t }); return { u: s, v: t }; };
+  const parts = StreetSigns.mesh(sign, { x: 0, y: 0, texel });
   assert.eq(parts.length, 4, 'the post and one board per compass heading');
   const vertices = part => part.faces.flatMap(f => f.points);
   for (const part of parts) {
     assert.truthy(part.points.length >= 4 && part.faces.length >= 12, 'a plan footprint and a closed set of triangles');
-    assert.truthy(vertices(part).every(p => p.u === .25 && p.v === .75), 'every vertex carries the texel');
-    assert.truthy(part.faces.every(f => f.flatColor === f.color && Number.isInteger(f.color)), 'flat cel colours');
+    assert.truthy(vertices(part).every(p => Number.isFinite(p.u) && Number.isFinite(p.v)), 'every vertex carries a texel');
+    assert.truthy(part.faces.every(f => Number.isInteger(f.color) && Number.isInteger(f.flatColor)), 'a grey tint over the wood, and its flat stand-in');
   }
-  const [postPart, east, north, northeast] = parts;
+  assert.truthy(sampled.every(q => ['side', 'top'].includes(q.material) && q.s >= -1e-9 && q.s <= 1 + 1e-9 && q.t >= -1e-9 && q.t <= 1 + 1e-9), 'the wood slots, sampled inside their tiles');
+  const [postPart, ...boards] = parts;
   const pv = vertices(postPart);
   near(Math.min(...pv.map(p => p.z)), 0, 'the post stands on the ground');
   near(Math.max(...pv.map(p => p.z)), post.height, 'to its full height');
   assert.truthy(pv.every(p => Math.abs(p.x) <= post.side / 2 + 1e-9 && Math.abs(p.y) <= post.side / 2 + 1e-9), 'a square section all the way down: no footing');
-  assert.eq(postPart.faces.length, 12, 'six quads');
+  assert.eq(postPart.faces.length, 4 + 4 * StreetSigns.ART.bands.length * 2, 'two caps and each side in its bands');
+  const southBands = postPart.faces.filter(f => f.points.every(p => Math.abs(p.y - post.side / 2) < 1e-9))
+    .map(f => ({ z: Math.min(...f.points.map(p => p.z)), color: f.color })).sort((a, b) => b.z - a.z);
+  assert.truthy(southBands.every((f, i) => i === 0 || f.color <= southBands[i - 1].color), 'the pole darkens toward the ground');
+  assert.gt(southBands[0].color, southBands.at(-1).color, 'visibly');
+  const rowsOf = StreetSigns.rows(sign.directions, sign.id);
+  const east = boards[rowsOf.findIndex(b => Math.abs(b.vector.x - 1) < 1e-9)];
   const ev = vertices(east), xs = ev.map(p => p.x), zs = ev.map(p => p.z);
   near(Math.min(...xs), post.side / 2, 'the board roots on the post face');
   near(Math.max(...xs), post.side / 2 + board.length, 'and runs its length east');
-  near(Math.max(...zs), StreetSigns.rowTop(0, 2), 'the first row');
+  const eastRow = rowsOf.find(b => Math.abs(b.vector.x - 1) < 1e-9).row;
+  near(Math.max(...zs), StreetSigns.rowTop(eastRow, 3), 'at its own row');
   near(Math.max(...zs) - Math.min(...zs), board.height, 'one board high');
   assert.truthy(ev.every(p => Math.abs(p.y) <= board.thickness / 2 + 1e-9), 'a thin slab');
   const tips = ev.filter(p => Math.abs(p.x - Math.max(...xs)) < 1e-9);
   const tipKeys = new Set(tips.map(p => `${p.y},${p.z}`));
   assert.eq(tipKeys.size, 2, 'the end comes to a point: one tip vertex per side');
-  tips.forEach(p => near(p.z, StreetSigns.rowTop(0, 2) - board.height / 2, 'on the centre line'));
+  tips.forEach(p => near(p.z, StreetSigns.rowTop(eastRow, 3) - board.height / 2, 'on the centre line'));
   const shoulders = ev.filter(p => Math.abs(p.x - (post.side / 2 + board.length - board.tip)) < 1e-9);
   assert.eq(new Set(shoulders.map(p => p.z)).size, 2, 'the shoulders span the full height: an elongated pentagon, no arrowhead wider than the plank');
-  near(Math.max(...vertices(north).map(p => p.z)), StreetSigns.rowTop(0, 2), 'north shares the top row');
-  near(Math.max(...vertices(northeast).map(p => p.z)), StreetSigns.rowTop(1, 2), 'northeast hangs below them');
-  const d = StreetSigns.vector('Northeast');
+  const tops = boards.map(b => Math.max(...vertices(b).map(p => p.z))).sort((a, b) => b - a);
+  near(tops[0], StreetSigns.rowTop(0, 3), 'one board at the top');
+  near(tops[0] - tops[1], board.height + board.gap, 'the next a board height lower'); near(tops[1] - tops[2], board.height + board.gap, 'and the next');
+  const d = StreetSigns.vector('Northeast'), northeast = boards[rowsOf.findIndex(b => b.vector.x > 0 && b.vector.y < 0)];
   near(Math.min(...vertices(northeast).map(p => p.x * d.x + p.y * d.y)), post.side / 2 * Math.SQRT2, 'a diagonal board roots on the post corner');
 });
 test('street signs: faces wind outward and cull with the heading like every retained solid', () => {
@@ -112,19 +125,20 @@ test('street signs: faces wind outward and cull with the heading like every reta
   const draw = (angle, directions) => {
     const s = scene(), group = WallPerspective.begin(s, 'signs');
     group.renderDepth = 0;
-    const parts = StreetSigns.mesh({ directions }, { x: 100, y: 100, uv: WallMaterials.WHITE });
+    const parts = StreetSigns.mesh({ id: 'cull', directions }, { x: 100, y: 100, texel: (m, u, v) => WallMaterials.texel(m === 'top' ? 'woodTop' : 'woodSide', u, v) });
     for (const part of parts) WallPerspective.prism(s, 'signs', part.points, 0, StreetSigns.ART.post.height, part.colors, null, true,
-      { materialFaces: part.faces, topOutline: PropLowPoly.outline(part.faces, StreetSigns.ART.colours.ink) });
+      { materialFaces: part.faces, topOutline: PropLowPoly.outline(part.faces, StreetSigns.ART.ink) });
     WallPerspective.finish(s, 'signs');
     s.mapRot = angle; WallPerspective.update(s);
     return { parts, group, triangles: group.gfx.triangles };
   };
-  const { post } = StreetSigns.ART.colours;
+  const { bands, tint } = StreetSigns.ART, grey = f => { const c = Math.round(255 * f); return (c << 16) | (c << 8) | c; };
   let { parts, triangles } = draw(0, [{ direction: 'North' }]);
   const [postPart, north] = parts;
   const visible = part => part.faces.filter(f => f.visible);
-  assert.eq(visible(postPart).length, 4, 'north-up the post shows its top and its south face');
-  assert.eq(visible(postPart).map(f => f.color).sort().join(), [post.top, post.top, post.mid, post.mid].sort().join(), 'lit top, mid south face');
+  assert.eq(visible(postPart).length, 2 + 2 * bands.length, 'north-up the post shows its top and its banded south face');
+  assert.eq(visible(postPart).map(f => f.color).sort((a, b) => a - b).join(),
+    [grey(tint.top), grey(tint.top), ...bands.flatMap(b => [grey(b * tint.mid), grey(b * tint.mid)])].sort((a, b) => a - b).join(), 'the top at full light, the south face mid and darker by band');
   const sides = north.faces.filter(f => f.points.every(p => Math.abs(p.x - f.points[0].x) < 1e-9));
   assert.eq(sides.length, 6, 'the two pentagons, three triangles each');
   assert.truthy(sides.every(f => !f.visible), 'a board pointing away is seen edge-on');
@@ -134,9 +148,9 @@ test('street signs: faces wind outward and cull with the heading like every reta
   const turned = parts[1].faces.filter(f => f.points.every(p => Math.abs(p.x - f.points[0].x) < 1e-9));
   assert.eq(turned.filter(f => f.visible).length, 3, 'turned a quarter, one pentagon faces the camera');
   assert.truthy(turned.filter(f => f.visible).every(f => f.points[0].x > 100), 'the east one');
-  assert.eq(visible(parts[0]).length, 4, 'and the post shows its east face');
-  const outline = PropLowPoly.outline(parts[0].faces, StreetSigns.ART.colours.ink);
-  assert.eq(outline.color, StreetSigns.ART.colours.ink);
+  assert.eq(visible(parts[0]).length, 2 + 2 * bands.length, 'and the post shows its east face');
+  const outline = PropLowPoly.outline(parts[0].faces, StreetSigns.ART.ink);
+  assert.eq(outline.color, StreetSigns.ART.ink);
   assert.truthy(outline.edges.every(e => e.length === 2), 'a closed solid: every edge joins two triangles');
 });
 test('street signs: the fallback post bake is a plain pole to the frame bottom', () => {
@@ -161,14 +175,16 @@ test('street signs: the fallback post bake is a plain pole to the frame bottom',
     },
   } };
   bake(scene); bake(scene);
-  const { post, colours } = StreetSigns.ART;
+  const { post } = StreetSigns.ART;
   assert.eq([...images.keys()].join(), 'roadsign_post', 'only the post is baked; boards are mesh');
   const p = images.get('roadsign_post');
   assert.eq(p.w + 'x' + p.h, (post.side + 2) + 'x' + post.height);
-  const ink = '#' + colours.ink.toString(16).padStart(6, '0');
+  const ink = '#' + StreetSigns.ART.ink.toString(16).padStart(6, '0');
   const pole = row => [...Array(p.w).keys()].filter(x => p.pixels.get(`${x},${row}`) !== ink).join();
   assert.eq(pole(p.h - 1), pole(Math.floor(p.h / 2)), 'no footing: the bottom row is as wide as the pole');
   assert.eq(pole(p.h - 1).split(',').length, post.side, 'the pole is the square section');
+  const lum = hex => parseInt(hex.slice(1, 3), 16);
+  assert.gt(lum(p.pixels.get(`2,1`)), lum(p.pixels.get(`2,${p.h - 1}`)), 'darker lower down');
 });
 test('street lamps: approved silhouettes retain restoration and suppression rules', () => {
   assert.eq(StreetLights.forVariant('hedgerow'),'hanging_lantern');

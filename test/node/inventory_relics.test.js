@@ -31,7 +31,7 @@
     const decl = ['INV_RELIC_ORDER', 'INV_ARMOR_ORDER', 'WEAPON_SLOTS'].map(name =>
       SCENE_SRC.match(new RegExp('const ' + name + ' = [^;]+;'))[0]).join('\n');
     for (const name of ['invEntriesForCat', 'invDisplayEntriesForCat', 'gearEntriesForCat', '_settleInvCatOnBoot',
-      'syncFurnitureFlipButton', 'syncSeedButton', '_hudActionButton', 'selectInvCat', 'buildInventoryDOM', 'refreshInventoryHighlight', 'addToInv', '_finishInventoryChange', '_clampSelSlot', '_equipGear']) {
+      'syncFurnitureFlipButton', 'syncSeedButton', '_hudActionButton', 'selectInvCat', 'buildInventoryDOM', 'refreshInventoryHighlight', 'addToInv', '_finishInventoryChange', '_clampSelSlot', '_equipGear', '_equippedBadge']) {
       const match = SCENE_SRC.match(new RegExp('^  ' + name + '\\([^\\n]*\\) \\{[\\s\\S]*?^  \\}', 'm'));
       assert.truthy(match, `${name} exists`);
       scene[name] = new Function('document', 'persistSave', decl + '\nreturn ({' + match[0] + '})')(document, () => {})[name];
@@ -45,7 +45,7 @@
     assert.eq(INV_CATS.length, 9);
     assert.falsy(INV_CAT_BY_KEY.unique_relic);
     const ids = ITEMS.filter(i => i.kind === 'unique_relic').map(i => i.id);
-    assert.eq(ids.length, 31, 'twenty finds, two progression relics and nine reusable tomes');
+    assert.eq(ids.length, 33, 'twenty-two finds, two progression relics and nine reusable tomes');
     for (const id of ids) assert.eq(invCatForItem(id), 'relics', id);
   });
 

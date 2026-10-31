@@ -8881,5 +8881,29 @@
       96,
       96
     ]
+  },
+  {
+    "id": "toxic_seed",
+    "name": "Toxic Seed",
+    "kind": "seed",
+    "sheet": "crops",
+    "frame": 143,
+    "source": "assets/Objects/Approved/crops.png",
+    "crop": [
+      128,
+      240,
+      16,
+      16
+    ],
+    "badge": "poisonberry",
+    "referenceSheet": 2,
+    "referenceCell": 27,
+    "pixelHash": "e50b032a36f2789bdef4afe9d7236dfcf378caba67a325cceaf2511e919b3206",
+    "outputCrop": [
+      288,
+      288,
+      96,
+      96
+    ]
   }
 ]

@@ -231,6 +231,21 @@
       assert.eq(scene.invCount('potato'), 3);
     } finally { globalThis.pickReward = original; }
   });
+  test('cache art: held rewards retain the cache ceremony and cannot reroll', () => {
+    const original=globalThis.pickReward;let modal,room=0,rolls=0;
+    const save={opened:[],money:0,relics:{},armor:{}};
+    const o=chest({id:'cache-held',cache:true,cacheTheme:'orchard'});
+    const scene=makeScene({invRoomFor:()=>room,showChestRewardModal(value){modal=value;}});
+    const ctx=makeCtx(scene,save);
+    try {
+      globalThis.pickReward=(key)=>{assert.eq(key,'chest:cache_orchard');rolls++;return {kind:'item',id:'apple',qty:3};};
+      INTERACTABLES.chest.custom(ctx,o);
+      assert.eq(modal.header,'Inside the fruit cache');assert.eq(modal.art,'chest_t1');
+      modal.actions[0].onClick();room=9;
+      INTERACTABLES.chest.custom(ctx,o);
+      assert.eq(rolls,1);assert.eq(scene.invCount('apple'),3);assert.truthy(save.opened.includes(o.id));
+    } finally {globalThis.pickReward=original;}
+  });
   test('dark urn: opening inflicts its poison sting once, then awards its magic item once', () => {
     const save = { opened: [] }, stings = [];
     const o = chest({ id: 'poison-urn', barrel: true, barrelStyle: 'street_decor_dark_urn' });

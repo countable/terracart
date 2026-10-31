@@ -56,7 +56,7 @@
     ...[
       ['hedgerow', 'Hedgerow'], ['lantern', 'Lantern row'], ['burned', 'Burned row'],
       ['toadstool', 'Toadstool lane'], ['overgrown', 'Overgrown road'],
-      ['orchard', 'Orchard road'], ['pilgrim', 'Pilgrim road'], ['golden', 'Golden road'],
+      ['orchard', 'Orchard road'], ['pilgrim', 'Pilgrim road'],
       ['thorny', 'Thorny Way'], ['snare', 'Snare lane'], ['goblin_gang', 'Goblin Gang Street'], ['barricade', 'Barricade road'],
       ['berry', 'Berry Lane'], ['pottery', 'Pottery Road'],
       ['rocky_path', 'Rocky Road'], ['grassy_lane', 'Grassy Lane'],
@@ -64,6 +64,7 @@
       ['way_of_variety', 'Way of Variety'],
     ].map(([variant, label]) => ({ id: `${variant}-road`, label, road: variant,
       aliases: [`road:${variant}`, ...(variant === 'orchard' ? [] : [variant])] })),
+    { id: 'golden-path', label: 'Golden Path', road: 'golden_path', aliases: ['golden_path', 'road:golden_path', 'golden-road', 'golden', 'road:golden'] },
     { id: 'parkpath', label: 'Park path', roadName: 'Common Walk', aliases: ['path', 'road:parkpath'] },
     { id: 'trade-road', label: 'Old trade road', roadName: 'Old Trade Road', aliases: ['road_md', 'road:street_bandit'] },
     { id: 'ancient-highway', label: 'Ancient highway', roadName: 'Ancient Highway', aliases: ['road_lg', 'road:major', 'road:street_highway'] },

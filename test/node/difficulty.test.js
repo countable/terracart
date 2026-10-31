@@ -88,6 +88,7 @@
     withMode('hard', () => {
       const { lo, hi } = buyMarkupRange();
       for (const seed of BUY_LIST) {
+        if (ITEM_BY_ID[seed].plants) continue; // Utility plants do not produce a farm harvest.
         const crop = seed.replace(/_seed$/, '');
         if (crop === 'rubble') continue;
         const pack = 1 + (isLowTierSeed(seed) ? LOW_TIER_SEED_QTY_BONUS : 0);

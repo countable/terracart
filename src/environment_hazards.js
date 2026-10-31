@@ -71,7 +71,9 @@
     if (h.type !== 'vent' && root.DungeonProgression && !root.DungeonProgression.ropeCanDescend(h.depth)) return false;
     return footprint(scene, h).every(p => {
       // Cave-ins also open in tar pits (a variant row's `caveIns`).
-      const ground = pathVent ? W.isWalkable(p.type) : suitable(p.type, scene.depth)
+      const streetCollapse = h.type === 'cavein' && scene.depth === 0 && streetCaveInRule(W.tileCache.get(W.tileKey(p.tx, p.ty)), p.ix, p.iy);
+      const ground = streetCollapse ? W.isWalkable(p.type) || W.isCobbleTerrain(p.type)
+        : pathVent ? W.isWalkable(p.type) : suitable(p.type, scene.depth)
         || (h.type === 'cavein' && p.type === W.T.TAR_YARD);
       if (!p.loaded || !ground) return false;
       const e = W.tileCache.get(W.tileKey(p.tx, p.ty));
@@ -148,11 +150,22 @@
     const anchor = zoneAnchorAt(entry, ix, iy), row = anchor && root.ZoneVariants.pick(anchor);
     return row?.caveIns ? row.id : null;
   }
+  // Roads opt in through their own row; bounded ownership keeps adjoining
+  // routes and unthemed land out. Nexus ownership always wins.
+  function streetCaveInRule(entry, ix, iy) {
+    if (!entry) return null;
+    const i = iy * entry.cellsPerEdge + ix;
+    if (zoneAnchorAt(entry, ix, iy) || entry.zone?.coverage?.[i] || entry.zone?.idx?.[i]
+        || entry.streetIndex?.nexusCoverage?.[i]) return null;
+    const variant = root.StreetVariants?.placementOwner(entry)?.(ix, iy);
+    const row = root.StreetVariants?.VARIANT_BY_ID[variant];
+    return row?.caveIns ? { ...CONFIG.cavein, ...row.caveIns, streetVariant: variant } : null;
+  }
   const quarryExteriors = new WeakMap();
   function quarryExterior(entry) {
     const field = entry.zone, coverage = field?.coverage || field?.idx, N = entry.cellsPerEdge;
     let cached = quarryExteriors.get(entry);
-    if (cached?.coverage === coverage && cached.anchors === field?.anchors) return cached.cells;
+    if (cached && cached.coverage === coverage && cached.anchors === field?.anchors) return cached.cells;
     const quarry = i => field?.anchors?.[coverage?.[i] - 1]?.kind === 'quarry';
     const cells = new Uint8Array(N * N), pending = [];
     const put = i => { if (!cells[i] && !quarry(i)) { cells[i] = 1; pending.push(i); } };
@@ -205,7 +218,7 @@
     const id = caveInVariant(e, cell.ix, cell.iy), row = id && root.ZoneVariants.byId(id);
     if (row?.caveIns && row.caveIns.edge !== 'outer') return CONFIG.cavein;
     const edge = outerQuarryCaveIn(scene, cell, e);
-    return edge ? { ...CONFIG.cavein, ...edge.caveIns } : null;
+    return edge ? { ...CONFIG.cavein, ...edge.caveIns } : streetCaveInRule(e, cell.ix, cell.iy);
   }
   function caveInGround(scene, cell) { return !!caveInRule(scene, cell); }
   function observeCaveIn(scene, s, at, key) {
@@ -234,7 +247,9 @@
       const point = absCellCenterMeters(scene, cell.cellIX, cell.cellIY), tileCell = scene.cellAt(point.x, point.y);
       const cellId = `environment:cavein:${scene.depth}:${tileCell.tx}:${tileCell.ty}:${tileCell.ix}:${tileCell.iy}`;
       const h = create(scene, 'cavein', cell, cellId);
-      if (reserved.has(cellKey) || !caveInGround(scene, tileCell) || !eligible(scene, h, false)) continue;
+      if (reserved.has(cellKey) || !caveInGround(scene, tileCell)
+          || (cfg.streetVariant && caveInRule(scene, tileCell)?.streetVariant !== cfg.streetVariant)
+          || !eligible(scene, h, false)) continue;
       cluster.push(h);
       // Only accepted cells extend the frontier, so a blocked cell never bridges a cluster.
       for (const [dx, dy] of [[0, -1], [1, 0], [0, 1], [-1, 0]])
