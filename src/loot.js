@@ -275,7 +275,20 @@ function chestThemeForPoi(poiClass) {
 // chestThemeForPoi(o.poiClass) directly, for any chest.
 // A BOSS's hoard (o.bossChest — scene_boss.js) is the 'boss' theme:
 // equipment or a unique relic.
+const CACHE_TYPES = Object.freeze({
+  overgrown: { theme: 'cache_overgrown', name: 'Seed cache' },
+  orchard: { theme: 'cache_orchard', name: 'Fruit cache' },
+  old_growth_path: { theme: 'cache_old_growth_path', name: 'Forage cache' },
+  haunted_forest_path: { theme: 'cache_haunted_forest_path', name: 'Occult cache' },
+  pilgrim: { theme: 'cache_pilgrim', name: 'Sacred cache' },
+  spider_path: { theme: 'cache_spider_path', name: 'Supply cache' },
+  paralysis_path: { theme: 'cache_paralysis_path', name: 'Magic cache' },
+  confusion_path: { theme: 'cache_confusion_path', name: 'Magic cache' },
+});
+function cacheType(o) { return o?.cache ? CACHE_TYPES[o.cacheTheme] || CACHE_TYPES.overgrown : null; }
+function cacheTier(o) { return 1 + (fnv1aFrom(0x63616368, o.id || `${o.x}:${o.y}`) >>> 0) % 3; }
 function chestThemeFor(o) {
+  if (o?.cache) return cacheType(o).theme;
   if (o && o.bossChest) return 'boss';
   return (o && o.vista === 'grail') ? 'vista' : chestThemeForPoi(o && o.poiClass);
 }
@@ -362,6 +375,7 @@ function chestVistaTier(o) {
 // Authored street caches use the cave reward mix without pretending to be underground.
 function chestLootDepth(o) { return o?._street === 'snare' && !o.chestTopUp ? 1 : (o?.depth || 0); }
 function chestBaseTier(o) {
+  if (o?.cache) return cacheTier(o);
   if (!o) return CHEST_TIER_UNSTAMPED;
   if (o.chestTopUp) return o.tierSeed;
   if (o._street === 'snare') return StreetVariants.SNARE_CHEST_TIER;
@@ -380,6 +394,7 @@ function chestBaseTier(o) {
 // interactables.js and the chapel's blessing (Macros.chapelRollTier) all read
 // this. Takes the object (tierSeed, depth, zoneNexus, and scenic stamps).
 function chestTier(o) {
+  if (o?.cache) return cacheTier(o);
   const d = o ? o.depth : 0;
   const nexus = o ? o.zoneNexus : null;
   return Math.min(chestTierMaxFor(d), chestBaseTier(o) + chestTierDepthBonus(d) + chestTierZoneBonus(nexus));
@@ -527,8 +542,13 @@ function barrelFlash(got) {
   const name = (typeof ITEM_BY_ID !== 'undefined' && ITEM_BY_ID[got.id] && ITEM_BY_ID[got.id].name) || got.id;
   return `+${got.qty || 1} ${name}`;
 }
+// Physical barrels share a stable hidden chance; red barrels advertise it.
+function isExplosiveBarrel(o) {
+  return !!o && !o.cache && isBarrel(o) && barrelProfile(o).texKey === 'barrel'
+    && (o.redBarrel === true || (fnv1a(String(o.id || `${o.x}:${o.y}`) + '#explosive-barrel') >>> 0) / 4294967296 < .1);
+}
 function isBarrel(o) {
-  if (!o || o.kind !== 'chest' || o.crate || o.fixedLoot) return false;
+  if (!o || o.kind !== 'chest' || o.cache || o.crate || o.fixedLoot) return false;
   if (o.barrel === true) return true;   // a generated barrel, any depth
   return BARREL_CLASSES.has(o.poiClass) && !(o.depth > 0);   // a bin POI; its cave mirror is a plain chest
 }
@@ -971,14 +991,14 @@ function chestLook(o) {
   const special = bike || barrel;
   // Starter supply crates always use the box sprite; so does a tier-1 chest
   // and every bus stop (chestAlwaysCrate) that is not a mercenary wagon.
-  const box = !!o.quarryCrate || !!o.crate || chestTier(o) === 1 || chestAlwaysCrate(o);
+  const box = !!o.cache || !!o.quarryCrate || !!o.crate || chestTier(o) === 1 || chestAlwaysCrate(o);
   const macro = (!special && typeof macroFor === 'function') ? macroFor(o) : null;
   const wagon = !!o.banditStop && !(o.depth > 0) && !stand && !special && !macro;
   const texKey = bike ? 'bike_rack' : barrel ? barrelArt.texKey : (macro ? macro.texKey
     : (stand ? 'market_stand' : (wagon ? 'wagon' : (box ? 'box' : 'chest'))));
   const frame = SELECTED_CONTAINER_FRAMES[texKey] ? selectedContainerFrame(o, texKey)
     : (texKey === 'chest' ? chestTier(o) - 1 : (stand ? stand.frame : 0));
-  return (o._chestLook = { stand, bike, barrel, macro, smashedKey: barrelArt?.smashedKey, barrelName: barrelArt?.name,
+  return (o._chestLook = { tint: o.redBarrel ? 0xff2424 : 0xffffff, cache: !!o.cache, cacheName: cacheType(o)?.name, stand, bike, barrel, macro, smashedKey: barrelArt?.smashedKey, barrelName: barrelArt?.name,
     box: box && !wagon && !macro && !special, wagon, texKey,
     smashedFrame: barrelArt?.smashedFrame ?? (texKey === 'clay_pot' ? POT_SMASHED_FRAMES[frame] : barrel ? containerArtFrame(o, barrelArt) : 0),
     frame: texKey.startsWith('street_decor_') ? '__BASE' : frame });

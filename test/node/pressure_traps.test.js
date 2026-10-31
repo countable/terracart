@@ -25,6 +25,43 @@
       W.privateVetoAt = veto; W.makeRng = rng;
     }
   }
+  test('Haunt graves: adjacent grounded approach raises one ghost and saves the trigger',()=>fixture((s,entries)=>{
+    s.depth=0;entries[0].grid.fill(WorldGen.T.FOREST);
+    const grave={id:'haunt-grave',kind:'headstone',x:28,y:28,graveGhostRadiusCells:1};
+    entries[0].objects=[grave];
+    const original=globalThis.raiseGhostAt;let raised=0;
+    globalThis.raiseGhostAt=()=>{raised++;return {kind:'ghost'};};
+    try {
+      const plate=PressureTraps.grovePlates(s)[0];
+      assert.eq(plate.id,'graveghost:haunt-grave');assert.falsy(PressureTraps.plateVisible(s,plate));
+      PressureTraps.tick(s,.1);assert.eq(raised,0,'two cells away');
+      s.playerM={x:36,y:36};PressureTraps.tick(s,.1);assert.eq(raised,1,'diagonal adjacent cell');
+      assert.eq(grave.kind,'headstone');assert.falsy(grave.pressed,'proxy never mutates the grave');
+      assert.truthy(s.save.pressedPlates[plate.id]);
+      s.save=JSON.parse(JSON.stringify(s.save));entries[0].objects=[{...grave}];
+      PressureTraps.tick(s,.1);assert.eq(raised,1,'recreated grave stays spent after reload');
+      entries[0].objects=[{...grave,id:'ordinary',graveGhostRadiusCells:undefined}];
+      assert.eq(PressureTraps.grovePlates(s).length,0,'ordinary graves have no proximity trigger');
+    } finally {globalThis.raiseGhostAt=original;}
+  }));
+  test('Haunt graves: flight, private ground and suppression preserve the trigger; full budgets retry',()=>fixture((s,entries)=>{
+    s.depth=0;s.playerM={x:36,y:28};entries[0].grid.fill(WorldGen.T.FOREST);
+    entries[0].objects=[{id:'waiting-grave',kind:'headstone',x:28,y:28,graveGhostRadiusCells:1}];
+    const original=globalThis.raiseGhostAt,flight=Conditions.flying;let attempts=0,room=false;
+    globalThis.raiseGhostAt=()=>{attempts++;return room?{kind:'ghost'}:null;};
+    try {
+      Conditions.flying=()=>true;PressureTraps.tick(s,.1);assert.eq(attempts,0);
+      Conditions.flying=()=>false;WorldGen.privateVetoAt=()=>true;
+      PressureTraps.tick(s,.1);assert.eq(attempts,0);
+      WorldGen.privateVetoAt=()=>false;entries[0]._spawnOpts.spawnWhy.fill(WorldGen.SPAWN_WHY.RESTRICTED);
+      PressureTraps.tick(s,.1);assert.eq(attempts,0);
+      entries[0]._spawnOpts.spawnWhy.fill(0);PressureTraps.tick(s,.1);
+      assert.eq(attempts,1);assert.falsy(s.save.pressedPlates,'full budget does not spend trigger');
+      room=true;PressureTraps.tick(s,.1);assert.eq(attempts,2);
+      assert.truthy(s.save.pressedPlates['graveghost:waiting-grave']);
+      PressureTraps.tick(s,.1);assert.eq(attempts,2);
+    } finally {globalThis.raiseGhostAt=original;Conditions.flying=flight;}
+  }));
   test('grove plates: visible, grounded one-shot ghost, saved depression survives recreation', () => fixture((s, entries) => {
     const original = globalThis.raiseGhostAt;
     let raised = 0;

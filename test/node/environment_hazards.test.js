@@ -288,6 +288,85 @@
     return e;
   }
   const stepOn = (s, x, y) => EnvironmentHazards.touch(s, s.save, (x + .5) * 8, (y + .5) * 8);
+  function rockyRoute(s, entries, type = WorldGen.T.ROAD, variant = 'rocky_path') {
+    s.depth=0; WorldGen.makeRng=()=>()=>0;
+    for(const e of entries) {
+      e.grid.fill(WorldGen.T.GRASS);
+      const rec={key:'rocky-collapse',variant,size:type===WorldGen.T.PATH?'path':'minor',halfW:3.5,
+        line:[{x:.5,y:3.5},{x:7.5,y:3.5}]};
+      e.streetIndex={extent:8,lines:[rec],dressingLines:[rec]};
+      for(let x=0;x<8;x++) {e.grid[3*8+x]=type;e._spawnOpts.roadMask[3*8+x]=1;}
+    }
+  }
+  test('rocky cave-ins: road and path contact starts the shared persistent five-second collapse',()=>fixture((s,entries)=>{
+    for(const type of [WorldGen.T.ROAD,WorldGen.T.PATH]) {
+      s.save.caveIns={};s._environmentHazards=new Map();rockyRoute(s,entries,type);
+      assert.eq(StreetVariants.placementOwner(entries[0])(3,3),'rocky_path','road owner');
+      assert.truthy(EnvironmentHazards.eligible(s,EnvironmentHazards.create(s,'cavein',{cellIX:3,cellIY:3},'probe'),false),'eligible road seat');
+      stepOn(s,3,3);
+      const pits=EnvironmentHazards.lists(s).caveins;
+      assert.inRange(pits.length,2,5);assert.eq(pits[0].cellIY,3,'actual road contact');
+      for(const h of pits) {
+        const at=s.cellAt(h.x,h.y),e=entries[at.tx];
+        assert.eq(StreetVariants.placementOwner(e)(at.ix,at.iy),'rocky_path');
+        assert.inRange(at.iy,2,4,'one-cell verge limit');
+      }
+      s.playerM={x:4,y:4};WorldGen.makeRng=()=>()=>.99;
+      advance(s,4900);assert.eq(pits[0].phase,'warning');
+      advance(s,100);assert.eq(pits[0].phase,'open');
+      s._environmentHazards=new Map();
+      assert.eq(EnvironmentHazards.lists(s).caveins[0].phase,'open','saved pit remains open');
+    }
+  }));
+  test('rocky cave-ins: real route dressing leaves connected interior collapse seats without bypassing rocks',()=>fixture((s,entries)=>{
+    const N=64,cellM=7,edge=N*cellM,e=entries[0];s.depth=0;
+    Object.assign(s,{cellM,cellsPerTile:N,tileEdgeM:edge,mPerPx:edge/WorldGen.TILE_PX});
+    s.cellAt=(x,y)=>{const tx=Math.floor(x/edge),ty=Math.floor(y/edge),ix=Math.floor(x/cellM)-tx*N,iy=Math.floor(y/cellM)-ty*N;
+      const tile=WorldGen.tileCache.get(WorldGen.tileKey(tx,ty));
+      return{tx,ty,ix,iy,cellIX:tx*N+ix,cellIY:ty*N+iy,loaded:tx===0&&ty===0,type:tile?.grid[iy*N+ix]};};
+    e.cellsPerEdge=N;e.grid=new Uint8Array(N*N).fill(WorldGen.T.GRASS);e.wildplants=[];
+    e._spawnOpts={roadMask:new Uint8Array(N*N),spawnWhy:new Uint32Array(N*N),occupied:new Set()};
+    const rec={key:'rocky-real-dressing',variant:'rocky_path',size:'minor',halfW:3.5,
+      line:[{x:8.5,y:32.5},{x:55.5,y:32.5}]};
+    e.streetIndex={extent:N,lines:[rec],dressingLines:[rec],hoardPois:[]};
+    for(let x=8;x<=55;x++){e.grid[32*N+x]=WorldGen.T.ROAD;e._spawnOpts.roadMask[32*N+x]=1;}
+    const dressing=StreetVariants.dress({index:e.streetIndex,tx:0,ty:0,N,tileEdgeM:edge,grid:e.grid,spawnOpts:e._spawnOpts});
+    e.objects=dressing.objects;e.wildplants=dressing.wildplants;
+    // This is the real spawned-tile occupancy rule, including ordinary loose finds.
+    e._spawnOpts.occupied=WorldGen.occupiedIndexSet(WorldGen.tileFrame(e,0,0,edge),e.objects,e.wildplants);
+    const owner=StreetVariants.placementOwner(e),eligible=[],blocked=[];
+    for(let iy=0;iy<N;iy++)for(let ix=0;ix<N;ix++)if(owner(ix,iy)==='rocky_path'){
+      const h=EnvironmentHazards.create(s,'cavein',{cellIX:ix,cellIY:iy},'rocky-probe');
+      (EnvironmentHazards.eligible(s,h,false)?eligible:blocked).push({ix,iy});
+    }
+    assert.gt(blocked.length,0,'rocks and loose finds keep their normal occupancy');
+    const interior=eligible.filter(c=>c.ix>9 && c.ix<54);
+    assert.gt(interior.length,0,'clear stretches exist well away from route ends');
+    assert.truthy(interior.some(a=>interior.some(b=>a.iy===32 && b.iy===32 && b.ix===a.ix+1)),
+      'at least two consecutive road cells remain clear');
+    WorldGen.makeRng=()=>()=>0;
+    for(const {ix,iy}of interior)EnvironmentHazards.touch(s,s.save,(ix+.5)*cellM,(iy+.5)*cellM);
+    const pits=EnvironmentHazards.lists(s).caveins;
+    assert.gt(pits.length,0,'walking an interior gap forms an actual collapse cluster');
+    assert.truthy(pits.every(h=>!e._spawnOpts.occupied.has(s.cellAt(h.x,h.y).iy*N+s.cellAt(h.x,h.y).ix)),
+      'no pit bypasses a rock or loose find');
+  }));
+  test('rocky cave-ins: only owned eligible corridor cells collapse',()=>fixture((s,entries)=>{
+    const attempt=(setup)=>{
+      s.save.caveIns={};s._environmentHazards=new Map();rockyRoute(s,entries);setup(entries[0]);stepOn(s,3,3);
+      assert.eq(EnvironmentHazards.lists(s).caveins.length,0);
+    };
+    attempt(e=>{WorldGen.makeRng=()=>()=>.08;});
+    attempt(e=>{e.streetIndex.lines[0].variant='grassy_lane';});
+    attempt(e=>{e.streetIndex.dressingLines.push({key:'a-crossing',variant:'grassy_lane',size:'minor',halfW:3.5,line:[{x:3.5,y:.5},{x:3.5,y:7.5}]});});
+    attempt(e=>{e.grid.fill(WorldGen.T.ROAD_MD);});
+    attempt(e=>{e.streetIndex.lines[0].line=[{x:.5,y:.5},{x:7.5,y:.5}];});
+    attempt(e=>{e.gameplayTiers=new Uint8Array(64).fill(GameplayTiers.PASSING);});
+    attempt(e=>{delete e.gameplayTiers;e._spawnOpts.spawnWhy.fill(WorldGen.SPAWN_WHY.RESTRICTED);});
+    attempt(e=>{e._spawnOpts.spawnWhy.fill(0);e._spawnOpts.occupied=new Set(Array.from({length:64},(_,i)=>i));});
+    attempt(e=>{e._spawnOpts.occupied.clear();e.zone={coverage:new Uint8Array(64).fill(1),anchors:[{kind:'grove',variant:'ancient_grove'}]};});
+    attempt(e=>{delete e.zone;WorldGen.privateVetoAt=()=>true;});
+  }));
   test('strip mine cave-ins: common calm rim seeds stay on the very edge, excluding interior holes', () => fixture((s, entries) => {
     const e = stripRim(s, entries), cfg = ZoneVariants.byId('quarry-strip-mine').caveIns;
     assert.eq(cfg.chance, .6);

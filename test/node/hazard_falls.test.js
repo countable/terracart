@@ -30,6 +30,25 @@
     assert.eq(calls.length, 1); assert.eq(calls[0][0], depth + 1); assert.eq(transitions[0], depth + 1);
     assert.eq(scene.persisted, 1); assert.eq(scene._hazardFallPending, false);
   }, depth));
+  test('Haunt: a surface ground maw uses the safe one-floor fall and stays open', () => fixture(async f => {
+    f.scene.cellAt = () => ({ cellIX: 3, cellIY: 3, loaded: true });
+    const hole = { id: 'haunt-maw', kind: 'ground_hole', depth: 0, x: 28, y: 28 };
+    assert.truthy(await CaveHazards.fall(f.scene, hole));
+    assert.eq(f.scene.depth, 1); assert.eq(f.scene.save.energy, 50);
+    assert.eq(hole.kind, 'ground_hole', 'the permanent opening is not consumed');
+    assert.eq(f.calls.length, 1);
+  }));
+  test('Haunt: surface maw flight and unavailable landing preserve the current floor', () => fixture(async f => {
+    f.scene.cellAt = () => ({ cellIX: 3, cellIY: 3, loaded: true });
+    const hole = { kind: 'ground_hole', depth: 0, x: 28, y: 28 };
+    f.scene.save.flightPotionUntil = Date.now() + 60000;
+    assert.falsy(await CaveHazards.fall(f.scene, hole));
+    assert.eq(f.calls.length, 0);
+    f.scene.save.flightPotionUntil = 0;
+    f.ready.grid.fill(WorldGen.T.CAVE_WALL);
+    assert.falsy(await CaveHazards.fall(f.scene, hole));
+    assert.eq(f.scene.depth, 0); assert.eq(f.scene.save.energy, 50);
+  }));
   test('hazard falls: a permanent one-cell quarry pit uses the same safe descent', () => fixture(async f => {
     Object.assign(f.hole, { type: 'cavein', widthCells: 1, heightCells: 1 });
     assert.eq(await HazardFalls.fall(f.scene, f.hole), true);

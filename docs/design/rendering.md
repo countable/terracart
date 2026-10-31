@@ -85,6 +85,9 @@ exports into asset, icon and seating registries. Inventory/offer icons use these
 same sheets; atlas aliases and old palette callbacks are replaced, not layered.
 `ArtAtlas.register` respects the current asset owner, so a shared atlas finishing
 first cannot recreate an obsolete alias while a replacement sheet is loading.
+The revealed mimic uses an exact runtime palette matching the T2 chest’s
+orange wood and dark metal, with pale teeth. Its roster `artScaleRef: chest`
+uses `SpriteLayout.CHEST_SCALE`, so opening the disguise does not enlarge it.
 Elevators retain their broken/repaired behavior in a separate 24×36 sheet; the
 grove votive uses the same 36px frame and display scale as other shrines.
 Waystone frames (both states) and the scope clip only their bottom ink row at
@@ -1841,5 +1844,6 @@ Road experience briefs live in `design/road-experiences/`.
 `tools/road-experience-*.json` with shipped story paintings and current 20 × 7
 captures from `tools/capture_road_variant_views.cjs`. Regenerate the variant
 dashboard before capturing, then rebuild the gallery. Each brief describes the
-intended feeling, art cues and player actions; proposed mechanics are labelled
-separately from existing behavior. These briefs do not change runtime behavior.
+intended feeling with three adjectives, art cues and existing player actions.
+Review comments supply requested changes; the briefs contain no unsolicited
+mechanic proposals. These briefs do not change runtime behavior.

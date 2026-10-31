@@ -749,7 +749,7 @@
   // player; a build before the bin lands is the same transient the bin's own
   // chests are). A changed count drops the chest's memoised look.
   function isDensityChest(o) {
-    return !!o && o.kind === 'chest' && !!o.poiClass && !o.crate && !o.fixedLoot && !o.chestTopUp && !(o.depth > 0) && !o.caveOf;
+    return !!o && o.kind === 'chest' && !!o.poiClass && !o.cache && !o.crate && !o.fixedLoot && !o.chestTopUp && !(o.depth > 0) && !o.caveOf;
   }
   function poiDensityCounts(objects) {
     const counts = new Map();
@@ -818,7 +818,7 @@
     // chestTier) so deeper levels concentrate the high tiers.
     const cave = !!(opts && opts.cave);
     const inPool = cave
-      ? (o) => o.kind === 'chest' && !!o.poiClass && !o.crate && !o.fixedLoot && o.depth > 0
+      ? (o) => o.kind === 'chest' && !!o.poiClass && !o.cache && !o.crate && !o.fixedLoot && o.depth > 0
       : (o) => isDensityChest(o) && !o.vista;
     const pool = [];
     for (const o of objects || []) {

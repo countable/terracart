@@ -4698,10 +4698,10 @@ Render.drawObjects = function drawObjects(scene) {
   forEachLoadedTile(pc.tx, pc.ty, (entry, etx, ety) => {
     for (const [o, art] of Render.connectedArtForTile(entry, etx, ety,
         scene.tileEdgeM, spentIds, pWorldX, pWorldY, halfM)) connectedArt.set(o, art);
-    if (scene.depth > 0) {
+    {
       const pad = halfM + scene.cellM;
       WorldGen.forEachItemInBox(entry, 'objects', pWorldX-pad, pWorldY-pad, pWorldX+pad, pWorldY+pad, o => {
-        if (o.kind === 'ground_hole' && !isSpent(o, spentIds)) chasmObjects.push(o);
+        if (o.kind === 'ground_hole' && (o.depth || 0) === (scene.depth || 0) && !isSpent(o, spentIds)) chasmObjects.push(o);
       });
     }
     if (entry.reefCorals) WorldGen.forEachItemInBox(entry, 'reefCorals',
@@ -5180,6 +5180,10 @@ Render.drawObjects = function drawObjects(scene) {
     // Per-kind post-config hook — runs AFTER the pool's identity reset and
     // the tint, so hooks can override the ordinary appearance.
     if (typeof spec.after === 'function') spec.after(s, o, scene, appearancePass);
+    if (o.kind === 'chest' && typeof ExplosiveBarrels !== 'undefined') {
+      const barrelTint = ExplosiveBarrels.tint(scene, o);
+      if (barrelTint != null) s.setTint(barrelTint);
+    }
     Render.applyWorkImpact(s, Render.workImpactPose(scene._workProgress, o, performance.now()),
       Math.round(sx), Math.round(sy) + (appearance.foot?.footFromCentre ?? dyPx));
     s._huAnchor = Render.objectGroundAnchor(appearance, scene.textures, { x: sx, y: sy });
@@ -5192,6 +5196,7 @@ Render.drawObjects = function drawObjects(scene) {
     s._staticHadWork = !!scene._workProgress;
   };
   const reuseStaticObject = (s, item) => {
+    if (typeof ExplosiveBarrels !== 'undefined' && ExplosiveBarrels.fuse(scene,item.o)) return false;
     // A fading arrival is reconfigured every frame until it is whole.
     if (!scene._boot_still || !item._appearanceStable || scene._workProgress || s._staticHadWork
         || s._staticObject !== item.o || s._staticAppearance !== item._appearance || Render.arriving(item.o)) return false;
@@ -5965,6 +5970,15 @@ Render.drawObjects = function drawObjects(scene) {
   // has expired (player just needs to tap to advance). Hidden for wildplants
   // (no watered_t), seeds (stage 0 + unwatered), and mature crops.
   const now = Date.now();
+  scene._barrelTimerPool ||= [];
+  const barrelTimers = typeof ExplosiveBarrels === 'undefined' ? []
+    : filteredObj.filter(({o}) => ExplosiveBarrels.countdown(scene,o) != null);
+  Render.renderPool(scene, scene._barrelTimerPool, scene.labelContainer, barrelTimers, (t,{o,dx,dy}) => {
+    const {x:sx,y:sy}=project(dx,dy);
+    t.setText(String(ExplosiveBarrels.countdown(scene,o)))
+      .setPosition(Math.round(sx+5),Math.round(sy-CELL_PX/2)).setAlpha(1);
+    setColorOnce(t,'#ffdfaa');
+  }, labelFactory('timer'));
   const timerList = plantedList.filter(({ p }) =>
     !p.wildId && (p.stage ?? 0) < MAX_GROWTH_STAGE && p.watered_t);
   Render.renderPool(scene, scene.plantedTimerPool, scene.plantedContainer, timerList, (t, { p, dx, dy }) => {

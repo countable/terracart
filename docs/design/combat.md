@@ -374,6 +374,11 @@ mechanics.
   enemies inside Home's ring. Campfires burn for 24 real hours, including offline
   time (`Campfires.active`, saved `litAt`). After expiry their smoking pits give
   no rest, ward, light or burning contact; flint relights them for another day.
+- Explosive barrels arm on tap with a saved five-second foreground fuse.
+  They flash and show a countdown, then become permanently spent. The blast
+  deals 20 base damage within one cell, applies six seconds of burning and
+  ignites eligible ground cells for ten seconds. It reuses normal damage,
+  immunity, ground-fire and explosion effects; unloaded floors pause the fuse.
 - Fire slimes resist burning and fireball damage through their roster row. Each accepted cell
   exit lights the cell left behind through `GroundFire`, including while
   wandering or retreating. The occupied destination stays unlit until they

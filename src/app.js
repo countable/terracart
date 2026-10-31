@@ -4002,6 +4002,7 @@ class MapScene extends Phaser.Scene {
     // never the camera anchor: a peek drag must not spring a trap two cells
     // away, nor stop one under you from biting).
     PressureTraps.tick(this, dt);
+    ExplosiveBarrels.tick(this, dt);
     Waystones.tick(this);
     EnvironmentHazards.tick(this, dt);
     MushroomGas.tick(this, dt);

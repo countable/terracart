@@ -5,9 +5,10 @@
   test('shared enemy atlases load once and preserve every authored directional frame', () => {
     const loaded = assets();
     const path = 'assets/Enemy/spr_mini_monsters_spritesheet.png';
-    const rows = EnemyRoster.ROWS.filter(row => !row.variantOf && row.art.path === path);
+    const rows = EnemyRoster.ROWS.filter(row => !row.variantOf && !row.palette && row.art.path === path);
     assert.gt(rows.length, 1);
-    assert.eq(Object.values(loaded).filter(asset => asset.path === path).length, 1);
+    const palettes = EnemyRoster.ROWS.filter(row => !row.variantOf && row.palette && row.art.path === path);
+    assert.eq(Object.values(loaded).filter(asset => asset.path === path).length, 1 + palettes.length, 'one shared original plus independent recoloured textures');
     const sheet = SpriteLayout.creatureSheet(rows[0].id);
     for (const row of rows) {
       const art = SpriteLayout.creatureArt(row.id);
