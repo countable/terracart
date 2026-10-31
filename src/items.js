@@ -726,8 +726,11 @@ const MINERAL_ICON_SHEET = {
   vampire_ring:      { sheet: 'icon_rings',   frame: 18 },
   // The banded ring with its pale blue lens (Rings.png row 2).
   xray_ring:         { sheet: 'icon_rings',   frame: 12 },
-  // The rose band trailing a flaming star (Rings.png row 3).
+  // The rose band trailing a flaming star (Rings.png row 3) — the Meteor
+  // Ring is the same band in the sheet's outlined column, as the Ring of
+  // Gathering (7) and Perception (10) share theirs; the tier badge tells them.
   comet_ring:        { sheet: 'icon_rings',   frame: 14 },
+  meteor_ring:       { sheet: 'icon_rings',   frame: 17 },
   regeneration_amulet:      { sheet: 'icon_amulets', frame: 10 },
   vigor_amulet:      { sheet: 'icon_amulets', frame: 17 },
   sleep_powder:  { sheet: 'icon_potions', frame: 3 }, // scoop of violet dream dust
@@ -980,7 +983,7 @@ const BASE_TIER = {
   poison_flask: 2,
   // Unique jewelry is intrinsically magical, never a metal rung.
   portal_stone: 3, depth_key: 4,
-  stealth_ring: 2, perception_ring: 2, coin_ring: 2, invisibility_ring: 4, ember_ring: 3, vampire_ring: 4, xray_ring: 3, comet_ring: 5, regeneration_amulet: 3, vigor_amulet: 5,
+  stealth_ring: 2, perception_ring: 2, coin_ring: 2, invisibility_ring: 4, ember_ring: 3, vampire_ring: 4, xray_ring: 3, meteor_ring: 3, comet_ring: 6, regeneration_amulet: 3, vigor_amulet: 5,
   // Tomes: a tome's tier is one above the potion it channels (the books
   // group's top-tier pick makes each tier's chest hand its own tome).
   tome_reach: 3, tome_raven: 4, tome_thunder: 5, tome_fire_wall: 4,
@@ -1245,6 +1248,7 @@ const ITEMS = [
   { id: 'ember_ring',        name: 'Ember Ring',            kind: 'unique_relic', uniqueJewelry: true },
   { id: 'vampire_ring',      name: 'Vampire Ring',          kind: 'unique_relic', uniqueJewelry: true },
   { id: 'xray_ring',         name: 'X-Ray Ring',            kind: 'unique_relic', uniqueJewelry: true },
+  { id: 'meteor_ring',       name: 'Meteor Ring',           kind: 'unique_relic', uniqueJewelry: true },
   { id: 'comet_ring',        name: 'Comet Ring',            kind: 'unique_relic', uniqueJewelry: true },
   { id: 'regeneration_amulet',      name: 'Amulet of Regeneration', kind: 'unique_relic', uniqueJewelry: true },
   { id: 'vigor_amulet',      name: 'Amulet of Vigour',        kind: 'unique_relic', uniqueJewelry: true },
@@ -2037,7 +2041,7 @@ const PRICES = {
                        //      effect, not the tier: the T2 butterfly is 100 too)
   frost_powder:  100,  // T3 — every enemy in reach chilled (slowed) for 30 s
   // Initial entries are replaced by fixed-tier equipment values after gearPrice is defined.
-  stealth_ring: 0, perception_ring: 0, coin_ring: 0, invisibility_ring: 0, ember_ring: 0, vampire_ring: 0, xray_ring: 0, comet_ring: 0, regeneration_amulet: 0, vigor_amulet: 0,
+  stealth_ring: 0, perception_ring: 0, coin_ring: 0, invisibility_ring: 0, ember_ring: 0, vampire_ring: 0, xray_ring: 0, meteor_ring: 0, comet_ring: 0, regeneration_amulet: 0, vigor_amulet: 0,
   rope:          15,   // T2 — one climb up or down a level, in place (cheaper than a sapphire's brief round trip); crafted from 5 long grass, so not a money pump
   trap_disarm_kit:      20,   // T2 — permanently removes a trap; situational, not a staple
   magic_trap:    40,   // T3 — one tier-3 shot and a staff beat's hold on one foe
@@ -2279,6 +2283,7 @@ const ITEM_EFFECTS = {
   xray_ring: 'Leaves and branches thin to glass. Whatever crouches in the hedge is plain to see.',
   vampire_ring: 'Each blow you strike by hand sends a fifth of its wound back into you. The dead have nothing left to give.',
   // The numbers live on UNIQUE_JEWELRY.comet_ring.cometAura; the Snuffed chip quotes them.
+  meteor_ring: 'A stone that fell burning rides at your heels and never touches you. The faster you run, the wider and hotter it burns, though what it lights soon gutters. Outrun the wind and it snuffs the flame for a while.',
   comet_ring: 'Fire rides at your heels and never touches you. The faster you run, the wider and hotter it burns. Outrun the wind and it snuffs the flame for a while.',
   invisibility_ring: 'The eye forgets the hand it almost saw.',
   regeneration_amulet: 'A slow warmth mends what the day takes.',
@@ -3068,6 +3073,11 @@ function steerEnergyCost(gear) {
   return Math.max(0.05, 1 - (t - 1) * (0.85 / 6)) * mul;
 }
 
+// The fire the Meteor and Comet rings share (UNIQUE_JEWELRY below).
+const COMET_AURA = Object.freeze({
+  maxMps: 8, minRadiusCells: 0.75, maxRadiusCells: 3, restIntensity: 0.15, maxDps: 6,
+  overspeedMs: 3000, snuffedMs: 10000, texture: 'aura_comet',
+});
 // Unique jewelry owns intrinsic effects instead of material tiers. Carrying
 // both variants takes the stronger effect; values never stack.
 const UNIQUE_JEWELRY = Object.freeze({
@@ -3082,19 +3092,23 @@ const UNIQUE_JEWELRY = Object.freeze({
   // X-RAY: sees through partial cover and into concealing cells (bushes,
   // hedges, trees — Visibility.hidden); cave rock still hides. Not Perception.
   xray_ring: Object.freeze({ xray: true }),
-  // THE COMET RING: a burning aura round the feet whose reach and bite grow
-  // with the wearer's own PACE (comet_ring.js CometRing.shape is the one
-  // reader of these numbers; scene_consumables.js _tickCometAura burns with
-  // it). The wearer is never inside their own fire. Faster than `maxMps` for
-  // `overspeedMs` running snuffs it for `snuffedMs` (the `cometSnuffed` row
-  // of Buffs.KINDS); then it relights by itself. `texture` is the ground
-  // disc scene_create.js bakes and render.js draws exactly as wide as it burns.
+  // THE METEOR RING (T3) and THE COMET RING (T6): a burning aura round the
+  // feet whose reach and bite grow with the wearer's own PACE
+  // (comet_ring.js CometRing.shape is the one reader of these numbers;
+  // scene_consumables.js _tickCometAura burns with it). The wearer is never
+  // inside their own fire. Faster than `maxMps` for `overspeedMs` running
+  // snuffs it for `snuffedMs` (the `cometSnuffed` row of Buffs.KINDS); then
+  // it relights by itself. `texture` is the ground disc scene_create.js
+  // bakes and render.js draws exactly as wide as it burns. The two share
+  // one fire (COMET_AURA); the Meteor's catches for `burnDurationMul` of
+  // the burning row's duration (Combat.ignite) — a third — and the Comet's
+  // for the whole of it. Worn together, the Comet's fire is the one that
+  // burns (jewelryCometAura takes the longer burn; nothing stacks).
   // `equippable`: worn by choice — the Equip / Unequip button under the
   // Relics tab (app.js syncEquipButton, Gear.wearJewelry); a ring just found
   // is worn until it is taken off (jewelryWorn).
-  comet_ring: Object.freeze({ equippable: true, cometAura: Object.freeze({
-    maxMps: 8, minRadiusCells: 0.75, maxRadiusCells: 3, restIntensity: 0.15, maxDps: 6,
-    overspeedMs: 3000, snuffedMs: 10000, texture: 'aura_comet' }) }),
+  meteor_ring: Object.freeze({ equippable: true, cometAura: Object.freeze({ ...COMET_AURA, burnDurationMul: 1 / 3 }) }),
+  comet_ring: Object.freeze({ equippable: true, cometAura: Object.freeze({ ...COMET_AURA, burnDurationMul: 1 }) }),
   regeneration_amulet: Object.freeze({ regenMs: 4000 }),
   vigor_amulet: Object.freeze({ regenMs: 2000 }),
 });
@@ -3149,13 +3163,15 @@ function jewelryMeleeLifesteal(save) {
   }
   return frac;
 }
-// The carried Comet Ring's aura spec (UNIQUE_JEWELRY.comet_ring.cometAura),
-// null without one. A second ring is the same fire: nothing stacks.
+// The worn Meteor or Comet Ring's aura spec (UNIQUE_JEWELRY `cometAura`),
+// null without one. Both worn, the longer burn (the Comet's) is the fire:
+// one aura, nothing stacks.
 function jewelryCometAura(save) {
+  let best = null;
   for (const [id, row] of Object.entries(UNIQUE_JEWELRY)) {
-    if (row.cometAura && jewelryWorn(save, id)) return row.cometAura;
+    if (row.cometAura && jewelryWorn(save, id) && (!best || row.cometAura.burnDurationMul > best.burnDurationMul)) best = row.cometAura;
   }
-  return null;
+  return best;
 }
 function jewelryRegenIntervalMs(save) {
   let interval = Infinity;

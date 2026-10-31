@@ -336,6 +336,10 @@ class SceneCreatures {
       entry.wildplants = entry.wildplants || [];
       for (const wp of dressing.wildplants) if (lay(wp)) entry.wildplants.push(wp);
       for (const trap of (dressing.traps || [])) if (lay(trap, 'hazard')) zoneTraps.push({ ...trap });
+      // A street's authored residents (StreetVariants `guards` — the grassy
+      // lane's hidden pet) take the zone guards' lane below: the same gate,
+      // the same seat reservation, the same shiny, caught and hidden handling.
+      for (const guard of (dressing.guards || [])) if (lay(guard, creatureSpawnClass(guard.kind))) zoneGuards.push(guard);
       entry.spiderPathWebs = (dressing.webs || []).filter(p => lay(p, 'hazard'));
       entry.pathVents = (dressing.vents || []).filter(p => lay(p, 'hazard'));
       streetTreasures = dressing.treasures.filter(p => lay(p, 'reward'));
@@ -501,6 +505,28 @@ class SceneCreatures {
       }
     }
     yield 'spawn path scan';
+    // These gates read generated ground and take no RNG draws. Prepare the
+    // potentially tile-wide candidate lists while the pass can still yield;
+    // choosing spaced marks below still sees the live starter/Home overlays.
+    function* treasureCandidates(cells, label) {
+      const eligible = [];
+      for (let j = 0; j < cells.length; j++) {
+        const cell = cells[j];
+        if (WorldGen.isSpawnCell(genGrid, N, N, cell % N, Math.floor(cell / N), ambientSpawnOpts, 'minor')) eligible.push(cell);
+        if ((j & 255) === 255) yield label;
+      }
+      return eligible;
+    }
+    const shore = entry.scenic && entry.scenic.shore;
+    // Legacy synthetic entries can share their live grid; defer their gates
+    // until after starter painting, as before. Loaded tiles have a frozen base.
+    const shoreEligible = genGrid !== entry.grid && shore && shore.cells.length && typeof Scenic !== 'undefined'
+      ? yield* treasureCandidates(shore.cells, 'spawn shore treasure candidates') : null;
+    const yardWant = (typeof window !== 'undefined' && window.__TEST_MODE) ? 0
+      : Math.min(YARD_X_MAX, Math.floor(yardCells.length * X_MARK_FREQUENCY / YARD_X_PER_CELLS));
+    const yardEligible = genGrid !== entry.grid && yardWant > 0 && typeof Scenic !== 'undefined'
+      ? yield* treasureCandidates(yardCells, 'spawn yard treasure candidates') : null;
+    yield 'spawn treasure candidates';
     // DERELICT LAIRS need the tile's shared spawn options AFTER this pass has
     // finished — the garrisons are woken lazily as the player comes near a ruin
     // (the residency pass in update()), not seated here, because
@@ -512,7 +538,17 @@ class SceneCreatures {
     // for every player) and kept on the entry, but NOT seated here — they
     // come back as memories return, to Home's ring or a restored house
     // (NPC.arrivals below, and NPC.tickArrivals as the ledger grows).
-    entry._residents = NPC.spawn(this, entry, tx, ty, _spawnOpts);
+    const residents = NPC.spawn(this, entry, tx, ty, _spawnOpts);
+    yield 'spawn residents';
+    const profile = window.__boot;
+    let stageAt = profile ? performance.now() : 0;
+    const stage = name => {
+      if (!profile) return;
+      const now = performance.now();
+      profile.tick?.(name, now - stageAt);
+      stageAt = now;
+    };
+    entry._residents = residents;
     entry._residentsTile = { tx, ty };
     entry._spawnOpts = _spawnOpts;
     for (const c of creatures) c._discovered = !HiddenObjects.isHidden(this.save, c);
@@ -534,6 +570,7 @@ class SceneCreatures {
     NPC.shrineResidents(this, entry, tx, ty);
     NPC.houseNeighbours(this, { offscreen: NPC.offscreenAt(this) });
     NPC.arrivals(this, entry, tx, ty);
+    stage('spawn commit residents');
 
     entry.objects = entry.objects || [];
     // Softwood near home — THIS player's overlay on the world's tree species
@@ -631,6 +668,7 @@ class SceneCreatures {
     // any surface tile it reaches into may plan it, and the tile that owns it
     // repaints it on every build (see _carveStarterPond).
     this._carveStarterPond(entry, tx, ty);
+    stage('spawn commit starter overlays');
     // The roll and its placement draws are taken on EVERY tile — the starter
     // tile included — and only the RESULT is dropped there. Which tile is a
     // player's starter tile is per-player; skipping the draws on it shifted
@@ -774,11 +812,10 @@ class SceneCreatures {
     // marks at its own rate. Its OWN stream (seeded off the tile, salted), so
     // no other draw moves; each mark on a shore-sand cell that takes a minor
     // spawn, keyed by position (treasure_sand ids, as before).
-    const shore = entry.scenic && entry.scenic.shore;
     if (shore && shore.cells.length && typeof Scenic !== 'undefined') {
       const want = Scenic.beachXCount(shore.shoreM);
       const brng = WorldGen.makeRng(fnv1a(`beachx|${tx},${ty}`));
-      const eligible = shore.cells.filter(cell => WorldGen.isSpawnCell(genGrid, N, N,
+      const eligible = shoreEligible || shore.cells.filter(cell => WorldGen.isSpawnCell(genGrid, N, N,
         cell % N, Math.floor(cell / N), ambientSpawnOpts, 'minor'));
       const occupied = [...entry.extraTreasures, ...(entry.treasure ? [entry.treasure] : [])]
         .map(t => ({ x: Math.floor((t.x - tx * this.tileEdgeM) / cellM),
@@ -794,11 +831,9 @@ class SceneCreatures {
 
     // FRONT-YARD MARKS (YARD_X_PER_CELLS): beside the street, where a walker
     // passes close enough to see one. Skipped in test mode like the scatter.
-    const yardWant = (typeof window !== 'undefined' && window.__TEST_MODE) ? 0
-      : Math.min(YARD_X_MAX, Math.floor(yardCells.length * X_MARK_FREQUENCY / YARD_X_PER_CELLS));
     if (yardWant > 0 && typeof Scenic !== 'undefined') {
       const yrng = WorldGen.makeRng(fnv1a(`yardx|${tx},${ty}`));
-      const eligible = yardCells.filter(cell => WorldGen.isSpawnCell(genGrid, N, N,
+      const eligible = yardEligible || yardCells.filter(cell => WorldGen.isSpawnCell(genGrid, N, N,
         cell % N, Math.floor(cell / N), ambientSpawnOpts, 'minor'));
       const taken = [...entry.extraTreasures, ...(entry.treasure ? [entry.treasure] : [])]
         .map(t => ({ x: Math.floor((t.x - tx * this.tileEdgeM) / cellM),
@@ -820,6 +855,7 @@ class SceneCreatures {
     // other record is a `fruittree` (picked, not chopped) whose render spec
     // advances the sprite through its growth frames from planted_t, with the
     // harvest handler gating picking until it matures.
+    stage('spawn commit treasure');
     const savedPlantings = [];
     if (this.save.fruittrees && this.save.fruittrees.length) {
       const t0x = tx * this.tileEdgeM, t0y = ty * this.tileEdgeM;
@@ -848,6 +884,7 @@ class SceneCreatures {
     // building cells. Otherwise its first load would read bare generated ground.
     this.ensureStarterTrailerObject?.();
     PlacedFloor.restoreFurniture(this, entry, tx, ty, 0);
+    stage('spawn commit saved objects');
     // THE SHORE'S OWN FAUNA (biome_profiles.js SHORE_FAUNA): crabs on the
     // shore sand, gulls and turtles along the shore (the shore and pier cells
     // come out of the bonus-X block's one grid pass). Each species on its OWN
@@ -856,17 +893,22 @@ class SceneCreatures {
     // IDs come from raw shore draws, before safety relocates eligible seats.
     this.spawnShoreFauna(creatures, shore, pierCells, N, tx, ty, cellM, genGrid,
       faunaSpawnOpts, _spawnOpts, caughtSet, entry.zone && (entry.zone.coverage || entry.zone.idx), entry, zoneGuards);
+    stage('spawn commit shore fauna');
 
 
     this.spawnPathVariantFauna(creatures, pathCells, N, tx, ty, cellM, genGrid, _spawnOpts, caughtSet, entry, zoneGuards);
+    stage('spawn commit path fauna');
 
     // The per-player cull, AFTER every draw of the shared stream above.
     this._cullOffLiveGround(entry, tx, ty, N, cellM, genGrid, genObjects, creatures);
+    stage('spawn commit live ground');
     } finally {
       delete entry._homeVariantGenerating;
     }
+    const finalAt = window.__boot ? performance.now() : 0;
     HomeVariant.apply(this, entry, tx, ty);
     EnemySpawns.refreshHomeFauna(this);
+    window.__boot?.tick?.('spawn commit home finalization', performance.now() - finalAt);
   }
 
   // Keep unrelated tile RNG and existing enemy-defeat aliases stable while

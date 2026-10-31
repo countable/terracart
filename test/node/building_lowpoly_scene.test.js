@@ -49,6 +49,36 @@
   const withPhaser = (fn) => { const had = window.Phaser; window.Phaser = PHASER;
     try { return fn(); } finally { if (had === undefined) delete window.Phaser; else window.Phaser = had; } };
   const FOOT = [{ x: 100, y: 100 }, { x: 190, y: 100 }, { x: 190, y: 160 }, { x: 140, y: 160 }, { x: 140, y: 200 }, { x: 100, y: 200 }];
+  test('low-poly rebuild: repeated wrecks reuse atlas splits with independent placement state', () => withPhaser(() => {
+    const scene=stubScene(),recipe=BuildingLowPoly.recipeFor('wreck');
+    const local=FOOT.map(p=>({x:p.x-100,y:p.y-100}));
+    const source=BuildingLowPoly.specialGeometry(local,recipe,[],'atlas-reuse');
+    const sourceBefore=JSON.stringify(source),sourceFaces=source.faces;
+    let reads=0;
+    Object.defineProperty(source,'faces',{configurable:true,get(){reads++;return sourceFaces;}});
+    try {
+      BuildingLowPoly.begin(scene);
+      const first=BuildingLowPoly.add(scene,FOOT,recipe,'ridge','atlas-reuse');
+      const firstPoints=JSON.stringify(first.faces.map(f=>f.points));
+      const initialReads=reads;
+      assert.gt(initialReads,0,'first placement prepares the source faces');
+      first.faces[0].points[0].tu=999;
+      first.faces[0].color=0;
+      BuildingLowPoly.update(scene);
+      BuildingLowPoly.begin(scene);
+      const shifted=FOOT.map(p=>({x:p.x+CELL_PX,y:p.y-CELL_PX}));
+      const second=BuildingLowPoly.add(scene,shifted,recipe,'ridge','atlas-reuse');
+      assert.eq(reads,initialReads,'crossing reuses the prepared parts without re-reading source faces');
+      assert.eq(JSON.stringify(second.faces.map(f=>f.points)),firstPoints,'draw mutations never contaminate cached UVs');
+      assert.truthy(second.faces[0]!==first.faces[0],'each placement owns its mutable face state');
+      assert.truthy(second.faces[0].points[0]!==first.faces[0].points[0],'each placement owns its mutable UVs');
+      assert.eq(second.x,first.x+CELL_PX,'cached local geometry follows the new camera origin');
+      assert.eq(second.y,first.y-CELL_PX);
+    } finally {
+      Object.defineProperty(source,'faces',{configurable:true,writable:true,value:sourceFaces});
+    }
+    assert.eq(JSON.stringify(source),sourceBefore,'placement and projection leave source geometry intact');
+  }));
   test('low-poly fort: source shell retains its central inset and one mounted dice board', () => withPhaser(() => {
     const scene=stubScene(),texture=scene.textures.createCanvas('fort-source',512,1024);
     const spec=AuthoredBuildings.SPECS.city_storefront,unit=16/spec.door[3];

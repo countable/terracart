@@ -61,13 +61,14 @@
       traps: [{ id: 'path_trap', _street: 'barricade', x: 55, y: 55 }],
       webs: [{ id: 'path_web', _street: 'spider', x: 55, y: 55 }],
       vents: [{ id: 'path_vent', _street: 'poison', x: 55, y: 55 }],
+      guards: [{ id: 'street_pet', kind: 'cat', hidden: true, _street: 'grassy_lane', x: 55, y: 55 }],
       lairs: [{ tier: 'barricade', _street: 'barricade', lx: 55, ly: 55 },
         { tier: 'burned', lx: 55, ly: 55 }] };
     streetDress.marks[i] = StreetVariants.VARIANT_BY_ID.barricade.code;
     WorldGen.runSteps(WorldGen.clearZoneAmbientSteps({ field: { coverage }, streetDress,
       objects: [], wildplants: [], tx: 0, ty: 0, N, tileEdgeM: extent }));
     assert.eq(streetDress.marks[i], 0);
-    for (const key of ['objects', 'lairs', 'coins', 'traps', 'webs', 'vents'])
+    for (const key of ['objects', 'lairs', 'coins', 'traps', 'webs', 'vents', 'guards'])
       assert.eq(streetDress[key].length, 0, `${key} yield to the Nexus`);
     assert.falsy(streetDress.slowCells.has(i));
   });

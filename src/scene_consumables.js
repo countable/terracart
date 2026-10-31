@@ -598,7 +598,8 @@ class SceneConsumables {
   // disc and the lightmap's warmth read it). Every ENEMY
   // inside (Combat.isEnemy — never a crow, a deer, a pet or a caught one;
   // never one fire cannot touch, Combat.canBurn) is set alight as the
-  // player's own kill (Combat.ignite, the lit torch's call) and takes the
+  // player's own kill (Combat.ignite, the lit torch's call, for the ring's
+  // burnDurationMul of the burning row — the Meteor's third) and takes the
   // aura's dps × dt through _damageEnemy, armour mitigated once per logical
   // second as the blight does. The wearer is never a target: the ring is
   // their own fire, and it touches no ally either. Faster than the spec's
@@ -635,7 +636,7 @@ class SceneConsumables {
       inside.push(c);
     });
     for (const c of inside) {
-      Combat.ignite(c, nowT, 'player');
+      Combat.ignite(c, nowT, 'player', { durationMul: spec.burnDurationMul });
       const rate = Combat.mitigate(next.dps, Combat.monster(c.kind)?.armor || 0);
       this._damageEnemy(c, rate * dt, 'player', { bypassArmor: true });
     }
