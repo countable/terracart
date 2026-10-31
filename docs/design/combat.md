@@ -176,6 +176,31 @@ mechanics.
   and a charmed bat's bite); the Vampire Ring (`UNIQUE_JEWELRY.vampire_ring`,
   `jewelryMeleeLifesteal`) returns 20% of a melee blow as banked whole energy,
   capped at the bar.
+- THE COMET RING (`UNIQUE_JEWELRY.comet_ring.cometAura`, read by
+  `CometRing` in `comet_ring.js`; the Fire Elemental's rare elite drop): while
+  worn, a ring of fire round the feet grows with the player's REAL pace —
+  the GPS speed lane (`util.js speedGateStep` keeps its last sample;
+  `CometRing.gpsPace` reads it, stale after `PACE_STALE_MS`), never the body
+  on the map: a stick walk off the fix, the walk home after it and a
+  catch-up chase light nothing, and without GPS the ring is an ember.
+  `CometRing.shape` turns the smoothed metres-per-second into the disc's
+  radius and intensity, an ember at a standstill and a comet's tail at
+  `maxMps`. `_tickCometAura` (scene_consumables.js) sets
+  every enemy inside alight as the player's kill (`Combat.ignite`, the lit
+  torch's call) and burns the aura's `dps × dt` through `_damageEnemy`; the
+  wearer and their allies are never targets. Faster than `maxMps` for
+  `overspeedMs` running and `CometRing.step` snuffs it: the tick lends the
+  `cometSnuffed` Buffs row `snuffedMs` (its chip is the only sign) and the
+  fire relights when that ends. The ground disc (render.js) and the warmth on
+  the lightmap (`Lighting.KINDS.comet_aura`) read the same state, so the
+  edge the player sees is the edge that burns. A sample past
+  `CometRing.TELEPORT_MPS` is a GPS jump, never running.
+  It is the one `equippable` jewelry row: found, it is worn at once; the
+  Equip / Unequip button under the inventory bar (`syncEquipButton`, the
+  weapons' button) takes it off and puts it on through `Gear.wearJewelry`,
+  the one writer of `save.wornJewelry`, which `jewelryWorn` reads. Off, it
+  is a plain carried stack with no fire; the choice survives a reload. The
+  other unique jewelry works while carried, as before.
 - BOOK CLUB LENDING: lifetime Books collected provide one reusable credit
   each. The existing value-ordered tome shelf unlocks one new title every
   three Books; unlocks do not repeat. Each borrowed copy reserves its item

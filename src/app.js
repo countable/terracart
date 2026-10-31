@@ -3990,6 +3990,7 @@ class MapScene extends Phaser.Scene {
     this._combatTick(dt);
     this._tickBlightAura();
     this._tickFrostAura();
+    this._tickCometAura();
     this._tickMoonbeam();
     Companions.tickAll(this);
     tickGroundCoins(this);
@@ -9149,7 +9150,16 @@ class MapScene extends Phaser.Scene {
     });
     // The compass reveals its money badge after the first earned-coin story.
     if (this.moneyEl) {
-      const money = `${this.save.money ?? 0}`;
+      const balance = this.save.money ?? 0;
+      // Coins earned lift the chip and roll the number up to the new balance
+      // (CompassHUD.moneyGain / coinRoll); the first paint and a spend paint
+      // flat. _moneyShown is the last balance seen, _coinRoll the live climb.
+      if (this._moneyShown != null && balance > this._moneyShown) CompassHUD.moneyGain(this, this._moneyShown, balance);
+      else if (this._moneyShown != null && balance < this._moneyShown) this._coinRoll = null;
+      this._moneyShown = balance;
+      const roll = CompassHUD.coinRoll(this._coinRoll, Date.now());
+      if (roll?.done) this._coinRoll = null;
+      const money = `${roll ? roll.value : balance}`;
       this._paintIfChanged('_moneyDOM', money, () => {
         // The chip is a coin icon plus a bare number span (#money-num); the
         // icon is the symbol, so the number carries no `$`. Fall back to the
@@ -11295,14 +11305,7 @@ class MapScene extends Phaser.Scene {
           // auto-engage/auto-fire (save.activeWeapon) wears it, opposite corner
           // from the tier badge so the two never collide.
           const isWeapon = g.kind === 'relic' && WEAPON_SLOTS.includes(g.slot);
-          if (isWeapon && Gear.activeWeapon(this.save) === g.slot) {
-            const eBadge = document.createElement('span');
-            eBadge.textContent = 'E';
-            eBadge.title = 'Active weapon';
-            eBadge.className = 'hud-badge';
-            eBadge.style.cssText = `position:absolute;top:1px;left:2px;font-size:10px;padding:0 3px;border-radius:3px;line-height:12px;background:${UI_GOLD};color:#3a3322;`;
-            slot.appendChild(eBadge);
-          }
+          if (isWeapon && Gear.activeWeapon(this.save) === g.slot) slot.appendChild(this._equippedBadge('Active weapon'));
           slot.addEventListener('click', (e) => {
             e.stopPropagation();
             this.save.selGear = { kind: g.kind, slot: g.slot };
@@ -11339,6 +11342,9 @@ class MapScene extends Phaser.Scene {
           if (item?.kind === 'unique_relic') {
             badge.innerHTML = tierBadgeHTML(itemTierOf(item.id), 6, 2);
             badge.style.cssText = 'position:absolute;bottom:1px;left:50%;transform:translateX(-50%);line-height:10px;';
+            // Worn `equippable` jewelry (the Comet Ring) wears the weapon's
+            // "E"; taken off (Gear.wearJewelry) it is a plain carried stack.
+            if (UNIQUE_JEWELRY[item.id]?.equippable && jewelryWorn(this.save, item.id)) slot.appendChild(this._equippedBadge('Equipped'));
             if (entry.count > 1) {
               const count = document.createElement('span');
               count.textContent = entry.count;
@@ -11536,41 +11542,64 @@ class MapScene extends Phaser.Scene {
     if (icon) icon.style.transform = this._furnitureFlip ? 'scaleX(-1)' : '';
   }
 
+  // The "E" (Equipped) badge on an inventory slot: the weapon doing the
+  // auto-engage / auto-fire (save.activeWeapon) and worn equippable jewelry
+  // (jewelryWorn) wear it, opposite corner from the tier badge so the two
+  // never collide.
+  _equippedBadge(title) {
+    const eBadge = document.createElement('span');
+    eBadge.textContent = 'E';
+    eBadge.title = title;
+    eBadge.className = 'hud-badge';
+    eBadge.style.cssText = `position:absolute;top:1px;left:2px;font-size:10px;padding:0 3px;border-radius:3px;line-height:12px;background:${UI_GOLD};color:#3a3322;`;
+    return eBadge;
+  }
   // Equip / Unequip button — the Eat button's slot, shown while a WEAPON is
-  // highlighted in the Relics tab. Gear selection clears selSlot; selecting
-  // a carried relic clears selGear, so its Eat / Use action appears instead.
+  // highlighted in the Relics tab, or a carried piece of `equippable`
+  // jewelry (UNIQUE_JEWELRY — the Comet Ring) anywhere it is highlighted.
+  // Gear selection clears selSlot; selecting a carried relic clears selGear,
+  // so its Eat / Use action appears instead.
   // Equip makes the highlighted weapon fight (Gear.selectWeapon). Unequip
   // leaves the player unarmed and stops automatic attacks (Gear.unequipWeapon).
   // This is the ONE way the active weapon changes by hand; tapping a slot
-  // only highlights it.
+  // only highlights it. For jewelry, Equip / Unequip puts the piece on or
+  // takes it off (Gear.wearJewelry): off, its effect stops and it is a plain
+  // stack in the bag; a reload keeps the choice.
   syncEquipButton() {
     const g = this.save.selGear;
     const existing = document.getElementById('equip-btn');
     const cat = INV_CAT_BY_KEY[this.save.invCat];
     const isWeapon = !!cat?.gear && g?.kind === 'relic' && WEAPON_SLOTS.includes(g.slot)
       && !!Gear.effectiveRelics(this.save)[g.slot];
-    if (!isWeapon) { existing?.remove(); return; }
-    const active = Gear.activeWeapon(this.save) === g.slot;
-    const tier = Gear.effectiveRelics(this.save)[g.slot]?.tier;
+    const jewel = !isWeapon && getSelectedSlot(this.save)?.id;
+    const isJewel = !!jewel && !!UNIQUE_JEWELRY[jewel]?.equippable;
+    if (!isWeapon && !isJewel) { existing?.remove(); return; }
+    const active = isWeapon ? Gear.activeWeapon(this.save) === g.slot : jewelryWorn(this.save, jewel);
+    const tier = isWeapon ? Gear.effectiveRelics(this.save)[g.slot]?.tier : null;
     const verb = active ? 'Unequip' : 'Equip';
-    const label = `${this.gearIconHTML('relic', g.slot, tier, 20)} ${verb}`;
+    const label = `${isWeapon ? this.gearIconHTML('relic', g.slot, tier, 20) : this.iconSpanHTML(jewel, 20)} ${verb}`;
     // Same seat and face as the Drink button (control gold: a thing you
     // press), bottom-right under the inventory bar.
     const btn = existing || this._hudActionButton('equip-btn', { onClick: () => {
       const sel = this.save.selGear;
-      if (!sel || !WEAPON_SLOTS.includes(sel.slot)) return;
-      if (Gear.activeWeapon(this.save) === sel.slot) {
-        Gear.unequipWeapon(this.save);
-        this._swing = null;
-        this._staffCharge = null;
-        this._meleeWeaponSprite?.setVisible(false);
-        this.swordSwingGfx?.clear();
-      } else Gear.selectWeapon(this.save, sel.slot);
+      const ring = !sel && getSelectedSlot(this.save)?.id;
+      if (ring && UNIQUE_JEWELRY[ring]?.equippable) {
+        Gear.wearJewelry(this.save, ring, !jewelryWorn(this.save, ring));
+      } else {
+        if (!sel || !WEAPON_SLOTS.includes(sel.slot)) return;
+        if (Gear.activeWeapon(this.save) === sel.slot) {
+          Gear.unequipWeapon(this.save);
+          this._swing = null;
+          this._staffCharge = null;
+          this._meleeWeaponSprite?.setVisible(false);
+          this.swordSwingGfx?.clear();
+        } else Gear.selectWeapon(this.save, sel.slot);
+      }
       this.markRelicsDirty();
       persistSave(this.save);
       this.buildInventoryDOM();   // the "E" badge moves; refreshes this button too
     } });
-    btn.dataset.slot = g.slot;
+    btn.dataset.slot = isWeapon ? g.slot : jewel;
     btn.innerHTML = label;
   }
   // ONE fixed action button under the inventory bar (Equip, Eat, Throw,

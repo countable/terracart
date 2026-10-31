@@ -77,6 +77,18 @@
     return true;
   }
 
+  // WORN JEWELRY: an `equippable` UNIQUE_JEWELRY row (the Comet Ring) is
+  // put on and taken off here — the one writer of save.wornJewelry, which
+  // items.js jewelryWorn reads (absent means worn, so a piece just found
+  // works at once; only an explicit Unequip stores false). False for a
+  // piece that is not carried or not equippable.
+  function wearJewelry(save, id, worn) {
+    if (!save || !UNIQUE_JEWELRY[id]?.equippable || !carriesItem(save, id)) return false;
+    save.wornJewelry = save.wornJewelry || {};
+    if (worn) delete save.wornJewelry[id]; else save.wornJewelry[id] = false;
+    return true;
+  }
+
   // Unequip means no attacks, including after a temporary wand expires.
   // Keep the boon override empty too, so its default staff cannot spring back.
   function unequipWeapon(save, now = Date.now()) {
@@ -328,7 +340,7 @@
     if (save.activeWeapon === piece.slot) unequipWeapon(save);
   }
 
-  root.Gear = { hasPerception, hasXRay, hasCompass, coinMagnetCells, effectiveRelics, spellSlots, activeWeapon, meleeActive, selectWeapon, unequipWeapon, workDurationMs, equip, gearTier, canUpgrade, buildRelicOffer, relicOfferWeights, SMITHY_NEXT_RUNG_BIAS, SMITHY_OWN_TIER_BIAS,
+  root.Gear = { hasPerception, hasXRay, hasCompass, coinMagnetCells, effectiveRelics, spellSlots, activeWeapon, meleeActive, selectWeapon, unequipWeapon, wearJewelry, workDurationMs, equip, gearTier, canUpgrade, buildRelicOffer, relicOfferWeights, SMITHY_NEXT_RUNG_BIAS, SMITHY_OWN_TIER_BIAS,
                 blacksmithRecipe, smeltingRecipe, smeltUnlockedBars, WEAPON_SLOTS,
                 TRADER_GEAR_CHANCE, uniqueRelics, traderGearSwap, traderSwapValid, surrenderPiece };
 })(typeof globalThis !== 'undefined' ? globalThis : this);
