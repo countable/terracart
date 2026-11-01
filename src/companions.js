@@ -107,7 +107,7 @@
           const i = tile.creatures?.indexOf(c) ?? -1;
           if (i >= 0) tile.creatures.splice(i, 1);
         }
-        c = c || WorldGen.makeCreature(r.kind, px, py, r.id, {...r, _lastDamagedT:r.lastDamagedAt ?? null, ...(r.hp != null ? {_hp:r.hp} : {})});
+        c = c || CreatureSpawns.createOwned('pet-release', r.id, r.kind, px, py, r.id, {...r, _lastDamagedT:r.lastDamagedAt ?? null, ...(r.hp != null ? {_hp:r.hp} : {})});
         const point = characterFreePoint(scene,c,px,py,bodies);
         if (!point) continue;
         Object.assign(c, {x:point.x,y:point.y,_startX:point.x,_startY:point.y,_targetX:point.x,_targetY:point.y,_nextChooseT:0,_chaseTarget:null});
@@ -176,7 +176,7 @@
     const entry = WorldGen.tileCache.get(WorldGen.tileKey(pc.tx, pc.ty));
     if (!entry || !entry.creatures) return;
     const now = performance.now();
-    creature = WorldGen.makeCreature(kind, px, py,
+    creature = CreatureSpawns.createOwned('companions', kind + ':' + save[row.field], kind, px, py,
       `${kind}_${pc.tx}_${pc.ty}_${Math.floor(now)}_${Math.floor(Math.random() * 1e4)}`,
       { _followUntilT: now + Math.max(0, save[row.field] - wall), _nextChooseT: 0 });
     if (row.persistHealth) creature._hp = Math.max(1, Math.min(Combat.creatureMaxHp(kind), Number(state.hp) || Combat.creatureMaxHp(kind)));

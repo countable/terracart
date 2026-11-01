@@ -82,7 +82,7 @@ class ScenePets {
         if (!Pets.release(this.save, id)) { this.flashAtPlayer('Make room for its accessories.'); return; }
         const wild = this.save.wildAnimals.find(r => r.id === id);
         Object.assign(wild,point,{tx:pc.tx,ty:pc.ty,depth:this.depth || 0});
-        entry.creatures.push(WorldGen.makeCreature(wild.kind,wild.x,wild.y,wild.id,{...wild,_hp:wild.hp}));
+        entry.creatures.push(CreatureSpawns.createOwned('pet-release', wild.id, wild.kind,wild.x,wild.y,wild.id,{...wild,_hp:wild.hp}));
         if (Pets.species(pet.kind) === 'horse') this.save.riding = false;
         this._petChanged();
       }, onCancel: () => this.presentPetMenu(id),

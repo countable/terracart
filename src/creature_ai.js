@@ -573,21 +573,21 @@ function ghostSurfaceEligible(scene, x, y, cell) {
 // `wardPts` / `wardR2` are wanderCreatures' Home + claimed-castle wards: a
 // ghost never rises inside a ring that would only rout it.
 // Triggered encounters share frequency and placement with habitat spawns;
-// their trigger, identity and behavior remain owned by these event handlers.
-const CreatureSpawnEvents = {
+// their trigger, identity and behavior remain owned by these trigger handlers. Story Events have their own progression controller.
+const CreatureSpawnTriggers = {
   ghost(depth) {
     const profile = EnemyRoster.ghostProfile(depth);
-    return { id: 'ghost_pump', source: 'event', kind: 'ghost',
-      frequency: { unit: 'event', count: [profile.groupMin, profile.groupMax] } };
+    return { id: 'ghost_pump', source: 'trigger', kind: 'ghost',
+      frequency: { unit: 'activation', count: [profile.groupMin, profile.groupMax] } };
   },
-  headstone: { id: 'headstone_ghost', source: 'event', kind: 'ghost', frequency: { unit: 'event', count: 1 } },
-  fishedSlime: { id: 'fished_slime', source: 'event', kind: 'slime', frequency: { unit: 'event', count: 1 } },
-  nest: { id: 'nest_bush', source: 'event', frequency: { unit: 'event', count: 1 } },
-  hive() { return { id: 'hive_bees', source: 'event', kind: WorldGen.HIVE_SPEC.beeKind, frequency: { unit: 'event', count: WorldGen.HIVE_SPEC.bees } }; },
-  summon(ability) { return { id: 'enemy_summon_slots', source: 'event', kind: ability.kind,
-    frequency: { unit: 'event', count: ability.maxMinions } }; },
+  headstone: { id: 'headstone_ghost', source: 'trigger', kind: 'ghost', frequency: { unit: 'activation', count: 1 } },
+  fishedSlime: { id: 'fished_slime', source: 'trigger', kind: 'slime', frequency: { unit: 'activation', count: 1 } },
+  nest: { id: 'nest_bush', source: 'trigger', frequency: { unit: 'activation', count: 1 } },
+  hive() { return { id: 'hive_bees', source: 'trigger', kind: WorldGen.HIVE_SPEC.beeKind, frequency: { unit: 'activation', count: WorldGen.HIVE_SPEC.bees } }; },
+  summon(ability) { return { id: 'enemy_summon_slots', source: 'trigger', kind: ability.kind,
+    frequency: { unit: 'activation', count: ability.maxMinions } }; },
 };
-globalThis.CreatureSpawnEvents = CreatureSpawnEvents;
+globalThis.CreatureSpawnTriggers = CreatureSpawnTriggers;
 function ghostSpawnPass(scene, now, px, py, pcW, homePos, castleWards, wardR2, caughtSet) {
   const depth = scene.depth || 0;
   const entry = WorldGen.tileCache.get(WorldGen.tileKey(pcW.tx, pcW.ty));
@@ -616,7 +616,7 @@ function ghostSpawnPass(scene, now, px, py, pcW, homePos, castleWards, wardR2, c
   });
   const profile = EnemyRoster.ghostProfile(depth);
   const want = Math.min(profile.nearMax - near,
-    CreatureSpawns.frequencyCount(CreatureSpawnEvents.ghost(depth).frequency, Math.random));
+    CreatureSpawns.frequencyCount(CreatureSpawnTriggers.ghost(depth).frequency, Math.random));
   const R = PEST_SPAWN_CELLS * scene.cellM;
   const base = Math.random() * Math.PI * 2;
   let made = 0;
@@ -647,7 +647,7 @@ function ghostSpawnPass(scene, now, px, py, pcW, homePos, castleWards, wardR2, c
 // shape, pruned by the same pass). The pump and a disturbed headstone both
 // mint through here.
 function makeGhost(x, y, now, tx, ty, tag) {
-  return WorldGen.makeCreature('ghost', x, y,
+  return CreatureSpawns.createOwned('haunting', `haunt:${tx}:${ty}`, 'ghost', x, y,
     `ghost_${tx}_${ty}_${Math.floor(now)}_${tag}_${Math.floor(Math.random() * 1e4)}`,
     { _spawnT: now });
 }
@@ -672,7 +672,8 @@ function raiseGhostAt(scene, x, y, now, tag) {
   });
   const nearMax = EnemyRoster.ghostProfile(scene.depth || 0)?.nearMax ?? 0;
   if (near >= nearMax) return null;
-  const generated = WorldGen.runSteps(CreatureSpawns.generateSteps(CreatureSpawnEvents.headstone, {
+  const generated = WorldGen.runSteps(CreatureSpawns.generateOwnedSteps('headstone', `${tag || 'headstone'}:${tx}:${ty}:${x}:${y}`, {
+    frequency: CreatureSpawnTriggers.headstone.frequency, maxAlive: nearMax, liveCount: near,
     member: () => ({ kind: 'ghost' }), seat: () => ({ x, y }),
     create: () => makeGhost(x, y, now, tx, ty, tag),
     onPlaced: ghost => entry.creatures.push(ghost),
@@ -698,7 +699,8 @@ function raiseGhostAt(scene, x, y, now, tag) {
 function fishedSlimeSpawn(scene, now, px, py, pcW) {
   const entry = WorldGen.tileCache.get(WorldGen.tileKey(pcW.tx, pcW.ty));
   if (!entry || !entry.creatures) return null;
-  const generated = WorldGen.runSteps(CreatureSpawns.generateSteps(CreatureSpawnEvents.fishedSlime, {
+  const generated = WorldGen.runSteps(CreatureSpawns.generateOwnedSteps('fishing-slime', `fishing:${pcW.tx}:${pcW.ty}:${now}`, {
+    frequency: CreatureSpawnTriggers.fishedSlime.frequency,
     member: () => ({ kind: 'slime' }),
     seat: () => ringSeat(px, py, scene.cellM, Math.floor(Math.random() * 8) * Math.PI / 4,
       (x, y) => CreatureSpawns.gateAt(scene, x, y, 'slime')),
@@ -827,7 +829,8 @@ function spawnNestBushCreature(scene, bush, type) {
   if (!point) return null;
   const creatures = point.entry.creatures || (point.entry.creatures = []);
   if (creatures.some(c => c.id === id)) return null;
-  const generated = WorldGen.runSteps(CreatureSpawns.generateSteps(CreatureSpawnEvents.nest, {
+  const generated = WorldGen.runSteps(CreatureSpawns.generateOwnedSteps('nest', bush.id, {
+    frequency: CreatureSpawnTriggers.nest.frequency,
     member: () => ({ kind, id }), seat: () => point,
     create: () => EnemySpawns.markShared(WorldGen.makeCreature(kind, point.x, point.y, id, { shiny: false,
       ...(enemy ? { _surfaceSpawn: { x: point.x, y: point.y, tx: point.tx, ty: point.ty, cx: point.ix, cy: point.iy } } : {}) })),
@@ -843,7 +846,7 @@ function spawnNestBushCreature(scene, bush, type) {
 function planHiveBees(scene, hive) {
   const out = [], seats = new Set();
   const day = utcDayKey(), kind = WorldGen.HIVE_SPEC.beeKind;
-  const count = CreatureSpawns.frequencyCount(CreatureSpawnEvents.hive().frequency, Math.random);
+  const count = CreatureSpawns.frequencyCount(CreatureSpawnTriggers.hive().frequency, Math.random);
   for (let i = 0; i < count; i++) {
     const id = `hivebee_${hive.id}_${day}_${i}`;
     const point = walkableDestination(scene, hive.x, hive.y, 1, {
@@ -854,7 +857,7 @@ function planHiveBees(scene, hive) {
     });
     if (!point) return [];
     seats.add(`${point.x},${point.y}`);
-    out.push({ entry: point.entry, creature: EnemySpawns.markShared(WorldGen.makeCreature(kind, point.x, point.y, id,
+    out.push({ entry: point.entry, creature: EnemySpawns.markShared(CreatureSpawns.createOwned('honey-bees', hive.id, kind, point.x, point.y, id,
       { shiny: false, homeX: hive.x, homeY: hive.y })) });
   }
   return out;
@@ -1517,7 +1520,7 @@ function enemySummon(scene, c, ability) {
   const caught = new Set(scene.save.caught || []);
   const existing = new Set();
   WorldGen.forEachItemNear('creatures', pc.tx, pc.ty, other => existing.add(other.id));
-  const slots = CreatureSpawns.frequencyCount(CreatureSpawnEvents.summon(ability).frequency, Math.random);
+  const slots = CreatureSpawns.frequencyCount(CreatureSpawnTriggers.summon(ability).frequency, Math.random);
   for (let slot = 0; slot < slots; slot++) {
     const id = `${c.id}_summon_${slot}`;
     if (caught.has(id) || existing.has(id)) continue;
@@ -1536,7 +1539,7 @@ function enemySummon(scene, c, ability) {
     {
       const { x, y } = seat;
       // Its id extends its summoner's, so it is world-shared when they are.
-      const child = EnemySpawns.markShared(WorldGen.makeCreature(kind, x, y, id), c._sharedId === true);
+      const child = EnemySpawns.markShared(CreatureSpawns.createOwned('summons', c._spawnOwner || c.lair || c.id, kind, x, y, id), c._sharedId === true);
       // A garrison's escort inherits its leash, its ground and its
       // difficulty (GARRISON_INHERIT — the one list a split twin reads too),
       // not a new lair: quiet-home and the amnesty hide the skeletons with
@@ -1605,7 +1608,7 @@ function enemySplit(scene, c, fromX, fromY, now) {
   // Another character can split this slime during its own turn. Refresh the
   // original now; the newborn joins the next pass's body list as before.
   if (scene._characterSpacingIndex) updateCharacterSpacingIndex(scene._characterSpacingIndex, c);
-  const twin = WorldGen.makeCreature(c.kind, seats[1].x, seats[1].y, id, { shiny: false, ...(c.depth != null ? { depth: c.depth } : {}) });
+  const twin = CreatureSpawns.createOwned('splits', c._spawnOwner || c.lair || root, c.kind, seats[1].x, seats[1].y, id, { shiny: false, ...(c.depth != null ? { depth: c.depth } : {}) });
   for (const key of [...garrisonInherit(), '_lastDamagedT']) if (c[key] != null) twin[key] = c[key];
   twin._hp = half; twin._splitShare = share; twin._splitRoot = root; twin._splitNextT = c._splitNextT;
   // Each half's seat is where it now stands, so a garrison's halves walk home

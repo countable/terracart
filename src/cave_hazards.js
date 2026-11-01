@@ -47,7 +47,10 @@
       if (entry?.grid && !entry._spawned) {
         scene._ensureHomeUpStair?.(entry, tx, ty);
         scene._ensureLadderUpStairs?.(entry, tx, ty);
-        scene.spawnCaveCreatures?.(entry, tx, ty, depth + 1);
+        const ready = scene._spawnCaveCreaturesSliced
+          ? await scene._spawnCaveCreaturesSliced(entry, tx, ty, depth + 1)
+          : (scene.spawnCaveCreatures?.(entry, tx, ty, depth + 1), true);
+        if (!ready) { scene._caveFallPending = false; return false; }
       }
       if (root.Conditions.flying(scene.save)) { scene._caveFallPending = false; return false; }
       const destination = landing(entry, hole, edge);

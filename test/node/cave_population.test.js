@@ -18,14 +18,14 @@
     EnemySpawns.caveContextAt = () => ({ id: 'fixture_pocket', theme: 'natural', kinds: EnemyHabitats.FAMILIES.natural });
     try { fn(); } finally { EnemySpawns.caveContextAt = original; }
   };
-  test('cave population: excluded seats preserve the pocket enemy budget', () => inOnePocket(() => {
+  test('cave population: excluded area removes its density candidates without relocating survivors', () => inOnePocket(() => {
     const before = run(false), after = run(true);
-    assert.gt(before.length, 60);
-    assert.eq(after.filter(c => c.kind === 'rabbit').length, before.filter(c => c.kind === 'rabbit').length);
-    assert.eq(after.filter(c => c.kind !== 'rabbit').length, before.filter(c => c.kind !== 'rabbit').length);
-    assert.eq(after.map(c => c.kind).join('|'), before.map(c => c.kind).join('|'), 'safety changes seats, not the selected species');
+    assert.gt(before.length, 0);
+    assert.gt(after.length, 0);
+    assert.lt(after.length, before.length);
+    const eligible = before.filter(c => Math.floor(c.x / 7) >= 59 && Math.floor(c.x / 7) < 65);
+    assert.eq(JSON.stringify(after), JSON.stringify(eligible), 'legal cells keep exactly their original bodies and IDs');
     assert.eq(new Set(after.map(c => `${c.x},${c.y}`)).size, after.length);
-    for (const c of after) assert.inRange(Math.floor(c.x / 7), 59, 64);
     assert.eq(JSON.stringify(after), JSON.stringify(run(true)));
   }));
   test('cave population: defeating a relocated body leaves every surviving reservation unchanged', () => inOnePocket(() => {
@@ -37,7 +37,7 @@
   test('cave population: safety holes preserve request IDs and prior cell defeats', () => inOnePocket(() => {
     const before = run(false), after = run(true);
     const signature = bodies => bodies.map(c => `${c.id}:${c.kind}`).join('|');
-    assert.eq(signature(after), signature(before));
+    assert.eq(signature(after), signature(before.filter(c => Math.floor(c.x / 7) >= 59 && Math.floor(c.x / 7) < 65)));
     const enemies = before.filter(c => c.kind !== 'rabbit');
     const oldIds = enemies.map(c => c._legacyDefeatIds[0]);
     assert.eq(new Set(oldIds).size, oldIds.length, 'one old defeat belongs to one request');
@@ -45,9 +45,10 @@
       'new defeats stay respected after relocation');
     assert.eq(run(true, oldIds).filter(c => c.kind !== 'rabbit').length, 0,
       'prior cell-based defeats stay respected after relocation');
-    const defeated = enemies[0];
+    const defeated = after.find(c => c.kind !== 'rabbit');
     const survived = after.filter(c => c.id !== defeated.id);
-    assert.eq(JSON.stringify(run(true, [defeated._legacyDefeatIds[0]])), JSON.stringify(survived),
+    const bodySignature = rows => JSON.stringify(rows.map(({ _legacyDefeatIds, ...body }) => body));
+    assert.eq(bodySignature(run(true, [defeated._legacyDefeatIds[0]])), bodySignature(survived),
       'one migrated defeat leaves every other seat and identity unchanged');
     const everyAlias = after.flatMap(c => c._legacyDefeatIds || []);
     assert.eq(new Set(everyAlias).size, everyAlias.length, 'current-cell compatibility cannot reuse a canonical alias');

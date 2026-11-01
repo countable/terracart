@@ -35,7 +35,7 @@
     assert.eq(entry.extraTreasures[0].id, hoard.id);
     assert.falsy(entry.creatures.some(c => c.id.startsWith('plant_') || c._surfaceSpawn));
     assert.gt(entry.creatures.filter(c => c.kind === 'crow').length, 0, 'fauna still share the road variant area');
-    assert.gt(fixture(false).entry.extraTreasures.length, 1, 'the same unreserved terrain actually produces generic treasure');
+    assert.gt(fixture(false, WorldGen.T.SAND).entry.extraTreasures.length, 1, 'unreserved sand produces its declared density finds');
   });
 
   test('variant priority: road reservations exclude sand bonus treasure without suppressing authored street rewards', () => {

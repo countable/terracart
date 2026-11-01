@@ -31,7 +31,10 @@
   const copy = state => JSON.parse(JSON.stringify(state));
   const inside = (s, p) => p.x >= 0 && p.y >= 0 && p.x < s.size && p.y < s.size;
   const occupied = (list, p) => list.some(o => same(o, p));
-  function enemy(id, x, y, hp, elite = false) { return { id, x, y, hp, maxHp: hp, elite, frost: 0 }; }
+  function enemy(s, id, x, y, hp, elite = false) {
+    return root.CreatureSpawns.createRecord('temple-trials', `trial:${s.kind}:${s.seed}`,
+      { id, x, y, hp, maxHp: hp, elite, frost: 0 });
+  }
   // ── THE GORGON'S MAZE ──────────────────────────────────────────────────
   // The maze is THE BRAID — the one maze layout generator (cave_areas.js
   // mazeBraid, the dungeon maze's), never a carver of its own — drawn small
@@ -98,7 +101,7 @@
           || (rank.fromStart === seat.fromStart && (y < seat.y || (y === seat.y && x < seat.x)))))) seat = { x, y, ...rank };
     }
     if (!seat) seat = ladder;
-    s.enemies = [enemy('medusa', seat.x, seat.y, 45)];
+    s.enemies = [enemy(s, 'medusa', seat.x, seat.y, 45)];
   }
   // Every open cell a seat may be — off the ladder, at least MEDUSA_START_CELLS
   // down the walk from the start — with its walk from the start and `apart`,
@@ -175,8 +178,8 @@
     s.ladder = { x: n - 2, y: 1 };
     s.walls = [];
     for (let x = 0; x < n; x++) if (x !== gap) s.walls.push({ x, y: Math.floor(n / 2) });
-    s.enemies = [enemy(`guard-${s.round}`, n - 2, n - 2, 18 + s.round * 6)];
-    if (s.round === 3) s.enemies.push(enemy('guard-top', 2, 1, 24));
+    s.enemies = [enemy(s, `guard-${s.round}`, n - 2, n - 2, 18 + s.round * 6)];
+    if (s.round === 3) s.enemies.push(enemy(s, 'guard-top', 2, 1, 24));
     if (s.config.enemyHp > 0) for (const e of s.enemies) e.hp = e.maxHp = s.config.enemyHp;
   }
   /** create({kind,size=7,seed=0}) returns JSON-serializable state. Invalid sizes
@@ -203,7 +206,7 @@
       s.pointA = { ...s.path[0] }; s.pointB = { ...s.path[s.path.length - 1] };
       s.player.x = s.pointA.x; s.player.y = s.pointA.y;
       s.pathIndex = 0; s.revealRemaining = PATH_REVEAL_SECONDS; s.phase = 'reveal';
-    } else if (kind === 'duel') s.enemies = [enemy(plan.enemyKind || 'elite', size - 2, 1, 100, !plan.enemyKind)];
+    } else if (kind === 'duel') s.enemies = [enemy(s, plan.enemyKind || 'elite', size - 2, 1, 100, !plan.enemyKind)];
     else {
       s.player.x = c; s.player.y = c; s.center = { x: c, y: c };
       s.centerHp = 100; s.spawned = 0; s.defeated = 0; s.totalDrones = 12; s.spawnClock = 0;
@@ -321,7 +324,7 @@
           s.spawnClock -= 2;
           const c = Math.floor(s.size / 2), positions = [[c, 0], [s.size - 1, c], [c, s.size - 1], [0, c]];
           const [x, y] = positions[(s.spawned + s.seed) % 4];
-          if (!occupied(s.enemies, { x, y })) { s.enemies.push(enemy(`drone-${s.spawned}`, x, y, 20)); s.spawned++; }
+          if (!occupied(s.enemies, { x, y })) { s.enemies.push(enemy(s, `drone-${s.spawned}`, x, y, 20)); s.spawned++; }
         }
       }
       s.stepClock += .1;

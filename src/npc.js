@@ -108,7 +108,7 @@ const NPC = (() => {
       const id = `npc_${tx}_${ty}_${cx}_${cy}`;
       // zoneKind: the named zone (Zones.ZONE_KINDS) the resident stands in,
       // if any — what a keeper tells the story of.
-      result.push(WorldGen.makeCreature('npc', x, y, id, { ...identity(id, culture), zoneKind: influence?.kind || null, homeX: x, homeY: y }));
+      result.push(CreatureSpawns.createOwned('npcs', id, 'npc', x, y, id, { ...identity(id, culture), zoneKind: influence?.kind || null, homeX: x, homeY: y }));
     }
     seatKeepers(result);
     return result;
@@ -148,7 +148,7 @@ const NPC = (() => {
         if (ids.has(id)) continue;
         const x = (tx + (cx + 0.5) / N) * scene.tileEdgeM;
         const y = (ty + (cy + 0.5) / N) * scene.tileEdgeM;
-        people.push(WorldGen.makeCreature('npc', x, y, id, { ...identity(id, 'shrine'), homeX: x, homeY: y }));
+        people.push(CreatureSpawns.createOwned('npcs', id, 'npc', x, y, id, { ...identity(id, 'shrine'), homeX: x, homeY: y }));
         ids.add(id);
       }
     }
@@ -632,7 +632,7 @@ const NPC = (() => {
       // when the player remains beside the house after their delivery.
       if (!record.houseId && now < due[house.key] + MOVE_IN_VISIBLE_GRACE_MS && offscreen
         && ((current && !offscreen(current.c.x, current.c.y)) || !offscreen(seat.x, seat.y))) return false;
-      const c = current?.c || WorldGen.makeCreature('npc', seat.x, seat.y, id,
+      const c = current?.c || CreatureSpawns.createOwned('npcs', id, 'npc', seat.x, seat.y, id,
         STORY_ROLES[record.role] ? storyNeighbour(id, record.role) : { ...identity(id, record.culture, record.role), zoneKind: record.zoneKind });
       Object.assign(record, { houseId: house.key, x: seat.x, y: seat.y, houseX: house.x, houseY: house.y });
       homes[id] = record;

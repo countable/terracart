@@ -335,8 +335,8 @@ test('zones: trap ground reads original land and final tier eligibility', () => 
   const under = new Uint8Array(9); under[4] = T.PARK;
   assert.truthy(Traps.isTrapGround(raw, null, 3, 3, 1, 1));
   assert.truthy(Traps.isTrapGround(painted, null, 3, 3, 1, 1, under), 'paint preserves original park-edge habitat');
-  assert.truthy(/Difficulty\.get\(\)\.trapCountMul, entry\.zone && entry\.zone\.under\)/.test(SPAWN_IN_TILE_SRC),
-    'spawnInTile hands the traps the land\'s class');
+  assert.truthy(/Difficulty\.get\(\)\.trapCountMul, entry\.zone && entry\.zone\.under, entry\)/.test(SPAWN_IN_TILE_SRC),
+    'spawnInTile supplies original land plus the full entry for winning-owner rules');
 });
 
 test('zones: mine mouths retain their original source when zone layouts replace mineral clusters', () => {

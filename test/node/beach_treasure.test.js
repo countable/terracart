@@ -1,209 +1,65 @@
-// Buried X marks on SAND — and the cell packing that decides where any bonus
-// mark lands.
-//
-// A tile's X marks are a flat scatter of 4-10 over every walkable cell, plus a
-// bonus stream beside footpaths. Over a 2.4 km tile the flat scatter is
-// nothing at all along a strip of shoreline, and a beach is the one ground
-// people actually dig — so sand gets its own stream, capped by the beach's own
-// size (BEACH_X_PER_CELLS) so a golf bunker can't draw the whole roll.
-//
-// These drive the SHIPPING block (run.js lifts it out of spawnInTile as
-// __bonusXMarks), because the thing that broke here is exactly the kind of
-// thing a transcription reproduces: the path stream packed its cells as
-// `cx * 256 + cy` while cellsPerEdge is tileEdgeM / 7 — over 256 anywhere
-// below ~43° latitude — so every path cell in the bottom of the tile decoded
-// to a different cell and its "roadside" X was dropped somewhere else.
-
+// Exercise the shipping shared row evaluator, including indices above 255.
 (function () {
-const T = WorldGen.T;
-const PATH = 8;
-const CELL_M = 7;
-
-// A tile bigger than 256 cells per edge: what the equator actually builds
-// (2446 m / 7 m ≈ 349), and what the old packing could not survive.
-const N = 300;
-
-function makeEntry(paint) {
-  const grid = new Uint8Array(N * N).fill(T.GRASS);
-  const entry = { grid, cellsPerEdge: N, extraTreasures: [], objects: [], roadMask: null };
-  if (paint) paint(grid);
-  return entry;
-}
-// The scene bits the lifted block reads.
-const scene = { tileEdgeM: N * CELL_M, cellM: CELL_M };
-// A deterministic stream, so a failure is reproducible.
-function rngFrom(seed) {
-  let s = seed >>> 0;
-  return () => {
-    s = (Math.imul(s, 1664525) + 1013904223) >>> 0;
-    return s / 4294967296;
-  };
-}
-const run = (entry, seed) => {
-  __bonusXMarks.call(scene, entry, 3, 4, N, rngFrom(seed), {});
-  return entry.extraTreasures;
-};
-const cellOf = (t) => ({
-  ix: Math.round((t.x - 3 * scene.tileEdgeM) / CELL_M - 0.5),
-  iy: Math.round((t.y - 4 * scene.tileEdgeM) / CELL_M - 0.5),
-});
-// A beach strip: `w` cells wide down the left edge, which is the shape a real
-// shoreline rasterizes to.
-const beach = (w) => (grid) => {
-  for (let cy = 0; cy < N; cy++) for (let cx = 0; cx < w; cx++) grid[cy * N + cx] = T.SAND;
-};
-
-// --- The beach stream -------------------------------------------------------
-
-test('beach X: a shoreline carries marks, and they are ON the sand', () => {
-  const entry = makeEntry(beach(6));
-  const marks = run(entry, 1);
-  const sandMarks = marks.filter((t) => /^treasure_sand_/.test(t.id));
-  assert.gt(sandMarks.length, 0, 'the beach got marks');
-  for (const t of sandMarks) {
-    const { ix, iy } = cellOf(t);
-    assert.eq(entry.grid[iy * N + ix], T.SAND, `mark ${t.id} is on sand`);
-    // A beach is DUG: the mark sits on the sand itself, not beside it the way
-    // the path stream seats one off the trail.
-    assert.eq(t.id, `treasure_sand_3_4_${ix}_${iy}`, 'and its id names that cell');
+  const W = WorldGen, T = W.T, N = 300, edge = N * 7, tx = 3, ty = 4;
+  function fixture(type = T.GRASS) {
+    const grid = new Uint8Array(N * N).fill(type);
+    return { entry: { grid, cellsPerEdge: N }, grid, N, tx, ty, tileEdgeM: edge,
+      spawnOpts: { occupied: new Set(), gameplayTiers: new Uint8Array(N * N).fill(GameplayTiers.CORE) } };
   }
-});
-
-test('beach X: no sand, no beach marks', () => {
-  const marks = run(makeEntry(), 2);
-  assert.eq(marks.filter((t) => /^treasure_sand_/.test(t.id)).length, 0,
-    'an inland tile gets none of this stream');
-});
-
-test('beach X: the roll is capped by the beach\'s own size', () => {
-  // One mark per BEACH_X_PER_CELLS cells of sand, so a sandpit gets a mark and
-  // a shoreline gets the roll — a small patch can never draw the whole 4-8.
-  for (const [w, seedCount] of [[1, 8], [2, 8], [6, 8]]) {
-    const cells = w * N;
-    const cap = Math.max(1, Math.floor(cells * X_MARK_FREQUENCY / BEACH_X_PER_CELLS));
-    for (let seed = 1; seed <= seedCount; seed++) {
-      const n = run(makeEntry(beach(w)), seed).filter((t) => /^treasure_sand_/.test(t.id)).length;
-      assert.lte(n, Math.min(Math.round(8 * X_MARK_FREQUENCY), cap), `a ${cells}-cell beach, seed ${seed}`);
-    }
-  }
-  // A four-cell sandpit: one mark at most, however the roll falls.
-  const pit = (grid) => { for (let i = 0; i < 4; i++) grid[(10 + i) * N + 10] = T.SAND; };
-  for (let seed = 1; seed <= 20; seed++) {
-    assert.lte(run(makeEntry(pit), seed).filter((t) => /^treasure_sand_/.test(t.id)).length, 1,
-      'a sandpit is not a beach');
-  }
-});
-
-test('beach X: sand is dug more than the ground around it', () => {
-  // The point of the stream. Measured as marks per cell: the beach's own rate
-  // against the tile-wide scatter's share of the same cells (4-10 marks over
-  // every walkable cell of a 300×300 tile).
-  const w = 6, sand = w * N;
-  let marks = 0;
-  const RUNS = 40;
-  for (let seed = 1; seed <= RUNS; seed++) {
-    marks += run(makeEntry(beach(w)), seed).filter((t) => /^treasure_sand_/.test(t.id)).length;
-  }
-  const beachRate = marks / RUNS / sand;
-  const flatRate = 7 / (N * N);            // the flat scatter's midpoint, per cell
-  assert.gt(beachRate, flatRate * 10, 'a beach cell is far likelier to hide one');
-});
-
-test('beach X: two builds of the same tile bury the same marks', () => {
-  // A tile can be rebuilt under the player; the ids are cell-derived so
-  // save.foundTreasures keeps a dug X dug.
-  const a = run(makeEntry(beach(6)), 7).map((t) => t.id).sort();
-  const b = run(makeEntry(beach(6)), 7).map((t) => t.id).sort();
-  assert.eq(a.join('|'), b.join('|'), 'same tile, same seed, same marks');
-  assert.eq(new Set(a).size, a.length, 'and no mark is buried twice');
-});
-
-// --- The packing, which the path stream depends on --------------------------
-
-test('bonus X: a path mark lands beside THAT path, past 256 cells down', () => {
-  // The regression: cells were packed `cx * 256 + cy`, so a path cell at
-  // cy ≥ 256 decoded to (cx + 1, cy - 256) — a legal cell (isSpawnCell still
-  // vetted it) in a different part of the tile, which is why nothing ever
-  // looked broken except that the marks were not beside the paths.
-  const deep = (grid) => {
-    for (let cx = 4; cx < 40; cx++) grid[280 * N + cx] = PATH;
-  };
-  let placed = 0;
-  for (let seed = 1; seed <= 12; seed++) {
-    const entry = makeEntry(deep);
-    for (const t of run(entry, seed)) {
-      if (!/^treasure_path_/.test(t.id)) continue;
-      placed++;
-      const { ix, iy } = cellOf(t);
-      assert.eq(t.id, `treasure_path_3_4_${ix}_${iy}`, 'the id names the cell it sits on');
-      const beside = [[1, 0], [-1, 0], [0, 1], [0, -1]]
-        .some(([dx, dy]) => entry.grid[(iy + dy) * N + (ix + dx)] === PATH);
-      assert.truthy(beside, `mark at ${ix},${iy} is 4-connected to the path at row 280`);
-      assert.truthy(entry.grid[iy * N + ix] !== PATH, 'and off the trail itself');
-    }
-  }
-  assert.gt(placed, 0, 'the path stream actually placed something');
-});
-
-test('bonus X: one grid pass feeds every stream', () => {
-  // spawnInTile runs post-rasterize, where nothing slices — a second scan of
-  // every cell would be a second unbroken 100k-cell block charged to no span
-  // the boot profile can name.
-  const src = SPAWN_IN_TILE_SRC;
-  const scans = src.match(/for \(let cy = 0; cy < N; cy\+\+\)/g) || [];
-  assert.eq(scans.length, 1, 'one walk of the grid, not one per stream');
-  assert.truthy(/const i = cy \* N \+ cx\b/.test(src), 'cells packed as their grid index');
-  for (const list of ['sandCells', 'pathCells', 'yardCells']) {
-    assert.truthy(new RegExp(`${list}\\.push\\(i\\)`).test(src), `${list} collected in it`);
-  }
-  // (the comment above the pass still NAMES the old packing — what must not
-  // come back is the expression itself, in a push or a decode)
-  assert.falsy(/push\(cx \* 256 \+ cy\)/.test(src), 'nothing packs cells at 256 any more');
-  assert.falsy(/Math\.floor\(cell \/ 256\)/.test(src), 'and nothing decodes them at 256 either');
-});
-
-// --- The front-yard stream --------------------------------------------------
-// Residential blocks with a road every 12 rows: the cells touching a road are
-// the front yards; a mark lands on one, never deeper in the lot. Rows of
-// yards behind a house would be refused by the gate anyway; here every yard
-// is open, so only the stream's own rule keeps marks at the street.
-const suburb = (grid) => {
-  for (let i = 0; i < N * N; i++) grid[i] = T.RESIDENTIAL;
-  for (let cy = 6; cy < N; cy += 12) for (let cx = 0; cx < N; cx++) grid[cy * N + cx] = T.ROAD;
-};
-const yardMarks = (entry) => entry.extraTreasures.filter(t => /^treasure_yard/.test(t.id));
-
-test('yard X: residential front yards carry their own marks, each beside the street', () => {
-  const entry = makeEntry(suburb);
-  run(entry, 7);
-  const marks = yardMarks(entry);
-  assert.eq(marks.length, YARD_X_MAX, 'a whole suburb tile fills the cap');
-  for (const t of marks) {
-    const { ix, iy } = cellOf(t);
-    assert.eq(entry.grid[iy * N + ix], T.RESIDENTIAL, `on a yard: ${ix},${iy}`);
-    const r = ((iy - 6) % 12 + 12) % 12;
-    assert.truthy(r === 1 || r === 11, `touching a road row: ${ix},${iy}`);
-  }
-  assert.eq(new Set(marks.map(t => t.id)).size, marks.length, 'no two on one cell');
-});
-
-test('yard X: the count follows the frontage, and no street means no yard marks', () => {
-  const lone = makeEntry((grid) => {
-    for (let i = 0; i < N * N; i++) grid[i] = T.RESIDENTIAL;
-    for (let cx = 0; cx < N; cx++) grid[150 * N + cx] = T.ROAD;   // one road across: 2N yard cells
+  const run = c => W.runSteps(W.surfaceTreasureSteps(c));
+  const cell = t => ({ x: Math.round((t.x - tx * edge) / 7 - .5), y: Math.round((t.y - ty * edge) / 7 - .5) });
+  const sand = c => { for (let y = 0; y < N; y++) for (let x = 0; x < 6; x++) c.grid[y * N + x] = T.SAND; return c; };
+  test('buried rows: sand finds use sand cells and stable cell IDs', () => {
+    const c = sand(fixture()), marks = run(c).filter(t => t.id.startsWith('treasure_sand_'));
+    assert.gt(marks.length, 0);
+    for (const t of marks) { const { x, y } = cell(t); assert.eq(c.grid[y * N + x], T.SAND); assert.eq(t.id, `treasure_sand_${tx}_${ty}_${x}_${y}`); }
+    assert.eq(run(fixture()).filter(t => t.id.startsWith('treasure_sand_')).length, 0);
   });
-  run(lone, 3);
-  const want = Math.floor(2 * N * X_MARK_FREQUENCY / YARD_X_PER_CELLS);
-  assert.truthy(want > 0 && want < YARD_X_MAX, 'the fixture sits under the cap');
-  assert.eq(yardMarks(lone).length, want, 'one per YARD_X_PER_CELLS frontage cells');
-  const noStreet = makeEntry((grid) => { for (let i = 0; i < N * N; i++) grid[i] = T.RESIDENTIAL; });
-  run(noStreet, 3);
-  assert.eq(yardMarks(noStreet).length, 0);
-});
-
-test('yard X: two builds of the same tile bury the same yard marks', () => {
-  const a = makeEntry(suburb), b = makeEntry(suburb);
-  run(a, 7); run(b, 99);
-  assert.eq(JSON.stringify(yardMarks(a)), JSON.stringify(yardMarks(b)), 'its own stream, unmoved by the tile rng');
-});
+  test('buried rows: removing eligible area removes finds without refilling', () => {
+    const a = sand(fixture()), full = run(a), b = sand(fixture());
+    b.spawnOpts.gameplayTiers.fill(GameplayTiers.EXCLUDED, 0, N * N / 2);
+    const half = run(b);
+    assert.gt(half.length, 0); assert.lt(half.length, full.length);
+    assert.truthy(half.every(t => full.some(f => f.id === t.id)));
+    assert.eq(new Set(full.map(t => { const c = cell(t); return c.y * N + c.x; })).size, full.length, 'rows cannot stack finds');
+  });
+  test('buried rows: builds and row order preserve random choices', () => {
+    const c = sand(fixture()), a = run(c).map(t => t.id).join();
+    assert.eq(run(c).map(t => t.id).join(), a);
+    const rows = W.SURFACE_INTERACTABLE_ROWS['Terrain:SAND'];
+    const before = rows.map(r => [r.id, W.interactableRoll(c.entry, 100, r, tx, ty, N)]);
+    rows.reverse();
+    try {
+      for (const [id, result] of before) assert.eq(W.interactableRoll(c.entry, 100, rows.find(r => r.id === id), tx, ty, N), result);
+      assert.eq(run(c).map(t => t.id).join(), a, 'row declaration order cannot change collision winners');
+    }
+    finally { rows.reverse(); }
+  });
+  test('buried rows: path finds decode cells beyond 256 beside the same path', () => {
+    const c = fixture();
+    for (let x = 10; x < N - 10; x += 6) for (let y = 260; y < N; y++) c.grid[y * N + x] = T.PATH;
+    const marks = run(c).filter(t => t.id.startsWith('treasure_path_')); assert.gt(marks.length, 0);
+    for (const t of marks) { const { x, y } = cell(t); assert.gte(y, 259); assert.truthy(c.grid[y * N + x] !== T.PATH);
+      assert.truthy((x > 0 && c.grid[y * N + x - 1] === T.PATH) || (x + 1 < N && c.grid[y * N + x + 1] === T.PATH) || (y > 0 && c.grid[(y - 1) * N + x] === T.PATH) || (y + 1 < N && c.grid[(y + 1) * N + x] === T.PATH)); }
+  });
+  test('buried rows: Nexus and road-owned sand have no underlying sand finds', () => {
+    for (const kind of ['zone', 'road']) {
+      const c = fixture(T.SAND);
+      if (kind === 'zone') c.entry.zone = { coverage: new Uint16Array(N * N).fill(1), anchors: [{ kind: 'grove', variant: 'meadow', key: 1 }] };
+      else { c.entry.streetArea = new Uint8Array(N * N).fill(1); c.entry.streetAreaVariants = new Uint8Array(N * N).fill(StreetVariants.VARIANT_BY_ID.parkpath.code); }
+      assert.eq(run(c).length, 0, kind + ' has no fallback');
+    }
+  });
+  test('buried rows: ordinary sand scatter excludes the shoreline length-selector cells', () => {
+    const c = sand(fixture()); c.entry.scenic = { shore: { mask: new Uint8Array(N * N) } };
+    for (let y = 0; y < N; y++) for (let x = 0; x < 6; x++) c.entry.scenic.shore.mask[y * N + x] = 1;
+    assert.eq(run(c).filter(t => t.id.startsWith('treasure_sand_')).length, 0);
+  });
+  test('buried rows: front-yard finds require street frontage and preserve IDs', () => {
+    const c = fixture(T.RESIDENTIAL); assert.eq(run(c).filter(t => t.id.startsWith('treasure_yard_')).length, 0);
+    for (let x = 10; x < N; x += 10) for (let y = 0; y < N; y++) c.grid[y * N + x] = T.PATH;
+    const a = run(c).filter(t => t.id.startsWith('treasure_yard_')); assert.gt(a.length, 0);
+    assert.eq(a.map(t => t.id).join(), run(c).filter(t => t.id.startsWith('treasure_yard_')).map(t => t.id).join());
+    for (const t of a) { const { x, y } = cell(t); assert.eq(c.grid[y * N + x], T.RESIDENTIAL); assert.truthy(c.grid[y * N + x - 1] === T.PATH || c.grid[y * N + x + 1] === T.PATH); }
+  });
 })();

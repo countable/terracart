@@ -62,7 +62,7 @@ const rasterize = (layers, tx = 0, ty = 0) =>
 const optsFor = (r) => ({ roadMask: r.roadMask, pois: [] });
 
 const spawnFor = (r, tx = 0, ty = 0) =>
-  Traps.spawnSurface(r.grid, r.roadClass, CPE, CPE, tx, ty, TILE_EDGE_M, optsFor(r));
+  Traps.spawnSurface(r.grid, r.roadClass, CPE, CPE, tx, ty, TILE_EDGE_M, optsFor(r), 25);
 const kindAt = (r, x, y) => Traps.trapGroundKind(r.grid, r.roadClass, CPE, CPE, x, y, null, r.roadMask);
 
 // Trap world-metres → this tile's local cell index.
@@ -81,7 +81,7 @@ const roadWithin = (r, x0, y0, R) => {
 
 test('traps: a tile with paths lays some, and every one obeys the hazard tier policy', () => {
   const r = rasterize(roadyLayers());
-  for (const mul of [undefined, 25, 100]) {
+  for (const mul of [10, 25, 100]) {
     const traps = Traps.spawnSurface(r.grid, r.roadClass, CPE, CPE, 0, 0, TILE_EDGE_M, optsFor(r), mul);
     assert.gt(traps.length, 0, 'the fixture produced traps to check');
     for (const tp of traps) {
@@ -114,11 +114,11 @@ test('traps: opts.occupied keeps a trap off a cell an object already holds', () 
     }
   }
   const opts = { roadMask: r.roadMask, pois: [], occupied };
-  const traps = Traps.spawnSurface(r.grid, r.roadClass, CPE, CPE, 0, 0, TILE_EDGE_M, opts);
+  const traps = Traps.spawnSurface(r.grid, r.roadClass, CPE, CPE, 0, 0, TILE_EDGE_M, opts, 25);
   assert.eq(traps.length, 0, 'every trap-ground cell was claimed, so nothing could seat');
   // Free every other claimed cell: traps come back, only on freed cells.
   [...occupied].forEach((idx, n) => { if (n % 2 === 0) occupied.delete(idx); });
-  const partial = Traps.spawnSurface(r.grid, r.roadClass, CPE, CPE, 0, 0, TILE_EDGE_M, opts);
+  const partial = Traps.spawnSurface(r.grid, r.roadClass, CPE, CPE, 0, 0, TILE_EDGE_M, opts, 25);
   assert.gt(partial.length, 0, 'freeing half the ground lets traps back in');
   for (const tp of partial) {
     const idx = cellOf(tp.y) * CPE + cellOf(tp.x);
@@ -198,20 +198,16 @@ test('traps: wasteland is no longer trap ground (only paths and park edges)', ()
     'waste ground holds no traps');
 });
 
-test('traps: the count is capped at a share of the trap ground that scales with the mode', () => {
+test('traps: increasing the row probability retains every lower-density candidate', () => {
   const r = rasterize(roadyLayers());
-  let ground = 0;
-  for (let y = 0; y < CPE; y++) for (let x = 0; x < CPE; x++) if (kindAt(r, x, y)) ground++;
-  assert.gt(ground, 0, 'the fixture has trap ground');
-  for (const mul of [10, 25]) {
-    const n = Traps.spawnSurface(r.grid, r.roadClass, CPE, CPE, 0, 0, TILE_EDGE_M, optsFor(r), mul).length;
-    const m = mul * Traps.tileDanger(0, 0);
-    const cap = Math.max(1, Math.floor(ground * Traps.TRAP_GROUND_SHARE_PER_MUL * m * Traps.TRAP_GROUND_DENSITY_MUL) + 1);
-    assert.truthy(n <= cap, `at ${mul}x: ${n} traps over the cap ${cap}`);
-  }
-  assert.truthy(/const share = TRAP_GROUND_SHARE_PER_MUL \* mul \* TRAP_GROUND_DENSITY_MUL;/.test(ALL_SRC['traps.js'])
-    && /n = Math\.min\(n, Math\.max\(1, Math\.floor\(capPath \+ capPark\)\)\);/.test(ALL_SRC['traps.js']),
-    'the cap reads the pool sizes, never a draw');
+  const low = Traps.spawnSurface(r.grid, r.roadClass, CPE, CPE, 0, 0, TILE_EDGE_M, optsFor(r), 10);
+  const high = Traps.spawnSurface(r.grid, r.roadClass, CPE, CPE, 0, 0, TILE_EDGE_M, optsFor(r), 25);
+  assert.gt(low.length, 0); assert.gt(high.length, low.length);
+  const ids = new Set(high.map(t => t.id));
+  assert.truthy(low.every(t => ids.has(t.id)), 'mode changes do not relocate surviving traps');
+  const occupied = new Set([low[0]._iy * CPE + low[0]._ix]);
+  const blocked = Traps.spawnSurface(r.grid, r.roadClass, CPE, CPE, 0, 0, TILE_EDGE_M, { ...optsFor(r), occupied }, 10);
+  assert.eq(blocked.length, low.length - 1, 'blocked candidate is not topped up elsewhere');
 });
 
 test('traps: a named street\'s stretch is the same from either side of a seam', () => {
@@ -292,7 +288,7 @@ test('traps: countMul scales the surface density, and every extra trap still obe
   // multiplier) leaves room at 1x vs 10x on this small fixture's verge.
   let TX = 0;
   while (Traps.tileDanger(TX, 0) < 1.5) TX++;
-  const base = Traps.spawnSurface(r.grid, r.roadClass, CPE, CPE, TX, 0, TILE_EDGE_M, optsFor(r));
+  const base = Traps.spawnSurface(r.grid, r.roadClass, CPE, CPE, TX, 0, TILE_EDGE_M, optsFor(r), 1);
   const mul10 = Traps.spawnSurface(r.grid, r.roadClass, CPE, CPE, TX, 0, TILE_EDGE_M, optsFor(r), 10);
   const mul100 = Traps.spawnSurface(r.grid, r.roadClass, CPE, CPE, TX, 0, TILE_EDGE_M, optsFor(r), 100);
   assert.gt(mul10.length, base.length, '10x lays more traps than the base rate');
@@ -328,7 +324,7 @@ test('traps: the danger roll reaches the count, on its own stream', () => {
   assert.truthy(calm != null && bad != null, 'found both kinds of tile');
   const n = (tx) => Traps.spawnSurface(r.grid, r.roadClass, CPE, CPE, tx, 3, TILE_EDGE_M, optsFor(r), 10).length;
   assert.gt(n(bad), n(calm) * 2, 'a dangerous tile lays well over twice a calm one\'s traps');
-  assert.truthy(/const mul = \(countMul > 0 \? countMul : 1\) \* tileDanger\(tx, ty\);/.test(ALL_SRC["traps.js"]),
+  assert.truthy(/\(countMul > 0 \? countMul : 1\) \* tileDanger\(tx, ty\)/.test(ALL_SRC["traps.js"]),
     'the danger multiplies the mode, not the placement rng');
 });
 
@@ -349,7 +345,7 @@ test('traps: sewer profile scatters a handful while deeper floors retain their r
     const old = Traps.spawnCave(g, CAVE_N, tx, 0, TILE_EDGE_M, 1, ANCHORS, new Set(), Traps.DUNGEON_DENSITY_MUL);
     assert.lte(sparse.length, 10, 'L1 has at most ten ambient snares per tile');
     assert.gt(old.length, sparse.length * 10, 'large reduction from the old minefield');
-    assert.eq(JSON.stringify(sparse), JSON.stringify(old.slice(0, sparse.length)), 'retained traps keep their positions and IDs');
+    assert.truthy(sparse.every(t => old.some(o => o.id === t.id && o.x === t.x && o.y === t.y)), 'retained candidates keep their positions and IDs');
   }
 });
 
@@ -433,15 +429,13 @@ function caveGrid(N) {
 const CAVE_N = 64;
 const ANCHORS = [{ lix: 30, liy: 30 }];
 
-test('traps: cave traps land on floor, off the walls, and around the way in', () => {
+test('traps: cave traps use eligible floor throughout the level', () => {
   const grid = caveGrid(CAVE_N);
-  const traps = Traps.spawnCave(grid, CAVE_N, 0, 0, TILE_EDGE_M, 1, ANCHORS, new Set());
+  const traps = Traps.spawnCave(grid, CAVE_N, 0, 0, TILE_EDGE_M, 1, ANCHORS, new Set(), 100);
   assert.gt(traps.length, 0, 'a level lays traps');
   for (const tp of traps) {
     assert.eq(grid[tp._iy * CAVE_N + tp._ix], T.CAVE_FLOOR, 'on cave floor');
-    const d = Math.max(Math.abs(tp._ix - 30), Math.abs(tp._iy - 30));
-    assert.lte(d, Traps.CAVE_SPAWN_R,
-      'within the entrance spread — a trap across the level meets nobody');
+    assert.truthy(tp._ix >= 0 && tp._iy >= 0 && tp._ix < CAVE_N && tp._iy < CAVE_N);
   }
 });
 
@@ -450,9 +444,8 @@ test('traps: a cave trap is never laid under an object sprite', () => {
   // Claim every cell in the anchor's spread but one, so the spawner has a
   // single legal seat and must find exactly it.
   const occupied = new Set();
-  const R = Traps.CAVE_SPAWN_R;
-  for (let y = 30 - R; y <= 30 + R; y++) {
-    for (let x = 30 - R; x <= 30 + R; x++) {
+  for (let y = 0; y < CAVE_N; y++) {
+    for (let x = 0; x < CAVE_N; x++) {
       if (x < 0 || y < 0 || x >= CAVE_N || y >= CAVE_N) continue;
       if (x === 33 && y === 27) continue;                 // the one free cell
       occupied.add(y * CAVE_N + x);
@@ -486,8 +479,12 @@ test('traps: the deeper you go the more of them there are', () => {
   assert.gt(n(6), n(1), 'the depth bonus actually climbs');
   assert.eq(n(20), n(Traps.CAVE_TRAP_DEPTH_CAP), 'and stops climbing at the cap');
   // …and the spawner really lays that many when there is room for them.
-  const deep = Traps.spawnCave(g, CAVE_N, 0, 0, TILE_EDGE_M, 8, ANCHORS, new Set());
-  assert.gte(deep.length, Traps.CAVE_TRAP_MIN, 'a deep level is at least the floor count');
+  let shallow = 0, deep = 0;
+  for (let tx = 0; tx < 20; tx++) {
+    shallow += Traps.spawnCave(g, CAVE_N, tx, 0, TILE_EDGE_M, 1, ANCHORS, new Set(), 100).length;
+    deep += Traps.spawnCave(g, CAVE_N, tx, 0, TILE_EDGE_M, 8, ANCHORS, new Set(), 100).length;
+  }
+  assert.gt(deep, shallow, 'higher rate yields more candidates across the same eligible area');
 });
 
 // ─── The costs ───────────────────────────────────────────────────────────────

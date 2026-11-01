@@ -1,7 +1,10 @@
 // Surface populations belong to their landcover or winning authored variant.
-// Budgets are independent of placement exclusions and player visibility.
+// Species rates apply to eligible cells of the most-specific owner. Legacy
+// budget helpers below are retained only for save-identity migration.
 (function (root) {
   'use strict';
+  // Compatibility constants for legacyPopulationSteps. Only the declared
+  // shoreline-length exception still uses faunaCount at runtime.
   const FAUNA_DENSITY = 0.7;
   const faunaCount = count => Math.round(count * FAUNA_DENSITY);
   const FAUNA_PER_TILE = faunaCount(160), ENEMIES_PER_TILE = 50;
@@ -23,7 +26,8 @@
     for (const index of indices) add(index);
     return { add, clearance: index => clearance[index] ?? 0 };
   }
-  // THE MODE RESERVE: landcover enemies beyond ENEMIES_PER_TILE, sized by the
+  // MODE VISIBILITY: the legacy reserveBudget helper below is migration-only.
+  // Live reserve candidates use density rows, sized by the
   // largest Difficulty landEnemyCountMul. Every mode generates the same
   // reserve after the base population (so base seats never move); each mode
   // shows its own share of it (reserveVisible).
@@ -193,8 +197,8 @@
     return { key: profile ? `land:${root.WorldGen.T[nameOf(type)]}${beach ? ':shore' : ''}` : null,
       profile, type, beach };
   }
-  function faunaRows(profile) { return profile?.fauna || []; }
-  function pickFauna(profile, id) { return pick(faunaRows(profile), unit(id + ':fauna'), row => row.weight)?.kind || null; }
+  function legacyFaunaRows(profile) { return profile?.fauna || []; }
+  function legacyPickFauna(profile, id) { return pick(legacyFaunaRows(profile), unit(id + ':fauna'), row => row.weight)?.kind || null; }
   function faunaBudget(profile, id) {
     const range = profile?.faunaBudget;
     const count = range ? range[0] + Math.floor(unit(id + ':fauna-count') * (range[1] - range[0] + 1)) : 0;
@@ -213,7 +217,7 @@
     if (kind === 'raven') return name === 'RESIDENTIAL';
     return root.BiomeProfiles?.faunaAllows(kind, type) ?? true;
   }
-  function enemyRows(profile, type, context) {
+  function legacyEnemyRows(profile, type, context) {
     if (!profile || profile.owner === 'road' && !profile.habitatEnemies) return [];
     if (profile.owner === 'road') return root.EnemyRoster.ROWS.filter(row => profile.habitatEnemies.kinds.includes(row.id));
     const family = profile.owner === 'zone' ? root.EnemyHabitats?.SURFACE_FAMILIES[profile.id] : null;
@@ -233,8 +237,8 @@
   function surfaceWeight(row, type) {
     return row.surface.weightByBiome?.[nameOf(type)] ?? row.surface.weight;
   }
-  function enemyKind(profile, id, type, context) {
-    const rows = enemyRows(profile, type, context), weights = profile?.enemyTierWeights || root.EnemyRoster.SURFACE_TIERS.at(-1).tierWeights;
+  function legacyEnemyKind(profile, id, type, context) {
+    const rows = legacyEnemyRows(profile, type, context), weights = profile?.enemyTierWeights || root.EnemyRoster.SURFACE_TIERS.at(-1).tierWeights;
     const tiers = [...new Set(rows.map(row => row.tier))];
     const tier = pick(tiers, unit(id + ':tier'), value => weights[value] || 0);
     const family = profile?.owner === 'zone';
@@ -258,7 +262,7 @@
   function counts(requested = 0) { return { requested, placed: 0, shortfall: requested }; }
   // No save, Home, time or mode reads here: reserve the generated world first,
   // then let callers overlay their own captures, defeats and visibility.
-  function* populationSteps(scene, entry, tx, ty, opts = {}) {
+  function* legacyPopulationSteps(scene, entry, tx, ty, opts = {}) {
     const WG = root.WorldGen, N = opts.N || entry.cellsPerEdge;
     const grid = opts.grid || entry.baseGrid || entry.grid;
     const cellM = opts.cellM || entry.tileEdgeM / N || scene.cellM;
@@ -287,8 +291,8 @@
     // budgets before placement; live scenes retain the full budget by default.
     const areaScale = scene.habitatTileAreaScale ?? 1;
     const budget = count => Math.round(count * areaScale);
-    allocate(ordinary.filter(group => faunaRows(group.profile).length), budget(FAUNA_PER_TILE), 'faunaRequested');
-    const armed = ordinary.filter(group => enemyRows(group.profile, group.type, { beach: group.beach }).length);
+    allocate(ordinary.filter(group => legacyFaunaRows(group.profile).length), budget(FAUNA_PER_TILE), 'faunaRequested');
+    const armed = ordinary.filter(group => legacyEnemyRows(group.profile, group.type, { beach: group.beach }).length);
     allocate(armed, budget(ENEMIES_PER_TILE), 'enemyRequested');
     for (const group of groups) group.enemyReserve = 0;
     allocate(armed, budget(reserveBudget()), 'enemyReserve');
@@ -312,7 +316,7 @@
       faunaSeats.add(index);
       const group = groupsByKey.get(habitatOf[index]?.key);
       if (group?.profile.owner !== 'zone'
-          || !faunaRows(group.profile).some(row => row.kind === creature.kind)
+          || !legacyFaunaRows(group.profile).some(row => row.kind === creature.kind)
           || !allows(creature.kind, grid[index], group.profile)) continue;
       group.authoredFauna.set(creature.kind, (group.authoredFauna.get(creature.kind) || 0) + 1);
     }
@@ -399,7 +403,7 @@
       for (let n = 0; n < group.faunaRequested; n++) {
         if ((attempts++ & 31) === 0) yield 'spawn habitat population';
         const seed = `${tx}|${ty}|${group.key}|fauna|${n}`;
-        const kind = pickFauna(group.profile, seed);
+        const kind = legacyPickFauna(group.profile, seed);
         if (!kind) continue;
         const ordinal = speciesOrdinals.get(kind) || 0;
         speciesOrdinals.set(kind, ordinal + 1);
@@ -426,7 +430,7 @@
       for (let n = 0; n < group.enemyRequested; n++) {
         if ((attempts++ & 31) === 0) yield 'spawn habitat population';
         const id = `enemy_habitat_${tx}_${ty}_${encodeURIComponent(group.key)}_${n}`;
-        const baseKind = enemyKind(group.profile, id, group.type, { beach: group.beach });
+        const baseKind = legacyEnemyKind(group.profile, id, group.type, { beach: group.beach });
         const kind = typeof Weather !== 'undefined' ? Weather.enemyBirthKind(baseKind, id, scene) : baseKind;
         if (!kind) continue;
         const seat = yield* seatFor(group, kind, id, false);
@@ -446,7 +450,7 @@
       for (let n = 0; n < group.enemyReserve; n++) {
         if ((attempts++ & 31) === 0) yield 'spawn habitat reserve';
         const id = `enemy_habitat_${tx}_${ty}_${encodeURIComponent(group.key)}_r${n}`;
-        const baseKind = enemyKind(group.profile, id, group.type, { beach: group.beach });
+        const baseKind = legacyEnemyKind(group.profile, id, group.type, { beach: group.beach });
         const kind = typeof Weather !== 'undefined' ? Weather.enemyBirthKind(baseKind, id, scene) : baseKind;
         if (!kind) continue;
         const seat = yield* seatFor(group, kind, id, false);
@@ -470,8 +474,288 @@
       faunaRequested: totals.fauna.requested, enemyRequested: totals.enemies.requested };
     return out;
   }
+  // Candidates per 1,000 eligible cells, one independent row per species.
+  // No tile allowance or normalization against other owners.
+  const DENSITY_ROWS = Object.freeze({
+    "Terrain:GRASS": Object.freeze([{"kind":"chicken","category":"fauna","per1000":1.065217391304348},{"kind":"cow","category":"fauna","per1000":0.8521739130434784},{"kind":"butterfly","category":"fauna","per1000":0.8521739130434784},{"kind":"rabbit","category":"fauna","per1000":0.6391304347826088},{"kind":"crow","category":"fauna","per1000":0.4260869565217392},{"kind":"horse","category":"fauna","per1000":0.08521739130434784},{"kind":"slime","category":"enemy","per1000":0.4763888888888889},{"kind":"snake","category":"enemy","per1000":0.09527777777777778},{"kind":"plant","category":"enemy","per1000":1.1433333333333333}]),
+    "Terrain:RESIDENTIAL": Object.freeze([{"kind":"cat","category":"fauna","per1000":0.84},{"kind":"dog","category":"fauna","per1000":0.84},{"kind":"chicken","category":"fauna","per1000":0.63},{"kind":"deer","category":"fauna","per1000":0.42},{"kind":"cow","category":"fauna","per1000":0.105},{"kind":"raven","category":"fauna","per1000":0.105},{"kind":"zombie","category":"enemy","per1000":0.30625},{"kind":"thief","category":"enemy","per1000":0.30625},{"kind":"ogre","category":"enemy","per1000":0.6125}]),
+    "Terrain:FOREST": Object.freeze([{"kind":"deer","category":"fauna","per1000":2.3520000000000003},{"kind":"rabbit","category":"fauna","per1000":1.1760000000000002},{"kind":"dog","category":"fauna","per1000":0.392},{"kind":"spider","category":"enemy","per1000":0.294},{"kind":"plant","category":"enemy","per1000":1.176},{"kind":"boar","category":"enemy","per1000":0.294},{"kind":"giant_bear","category":"enemy","per1000":1.176}]),
+    "Terrain:FARMLAND": Object.freeze([{"kind":"chicken","category":"fauna","per1000":2.1},{"kind":"cow","category":"fauna","per1000":1.75},{"kind":"rabbit","category":"fauna","per1000":0.7000000000000001},{"kind":"horse","category":"fauna","per1000":0.35000000000000003},{"kind":"snake","category":"enemy","per1000":0.32666666666666666},{"kind":"farmer_goblin","category":"enemy","per1000":0.6533333333333333}]),
+    "Terrain:WASTELAND": Object.freeze([{"kind":"dog","category":"fauna","per1000":1.225},{"kind":"rabbit","category":"fauna","per1000":0.49000000000000005},{"kind":"chicken","category":"fauna","per1000":0.24500000000000002}]),
+    "Terrain:PARK": Object.freeze([{"kind":"butterfly","category":"fauna","per1000":1.96},{"kind":"rabbit","category":"fauna","per1000":1.568},{"kind":"crow","category":"fauna","per1000":1.176},{"kind":"chicken","category":"fauna","per1000":0.784},{"kind":"cat","category":"fauna","per1000":0.392}]),
+    "Terrain:GROVE": Object.freeze([{"kind":"butterfly","category":"fauna","per1000":1.75},{"kind":"rabbit","category":"fauna","per1000":1.4000000000000001},{"kind":"crow","category":"fauna","per1000":1.05},{"kind":"chicken","category":"fauna","per1000":0.7000000000000001}]),
+    "Terrain:WETLAND": Object.freeze([{"kind":"butterfly","category":"fauna","per1000":1.96},{"kind":"rabbit","category":"fauna","per1000":0.6533333333333333},{"kind":"dog","category":"fauna","per1000":0.32666666666666666},{"kind":"slime","category":"enemy","per1000":0.3675},{"kind":"spider","category":"enemy","per1000":0.147},{"kind":"snake","category":"enemy","per1000":0.0735},{"kind":"zombie","category":"enemy","per1000":1.176},{"kind":"golden_slime","category":"enemy","per1000":1.176}]),
+    "Terrain:ORCHARD": Object.freeze([{"kind":"chicken","category":"fauna","per1000":2.45},{"kind":"rabbit","category":"fauna","per1000":1.8375000000000001},{"kind":"dog","category":"fauna","per1000":0.6125},{"kind":"farmer_goblin","category":"enemy","per1000":1.4699999999999998}]),
+    "Terrain:ROCK": Object.freeze([{"kind":"rabbit","category":"fauna","per1000":0.882},{"kind":"dog","category":"fauna","per1000":0.588},{"kind":"skeleton","category":"enemy","per1000":1.715},{"kind":"skeleton_soldier","category":"enemy","per1000":1.715}]),
+    "Terrain:SAND": Object.freeze([{"kind":"rabbit","category":"fauna","per1000":0.98},{"kind":"dog","category":"fauna","per1000":0.49}]),
+    "Terrain:SCHOOL": Object.freeze([{"kind":"chicken","category":"fauna","per1000":1.1760000000000002},{"kind":"butterfly","category":"fauna","per1000":1.1760000000000002},{"kind":"cat","category":"fauna","per1000":0.784},{"kind":"rabbit","category":"fauna","per1000":0.784}]),
+    "Terrain:COMMERCIAL": Object.freeze([{"kind":"cat","category":"fauna","per1000":1.12},{"kind":"dog","category":"fauna","per1000":0.8400000000000001},{"kind":"goblin","category":"enemy","per1000":0.29400000000000004},{"kind":"goblin_archer","category":"enemy","per1000":0.098},{"kind":"thief","category":"enemy","per1000":0.24500000000000002},{"kind":"club_goblin","category":"enemy","per1000":0.24500000000000002},{"kind":"sword_spirit","category":"enemy","per1000":0.098}]),
+    "Terrain:INDUSTRIAL": Object.freeze([{"kind":"dog","category":"fauna","per1000":1.176},{"kind":"rabbit","category":"fauna","per1000":0.294},{"kind":"zombie","category":"enemy","per1000":1.225},{"kind":"marsh_zombie","category":"enemy","per1000":0.8166666666666668},{"kind":"ash_zombie","category":"enemy","per1000":0.4083333333333334}]),
+    "Terrain:PLAYGROUND": Object.freeze([{"kind":"butterfly","category":"fauna","per1000":2.45},{"kind":"rabbit","category":"fauna","per1000":1.8375000000000001},{"kind":"cat","category":"fauna","per1000":0.6125}]),
+    "Terrain:PITCH": Object.freeze([{"kind":"rabbit","category":"fauna","per1000":1.9600000000000002},{"kind":"butterfly","category":"fauna","per1000":1.4700000000000002},{"kind":"cow","category":"fauna","per1000":0.49000000000000005}]),
+    "Terrain:CHURCHYARD": Object.freeze([{"kind":"rabbit","category":"fauna","per1000":1.4700000000000002},{"kind":"cat","category":"fauna","per1000":0.49000000000000005}]),
+    "Terrain:TAR_YARD": Object.freeze([{"kind":"dog","category":"fauna","per1000":1.1025},{"kind":"rabbit","category":"fauna","per1000":0.3675}]),
+    "Nexus:meadow": Object.freeze([{"kind":"rabbit","category":"fauna","per1000":2.2},{"kind":"butterfly","category":"fauna","per1000":2.2},{"kind":"chicken","category":"fauna","per1000":1.1},{"kind":"slime","category":"enemy","per1000":3.0208333333333335},{"kind":"plant","category":"enemy","per1000":3.0208333333333335}]),
+    "Nexus:mushroom_grove": Object.freeze([{"kind":"rabbit","category":"fauna","per1000":2.4444444444444446},{"kind":"crow","category":"fauna","per1000":1.8333333333333333},{"kind":"butterfly","category":"fauna","per1000":1.2222222222222223},{"kind":"mushroom_monster","category":"enemy","per1000":16.666666666666668}]),
+    "Nexus:orchard": Object.freeze([{"kind":"chicken","category":"fauna","per1000":2.357142857142857},{"kind":"rabbit","category":"fauna","per1000":2.357142857142857},{"kind":"dog","category":"fauna","per1000":0.7857142857142857},{"kind":"farmer_goblin","category":"enemy","per1000":3.0208333333333335},{"kind":"club_goblin","category":"enemy","per1000":3.0208333333333335}]),
+    "Nexus:formal_garden": Object.freeze([{"kind":"butterfly","category":"fauna","per1000":2.2},{"kind":"rabbit","category":"fauna","per1000":1.65},{"kind":"chicken","category":"fauna","per1000":1.1},{"kind":"cat","category":"fauna","per1000":0.55},{"kind":"slime","category":"enemy","per1000":3.0208333333333335},{"kind":"plant","category":"enemy","per1000":3.0208333333333335}]),
+    "Nexus:hedge_garden": Object.freeze([{"kind":"rabbit","category":"fauna","per1000":2.2},{"kind":"butterfly","category":"fauna","per1000":1.65},{"kind":"chicken","category":"fauna","per1000":1.1},{"kind":"cat","category":"fauna","per1000":0.55},{"kind":"plant","category":"enemy","per1000":3.0208333333333335},{"kind":"spider","category":"enemy","per1000":3.0208333333333335}]),
+    "Nexus:ancient_grove": Object.freeze([{"kind":"crow","category":"fauna","per1000":3.142857142857143},{"kind":"rabbit","category":"fauna","per1000":2.357142857142857},{"kind":"treant","category":"enemy","per1000":2.013888888888889},{"kind":"spider","category":"enemy","per1000":2.013888888888889},{"kind":"giant_bear","category":"enemy","per1000":2.013888888888889}]),
+    "Nexus:sacred_grove": Object.freeze([{"kind":"crow","category":"fauna","per1000":2.0625},{"kind":"rabbit","category":"fauna","per1000":2.0625},{"kind":"butterfly","category":"fauna","per1000":1.375}]),
+    "Nexus:stone_garden": Object.freeze([{"kind":"rabbit","category":"fauna","per1000":4.125},{"kind":"cat","category":"fauna","per1000":1.375},{"kind":"slime","category":"enemy","per1000":3.0208333333333335},{"kind":"skeleton","category":"enemy","per1000":3.0208333333333335}]),
+    "Nexus:ordered_graves": Object.freeze([{"kind":"rabbit","category":"fauna","per1000":3.6666666666666665},{"kind":"cat","category":"fauna","per1000":1.8333333333333333},{"kind":"zombie","category":"enemy","per1000":2.013888888888889},{"kind":"skeleton","category":"enemy","per1000":2.013888888888889},{"kind":"skeleton_soldier","category":"enemy","per1000":2.013888888888889}]),
+    "Nexus:overgrown_graves": Object.freeze([{"kind":"rabbit","category":"fauna","per1000":3.3},{"kind":"butterfly","category":"fauna","per1000":2.2},{"kind":"zombie","category":"enemy","per1000":2.013888888888889},{"kind":"spider","category":"enemy","per1000":2.013888888888889},{"kind":"skeleton","category":"enemy","per1000":2.013888888888889}]),
+    "Nexus:broken_masonry": Object.freeze([{"kind":"dog","category":"fauna","per1000":3.3},{"kind":"rabbit","category":"fauna","per1000":2.2},{"kind":"club_goblin","category":"enemy","per1000":6.041666666666667}]),
+    "Nexus:silent_circle": Object.freeze([{"kind":"rabbit","category":"fauna","per1000":4.125},{"kind":"cat","category":"fauna","per1000":1.375},{"kind":"skeleton","category":"enemy","per1000":3.0208333333333335},{"kind":"skeleton_soldier","category":"enemy","per1000":3.0208333333333335}]),
+    "Nexus:flint_field": Object.freeze([{"kind":"dog","category":"fauna","per1000":3.3},{"kind":"rabbit","category":"fauna","per1000":2.2},{"kind":"club_goblin","category":"enemy","per1000":6.041666666666667}]),
+    "Nexus:broken_depot": Object.freeze([{"kind":"dog","category":"fauna","per1000":4.4},{"kind":"rabbit","category":"fauna","per1000":1.1},{"kind":"skeleton","category":"enemy","per1000":3.0208333333333335},{"kind":"club_goblin","category":"enemy","per1000":3.0208333333333335}]),
+    "Nexus:seep": Object.freeze([{"kind":"butterfly","category":"fauna","per1000":3.3},{"kind":"rabbit","category":"fauna","per1000":2.2},{"kind":"slime","category":"enemy","per1000":2.013888888888889},{"kind":"plant","category":"enemy","per1000":2.013888888888889},{"kind":"golden_slime","category":"enemy","per1000":2.013888888888889}]),
+    "Nexus:work_yard": Object.freeze([{"kind":"dog","category":"fauna","per1000":4.125},{"kind":"chicken","category":"fauna","per1000":1.375},{"kind":"club_goblin","category":"enemy","per1000":6.041666666666667}]),
+    "Nexus:black_ring": Object.freeze([{"kind":"dog","category":"fauna","per1000":4.125},{"kind":"rabbit","category":"fauna","per1000":1.375},{"kind":"skeleton","category":"enemy","per1000":3.0208333333333335},{"kind":"skeleton_soldier","category":"enemy","per1000":3.0208333333333335}]),
+    "Nexus:quarry-abandoned": Object.freeze([{"kind":"rabbit","category":"fauna","per1000":2.25},{"kind":"dog","category":"fauna","per1000":0.75}]),
+    "Nexus:quarry-strip-mine": Object.freeze([{"kind":"dog","category":"fauna","per1000":2},{"kind":"rabbit","category":"fauna","per1000":1}]),
+    "Nexus:quarry-stronghold": Object.freeze([{"kind":"dog","category":"fauna","per1000":2.25},{"kind":"rabbit","category":"fauna","per1000":0.75}]),
+    "Nexus:spooky_woods": Object.freeze([{"kind":"crow","category":"fauna","per1000":3.142857142857143},{"kind":"rabbit","category":"fauna","per1000":2.357142857142857}]),
+    "Roads and paths:hedgerow": Object.freeze([{"kind":"rabbit","category":"fauna","per1000":2.5}]),
+    "Roads and paths:overgrown": Object.freeze([{"kind":"rabbit","category":"fauna","per1000":2.5},{"kind":"butterfly","category":"fauna","per1000":2.5}]),
+    "Roads and paths:orchard": Object.freeze([{"kind":"rabbit","category":"fauna","per1000":2.5}]),
+    "Roads and paths:pilgrim": Object.freeze([{"kind":"crow","category":"fauna","per1000":2.5}]),
+    "Roads and paths:toadstool": Object.freeze([{"kind":"butterfly","category":"fauna","per1000":2.5}]),
+    "Roads and paths:berry": Object.freeze([{"kind":"rabbit","category":"fauna","per1000":2.5}]),
+    "Nexus:pirate_cove": Object.freeze([{"kind":"pirate_grunt","category":"enemy","per1000":6.041666666666667}]),
+    "Nexus:mystic_reef": Object.freeze([{"kind":"giant_crab","category":"enemy","per1000":3.0208333333333335},{"kind":"jellyfish","category":"enemy","per1000":3.0208333333333335}]),
+    "Nexus:shellwater_strand": Object.freeze([{"kind":"giant_crab","category":"enemy","per1000":3.0208333333333335},{"kind":"jellyfish","category":"enemy","per1000":3.0208333333333335}]),
+  });
+  const SHORE_ENEMY_ROWS = Object.freeze([
+    { kind: 'giant_crab', category: 'enemy', per1000: .49, beach: true },
+    { kind: 'jellyfish', category: 'enemy', per1000: 1.96, beach: true },
+  ]);
+  function densityRows(owner) { const key = typeof owner === 'string' ? owner : owner?.key;
+    const rows = DENSITY_ROWS[key] || [];
+    return key === 'Terrain:SAND' ? rows.concat(SHORE_ENEMY_ROWS) : rows; }
+  function profileKey(profile) {
+    if (!profile) return null;
+    return profile.owner === 'land' ? 'Terrain:' + profile.id.split(':')[0]
+      : profile.owner === 'zone' ? 'Nexus:' + profile.id : 'Roads and paths:' + profile.id;
+  }
+  function faunaRows(profile) {
+    return densityRows(profileKey(profile)).filter(row => row.category === 'fauna')
+      .map(row => ({ kind: row.kind, weight: row.per1000 }));
+  }
+  function pickFauna(profile, id) { return pick(faunaRows(profile), unit(id + ':fauna'), row => row.weight)?.kind || null; }
+  function enemyRows(profile, type, context) {
+    return densityRows(profileKey(profile)).filter(row => row.category === 'enemy' && (!row.beach || context?.beach))
+      .map(row => root.EnemyRoster.get(row.kind)).filter(Boolean);
+  }
+  function enemyKind(profile, id, type, context) {
+    const rows = densityRows(profileKey(profile)).filter(row => row.category === 'enemy' && (!row.beach || context?.beach));
+    return pick(rows, unit(id + ':enemy'), row => row.per1000)?.kind || null;
+  }
+  // Independent cell/row draws: changing another owner's area cannot top up
+  // this owner, and failed eligibility never moves a request to another cell.
+  function* populationSteps(scene, entry, tx, ty, opts = {}) {
+    const WG = root.WorldGen, N = opts.N || entry.cellsPerEdge;
+    const grid = opts.grid || entry.baseGrid || entry.grid;
+    const tileM = entry.tileEdgeM || scene.tileEdgeM;
+    const cellM = opts.cellM || tileM / N;
+    const spawnOpts = opts.spawnOpts || WG.spawnOptsOf(entry);
+    const occupied = spawnOpts.occupied || new Set(), originalOccupied = new Set(occupied);
+    spawnOpts.occupied = occupied;
+    const reserved = new Set(opts.guardCells || []), spacing = faunaSpacing(N, [...reserved]);
+    const frame = WG.tileFrame(entry, tx, ty, tileM);
+    for (const creature of opts.authoredCreatures || []) {
+      const index = frame.idxOf(creature.x, creature.y);
+      if (index >= 0) { reserved.add(index); spacing.add(index); }
+    }
+    spawnOpts.creatureCells = reserved;
+    const regions = new Map(), owners = new Array(N * N), habitats = new Array(N * N);
+    for (let index = 0; index < N * N; index++) {
+      if ((index & 2047) === 0) yield 'spawn owner coverage';
+      const owner = owners[index] = root.SpawnPipeline.ownerAt(entry, index);
+      const habitat = habitats[index] = resolve(entry, index);
+      if (!owner || !densityRows(owner).length || opts.ownerType && owner.type !== opts.ownerType) continue;
+      const key = habitat.key || owner.key;
+      if (!regions.has(key)) regions.set(key, { key, profile: owner.id, owner: owner.key, rawCells: 0,
+        fauna: counts(), enemies: counts(), reserve: counts() });
+      regions.get(key).rawCells++;
+    }
+    const out = [], requests = [], reserves = [];
+    for (let index = 0; index < N * N; index++) {
+      if ((index & 1023) === 0) yield 'spawn zone rate rows';
+      const owner = owners[index], habitat = habitats[index];
+      if (!owner || opts.ownerType && owner.type !== opts.ownerType) continue;
+      const region = regions.get(habitat.key || owner.key);
+      if (!region) continue;
+      const cx = index % N, cy = Math.floor(index / N);
+      for (const row of densityRows(owner)) {
+        if (opts.category && row.category !== opts.category) continue;
+        if (row.beach && !entry.scenic?.shore?.mask?.[index]) continue;
+        const fauna = row.category === 'fauna';
+        if (fauna && !allows(row.kind, grid[index], habitat.profile)) continue;
+        const waterOnly = !!root.EnemyRoster.get(row.kind)?.movement?.waterOnly;
+        const gate = { ...spawnOpts, occupied: fauna ? null : originalOccupied, waterOnly };
+        const cls = root.creatureSpawnClass(row.kind);
+        if (!WG.isSpawnCell(grid, N, N, cx, cy, gate, cls)) continue;
+        const key = `${tx}|${ty}|${owner.key}|${row.category}|${row.kind}|${index}`;
+        const ownerHash = fnv1a(owner.key).toString(36);
+        const id = fauna ? `${row.kind}_zone_${tx}_${ty}_${ownerHash}_${index}`
+          : owner.type === 'zone' ? `zone_encounter_density_${tx}_${ty}_${ownerHash}_${row.kind}_${index}_0`
+            : `enemy_habitat_density_${tx}_${ty}_${ownerHash}_${row.kind}_${index}`;
+        if (root.SpawnPipeline.roll(key, row.per1000 / 1000)) {
+          const field = fauna ? 'fauna' : 'enemies';
+          region[field].requested++;
+          requests.push({ row, owner, habitat, region, field, index, cx, cy, id, key });
+        }
+        // Mode reserve is another row rate, never a fixed per-tile allowance.
+        if (!fauna && owner.type === 'terrain'
+            && root.SpawnPipeline.roll(key + '|reserve', row.per1000 / 1000 * (maxLandEnemyMul() - 1))) {
+          region.reserve.requested++;
+          reserves.push({ row, owner, habitat, region, field: 'reserve', index, cx, cy, id: id + '_r', key });
+        }
+      }
+    }
+    // Stable category/identity order; reserve placement cannot displace base.
+    requests.sort((a, b) => (a.row.category === 'fauna' ? 0 : 1) - (b.row.category === 'fauna' ? 0 : 1)
+      || keyOrder(a.id, b.id));
+    for (const request of [...requests, ...reserves]) {
+      const { row, owner, habitat, region, field, index, cx, cy, id } = request;
+      const fauna = row.category === 'fauna';
+      const records = yield* root.SpawnPipeline.generateSteps(null, {
+        count: 1, member: () => request,
+        seat: () => {
+          if (reserved.has(index) || (!fauna && occupied.has(index))) return null;
+          // Spacing rejects only this candidate; there is no quota refill or
+          // relocation that would move a species into a different owner.
+          if (fauna && spacing.clearance(index) < FAUNA_SPACING_CELLS) return null;
+          return { cx, cy, x: tx * tileM + (cx + .5) * cellM, y: ty * tileM + (cy + .5) * cellM };
+        },
+        create: (_, seat) => {
+          const kind = !fauna && typeof Weather !== 'undefined'
+            ? Weather.enemyBirthKind(row.kind, id, scene) : row.kind;
+          const point = { key: habitat.key || owner.key, profile: owner.id, tx, ty, ...seat };
+          const hostile = !fauna || !!root.EnemyRoster.get(kind)?.surface && root.Combat?.isEnemyKind(kind);
+          return WG.makeCreature(kind, seat.x, seat.y, id, {
+            shiny: fauna && typeof faunaShiny === 'function' ? faunaShiny(kind, id) : false,
+            _spawnOwner: owner.key, _spawnSource: 'zone-density', _habitatSpawn: point,
+            ...(owner.type === 'zone' ? { zoneVariant: owner.id,
+              ...(root.EnemyHabitats.emergesFromGround(kind, owner.id) ? { emergeFromGround: true, _burrowed: true } : {}) } : {}),
+            ...(hostile ? { _surfaceSpawn: { tx, ty, ...seat },
+              ...root.EnemySpawns.concealment(kind, id, owner.id) } : {}),
+            ...(field === 'reserve' ? { _landEnemyReserve: true } : {}),
+          });
+        },
+        onPlaced: () => { reserved.add(index); occupied.add(index); if (fauna) spacing.add(index); region[field].placed++; },
+      });
+      for (const c of records) {
+        out.push(c);
+        if (!fauna && owner.type === 'zone') root.EnemyHabitats.registerDensityEncounter(entry, c, occupied, owners);
+      }
+    }
+    // Finite road populations use explicit section requests, not ambient
+    // density or a tile allowance. The current map's section keys are bounded
+    // by its canonical geometry (including tile-boundary cuts).
+    const sectionAt = entry.streetIndex ? root.StreetVariants.variantOwner(entry.streetIndex, N, Infinity, true) : null;
+    const features = new Map();
+    for (let index = 0; index < N * N; index++) {
+      const owner = owners[index], row = owner?.type === 'road' && root.StreetVariants.VARIANT_BY_ID[owner.id]?.habitatEnemies;
+      if (!row || opts.category === 'fauna' || opts.ownerType && opts.ownerType !== 'road') continue;
+      const section = sectionAt?.(index % N, Math.floor(index / N));
+      const key = section?.variant === owner.id ? section.key : `${owner.key}|${tx},${ty}`;
+      if (!features.has(key)) features.set(key, { key, row, owner, cells: [] });
+      features.get(key).cells.push(index);
+    }
+    for (const feature of [...features.values()].sort((a, b) => keyOrder(a.key, b.key))) {
+      const h = habitats[feature.cells[0]], regionKey = h.key || feature.owner.key;
+      let region = regions.get(regionKey);
+      if (!region) regions.set(regionKey, region = { key: regionKey, profile: feature.owner.id, owner: feature.owner.key,
+        rawCells: feature.cells.length, fauna: counts(), enemies: counts(), reserve: counts() });
+      region.enemies.requested += feature.row.count;
+      const candidates = feature.cells.slice().sort((a, b) => unit(feature.key + ':' + a) - unit(feature.key + ':' + b));
+      const records = yield* root.SpawnPipeline.generateSteps({ frequency: { count: feature.row.count } }, {
+        member: n => ({ kind: feature.row.kinds[n % feature.row.kinds.length], n,
+          id: `enemy_habitat_section_${fnv1a(feature.key).toString(36)}_${n}` }),
+        seat: member => {
+          const cls = root.creatureSpawnClass(member.kind);
+          const index = candidates.find(i => !reserved.has(i) && WG.isSpawnCell(grid, N, N, i % N, Math.floor(i / N),
+            { ...spawnOpts, occupied }, cls));
+          if (index == null) return null;
+          return { index, cx: index % N, cy: Math.floor(index / N),
+            x: tx * tileM + (index % N + .5) * cellM, y: ty * tileM + (Math.floor(index / N) + .5) * cellM };
+        },
+        create: (member, seat) => WG.makeCreature(member.kind, seat.x, seat.y, member.id, {
+          shiny: false, _spawnSource: 'feature-encounter', _spawnOwner: feature.key,
+          _habitatSpawn: { key: regionKey, profile: feature.owner.id, tx, ty, ...seat },
+          _surfaceSpawn: { tx, ty, ...seat },
+        }),
+        onPlaced: (_, __, seat) => { reserved.add(seat.index); occupied.add(seat.index); region.enemies.placed++; },
+      });
+      out.push(...records);
+    }
+    // The older species-first stream is still replayed by the scene to retain
+    // unrelated treasure RNG. Attach each historical cell ID once, without
+    // deriving another population or consulting saved captures.
+    const aliasesByKey = new Map(), seenLegacy = new Set();
+    for (const legacy of opts.legacyEnemies || []) {
+      if (!legacy.id || seenLegacy.has(legacy.id)) continue;
+      seenLegacy.add(legacy.id);
+      const pool = out.filter(c => c._surfaceSpawn && !c._landEnemyReserve && c._habitatSpawn.key === legacy.key);
+      if (!pool.length) continue;
+      const n = aliasesByKey.get(legacy.key) || 0;
+      (pool[n % pool.length]._legacyDefeatIds ||= []).push(legacy.id);
+      aliasesByKey.set(legacy.key, n + 1);
+    }
+    // Old quota generators are replayed only to translate existing save IDs.
+    // They never contribute population counts or placements to the new world.
+    const oldIds = scene.save?.caught || [];
+    if (!opts.skipLegacy && oldIds.some(id => typeof id === 'string' && !id.includes('_zone_')
+        && !id.includes('_density_') && id.includes(`_${tx}_${ty}_`))) {
+      const legacyEntry = { ...entry }, legacyOpts = { ...spawnOpts, occupied: new Set(originalOccupied) };
+      const legacy = yield* legacyPopulationSteps(scene, legacyEntry, tx, ty, { ...opts, spawnOpts: legacyOpts });
+      if (oldIds.some(id => String(id).startsWith('zone_encounter_')))
+        legacy.push(...yield* root.EnemyHabitats.legacySurfaceEncountersSteps(legacyEntry, tx, ty, new Set(originalOccupied)));
+      const buckets = new Map();
+      for (const c of out) {
+        const key = `${c.kind}|${c._habitatSpawn?.key || c._spawnOwner}|${!!c._landEnemyReserve}`;
+        if (!buckets.has(key)) buckets.set(key, []);
+        buckets.get(key).push(c);
+      }
+      const assigned = new Map(), aliasTargets = new Map();
+      for (const c of out) for (const alias of c._legacyDefeatIds || []) aliasTargets.set(alias, c.id);
+      for (const old of legacy.sort((a, b) => keyOrder(a.id, b.id))) {
+        const index = frame.idxOf(old.x, old.y), owner = owners[index];
+        const bucketKey = `${old.kind}|${old._habitatSpawn?.key || habitats[index]?.key || owner?.key}|${!!old._landEnemyReserve}`;
+        const candidates = buckets.get(bucketKey);
+        if (!candidates?.length) continue;
+        if (!assigned.has(bucketKey)) assigned.set(bucketKey, new Set());
+        const used = assigned.get(bucketKey);
+        // A lower new density can have fewer bodies than the legacy world.
+        // Fill one-to-one first, then begin another deterministic alias cycle.
+        if (used.size === candidates.length) used.clear();
+        // Closest new stable candidate, with identity tie-break; never cross
+        // species/owner boundaries to honour a historical capture or defeat.
+        const target = candidates.filter(c => !used.has(c.id)).reduce((best, c) => {
+          const d = (c.x - old.x) ** 2 + (c.y - old.y) ** 2;
+          return !best || d < best.d || d === best.d && c.id < best.c.id ? { c, d } : best;
+        }, null).c;
+        used.add(target.id);
+        const aliases = target._legacyDefeatIds ||= [];
+        for (const id of [old.id, ...old._legacyDefeatIds || []]) {
+          if (aliasTargets.has(id)) continue;
+          aliasTargets.set(id, target.id); aliases.push(id);
+        }
+      }
+    }
+    const totals = { fauna: counts(), enemies: counts(), reserve: counts() };
+    for (const region of regions.values()) for (const field of ['fauna', 'enemies', 'reserve']) {
+      region[field].shortfall = region[field].requested - region[field].placed;
+      for (const name of ['requested', 'placed', 'shortfall']) totals[field][name] += region[field][name];
+    }
+    entry.habitatPopulation = { regions: [...regions.values()], totals,
+      faunaRequested: totals.fauna.requested, enemyRequested: totals.enemies.requested };
+    return out;
+  }
   const api = { FAUNA_DENSITY, faunaCount, FAUNA_PER_TILE, FAUNA_SPACING_CELLS, faunaSpacing, ENEMIES_PER_TILE, reserveBudget, reserveVisible, LAND_FAUNA, VARIANT_FAUNA, landProfile, shoreProfile, variantProfile, roadProfile, resolve,
-    faunaRows, pickFauna, faunaBudget, allows, enemyRows, enemyKind, surfaceWeight, populationSteps };
+    faunaRows, pickFauna, faunaBudget, allows, enemyRows, enemyKind, surfaceWeight, DENSITY_ROWS, densityRows, populationSteps };
   root.HabitatSpawns = api;
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
 })(typeof window !== 'undefined' ? window : globalThis);

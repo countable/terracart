@@ -64,7 +64,7 @@ function placeFoundAnimal(scene, itemId, sourceId, x, y) {
     favouriteFeeds: 0, shiny: true, pet: false };
   (scene.save.wildAnimals ||= []).push(row);
   const entry = WorldGen.tileCache.get(WorldGen.tileKey(tx, ty));
-  entry?.creatures?.push(WorldGen.makeCreature(kind, x, y, id, row));
+  entry?.creatures?.push(CreatureSpawns.createOwned('eggs', sourceId, kind, x, y, id, row));
   return row;
 }
 

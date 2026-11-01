@@ -523,12 +523,12 @@ test('shared ids: only creatures marked where the world makes them; every per-de
   };
   site('creature_ai.js', 'ghost_${tx}_${ty}_${Math.floor(now)}');
   site('creature_ai.js', 'fished_slime_${pcW.tx}_${pcW.ty}_${Math.floor(now)}');
-  site('creature_ai.js', 'const twin = WorldGen.makeCreature(');
+  site('creature_ai.js', 'const twin = CreatureSpawns.createOwned(');
   site('scene_creatures.js', 'pest_deer_${pc.tx}_${pc.ty}_${Math.floor(now)}');
   site('scene_venues.js', 'guildfoe_${tx}_${ty}_${seat.ix}_${seat.iy}');
-  site('scene_venues.js', 'WorldGen.makeCreature(f.kind, f.x, f.y, f.id, { shiny: false, bounty: gb.id })');
+  site('scene_venues.js', "CreatureSpawns.createOwned('guild-bounty', gb.id, f.kind, f.x, f.y, f.id, { shiny: false, bounty: gb.id })");
   site('app.js', 'enemy_dev_${Date.now()}');
-  site('story_encounters.js', 'WorldGen.makeCreature(kind, p.x, p.y, id, fields)');
+  site('story_encounters.js', "CreatureSpawns.createOwned('story-witness', q.key || KEY, kind, p.x, p.y, id, fields)");
   // A split half inherits its parent's garrison fields, never the mark.
   assert.falsy(Lairs.GARRISON_INHERIT.includes('_sharedId'), 'a split half (per-device serial) is not shared');
   // The mark lives only where world-derived creatures are made.

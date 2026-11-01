@@ -6,6 +6,14 @@ mechanics.
 
 ## Combat, energy and Home
 
+- Creature creation from hives, summons, splits and boss pieces runs through
+  explicit owned requests in `CreatureSpawns`, sharing `SpawnPipeline` execution.
+  Existing activation clocks, finite slots, split HP/reward conservation and
+  boss multipart geometry remain in their controllers. Repeatable temple trial
+  opponents use an arena record adapter; unique story Events remain separate
+  progression controllers. The common executor does not introduce ambient
+  zone rolls for these encounters.
+
 - Roadside hives are wrecks occupied by a hostile building. `Hives.KINDS`
   owns their HP, sprite and spawning rules. The Mushroom House has 120 HP
   and births one Mushroom Monster per foreground minute, up to four living

@@ -155,10 +155,12 @@ test('cave extras: a picked-up seeded coin is written to save.foundTreasures', (
 
 // ── X marks ────────────────────────────────────────────────────────────────
 
-test('cave extras: 4..10 X marks per level (× X_MARK_FREQUENCY), on free floor, ids carry the depth', () => {
+test('cave extras: density X marks use free floor and carry depth in their cell IDs', () => {
   const grid = townGrid();
   const out = WorldGen.caveTreasureMarks(grid, N, TX, TY, TILE_M, 3, new Set());
-  assert.inRange(out.length, Math.round(4 * X_MARK_FREQUENCY), Math.round(10 * X_MARK_FREQUENCY), 'the surface scatter\'s count');
+  assert.gt(out.length, 0);
+  const blocked = new Set(out.map(t => { const c = cellOf(t); return c.liy * N + c.lix; }));
+  assert.eq(WorldGen.caveTreasureMarks(grid, N, TX, TY, TILE_M, 3, blocked).length, 0, 'blocked candidates do not retry elsewhere');
   for (const t of out) {
     const { lix, liy } = cellOf(t);
     assert.eq(grid[liy * N + lix], CAVE_FLOOR, 'on floor');
@@ -174,7 +176,7 @@ test('cave extras: loadCaveTile rolls them after the rocks and mushrooms, and sh
   const body = src.slice(start, src.indexOf('\n  }\n', start));
   const order = WorldGen.CAVE_PASSES.map(r => r.id);
   const i = (s) => order.indexOf(s);
-  assert.truthy(/for \(const row of CAVE_PASSES\) runCavePass\(row, level\);/.test(body), 'loadCaveTile runs the table in order');
+  assert.truthy(/for \(const row of CAVE_PASSES\) yield\* runCavePassSteps\(row, level\);/.test(body), 'loadCaveTile runs the table in order');
   assert.gt(i('rings'), i('mushrooms'), 'rings after the mushrooms');
   assert.gt(i('wallTorches'), i('mushrooms'), 'wall torches after the rocks + mushrooms');
   assert.gt(i('coins'), i('mushrooms'), 'coins after');

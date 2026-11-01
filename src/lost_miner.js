@@ -45,6 +45,9 @@ const LostMiner = (() => {
   // (baseGrid, genObjects) keeps the seat where every player would find it;
   // a cell the live entry already holds is refused, never re-rolled.
   function seat(scene, entry, tx, ty, depth, creatures, occupiedIdx) {
+    return WorldGen.runSteps(seatSteps(scene, entry, tx, ty, depth, creatures, occupiedIdx));
+  }
+  function* seatSteps(scene, entry, tx, ty, depth, creatures, occupiedIdx) {
     if (depth !== DEPTH || typeof NPC === 'undefined' || found(scene.save)) return null;
     const anchor = anchorOf(scene), id = idFor(scene);
     if (!anchor || !id) return null;
@@ -57,6 +60,7 @@ const LostMiner = (() => {
     const legal = [], clear = [];
     for (let cy = 0; cy < N; cy++) for (let cx = 0; cx < N; cx++) {
       const i = cy * N + cx;
+      if ((i & 255) === 0) yield 'lost miner seat';
       if (grid[i] !== WorldGen.T.CAVE_FLOOR || occupiedIdx?.has(i)) continue;
       if (!WorldGen.isSpawnCell(grid, N, N, cx, cy, entry._spawnOpts, 'npc')) continue;
       legal.push(i);
@@ -66,7 +70,7 @@ const LostMiner = (() => {
     if (!cells.length) return null;
     const i = cells[Math.floor(WorldGen.makeRng(fnv1a(`${id}:lost`))() * cells.length)];
     const x = tx * edge + ((i % N) + 0.5) * cellM, y = ty * edge + (Math.floor(i / N) + 0.5) * cellM;
-    const c = WorldGen.makeCreature('npc', x, y, id, { ...NPC.storyNeighbour(id, ROLE), depth, homeX: x, homeY: y });
+    const c = CreatureSpawns.createOwned('npcs', id, 'npc', x, y, id, { ...NPC.storyNeighbour(id, ROLE), depth, homeX: x, homeY: y });
     creatures.push(c);
     occupiedIdx?.add(i);
     return c;
@@ -99,5 +103,5 @@ const LostMiner = (() => {
     const lines = housed ? HOUSED : WAITING;
     return lines[((seed + day) >>> 0) % lines.length];
   }
-  return { ROLE, DEPTH, STAIR_CLEAR_CELLS, LOST, FOUND, WAITING, HOUSED, found, idFor, seat, leave, interact, dialogue };
+  return { ROLE, DEPTH, STAIR_CLEAR_CELLS, LOST, FOUND, WAITING, HOUSED, found, idFor, seat, seatSteps, leave, interact, dialogue };
 })();

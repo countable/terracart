@@ -58,7 +58,7 @@
 test('enemy habitats: beach candidates become crabs; Excluded water cannot host jellyfish', () => {
   const body = SPAWN_IN_TILE_SRC.slice(0, SPAWN_IN_TILE_SRC.indexOf('    // (Starter-cow'));
   const generate = spawnPassFn(body + '\nreturn creatures;');
-  const run = (beach, caught = []) => {
+  const run = (beach, caught = [], tx = 0) => {
     const scene = Object.assign(new SceneCreatures(), { tileEdgeM: 640, save: { caught },
       startWorldM: { x: -5000, y: 0 }, _pestFreeZone: () => null });
     const N = 64, grid = new Array(N * N), mask = new Uint8Array(N * N);
@@ -68,9 +68,11 @@ test('enemy habitats: beach candidates become crabs; Excluded water cannot host 
     }
     const entry = { cellsPerEdge: N, tileEdgeM: 640, grid, objects: [],
       scenic: beach ? { shore: { mask } } : null };
-    return generate.call(scene, entry, 0, 0).filter(c => c._surfaceSpawn);
+    return generate.call(scene, entry, tx, 0).filter(c => c._surfaceSpawn);
   };
-  const beach = run(true);
+  const sample = Array.from({ length: 8 }, (_, tx) => ({ tx, creatures: run(true, [], tx) })).find(s => s.creatures.length);
+  assert.truthy(sample, 'shore rate supplies crabs across multiple tiles, not a minimum per tile');
+  const beach = sample.creatures;
   assert.truthy(beach.some(c => c.kind === 'giant_crab'));
   assert.falsy(beach.some(c => c.kind === 'jellyfish'));
   assert.eq(new Set(beach.map(c => `${c.x},${c.y}`)).size, beach.length, 'every destination is distinct');
@@ -80,7 +82,7 @@ test('enemy habitats: beach candidates become crabs; Excluded water cannot host 
   }
   assert.falsy(run(false).some(c => /pirate|giant_crab|jellyfish/.test(c.kind)));
   const sig = cs => cs.map(c => `${c.id}:${c.kind}:${c.x},${c.y}`).join('|');
-  assert.eq(sig(run(true, [beach[0].id])), sig(beach.slice(1)), 'defeat removes one seat without rerolling survivors');
+  assert.eq(sig(run(true, [beach[0].id], sample.tx)), sig(beach.slice(1)), 'defeat removes one seat without rerolling survivors');
   assert.truthy(Combat.isEnemyKind('crab'), 'the tameable shore crab attacks while wild');
 });
 
@@ -170,7 +172,7 @@ test('enemy habitats: every selected cave theme has an eligible family through d
       patches.add(`${Math.floor(cx / 6)},${Math.floor(cy / 6)}`);
       quadrants.add(`${cx < N / 2},${cy < N / 2}`);
     }
-    assert.eq(patches.size, cs.length, 'one mushroom per patch, not clustered packs');
+    assert.eq(new Set(cs.map(c => `${c.x},${c.y}`)).size, cs.length, 'independent scatter retains unique cells');
     assert.eq(quadrants.size, 4, 'scattered across the whole grove');
     assert.eq(occupied.size, cs.length);
     e.zone.anchors.push({ variant: 'orchard' });
@@ -199,7 +201,7 @@ test('enemy habitats: every selected cave theme has an eligible family through d
       const it = EnemyHabitats.surfaceEncountersSteps(fixture(), 0, 0, occupied);
       let r = it.next(), yields = 0;
       while (!r.done) { yields++; r = it.next(); }
-      assert.eq(yields, Math.ceil(N / EnemyHabitats.SURFACE_ENCOUNTERS.blockCells) ** 2);
+      assert.gte(yields, 2, 'owner and cell scans yield even without candidates');
       assert.gt(r.value.length, 0, theme + ' fixture exercises actual encounters');
       const direct = EnemyHabitats.surfaceEncounters(fixture(), 0, 0, directOccupied);
       assert.eq(JSON.stringify(r.value), JSON.stringify(direct), theme + ' keeps every generated field');
@@ -214,7 +216,7 @@ test('enemy habitats: every selected cave theme has an eligible family through d
     const occupied = new Set(), it = EnemyHabitats.surfaceEncountersSteps(e, 0, 0, occupied);
     let r = it.next(), yields = 0;
     while (!r.done) { yields++; r = it.next(); }
-    assert.eq(yields, Math.ceil(N / EnemyHabitats.SURFACE_ENCOUNTERS.blockCells) ** 2);
+    assert.gte(yields, 2, 'owner and cell scans yield even without candidates');
     assert.eq(r.value.length, 0);
     assert.eq(occupied.size, 0);
   });
@@ -233,7 +235,7 @@ test('enemy habitats: every selected cave theme has an eligible family through d
     }
     assert.eq(occupied.size, cs.length);
     assert.truthy([...groups.values()].some(g => g.length === 1));
-    assert.truthy([...groups.values()].some(g => g.length > 1));
+    assert.truthy([...groups.values()].every(g => g.length === 1), 'ordinary rows scatter single candidates; party policy is separate');
     for (const group of groups.values()) {
       assert.lte(group.length, 3);
       for (const c of group) assert.lte(Math.hypot(c.x - group[0].x, c.y - group[0].y), 3 * 7);
@@ -249,7 +251,7 @@ test('enemy habitats: every selected cave theme has an eligible family through d
       assert.eq(EnemyHabitats.surfaceEncounters(e, 0, 0, occupied).length, 0, block);
     }
   });
-  test('surface encounters: excluded ground relocates a Nexus budget without changing identities', () => {
+  test('surface encounters: excluded ground removes Nexus candidates without rerolling other cells', () => {
     const full = entry(), before = EnemyHabitats.surfaceEncounters(full, 0, 0, new Set());
     const excluded = entry();
     excluded.spawnWhy = new Uint32Array(N * N);
@@ -257,7 +259,7 @@ test('enemy habitats: every selected cave theme has an eligible family through d
     for (let i = 0; i < N * N; i++) if (i % N < 48)
       excluded.spawnWhy[i] = WorldGen.SPAWN_WHY.RESTRICTED;
     const after = EnemyHabitats.surfaceEncounters(excluded, 0, 0, new Set());
-    assert.eq(after.map(c => c.id + ':' + c.kind).join('|'), before.map(c => c.id + ':' + c.kind).join('|'));
+    assert.eq(signature(after), signature(before.filter(c => c._surfaceSpawn.cx >= 48)), 'excluded area removes only its own candidates');
     for (const c of after) assert.gte(c._surfaceSpawn.cx, 48);
     assert.eq(new Set(after.map(c => `${c.x},${c.y}`)).size, after.length);
     assert.eq(signature(after), signature(EnemyHabitats.surfaceEncounters(excluded, 0, 0, new Set())));
@@ -274,8 +276,7 @@ test('enemy habitats: every selected cave theme has an eligible family through d
     assert.gt(out.length, 0);
     for (const c of out) {
       assert.gte(c._surfaceSpawn.cx, 36);
-      const blockX = Number(c.id.split('_').at(-3));
-      assert.gte(blockX, 36, 'a wholly blocked first-owner block produces no second-owner animal');
+      assert.eq(c._habitatSpawn.key, HabitatSpawns.resolve(e, c._surfaceSpawn.cy * N + c._surfaceSpawn.cx).key, 'identity remains in its actual owner');
     }
   });
   test('surface encounters: actual spawn pass preserves defeat identities and Home protections', () => {
@@ -346,7 +347,7 @@ test('enemy habitats: L7 generated population is primarily dragons with stable d
   };
   for (const [tx, ty] of [[0, 0], [-1, 2], [3, -2]]) {
     const creatures = run(tx, ty);
-    assert.gt(creatures.length, 50, 'actual ambient budget is populated');
+    assert.gt(creatures.length, 20, 'the eligible floor area supplies depth-rate candidates');
     const dragons = creatures.filter(c => c.kind === 'red_dragon');
     assert.gt(dragons.length / creatures.length, .65, 'dragons dominate each fixture');
     assert.truthy(creatures.some(c => c.kind === 'red_demon'), 'minority residents remain');
