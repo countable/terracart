@@ -22,16 +22,41 @@ access or tile lifecycle mechanics.
   Existing Home/protected coverage and deterministic overlap decisions remain
   authoritative. A corridor owns its full area, including empty furniture gaps.
 - `HabitatSpawns.DENSITY_ROWS` declares independent fauna/enemy probabilities per
-  1,000 eligible owned cells. `SHORE_ENEMY_ROWS` adds the explicit Sand beach
-  crab/Jellyfish rows. Species are table rows, not a draw from a global tile
+  1,000 eligible owned cells. `SHORE_ENEMY_ROWS` adds the residual Sand beach
+  crab bonus; Water owns its aquatic row. Species are table rows, not a draw from a global tile
   allowance. `SpawnPipeline.roll` hashes owner, category, species and cell; adding
   area elsewhere cannot increase another owner's population. A preview uses its
   actual cells; `habitatTileAreaScale` no longer changes ambient populations.
+- Approved surface tuning gives fauna three times the former zone total,
+  concentrated on each zone's retained residents, and doubles existing enemy
+  densities. Rare added signatures use a final 0.5 per 1,000 eligible cells.
+  `SIGNATURE_ENEMIES` identifies each terrain, Nexus, road and park character's
+  signature; authored-only signatures retain their encounter count. A park
+  character replaces only the residual Park signature, never adding a second
+  allowance or reaching through road/Nexus coverage. Mini Slime, Moss Slime and
+  Sand Skeleton are explicitly active again for these signature rows; other
+  retired variants remain retired. Signature-only reactivations stay out of legacy
+  generic pool replay. Declared signature enemies preserve the normal Home bands
+  through their final boundary; beyond that boundary, explicit signatures may
+  exceed the ordinary surface tier cap while retaining species minimum distance
+  and time gates. Undeclared creatures and ordinary guards do not gain this
+  permission. Sand's Giant Crab signature is 0.5, plus
+  0.98 on beach cells, folded into one roll/identity. Water's Jellyfish row is
+  0.5, replacing the old water-only shoreline allowance.
 - Apply geographic/class gates, physical terrain and species exclusions before
   the rate roll. Farm/Orchard source interiors remain excluded; only the existing
   outer two-cell rim can be eligible. A refused candidate is not relocated or
-  replenished elsewhere. The water-only ban remains: Jellyfish rows cannot seat
-  until water eligibility is explicitly changed by a separate policy decision.
+  replenished elsewhere. Water source footprints use the same outer two-cell
+  Chebyshev rim: interiors remain excluded, adjoining polygons are unioned,
+  and tile seams or later paint do not create edges. Buffered source bank proof
+  is retained in `waterEdges` through generated-tile caches and grid clones;
+  a verified bank outside the loaded tile can host its edge inhabitants.
+  Loaded live terrain supersedes bank proof, while generated ponds must still
+  demonstrate a physical edge. Access and building
+  exclusions still win. Only aquatic rows may occupy eligible water; ordinary
+  inhabitants stay on dry land. Jellyfish retain their bank-adjacency rule.
+  Residual water owns its explicit aquatic edge rows; it does not borrow a
+  neighbouring road or Nexus table. Nexus aquatic rows use their own water cells.
 - Fauna may share static interactables; enemies respect their occupancy. All
   generated creatures reserve seats before capture, defeat, Home, daylight and
   mode filtering. Three-cell Chebyshev fauna spacing rejects crowded density
@@ -45,6 +70,16 @@ access or tile lifecycle mechanics.
   never rerolls base identities. Counts are expected density, not an exact 1.5×
   ratio in each individual tile. Nexus density singles opt into existing party
   scaling, which creates owned extras without changing their base rates.
+- `HabitatSpawns.ENEMY_PACKS` opts rats, goblin fighters, skeletons and pirates
+  into spatial groups in both surface and cave ambient generation. An anchor
+  is solo 35% of the time or requests 2–4 members 65% of the time. Rates remain
+  expected individuals: anchor probability divides by the 2.3-member mean.
+  Members use fixed nearby seats within three cells, remain in the same winning
+  owner/cave habitat, and pass every normal gate. A blocked anchor loses its
+  group; blocked child seats drop without relocation or refill. Saved defeats
+  are applied after reservations, and child aliases preserve former singleton
+  identities. Authored encounters and hive births retain their own counts.
+  Each Nexus body opts into party scaling once; the pack adds no second allowance.
 - Conditional fauna selection (including nest discoveries) reads those same
   declared species rates. Legacy profile mixtures and tile-budget constants
   remain only for old-save alias replay. Crows retain Grass/Grove/declared-road
