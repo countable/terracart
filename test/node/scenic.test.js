@@ -488,7 +488,7 @@ test('scenic: the beach\'s X count follows the shoreline, capped; inland sand ke
   assert.eq(S.beachXCount(1e6), Math.round(S.BEACH_X_MAX * X_MARK_FREQUENCY * 0.7), 'capped');
   assert.eq(S.tideCount(S.TIDE_PER_M * 3), 3);
   assert.eq(S.tideCount(1e6), S.TIDE_MAX);
-  // The shipping block (__bonusXMarks): a long beach strip, all of it shore.
+  // The shipping shoreline row: a long beach strip, all of it shore.
   const NB = 300, CM = 7;
   const grid = new Uint8Array(NB * NB).fill(WorldGen.T.GRASS);
   const mask = new Uint8Array(NB * NB);
@@ -500,15 +500,22 @@ test('scenic: the beach\'s X count follows the shoreline, capped; inland sand ke
   const entry = { grid, cellsPerEdge: NB, extraTreasures: [], objects: [], roadMask: null,
     scenic: { shore: { mask, cells, waterline: cells.filter((i) => mask[i] === 2), shoreM } } };
   const rng = () => 0.5;
-  __bonusXMarks.call({ tileEdgeM: NB * CM, cellM: CM }, entry, 3, 4, NB, rng, {});
+  entry.extraTreasures = WorldGen.runSteps(WorldGen.shoreTreasureSteps({ entry, grid, N: NB, tx: 3, ty: 4, tileEdgeM: NB * CM, spawnOpts: {} }));
   const sand = entry.extraTreasures.filter((x) => /^treasure_sand_/.test(x.id));
   assert.eq(sand.length, S.beachXCount(shoreM), `a ${shoreM} m shore lays ${S.beachXCount(shoreM)} marks — past the old flat cap of 8`);
   for (let i = 0; i < sand.length; i++) for (let j = i + 1; j < sand.length; j++)
     assert.gte(Math.hypot(sand[i].x - sand[j].x, sand[i].y - sand[j].y),
       S.BEACH_X_SPACING_CELLS * CM, 'beach finds have breathing room');
+  // Tide shells and bottles reserve the waterline. They must not erase
+  // the length-based allowance when free inland sand can seat buried finds.
+  const tideOccupied = new Set(entry.scenic.shore.waterline);
+  const inlandFinds = WorldGen.runSteps(WorldGen.shoreTreasureSteps({ entry, grid, N: NB,
+    tx: 3, ty: 4, tileEdgeM: NB * CM, spawnOpts: { occupied: tideOccupied } }));
+  assert.gt(inlandFinds.length, 0, 'occupied waterline still contributes shoreline length');
+  for (const t of inlandFinds) assert.gt(Math.floor((t.x - 3 * NB * CM) / CM), 0, 'buried finds avoid the occupied waterline');
   // Deterministic: the beach's own stream, the same marks again.
   const again = { ...entry, extraTreasures: [] };
-  __bonusXMarks.call({ tileEdgeM: NB * CM, cellM: CM }, again, 3, 4, NB, () => 0.1, {});
+  again.extraTreasures = WorldGen.runSteps(WorldGen.shoreTreasureSteps({ entry: again, grid, N: NB, tx: 3, ty: 4, tileEdgeM: NB * CM, spawnOpts: {} }));
   assert.eq(again.extraTreasures.filter((x) => /^treasure_sand_/.test(x.id)).map((x) => x.id).join(),
     sand.map((x) => x.id).join(), 'the tile\'s shared stream does not move them');
 });

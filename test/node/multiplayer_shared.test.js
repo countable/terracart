@@ -949,12 +949,18 @@ test('multiplayer traffic: hits, scans, deaths, battles, groups and targeting sh
 
 test('party groups: a neighbour tile finishes its sliced spawn before scaling can publish extras', () => {
   const key = WorldGen.tileKey(TX, TY), had = WorldGen.tileCache.get(key), e = orchard();
+  Object.assign(e.zone.anchors[0], { kind: 'grove', key: 'party-orchard', cx: 32, cy: 32 });
   WorldGen.tileCache.set(key, e);
   try {
     const { scene } = harness(), at = { x: TX * PEDGE + 100, y: TY * PEDGE + 100 };
     online(scene, at);
     withRelay(scene, ({ recv }) => {
-      const spawn = EnemyHabitats.surfaceEncountersSteps(e, TX, TY, new Set());
+      const spawningScene = Object.assign(new SceneCreatures(), {
+        tileEdgeM: PEDGE, save: scene.save,
+        _pestFreeZone: () => null, _starterTrailAnchor: () => null,
+        _provisionStarterHome() {}, _carveStarterPond() {},
+      });
+      const spawn = spawningScene.spawnInTileSteps(e, TX, TY);
       let step, yieldedWithGroups = 0;
       while (!(step = spawn.next()).done) {
         if (!EnemyHabitats.groupsOf(e).length) continue;
@@ -967,7 +973,7 @@ test('party groups: a neighbour tile finishes its sliced spawn before scaling ca
       }
       assert.gt(yieldedWithGroups, 0, 'the real generator yields after group records appear');
       // The scene publishes the generated population only in its final slice.
-      e.creatures = step.value; e._spawned = true;
+      assert.truthy(e._spawned, 'the real scene pass publishes its completed population');
       const baseIds = e.creatures.map(c => c.id);
       clock += Multiplayer.PARTY_SCAN_MS;
       Multiplayer.scaleParty(scene, clock);

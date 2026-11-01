@@ -10,6 +10,9 @@
     assert.falsy(make({ occupied }).some(o => o.id === first.id));
     const coverage = new Uint8Array(N * N).fill(1);
     assert.eq(make({ zoneCoverage: coverage }).length, 0);
+    const roadEntry = { grid, streetArea: new Uint8Array(N * N).fill(1),
+      streetAreaVariants: new Uint8Array(N * N).fill(StreetVariants.VARIANT_BY_ID.overgrown.code) };
+    assert.eq(WorldGen.spawnForestHives(grid, N, N, 4, 5, 1000, {}, roadEntry).length, 0, 'road-owned forest cannot borrow basic forest hives');
     const roadMask = new Uint8Array(N * N).fill(1);
     assert.eq(make({ roadMask }).length, 0);
     // Calm woodland (tier 2) refuses the fast bees, so it hosts no hive: a

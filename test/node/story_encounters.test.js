@@ -114,6 +114,7 @@
       s.playerM = { x: 126, y: 112 };
       StoryEncounters.tick(s, 2000);
       assert.eq(e.creatures.length, 2);
+      assert.truthy(e.creatures.every(c => c._spawnSource === 'story-witness' && c._spawnCategory === 'storyEvent'));
       assert.truthy(s.inHomeRing(s.save.storyEncounter.npc.x, s.save.storyEncounter.npc.y));
       assert.eq(s.save.storyEncounter.homeAnchor.x, 112, 'anchor is Home, not player');
       const enemy = e.creatures.find(c => c.kind === 'goblin_archer');

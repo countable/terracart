@@ -49,7 +49,14 @@
       // Include the destination's seeded enemies and traps in occupancy before
       // choosing a landing. This pass accepts an explicit depth, so it does not
       // switch the current floor or reroll actors on arrival.
-      if (!entry._spawned) scene.spawnCaveCreatures(entry, tx, ty, depth + 1);
+      if (!entry._spawned) {
+        const ready = scene._spawnCaveCreaturesSliced
+          ? await scene._spawnCaveCreaturesSliced(entry, tx, ty, depth + 1)
+          : (scene.spawnCaveCreatures(entry, tx, ty, depth + 1), true);
+        if (!ready) return false;
+      }
+      if (scene.depth !== depth || hole.phase !== 'open' || !over(scene, hole)
+          || root.Combat.playerDowned(scene.save.energy) || root.Conditions.flying(scene.save)) return false;
       const destination = landing(entry, hole, edge);
       if (!destination) return false;
       const changed = scene.changeDepth(1, { ...destination, descentSource: 'sinkhole' });

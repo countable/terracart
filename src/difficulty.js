@@ -62,7 +62,7 @@
       enemyHpMul: 1,            // compatibility; shared HP and bounty
       enemyDmgMul: 1,           // over the surface slime's leech and every monster hit
       monsterCountMul: 1,       // over the cave spawner's 50 + 10/level
-      // Landcover enemies (HabitatSpawns.ENEMIES_PER_TILE). The world seats
+      // Landcover enemies (HabitatSpawns species density rows). The world seats
       // the largest mode's figure for everyone; a smaller mode hides the
       // reserve (HabitatSpawns.reserveVisible), never rerolls the base.
       landEnemyCountMul: 1,

@@ -59,7 +59,7 @@ test('cave torches: a cave level hands the FULL site list down, so depth N does 
   assert.truthy(/roadLabels: \{\}, pathUnder: \{\}, torchSites,/.test(body), 'and stored on the entry for the level below');
   const order = WorldGen.CAVE_PASSES.map(r => r.id);
   assert.truthy(order.includes('mushrooms'), 'mushrooms are rolled too (a row of CAVE_PASSES)');
-  assert.truthy(/for \(const row of CAVE_PASSES\) runCavePass\(row, level\);/.test(body), 'loadCaveTile runs the table');
+  assert.truthy(/for \(const row of CAVE_PASSES\) yield\* runCavePassSteps\(row, level\);/.test(body), 'loadCaveTile runs the table');
   assert.truthy(/objects, wildplants, parkingTreasures: \[\]/.test(body), 'and shipped as the level\'s wildplants');
   assert.truthy(body.indexOf('caveTorchesFrom(') < body.indexOf('for (const row of CAVE_PASSES)'), 'torches claim their cells before the rocks are rolled');
   assert.truthy(order.indexOf('rocks') < order.indexOf('mushrooms'), 'mushrooms come after the rocks, so the mineral layout is untouched');

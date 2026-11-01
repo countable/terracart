@@ -42,16 +42,19 @@ test('floor torches: every up-ladder on level 1 has a torch lying beside it', ()
   assert.falsy(wps.some((w) => w.id === 'ctorch_stair_down_1_20_20'), 'the way DOWN gets none of its own');
 });
 
-test('floor torches: a few dozen strewn per tile, on free floor, as the Torch item', () => {
+test('floor torches: a density candidates, on free floor, as the Torch item', () => {
   const grid = floorGrid();
   for (let i = 0; i < N * N; i += 4) grid[i] = CAVE_WALL;
   const taken = new Set([5 * N + 5, 6 * N + 6]);
   const before = new Set(taken);
   const { wps, occ } = lay(1, [], grid, taken);
   const strewn = wps.filter((w) => !w.id.startsWith('ctorch_stair_'));
-  assert.inRange(strewn.length, WorldGen.FLOOR_TORCH_MIN - 2, WorldGen.FLOOR_TORCH_MIN + WorldGen.FLOOR_TORCH_SPAN,
-    `a few dozen: ${strewn.length}`);
-  assert.gt(WorldGen.FLOOR_TORCH_MIN, 20, 'a few DOZEN, not a handful');
+  const full = lay(1, []).wps;
+  assert.gt(full.length, 0, 'fixture has density candidates');
+  assert.eq(strewn.map(w => w.id).join(), full.filter(w => {
+    const c = cellOf(w), i = c.liy * N + c.lix;
+    return grid[i] === CAVE_FLOOR && !before.has(i);
+  }).map(w => w.id).join(), 'blocking cells removes candidates without quota refill');
   const ids = new Set();
   for (const w of wps) {
     assert.eq(w.kind, 'wildplant', 'a floor pickup, not a wall-torch object');
@@ -87,7 +90,7 @@ test('floor torches: rolled LAST, so no level already walked rearranges', () => 
   const src = WORLDGEN_SRC;
   const start = src.indexOf('async function loadCaveTile(');
   const body = src.slice(start, src.indexOf('\n  }\n', start));
-  assert.truthy(/for \(const row of CAVE_PASSES\) runCavePass\(row, level\);/.test(body), 'loadCaveTile lays the table (CAVE_PASSES) in order');
+  assert.truthy(/for \(const row of CAVE_PASSES\) yield\* runCavePassSteps\(row, level\);/.test(body), 'loadCaveTile lays the table (CAVE_PASSES) in order');
   assert.truthy(/const level = cavePassLevel\(grid, N, x, y, tileEdgeM, depth, ambientOccupied, \{ objects, wildplants, spawnWhy \}\);/.test(body),
     'into the level\'s wildplants');
   const order = WorldGen.CAVE_PASSES.map(r => r.id);

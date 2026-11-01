@@ -46,43 +46,53 @@
     return out;
   }
   function spawn(scene, house) {
-    if (!isActive(scene.save, house)) return false;
-    const row = KINDS[house.hive];
-    if (living(scene, house).length >= row.maxAlive) return false;
+    const row = KINDS[house?.hive];
+    if (!row) return false;
     const W = root.WorldGen, edge = scene.tileEdgeM || scene.cellsPerTile * scene.cellM;
     if (!(edge > 0)) return false;
-    const caught = new Set(scene.save.caught || []);
-    const player = playerWorldM(scene), clearance = CONFIG.spawnClearanceCells * scene.cellM;
-    // Cell centres, expanding in a fixed order: never materialize in the
-    // house, another creature, private land or an excluded road band.
-    const centre = worldMetersToAbsCell(scene, house.x, house.y);
-    for (let r = 1; r <= CONFIG.spawnRadiusCells; r++) {
-      for (let dy = -r; dy <= r; dy++) for (let dx = -r; dx <= r; dx++) {
-        if (Math.max(Math.abs(dx), Math.abs(dy)) !== r) continue;
-        const cell = absCellOffset(scene, centre.cellIX, centre.cellIY, dx, dy);
-        const { x, y } = absCellCenterMeters(scene, cell.cellIX, cell.cellIY);
-        const { tx, ty } = absCellToTile(scene, cell.cellIX, cell.cellIY);
-        const entry = W.tileCache.get(W.tileKey(tx, ty));
-        if (!entry?.creatures || entry.status !== 'ready' || (entry.depth || 0) !== (scene.depth || 0)
-            || !root.CreatureSpawns.gateAt(scene, x, y, row.enemy, W.spawnOptsOf(entry))
-            || scene._cellBlocked?.(x, y)
-            || Math.hypot(player.x - x, player.y - y) < clearance) continue;
-        let blocked = false;
-        W.forEachItemNear('creatures', tx, ty, c => {
-          if (!c._spent && !caught.has(c.id) && Math.hypot(c.x - x, c.y - y) < clearance) blocked = true;
-        });
-        if (blocked) continue;
+    const generated = W.runSteps(root.CreatureSpawns.generateOwnedSteps('mushroom-hive', house.id, {
+      when: () => isActive(scene.save, house), count: 1,
+      maxAlive: row.maxAlive, liveCount: () => living(scene, house).length,
+      member: () => ({ kind: row.enemy }),
+      seat() {
+        const caught = new Set(scene.save.caught || []);
+        const player = playerWorldM(scene), clearance = CONFIG.spawnClearanceCells * scene.cellM;
+        // The ordinary gate and live collision checks remain the seat policy.
+        // The common executor handles the source's activation and living cap.
+        const centre = worldMetersToAbsCell(scene, house.x, house.y);
+        for (let r = 1; r <= CONFIG.spawnRadiusCells; r++) {
+          for (let dy = -r; dy <= r; dy++) for (let dx = -r; dx <= r; dx++) {
+            if (Math.max(Math.abs(dx), Math.abs(dy)) !== r) continue;
+            const cell = absCellOffset(scene, centre.cellIX, centre.cellIY, dx, dy);
+            const { x, y } = absCellCenterMeters(scene, cell.cellIX, cell.cellIY);
+            const { tx, ty } = absCellToTile(scene, cell.cellIX, cell.cellIY);
+            const entry = W.tileCache.get(W.tileKey(tx, ty));
+            if (!entry?.creatures || entry.status !== 'ready' || (entry.depth || 0) !== (scene.depth || 0)
+                || !root.CreatureSpawns.gateAt(scene, x, y, row.enemy, W.spawnOptsOf(entry))
+                || scene._cellBlocked?.(x, y)
+                || Math.hypot(player.x - x, player.y - y) < clearance) continue;
+            let blocked = false;
+            W.forEachItemNear('creatures', tx, ty, c => {
+              if (!c._spent && !caught.has(c.id) && Math.hypot(c.x - x, c.y - y) < clearance) blocked = true;
+            });
+            if (!blocked) return { x, y, entry };
+          }
+        }
+        return null;
+      },
+      create(member, seat) {
         const state = record(scene.save, house);
         const serial = state.serial = (Number.isSafeInteger(state.serial) ? state.serial : 0) + 1;
-        const child = W.makeCreature(row.enemy, x, y, `${house.id}_hive_${serial}`, {
+        return W.makeCreature(member.kind, seat.x, seat.y, `${house.id}_hive_${serial}`, {
           depth: scene.depth || 0, _hiveId: house.id, _provoked: true, shiny: false,
         });
-        entry.creatures.push(child);
+      },
+      onPlaced(child, member, seat) {
+        seat.entry.creatures.push(child);
         persistSave(scene.save);
-        return child;
-      }
-    }
-    return false;
+      },
+    }));
+    return generated[0] || false;
   }
   function tick(scene, dt) {
     if (scene.depth || !scene.save || !scene.startWorldM || !scene.playerM

@@ -305,6 +305,19 @@
     const local = giant ? r / giantChance : (r - giantChance) / (1 - giantChance);
     return pick(pool.map(row => ({ row, weight: weights?.[row.id] ?? row.cave.weight })), local)?.id || null;
   }
+  const caveDensityRate = depth => Math.min(7.84, 2.94 + .49 * Math.max(0, depth - 1));
+  function caveDensityRows(depth, context) {
+    const eligible = caveRows(depth, context), habitat = root.WorldGen.floorProfile(depth).enemyHabitat;
+    const weights = root.EnemyHabitats.FAMILY_WEIGHTS[habitat];
+    const giants = eligible.filter(row => row.variantType === 'Giant');
+    const ordinary = eligible.filter(row => row.variantType !== 'Giant');
+    const giantShare = giants.length && ordinary.length ? .05 : giants.length ? 1 : 0;
+    return [[ordinary, 1 - giantShare], [giants, giantShare]].flatMap(([pool, share]) => {
+      const weight = row => Math.max(0, weights?.[row.id] ?? row.cave.weight);
+      const total = pool.reduce((sum, row) => sum + weight(row), 0);
+      return total ? pool.map(row => ({ kind: row.id, per1000: caveDensityRate(depth) * share * weight(row) / total })) : [];
+    });
+  }
   function surfaceId(tx, ty, cx, cy) { return root.WorldGen.cellId('enemy', tx, ty, cx, cy); }
   function caveId(depth, tx, ty, cx, cy) { return root.WorldGen.cellId(`enemy_cave_${depth}`, tx, ty, cx, cy); }
   // WORLD-SHARED IDS: is this creature the SAME creature, under the same id,
@@ -368,7 +381,7 @@
       && Math.hypot(o.x - x, o.y - y) <= clearM);
   }
   const caveContextAt = (entry, tx, ty, cx, cy, depth) => root.EnemyHabitats.caveAt(entry, tx, ty, cx, cy, depth);
-  const api = { CONCEALMENT, concealment, HOME_FAUNA_RADIUS_M, homeFaunaSubject, homeFaunaAllows, refreshHomeFauna, caveContextAt, SURFACE_NIGHT_DAYLIGHT, hash, roll, surfaceRows, surfaceActive, busyRoadAllows, isSurfaceResident, homeEligible, maxTierAt, homeAllows, caveRows, caveKind, surfaceId, caveId, SHARED_ID_RE, markShared, isSharedId, legacyCaveDefeats, ELITE_STAIR_CLEAR_CELLS, rollsElite };
+  const api = { CONCEALMENT, concealment, HOME_FAUNA_RADIUS_M, homeFaunaSubject, homeFaunaAllows, refreshHomeFauna, caveContextAt, SURFACE_NIGHT_DAYLIGHT, hash, roll, surfaceRows, surfaceActive, busyRoadAllows, isSurfaceResident, homeEligible, maxTierAt, homeAllows, caveRows, caveKind, caveDensityRate, caveDensityRows, surfaceId, caveId, SHARED_ID_RE, markShared, isSharedId, legacyCaveDefeats, ELITE_STAIR_CLEAR_CELLS, rollsElite };
   root.EnemySpawns = api;
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
 })(typeof window !== 'undefined' ? window : globalThis);

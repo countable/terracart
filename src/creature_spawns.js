@@ -69,18 +69,7 @@
   // Count ranges use one draw and include both endpoints. Fixed counts consume
   // no draw, which preserves every downstream seeded decision.
   function frequencyCount(spec, rng) {
-    const row = spec || {};
-    if (row.count != null) {
-      if (!Array.isArray(row.count)) return Math.max(0, Math.floor(Number(row.count) || 0));
-      const lo = Math.max(0, Math.floor(Number(row.count[0]) || 0));
-      const hi = Math.max(lo, Math.floor(Number(row.count[1]) || lo));
-      if (hi === lo || typeof rng !== 'function') return lo;
-      return lo + Math.min(hi - lo, Math.floor(Math.max(0, Math.min(.999999999999, rng())) * (hi - lo + 1)));
-    }
-    const roll = typeof rng === 'function' ? rng() : 0;
-    if (row.trioAt != null && roll >= row.trioAt) return 3;
-    if (row.pairAt != null && roll >= row.pairAt) return 2;
-    return 1;
+    return root.SpawnPipeline.frequencyCount(spec, rng);
   }
 
   function pickWeighted(items, position, weightFor) {
@@ -107,30 +96,104 @@
     return !!value && typeof value.next === 'function';
   }
 
-  // Placement handlers may themselves be sliced generators. Delegating with
-  // yield* preserves their budget checkpoints while this function returns the
-  // successfully created records as one finite encounter.
-  function* generateSteps(rule, context) {
-    const ctx = context || {}, placed = [];
-    const count = ctx.count == null ? frequencyCount(rule && rule.frequency, ctx.rng) : ctx.count;
-    for (let n = 0; n < count; n++) {
-      const memberResult = ctx.member ? ctx.member(n) : {};
-      const member = isGenerator(memberResult) ? yield* memberResult : memberResult;
-      if (!member) continue;
-      const seatResult = ctx.seat ? ctx.seat(member, n) : null;
-      const seat = isGenerator(seatResult) ? yield* seatResult : seatResult;
-      if (!seat) continue;
-      const createResult = ctx.create ? ctx.create(member, seat, n) : { ...member, ...seat };
-      const record = isGenerator(createResult) ? yield* createResult : createResult;
-      if (!record) continue;
-      const placedResult = ctx.onPlaced && ctx.onPlaced(record, member, seat, n);
-      if (isGenerator(placedResult)) yield* placedResult;
-      placed.push(record);
+  // Explicit requests already have an owner. These categories select the
+  // caller's lifecycle, never an ambient zone table. Only story progression
+  // is an Event; clocks, interactions and repeatable trials are not Events.
+  const OWNED_RULES = Object.freeze(Object.fromEntries([
+    // Citadel is an audit alias: Lairs always uses building-garrisons, one population.
+    ['feature', ['building-garrisons', 'citadel-guards', 'road-lairs', 'tar-guards',
+      'gate-guards', 'habitat-lairs', 'zone-formations', 'cave-finite',
+      'dragon-roost', 'bone-gallery', 'serpent', 'shore-fauna', 'path-fauna']],
+    ['trigger', ['mushroom-hive', 'honey-bees', 'nest', 'mimic', 'pot-snake',
+      'bone-cache', 'headstone', 'haunting', 'fishing-slime', 'crop-pests']],
+    ['contract', ['guild-bounty', 'debt-collector', 'temple-trials']],
+    ['storyEvent', ['story-witness', 'starter']],
+    // Object renewal remains a state operation; this inventory row is not an allocator.
+    ['identity', ['npcs', 'eggs', 'companions', 'pet-release', 'resource-lifecycle']],
+    ['modifier', ['summons', 'splits', 'party-scaling']],
+  ].flatMap(([category, ids]) => ids.map(id => [id, Object.freeze({ id, category,
+    ...(id === 'citadel-guards' ? { aliasOf: 'building-garrisons' } : {}),
+    ...(id === 'resource-lifecycle' ? { stateOnly: true } : {}),
+  })]))));
+
+  function ownedRule(source, ownerId) {
+    const rule = Object.hasOwn(OWNED_RULES, source) && OWNED_RULES[source];
+    if (!rule) throw new Error('Unknown owned spawn source: ' + source);
+    if (rule.stateOnly) throw new Error('Object renewal changes existing state, not creature population');
+    if ((typeof ownerId !== 'string' && !(typeof ownerId === 'number' && Number.isFinite(ownerId)))
+        || String(ownerId) === '') throw new Error('Owned spawn requires a stable owner identity');
+    return rule.aliasOf ? OWNED_RULES[rule.aliasOf] : rule;
+  }
+
+  // A controller supplies its existing count/condition, legal seat selector,
+  // factory and state writer. This common executor handles finite requests,
+  // population caps and duplicate prevention without consuming a failed seat.
+  // It deliberately does not own clocks or saved story/contract progression.
+  function* generateOwnedSteps(source, ownerId, context) {
+    const rule = ownedRule(source, ownerId), ctx = context || {};
+    if (ctx.when && !ctx.when()) return [];
+    let count = ctx.count == null ? frequencyCount(ctx.frequency || { count: 1 }, ctx.rng) : ctx.count;
+    if (ctx.maxAlive != null) {
+      const live = typeof ctx.liveCount === 'function' ? ctx.liveCount() : ctx.liveCount || 0;
+      count = Math.min(count, Math.max(0, ctx.maxAlive - live));
     }
-    return placed;
+    if (!(count > 0)) return [];
+    const exists = id => id != null && (typeof ctx.exists === 'function' ? ctx.exists(id) : ctx.existing?.has(id));
+    return yield* root.SpawnPipeline.generateSteps(rule, {
+      ...ctx, count,
+      *member(ordinal) {
+        const result = ctx.member ? ctx.member(ordinal) : {};
+        const member = isGenerator(result) ? yield* result : result;
+        return member && !exists(member.id) ? member : null;
+      },
+      create(member, seat, ordinal) {
+        if (exists(member.id) || ctx.gate && !ctx.gate(member, seat, ordinal)) return null;
+        const result = ctx.create ? ctx.create(member, seat, ordinal)
+          : root.WorldGen.makeCreature(member.kind, seat.x, seat.y, member.id, member.extra);
+        // The default factory is synchronous; a custom sliced factory keeps
+        // its yield boundaries and is stamped by the onPlaced adapter below.
+        return result;
+      },
+      *onPlaced(record, member, seat, ordinal) {
+        record._spawnSource = rule.id;
+        record._spawnOwner = String(ownerId);
+        record._spawnCategory = rule.category;
+        ctx.existing?.add(record.id);
+        const result = ctx.onPlaced?.(record, member, seat, ordinal);
+        if (isGenerator(result)) yield* result;
+      },
+    });
+  }
+
+  // Materialize one identity after the caller's placement policy has selected
+  // its seat. Restoration does not roll a rate or mint a replacement identity.
+  function createOwned(source, ownerId, kind, x, y, id, extra) {
+    const iterator = generateOwnedSteps(source, ownerId, {
+      count: 1, member: () => ({ kind, id, extra }), seat: () => ({ x, y }),
+    });
+    let result;
+    do { result = iterator.next(); } while (!result.done);
+    return result.value[0] || null;
+  }
+
+  // Arena opponents have a different record shape and coordinate system but
+  // share owned execution. Their controller supplies arena legality, never
+  // the surface world gate or an ambient table.
+  function createRecord(source, ownerId, record) {
+    const iterator = generateOwnedSteps(source, ownerId, {
+      count: 1, member: () => record, seat: () => record, create: () => record,
+    });
+    let result;
+    do { result = iterator.next(); } while (!result.done);
+    return result.value[0] || null;
+  }
+
+  // Creature and interactable producers execute through the same scheduler.
+  function* generateSteps(rule, context) {
+    return yield* root.SpawnPipeline.generateSteps(rule, context);
   }
 
   root.CreatureSpawns = {
-    isSpawnCell, gateAt, gateAtEntry, frequencyCount, pickWeighted, expandMembers, generateSteps,
+    isSpawnCell, gateAt, gateAtEntry, frequencyCount, pickWeighted, expandMembers, generateSteps, OWNED_RULES, generateOwnedSteps, createOwned, createRecord,
   };
 })(globalThis);

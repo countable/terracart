@@ -98,11 +98,15 @@
     });
     return n;
   }
-  // Public rules for the Nexus encounter lane. The existing family rows and
-  // per-block frequency profiles remain their single tuning owners.
-  const NEXUS_RULES = Object.fromEntries(Object.entries(SURFACE_FAMILIES).map(([id, kinds]) => [id, {
+  // Historical block rules are used only for old-save alias replay.
+  // Live Nexus rules below read the shared explicit density table.
+  const LEGACY_NEXUS_RULES = Object.fromEntries(Object.entries(SURFACE_FAMILIES).map(([id, kinds]) => [id, {
     id, category: 'nexus', allowed: { kinds },
     frequency: SURFACE_ENCOUNTER_PROFILES[id] || SURFACE_ENCOUNTERS,
+  }]));
+  const NEXUS_RULES = Object.fromEntries(Object.entries(SURFACE_FAMILIES).map(([id, kinds]) => [id, {
+    id, category: 'nexus', allowed: { kinds },
+    get rows() { return root.HabitatSpawns.densityRows('Nexus:' + id).filter(row => row.category === 'enemy'); },
   }]));
   // Avalanche FNV (util.js avalanche32 over fnv1a): nearby spatial keys
   // must not form long same-theme runs.
@@ -115,7 +119,9 @@
     const x = tx * entry.tileEdgeM + (cx + .5) * cellM;
     const y = ty * entry.tileEdgeM + (cy + .5) * cellM;
     occupied.add(cy * N + cx);
-    return root.WorldGen.makeCreature(kind, x, y, id, typeof extra === 'function' ? extra(x, y) : extra);
+    const data = typeof extra === 'function' ? extra(x, y) : extra;
+    const source = id.startsWith('dragon_roost_') ? 'dragon-roost' : 'zone-formations';
+    return root.CreatureSpawns.createOwned(source, data?._habitatRegion || id, kind, x, y, id, data);
   }
   function caveAt(entry, tx, ty, cx, cy, depth) {
     const N = entry.cellsPerEdge, gx = tx * EXT + (cx + .5) * EXT / N, gy = ty * EXT + (cy + .5) * EXT / N;
@@ -173,13 +179,58 @@
     }
     return null;
   }
+  function* surfaceEncountersSteps(entry, tx, ty, occupied = new Set()) {
+    return yield* root.HabitatSpawns.populationSteps({ tileEdgeM: entry.tileEdgeM, save: {} }, entry, tx, ty,
+      { ownerType: 'zone', category: 'enemy', skipLegacy: true,
+        spawnOpts: { ...root.WorldGen.spawnOptsOf(entry), occupied } });
+  }
+  // Density rows opt into the existing party policy as stable singleton
+  // encounters. Extras remain bounded by their original owner and geography.
+  function registerDensityEncounter(entry, creature, occupied, owners) {
+    const WG = root.WorldGen, N = entry.cellsPerEdge, at = creature._surfaceSpawn;
+    const id = creature.id.slice(0, -2), ownerKey = creature._spawnOwner;
+    const records = groupsOf(entry);
+    if (records.some(group => group.id === id)) return;
+    records.push({ id, count: 1, baseKind: creature.kind, players: 1, extras: 0, elite: false, seated: new Set(),
+      extra(n) {
+        const kind = creature.kind;
+        const origin = at.cy * N + at.cx;
+        const candidates = [];
+        for (let radius = 1; radius <= 6; radius++) {
+          for (let cy = Math.max(0, at.cy - radius); cy <= Math.min(N - 1, at.cy + radius); cy++) {
+            for (let cx = Math.max(0, at.cx - radius); cx <= Math.min(N - 1, at.cx + radius); cx++) {
+              if (Math.max(Math.abs(cx - at.cx), Math.abs(cy - at.cy)) !== radius) continue;
+              const index = cy * N + cx;
+              if (index === origin || owners[index]?.key !== ownerKey || occupied.has(index) || this.seated.has(index)) continue;
+              if (root.HabitatSpawns.resolve(entry, index).key !== creature._habitatSpawn.key) continue;
+              if (root.CreatureSpawns.isSpawnCell(entry.baseGrid || entry.grid, N, N, cx, cy,
+                  { ...entry._spawnOpts, gameplayTiers: entry.gameplayTiers, spawnWhy: entry.spawnWhy,
+                    occupied, waterOnly: !!root.EnemyRoster.get(creature.kind)?.movement?.waterOnly }, kind)) candidates.push({ cx, cy, index });
+            }
+          }
+          if (candidates.length) break;
+        }
+        if (!candidates.length) return null;
+        const seat = candidates[Math.floor(unit(`${id}:${n}:seat`) * candidates.length)];
+        this.seated.add(seat.index);
+        const cellM = entry.tileEdgeM / N, x = at.tx * entry.tileEdgeM + (seat.cx + .5) * cellM;
+        const y = at.ty * entry.tileEdgeM + (seat.cy + .5) * cellM, childId = `${id}_${n}`;
+        return root.CreatureSpawns.createOwned('party-scaling', id, creature.kind, x, y, childId, {
+          zoneVariant: creature.zoneVariant, shiny: false,
+          ...(emergesFromGround(creature.kind, creature.zoneVariant) ? { emergeFromGround: true, _burrowed: true } : {}),
+          ...root.EnemySpawns.concealment(creature.kind, childId, creature.zoneVariant),
+          _surfaceSpawn: { tx: at.tx, ty: at.ty, cx: seat.cx, cy: seat.cy, x, y },
+        });
+      },
+    });
+  }
   function surfaceEncounters(entry, tx, ty, occupied) {
     return root.WorldGen.runSteps(surfaceEncountersSteps(entry, tx, ty, occupied));
   }
   // Keep a whole encounter group together, but let the tile builder yield
   // between blocks. Failed placement attempts are work too, including on
   // tiles whose coverage never offers a seat.
-  function* surfaceEncountersSteps(entry, tx, ty, occupied) {
+  function* legacySurfaceEncountersSteps(entry, tx, ty, occupied) {
     if (!entry.zone?.coverage) return [];
     const themes = [...new Set((entry.zone.anchors || []).map(a => a.variant))]
       .filter(theme => SURFACE_ENCOUNTER_PROFILES[theme]);
@@ -228,7 +279,7 @@
       if (!coverage.length) continue;
       const owner = coverage[Math.floor(unit(id + ':owner') * coverage.length)];
       const { slot, zoneVariant } = owner;
-      const rule = NEXUS_RULES[zoneVariant];
+      const rule = LEGACY_NEXUS_RULES[zoneVariant];
       const kinds = rule.allowed.kinds.filter(kind => {
         const row = root.EnemyRoster.get(kind);
         return row?.surface && !row.retired && row.tier <= 3;
@@ -478,7 +529,7 @@
     return out;
   }
   root.EnemyHabitats = { FAMILIES, FAMILY_WEIGHTS, THEME_BANDS, BUILDING_FAMILIES, CASTLE_FAMILIES, SURFACE_FAMILIES, SURFACE_ENCOUNTERS, SURFACE_ENCOUNTER_PROFILES, NEXUS_RULES, HABITAT_TIER,
-    unit, caveAt, surfaceAt, shoreWater, surfaceSeat, surfaceEncounters, surfaceEncountersSteps, variantAt,
+    unit, caveAt, surfaceAt, shoreWater, surfaceSeat, surfaceEncounters, surfaceEncountersSteps, legacySurfaceEncountersSteps, registerDensityEncounter, variantAt,
     PARTY_GROWTH, PARTY_ELITE_CHANCE, partySize, singleDraws, scaleEncounters, groupsOf, emergesFromGround, buildingKinds, habitatLairs, caveSites,
     PROVOKED_ONLY, provokedOnly, unprovoked, zoneAnchorAt, provokeZone };
   if (typeof module !== 'undefined' && module.exports) module.exports = root.EnemyHabitats;

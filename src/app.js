@@ -9753,7 +9753,7 @@ class MapScene extends Phaser.Scene {
       // carries this player's edits (spawnInTile's genGrid note).
       const genGrid = entry.baseGrid || entry.grid;
       const laid = Traps.spawnSurface(genGrid, entry.roadClass, N, N, tx, ty,
-        this.tileEdgeM, entry._ambientSpawnOpts || entry._spawnOpts, mul, entry.zone && entry.zone.under);
+        this.tileEdgeM, entry._ambientSpawnOpts || entry._spawnOpts, mul, entry.zone && entry.zone.under, entry);
       // Keep authored zone/street traps and already-discovered traps, one per cell.
       const cells = new Set(laid.map((t) => t._iy * N + t._ix));
       for (const t of (entry.traps || [])) {
@@ -11837,7 +11837,7 @@ class MapScene extends Phaser.Scene {
     this._eggHatchTracker = null;
     if (result.creature) {
       const entry = WorldGen.tileCache.get(WorldGen.tileKey(cell.tx, cell.ty));
-      entry?.creatures?.push(WorldGen.makeCreature(result.creature.kind, at.x, at.y, result.creature.id, result.creature));
+      entry?.creatures?.push(CreatureSpawns.createOwned('eggs', result.creature.id, result.creature.kind, at.x, at.y, result.creature.id, result.creature));
     }
     this.save.selSlot = this.save.inv.findIndex(item => item.id === selectedId);
     this._clampSelSlot();

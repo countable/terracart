@@ -151,16 +151,26 @@ class SceneVenues {
       || WorldGen.privateVetoAt(tx, ty, k % N, Math.floor(k / N)) } };
     const foes = [];
     entry.creatures = entry.creatures || [];
-    b.kinds.forEach((kind, i) => {
-      const seat = i === 0 ? { ix: dest.ix, iy: dest.iy }
-        : WorldGen.relocateToSpawnCell(entry.grid, N, N, dest.ix, dest.iy, opts, 2, creatureSpawnClass(kind));
-      if (!seat) return;
-      used.add(seat.iy * N + seat.ix);
-      const id = `guildfoe_${tx}_${ty}_${seat.ix}_${seat.iy}`;
-      const x = tx * edge + (seat.ix + 0.5) * cm, y = ty * edge + (seat.iy + 0.5) * cm;
-      entry.creatures.push(WorldGen.makeCreature(kind, x, y, id, { shiny: false, bounty: b.id }));
-      foes.push({ id, tx, ty, kind, x, y });
-    });
+    WorldGen.runSteps(CreatureSpawns.generateOwnedSteps('guild-bounty', b.id, {
+      count: b.kinds.length,
+      member: i => ({ kind: b.kinds[i] }),
+      seat(member, i) {
+        const kind = member.kind, cls = creatureSpawnClass(kind);
+        const seat = i === 0 ? { ix: dest.ix, iy: dest.iy }
+          : WorldGen.relocateToSpawnCell(entry.grid, N, N, dest.ix, dest.iy, opts, 2, cls);
+        if (!seat) return null;
+        used.add(seat.iy * N + seat.ix);
+        return { ...seat, x: tx * edge + (seat.ix + 0.5) * cm, y: ty * edge + (seat.iy + 0.5) * cm };
+      },
+      create(member, seat) {
+        const id = `guildfoe_${tx}_${ty}_${seat.ix}_${seat.iy}`;
+        return WorldGen.makeCreature(member.kind, seat.x, seat.y, id, { shiny: false, bounty: b.id });
+      },
+      onPlaced(foe) {
+        entry.creatures.push(foe);
+        foes.push({ id: foe.id, tx, ty, kind: foe.kind, x: foe.x, y: foe.y });
+      },
+    }));
     if (!foes.length) return 0;
     this._guildBounty = { id: b.id, pay: b.pay, foes };
     Macros.markToday(this.save, GUILD_BOUNTY_LEDGER, now);   // today's, in the one day ledger
@@ -229,7 +239,7 @@ class SceneVenues {
       const entry = WorldGen.tileCache.get(WorldGen.tileKey(f.tx, f.ty));
       if (!entry || !entry._spawned || !entry.creatures) continue;
       if (entry.creatures.some((k) => k.id === f.id)) continue;
-      entry.creatures.push(WorldGen.makeCreature(f.kind, f.x, f.y, f.id, { shiny: false, bounty: gb.id }));
+      entry.creatures.push(CreatureSpawns.createOwned('guild-bounty', gb.id, f.kind, f.x, f.y, f.id, { shiny: false, bounty: gb.id }));
     }
   }
 
@@ -348,7 +358,7 @@ class SceneVenues {
     if (!dest) return;
     const { entry, tx, ty } = dest;
     const id = `debtor_${tx}_${ty}_${dest.ix}_${dest.iy}`;
-    const c = WorldGen.makeCreature(Macros.BANK_COLLECTOR_KIND, dest.x, dest.y, id,
+    const c = CreatureSpawns.createOwned('debt-collector', 'bankdebt:' + loan.due, Macros.BANK_COLLECTOR_KIND, dest.x, dest.y, id,
       { shiny: false, debtCollector: true, _pirateParleyPending: true });
     entry.creatures = entry.creatures || [];
     entry.creatures.push(c);

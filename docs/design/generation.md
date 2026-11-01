@@ -16,59 +16,64 @@ access or tile lifecycle mechanics.
 
 ## Habitat populations
 
-- Ambient animal budgets share `HabitatSpawns.FAUNA_DENSITY`: ordinary landcover,
-  road roamers, and ordinary shoreline fauna use 70% of their base counts,
-  rounded to whole animals. Nexus populations, enemies, authored formations, starter guarantees,
-  saved animals and pets keep their existing counts.
-- `src/habitat_spawns.js` owns fauna mixtures, landcover/variant resolution and
-  population budgets. Nexus coverage wins, then a declared Road Variant,
-  then ordinary landcover. `streetAreaVariants` records the winning variant
-  across its entire corridor, including furniture gaps. Plain roads/paths
-  have no profile. Residential, Grass and the Nexus variants collectively
-  provide core inhabitants; uncommon landcovers supply travel variety.
-- Ordinary surface fauna and enemy requests use separate tile budgets,
-  apportioned by raw habitat coverage. Safety restrictions never enter the
-  count calculation. Compute legal species seats through `isSpawnCell` and
-  exhaust that pool within the same habitat. Forbidden ground is missing map
-  area, not a roll that thins the population. A species with no sufficient
-  legal space reports a placement shortfall without switching habitat/species.
-- Synthetic floor previews set `scene.habitatTileAreaScale` to their tile area
-  divided by a real map tile's area at the preview latitude. This scales only
-  ordinary fauna, enemy and mode-reserve budgets before placement. Live scenes
-  default to 1; Nexus, road, shoreline and authored encounter budgets keep
-  their own rules.
-- Mode differences in landcover enemy count are a reserve, not a reroll: the
-  world seats the largest `Difficulty` `landEnemyCountMul` share
-  (`enemy_habitat_…_r<n>` ids) after the base population, and each mode shows
-  its share through `HabitatSpawns.reserveVisible` (hard 1.5×, easy none).
-- All generated creatures reserve their seats before captures, defeats, Home,
-  daylight, amnesty and mode overlays. Stable habitat slots choose species;
-  legal-seat changes cannot change their identities or species. Fauna may share
-  static interactable cells, but generated inhabitants do not share each
-  other's seats. Habitat and shoreline fauna prefer three-cell Chebyshev
-  separation across species, including already placed inhabitants. Seeded seat
-  order stays deterministic; if no fully spaced legal seat exists, use the best
-  remaining clearance so tight habitat does not silently lose its population.
-  `entry.habitatPopulation` separates requested, placed and
-  shortfall counts; matching authored Nexus fauna satisfies matching slots.
-- Crows are the open country's corvid: Grass landcover, Grove Nexus and
-  declared Road Variant populations; Ravens are the houses' (Residential).
-  Underground floors do not generate ambient rabbits.
-  L7 ambient encounters use the dragon floor habitat: four parts red dragon
-  to one red demon, within the existing deterministic population budget.
-  Deeper roost habitats retain one fixed dragon seat per region.
-  Rabbits have ordinary surface populations. Cat exclusion from Wasteland, Deer restriction
-  to Forest/Residential, and Butterfly exclusion from Forest/Orchard remain
-  species placement limits.
-- Shore length is a specialized ambient budget outside Nexus coverage. Every
-  Nexus keeps its own declared inhabitants and excludes generic shoreline
-  top-ups, including after captures. Safety only removes destinations;
-  `entry.shorePopulation` records placement shortfalls.
-- Beach encounter tables retain their declared species mix, but Excluded water
-  cannot receive creatures, coral scenery or reef treasure, even with shore reach
-  or a water-only placement profile. Dry-shore inhabitants, ore and the reef
-  shrine still use the shared tier gate. A refused aquatic candidate leaves a
-  shortfall rather than moving onto land or borrowing another species slot.
+- `SpawnPipeline.ownerAt` resolves the most-specific existing owner: Nexus or
+  road coverage removes cells from basic terrain. Empty or incomplete owner
+  tables mean no ambient inhabitants, never fallback to the underlying terrain.
+  Existing Home/protected coverage and deterministic overlap decisions remain
+  authoritative. A corridor owns its full area, including empty furniture gaps.
+- `HabitatSpawns.DENSITY_ROWS` declares independent fauna/enemy probabilities per
+  1,000 eligible owned cells. `SHORE_ENEMY_ROWS` adds the explicit Sand beach
+  crab/Jellyfish rows. Species are table rows, not a draw from a global tile
+  allowance. `SpawnPipeline.roll` hashes owner, category, species and cell; adding
+  area elsewhere cannot increase another owner's population. A preview uses its
+  actual cells; `habitatTileAreaScale` no longer changes ambient populations.
+- Apply geographic/class gates, physical terrain and species exclusions before
+  the rate roll. Farm/Orchard source interiors remain excluded; only the existing
+  outer two-cell rim can be eligible. A refused candidate is not relocated or
+  replenished elsewhere. The water-only ban remains: Jellyfish rows cannot seat
+  until water eligibility is explicitly changed by a separate policy decision.
+- Fauna may share static interactables; enemies respect their occupancy. All
+  generated creatures reserve seats before capture, defeat, Home, daylight and
+  mode filtering. Three-cell Chebyshev fauna spacing rejects crowded density
+  candidates without refilling them. Authored inhabitants reserve their own
+  cells and remain separate feature requests, not credits against a quota.
+  `entry.habitatPopulation` reports requested candidates, placements and spatial
+  shortfalls. Zero eligible area produces zero requests, not a deferred allowance.
+- Hard-mode reserve candidates use the same species rates multiplied by the
+  maximum additional `landEnemyCountMul` share, placed after base candidates.
+  `HabitatSpawns.reserveVisible` shows each mode's share; reserve visibility
+  never rerolls base identities. Counts are expected density, not an exact 1.5×
+  ratio in each individual tile. Nexus density singles opt into existing party
+  scaling, which creates owned extras without changing their base rates.
+- Conditional fauna selection (including nest discoveries) reads those same
+  declared species rates. Legacy profile mixtures and tile-budget constants
+  remain only for old-save alias replay. Crows retain Grass/Grove/declared-road
+  placement; Ravens remain Residential. Cat, Deer and Butterfly physical terrain
+  restrictions remain. Underground floors do not generate ambient rabbits.
+- Shore fauna retain the declared shoreline-length rows, caps and 70% count
+  scaling. They are explicit length requests through shared creation, outside
+  both Nexus and road ownership; captures never invite a top-up. Their specialized
+  seat search can report a shortfall (`entry.shorePopulation`).
+- Path fauna use fixed/length rows owned by canonical path sections; Park Path
+  chooses one butterfly type and 1–3 slots per section. Current map section keys
+  include tile-boundary cuts: this does not claim to stitch an entire OSM path
+  across tiles. Variety's three snakes are likewise section-owned requests,
+  separate from ambient density, and remain inside the winning corridor.
+- New ambient identities include owner, species and cell. Saved filtering never
+  frees a seat. The old quota and Nexus-block generators run only when translating
+  older saved IDs, not to add live populations. Migration matches species, owner
+  and reserve type, assigns distinct new bodies before reusing them if the older
+  population was larger, and retains all historical aliases on their target.
+  The former species-first RNG stream is replayed to preserve unrelated legacy
+  draws; its counts are compatibility inputs, not live tuning.
+- Cave ambient rows use `EnemySpawns.caveDensityRows`: total candidate rate
+  `min(7.84, 2.94 + 0.49 × (depth − 1))` per 1,000 eligible floor cells, split
+  by declared habitat/floor weights with the existing 5% giant share. Depth,
+  even-floor and lava gates still apply. Entrance packs and twelve-cell roamer
+  budgets are retired except for saved-ID translation. Finite cave encounters,
+  reserved floor layouts and dragon roosts remain separate; L7 keeps its four-to-one
+  red-dragon/red-demon mixture. `entry.cavePopulation` reports requested, placed
+  and spatial shortfall; ordinary scatter is no longer centred on stairs.
 - Mystic Reef's rounded stone-and-shell clusters replace their flowers with
   one-cell tidepools. The ordinary finite find becomes another guarded pool.
   `ZoneDressing` carves only eligible dry cells, retains a dry perimeter and
@@ -83,13 +88,8 @@ access or tile lifecycle mechanics.
   extent), including ragged edges and park-derived beach companions. Larger
   mapped beaches remain ordinary sand outside that cap, with normal beach
   spawning. Other Nexus kinds retain their existing coverage rules.
-- The former species-first draw stream is replayed only to preserve unrelated
-  tile treasure RNG and map old cell-based enemy defeats to new stable habitat
-  identities. Historical fauna counts are compatibility inputs, not current
-  population tuning. New captures keep the existing species/tile/ordinal ID
-  scheme; saved filtering never releases a generated seat to another creature.
-- Nexus roamers, finite guards, optional Wetland/Rock sites and authored building
-  encounters retain their explicit budgets. Mobile guards exhaust legal seats
+- Finite guards, optional Wetland/Rock sites and authored building
+  encounters retain explicit feature requests. Mobile guards exhaust legal seats
   within their feature before reporting a shortfall. Rooted pattern inhabitants
   and core/roof formations retain their exact authored layout seats.
   Ordinary ruin guards use the street-facing doorway selected by
@@ -114,12 +114,6 @@ access or tile lifecycle mechanics.
   In the local gusty hours (`Whirlwinds.CONFIG.gust`) one likelier roll raises
   a spaced group of several.
 
-- Cave ambient enemies use stable request IDs: packs end in `pack_<ordinal>`
-  and roamers in `roam_<blockX>_<blockY>`, after the depth/tile prefix. Their
-  identities and species remain fixed when safety relocates their seats. A
-  raw-floor compatibility pass assigns historical cell aliases before safety;
-  each alias belongs to one request, so old defeats neither resurrect relocated
-  foes nor suppress multiple enemies.
 - Rendering and simulation use `EnemySpawns.isSurfaceResident`, including
   habitat-only residents without ordinary roster metadata. Evening suppression
   is reevaluated after dusk and dawn, including specialized Metal Slimes.
@@ -128,6 +122,43 @@ access or tile lifecycle mechanics.
   resident each step. Home, tile and discarded-mask changes invalidate the
   cache. Active creatures recheck policy during simulation; distant creatures
   use the surface recheck clock instead of a full-world eligibility scan.
+
+## Explicit owned populations
+
+`SpawnPipeline` executes both ambient and explicit requests. Ambient rates alone
+resolve the most-specific zone. A feature, interaction, timer, contract, story
+Event or saved identity arrives with its owner already chosen; it never retries
+an ambient or parent table. `CreatureSpawns.OWNED_RULES` declares the source and
+category, and `generateOwnedSteps` shares activation, finite count/live cap,
+duplicate checks, placement, creation and successful completion. Existing seat
+selectors retain their geographical, occupancy, formation and arena rules.
+Failed seats do not add identities to the request's supplied live set or invoke
+its completion writer. Sliced selectors/factories keep their yield boundaries.
+
+Building guards, citadel guards, road posts, daily gates and habitat sites use
+`Lairs.FOCUS_RULES` and the same garrison lifecycle. A citadel does not allocate a
+second population. Triggered hive births, reveals, fishing, nest discoveries
+and haunting retain their own activation/count sources and clocks; the shared
+executor never advances time or decides when a failed activation is consumed.
+`CreatureSpawnTriggers` names ordinary trigger rules; these are not story Events.
+
+**Events** are unique story progression owned by `StoryEncounters` or `Starter`.
+Their saved prerequisites, dialogue, stages and completion remain in those
+controllers. Repeatable contracts and temple trials keep separate controllers,
+calling owned execution for their inhabitants. Trial opponents use an arena
+record adapter rather than the surface grid or ordinary creature record shape.
+Summons, splits and party scaling retain their existing child slots, conserved
+HP/rewards and opt-in count modifiers; they share creation rather than density.
+
+`createOwned` materializes an explicitly selected identity through the same
+executor and records its source/owner. Its callers retain their existing caught,
+contract and saved-animal checks; it does not itself scan world populations for
+duplicates. For batch requests, `generateOwnedSteps` accepts an existing-ID set
+or lookup and rejects duplicates before seat selection, updating the set only
+on success. Saved pets, residents and hatchlings keep their IDs, health and
+ownership; restoration never creates a new ambient allowance. Object growth,
+restock and player placement remain identity-bound state operations, not another
+spawn-rate roll.
 
 ## Authored preview sandboxes
 
@@ -475,40 +506,48 @@ access or tile lifecycle mechanics.
   their physical cover. Normal chest opening persists, but cache loot, tier,
   art and one-time behavior remain independent from ordinary chest quotas,
   restocking and mimics. Legacy `revealOnCell` records retain their discovery rule.
-- X-mark density: every ambient X stream (tile scatter, low-tier quota,
-  footpath, inland-sand and front-yard bonuses, shoreline, cave floors) scales its count
-  by `loot.js X_MARK_FREQUENCY`; authored marks (parking, hoards) stay one
-  per site. Shoreline marks use an additional 0.7 density multiplier and
-  seeded farthest-first placement, at least three cells apart from each other
-  and earlier X marks on the tile. Their positions repeat for every player
-  and reload; crowded beaches may place fewer when no spaced legal seat remains.
-- Residential front yards have their own X stream, because the reveal radius
-  is one cell and the flat scatter puts half its yard marks two or three cells
-  off the street. A RESIDENTIAL cell touching a road, its band or a footpath
-  is a front yard; a tile lays one mark per `YARD_X_PER_CELLS` of them
-  × `X_MARK_FREQUENCY`, at most `YARD_X_MAX`, through the same minor spawn
-  gate and the shoreline's farthest-first spacing, on a salted stream of its
-  own (`scene_creatures.js`).
+- Ordinary surface rewards and snares use `WorldGen.SURFACE_INTERACTABLE_ROWS`.
+  `SpawnPipeline.ownerAt` selects only the winning owner; the declared basic
+  terrain rows never fill a road or Nexus footprint. Those owners keep their
+  authored finds and hazards. `SpawnPipeline.roll` keys each row independently
+  by owner and canonical tile/cell, then the shared executor commits accepted
+  placements. Blocked candidates disappear without replacement or parent fallback.
+- Buried-find rows use `loot.js X_MARK_FREQUENCY`: ordinary scatter, footpath
+  neighbours, inland sand and residential frontage have independent cell rates.
+  Frontage is a residential cell touching a road, band or footpath; no tile
+  minimum, maximum, POI deficit or extra singleton supplies another allowance.
+  Shoreline finds retain an explicit length selector over eligible basic-Sand
+  waterline cells, the 0.7 density multiplier and farthest-first spacing.
+  Authored parking and hoard marks remain one per feature. All candidates are
+  prepared before player overlays and keep positional found-ledger identities.
+- Surface traps read the same owner table and hazard gate, with path-side or
+  park-edge selectors. Mode and tile danger multiply the row probability;
+  they no longer select a count from a fixed tile budget or reservoir. Raising
+  the rate preserves lower-rate candidates. Sprung/disarmed IDs remain stable.
+- Cave coins, buried finds, loose floor torches, ambient barrels and traps use
+  per-cell density rows in `CAVE_PASSES`/`runCavePassSteps`, with the shared spawn
+  executor. Cave loading yields every 256 scanned density cells; synchronous
+  compatibility wrappers produce identical records. Their existing nominal means are normalized to 240×240 cells,
+  except coins which retain the old pivot mean as a cell rate. No runtime
+  4–8-coin allowance remains; only generated seeded coins materialize, and
+  collection persists through `foundTreasures`. Reserved authored areas and
+  occupied/excluded floor cannot donate their missing population elsewhere.
+  Stair landing torches, drill guarantees, rock/mushroom clusters, wall lights,
+  fairy rings and authored stores retain explicit feature/layout selectors;
+  these use the same commit executor without flattening their geometry.
 - A GREAT X (`loot.js GREAT_X`): `GREAT_X.share` (a tenth) of every X mark,
   whatever stream laid it, chosen by `isGreatX` off the mark's id. Drawn thick
   and dark red, it digs the `treasure:great` pool (gold, a tool or weapon, or
   other equipment) through the same handler, hiding and found-ledger.
-- Sparse-tile seeding: below 250 POIs per 2.8224 km² of spawnable land,
-  `topUpAmbientCratesSteps` fills to 200 per that area (240 × 240 seven-metre
-  cells, a typical mid-latitude tile). Both numbers scale with the count of
-  cells accepted by the reward spawn gate, so compact review tiles get
-  proportionally fewer crates. Use canonical cell area, not the player’s
-  latitude-dependent metre frame. Water, road surfaces and other
-  excluded ground contribute no area; occupancy blocks placement without
-  shrinking the target. The census includes surface POIs of every tier and
-  type, plus generated filler; fixed starter loot and cave mirrors are excluded.
-  The additions are one-time T1 crates, scattered by stable cell hashes across
-  free spawnable cells. Their loot follows underlying landcover: grass, forest,
-  parks and wetlands use park loot; farmland and orchards use farm loot;
-  commercial ground uses commerce, school grounds use school, and other ground
-  uses roadside. The pre-fill shortfall (`entry.lowTierDeficit`) also lays extra
-  X marks in proportion (`X_TOP_UP_MAX`), drawn off the cell hash. Mine mouths
-  ignore ambient crates and drop any they land on.
+- Ordinary T1 crates use a basic-terrain probability of 200 / (240×240)
+  eligible cells, preserving the old nominal full-area density without a
+  POI census, threshold, deficit or target refill. Occupied candidates do not
+  move. `entry.rewardPopulation` reports eligible cells, expected count and
+  actual additions. The legacy `chestTopUp` flag remains only a loot-tier
+  exemption; it no longer implies a quota mechanism. Positional
+  `crate_ambient` IDs, one-time opening and landcover loot themes remain.
+  Variant T1/T2 top-ups are retired; empty authored rows stay empty. Loot tier
+  assignment over existing POI chests remains separate from spawning.
 - Treasure trails (`HomeArea.chestTrailCandidates`, up to `CHEST_TRAIL_LIMIT`)
   lead to the nearest unopened T2+ surface chests and unfound, uncovered X
   marks within `CHEST_TRAIL_RADIUS_CELLS` of the player, anywhere on the

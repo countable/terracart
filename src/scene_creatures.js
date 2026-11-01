@@ -11,7 +11,7 @@
 //     the wild crow's own tick (_wildCrowTick) and its retreat (_crowDepart);
 //   · CATCHING: startCatchProgress (the catch wheel the target flees) and
 //     catchCreature (what a catch banks).
-// Plus the constants only they read: FIRE_WARD_MAX_DEPTH, BEACH_X_PER_CELLS.
+// Plus the constants only they read: FIRE_WARD_MAX_DEPTH.
 //
 // The methods live on `class SceneCreatures`, a MIXIN: app.js installs them onto MapScene.prototype right after the class
 // closes (installSceneMixin, from modal_shell.js), so every caller still says
@@ -46,34 +46,8 @@
 // off; only Home's stronger ward (HOME_R, surface only) turns those around.
 const FIRE_WARD_MAX_DEPTH = 1;
 
-// ── Buried X marks: how thick they lie on SAND ────────────────────────────
-// A tile's X marks are a flat scatter of 6-15 over every walkable cell plus a
-// bonus stream beside footpaths — over a 2.4 km tile that is nothing at all
-// along a shoreline, and a beach is the one ground people actually dig. So
-// sand gets its own bonus stream, capped at one mark per BEACH_X_PER_CELLS
-// cells of it so a golf bunker or a sandpit can't draw the whole roll while a
-// real beach can. That cap now reads INLAND sand only: SHORE sand (by the
-// water, src/scenic.js) lays one mark per Scenic.BEACH_X_SHORE_M of
-// shoreline, up to Scenic.BEACH_X_MAX, on its own stream. Read by spawnInTile's beach block; pinned by
-// test/node/beach_treasure.test.js.
-const BEACH_X_PER_CELLS = 20;
-// THE LOW-TIER QUOTA'S X MARKS: a tile short of WorldGen.LOW_TIER_CHEST_QUOTA
-// tier-1 chests (entry.lowTierDeficit, topUpAmbientCratesSteps) also lays
-// extra X marks — X_TOP_UP_MAX (× X_MARK_FREQUENCY) on a tile with none, in proportion to its
-// shortfall. Cells are drawn off WorldGen.cellHash (never the tile's rng
-// stream, so no later draw moves), up to X_TOP_UP_TRIES per mark.
-const X_TOP_UP_MAX = 24;
-const X_TOP_UP_TRIES = 8;
-// ── Residential front-yard X marks ────────────────────────────────────────
-// A mark is hidden until the feet stand beside it, and half the yard cells
-// the flat scatter can draw lie two or three cells off the street, so a
-// player walking a residential street never met one. Front yards get their
-// own stream: a RESIDENTIAL cell touching a road, its band or a footpath
-// (4-neighbour), one mark per YARD_X_PER_CELLS of them × X_MARK_FREQUENCY,
-// at most YARD_X_MAX, spread out (Scenic.beachXCells) on a salted stream of
-// its own. Pinned by test/node/beach_treasure.test.js.
-const YARD_X_PER_CELLS = 400;
-const YARD_X_MAX = 20;
+// Ordinary buried finds use WorldGen.SURFACE_INTERACTABLE_ROWS. Shoreline
+// length remains an explicit placement selector; authored finds keep their owners.
 // How far (cells, Chebyshev) from a street lair's point OPEN ground may lie
 // for the lair to stand (spawnInTile's attractor test): a gate's point is on
 // its own way, so the verge beside it is what answers.
@@ -87,7 +61,7 @@ class SceneCreatures {
     const entry = WorldGen.tileCache.get(WorldGen.tileKey(tx, ty));
     if (!entry?.creatures || entry.creatures.some(c => c.id === id)) return;
     if (!CreatureSpawns.gateAtEntry(this, entry, o.x, o.y, 'skeleton', { occupied: null })) return;
-    entry.creatures.push(EnemySpawns.markShared(WorldGen.makeCreature('skeleton', o.x, o.y, id,
+    entry.creatures.push(EnemySpawns.markShared(CreatureSpawns.createOwned('bone-cache', o.id, 'skeleton', o.x, o.y, id,
       { depth: o.depth, shiny: false, _hunting: true })));
   }
 
@@ -105,7 +79,7 @@ class SceneCreatures {
     const revealed = (this.save.revealedMimics ||= []);
     if (!revealed.some(c => c.id === id)) revealed.push({ id, chestId: o.id, kind, x: o.x, y: o.y });
     if (!entry.creatures.some(c => c.id === id)) {
-      entry.creatures.push(EnemySpawns.markShared(WorldGen.makeCreature(kind, o.x, o.y, id, {
+      entry.creatures.push(EnemySpawns.markShared(CreatureSpawns.createOwned(kind === 'snake' ? 'pot-snake' : 'mimic', o.id, kind, o.x, o.y, id, {
         depth: 0, shiny: false, _hunting: true,
       })));
     }
@@ -121,7 +95,7 @@ class SceneCreatures {
           || caught.has(c.id) || liveIds.has(c.id)) continue;
       const kind = c.kind || 'mimic';
       if (!CreatureSpawns.gateAtEntry(this, entry, c.x, c.y, kind, { occupied: null })) continue;
-      entry.creatures.push(EnemySpawns.markShared(WorldGen.makeCreature(kind, c.x, c.y, c.id, {
+      entry.creatures.push(EnemySpawns.markShared(CreatureSpawns.createOwned(kind === 'snake' ? 'pot-snake' : 'mimic', c.chestId || c.id, kind, c.x, c.y, c.id, {
         depth: 0, shiny: false, _hunting: true,
       })));
       liveIds.add(c.id);
@@ -422,26 +396,15 @@ class SceneCreatures {
       creatures.push(creature);
     }
     yield 'spawn habitat populations';
-    // Themed roamers have their own small-group budget. Reserve all generated
-    // seats before filtering defeats, so caught enemies never reroll a group.
-    const themedOccupied = new Set(_occupiedIdx);
-    const themedEnemies = yield* EnemyHabitats.surfaceEncountersSteps(entry, tx, ty, themedOccupied);
-    for (const c of themedEnemies) {
-      const at = c._surfaceSpawn;
-      _spawnOpts.occupied.add(at.cy * N + at.cx);
-      _spawnOpts.creatureCells?.add(at.cy * N + at.cx);
-      EnemySpawns.surfaceActive(this, c);
-      rememberTempleEnemy(c);
-      if (caughtSet.has(c.id)) continue;
-      creatures.push(c);
-    }
+    // Nexus roamers are already included in the winning-owner density pass.
+    // Authored finite guards below retain their explicit feature requests.
     // Zone guards already have an authored species and seat. Append after
     // attraction and surface-roster replacement so neither can move or turn
     // them into an unrelated enemy. Their kills use the usual caught ledger.
     for (const guard of zoneGuards) {
       const fauna = ['fauna', 'fastFauna'].includes(creatureSpawnClass(guard.kind))
         || (!Combat.isEnemyKind(guard.kind) && ITEM_BY_ID[guard.kind]?.kind === 'animal');
-      const creature = WorldGen.makeCreature(guard.kind, guard.x, guard.y, guard.id, {
+      const creature = CreatureSpawns.createOwned('zone-formations', guard.lair || guard.id, guard.kind, guard.x, guard.y, guard.id, {
         ...guard, ...(guard.zone === 'grove' ? EnemySpawns.concealment(guard.kind, guard.id, guard.zoneVariant) : {}),
         shiny: fauna ? faunaShiny(guard.kind, guard.id) : false, immobile: !fauna && !guard.burrowCells,
         ...(guard.kind === 'wurm' ? { _burrowed: true } : {}),
@@ -461,7 +424,7 @@ class SceneCreatures {
     // Owned and individually saved wild animals retain their state across tile rebuilds.
     for (const r of [...Pets.list(this.save), ...(this.save.wildAnimals || [])]) {
       if (r.carried || r.tx !== tx || r.ty !== ty || (!r.pet && caughtSet.has(r.id))) continue;
-      creatures.push(WorldGen.makeCreature(r.kind,r.x,r.y,r.id,{
+      creatures.push(CreatureSpawns.createOwned('pet-release', r.id, r.kind,r.x,r.y,r.id,{
         ...r, _hp:r.hp, _lastDamagedT:r.lastDamagedAt ?? null,
       }));
     }
@@ -478,54 +441,25 @@ class SceneCreatures {
     // the one they gave in place. Both are explained where they are used.
     const surfaceTraps = (typeof Traps !== 'undefined' && !testMode)
       ? yield* Traps.spawnSurfaceSteps(genGrid, entry.roadClass, N, N, tx, ty, this.tileEdgeM, ambientSpawnOpts,
-          Difficulty.get().trapCountMul, entry.zone && entry.zone.under)
+          Difficulty.get().trapCountMul, entry.zone && entry.zone.under, entry)
       : [];
     yield 'spawn traps';
-    const shoreMask = entry.scenic && entry.scenic.shore ? entry.scenic.shore.mask : null;
-    const pathCells = [];
-    const sandCells = [];
-    // …and the PIER cells, for the shore fauna below (the gull's perch) —
-    // the same pass, so the tile is still walked once.
-    const pierCells = [];
-    // …and the residential front-yard cells (YARD_X_PER_CELLS): a yard cell
-    // touching a road, its drawn band or a footpath.
-    const yardCells = [];
-    const yardMask = ambientSpawnOpts.roadMask || entry.roadMask;
-    const streetSide = (i, t) => t === 8 /* PATH */ || WorldGen.isRoadTerrain(t) || !!(yardMask && yardMask[i]);
+    const pathCells = [], pierCells = [];
     for (let cy = 0; cy < N; cy++) {
       if ((cy & 63) === 63) yield 'spawn path scan';
       for (let cx = 0; cx < N; cx++) {
         const i = cy * N + cx, t = genGrid[i];
-        if (t === 8 /* PATH */) pathCells.push(i);
-        else if (t === WorldGen.T.SAND && !(shoreMask && shoreMask[i])) sandCells.push(i);
+        if (t === WorldGen.T.PATH) pathCells.push(i);
         else if (t === WorldGen.T.PIER) pierCells.push(i);
-        else if (t === WorldGen.T.RESIDENTIAL && !(yardMask && yardMask[i])
-          && ((cx > 0 && streetSide(i - 1, genGrid[i - 1])) || (cx < N - 1 && streetSide(i + 1, genGrid[i + 1]))
-            || (cy > 0 && streetSide(i - N, genGrid[i - N])) || (cy < N - 1 && streetSide(i + N, genGrid[i + N])))) yardCells.push(i);
       }
     }
     yield 'spawn path scan';
-    // These gates read generated ground and take no RNG draws. Prepare the
-    // potentially tile-wide candidate lists while the pass can still yield;
-    // choosing spaced marks below still sees the live starter/Home overlays.
-    function* treasureCandidates(cells, label) {
-      const eligible = [];
-      for (let j = 0; j < cells.length; j++) {
-        const cell = cells[j];
-        if (WorldGen.isSpawnCell(genGrid, N, N, cell % N, Math.floor(cell / N), ambientSpawnOpts, 'minor')) eligible.push(cell);
-        if ((j & 255) === 255) yield label;
-      }
-      return eligible;
-    }
     const shore = entry.scenic && entry.scenic.shore;
-    // Legacy synthetic entries can share their live grid; defer their gates
-    // until after starter painting, as before. Loaded tiles have a frozen base.
-    const shoreEligible = genGrid !== entry.grid && shore && shore.cells.length && typeof Scenic !== 'undefined'
-      ? yield* treasureCandidates(shore.cells, 'spawn shore treasure candidates') : null;
-    const yardWant = (typeof window !== 'undefined' && window.__TEST_MODE) ? 0
-      : Math.min(YARD_X_MAX, Math.floor(yardCells.length * X_MARK_FREQUENCY / YARD_X_PER_CELLS));
-    const yardEligible = genGrid !== entry.grid && yardWant > 0 && typeof Scenic !== 'undefined'
-      ? yield* treasureCandidates(yardCells, 'spawn yard treasure candidates') : null;
+    const surfaceTreasures = testMode ? [] : yield* WorldGen.surfaceTreasureSteps({
+      entry, grid: genGrid, N, tx, ty, tileEdgeM: this.tileEdgeM, spawnOpts: ambientSpawnOpts });
+    const shoreTreasures = testMode ? [] : yield* WorldGen.shoreTreasureSteps({
+      entry, grid: genGrid, N, tx, ty, tileEdgeM: this.tileEdgeM, spawnOpts: ambientSpawnOpts,
+      existing: [...surfaceTreasures, ...streetTreasures, ...zoneTreasures] });
     yield 'spawn treasure candidates';
     // DERELICT LAIRS need the tile's shared spawn options AFTER this pass has
     // finished — the garrisons are woken lazily as the player comes near a ruin
@@ -669,183 +603,11 @@ class SceneCreatures {
     // repaints it on every build (see _carveStarterPond).
     this._carveStarterPond(entry, tx, ty);
     stage('spawn commit starter overlays');
-    // The roll and its placement draws are taken on EVERY tile — the starter
-    // tile included — and only the RESULT is dropped there. Which tile is a
-    // player's starter tile is per-player; skipping the draws on it shifted
-    // every later draw of this tile's stream (the X scatter, the path and
-    // beach bonuses) for that one player (CLAUDE.md "Every player sees the
-    // SAME generated world").
-    if (rng() < 1 / 2) {
-      // 1/200 → 1/4 → 1/2. Combined with the scatter below, players see X's
-      // frequently instead of stumbling onto one a session. This stream caps
-      // at ONE mark per tile however it rolls, so the probability IS its yield.
-      for (let attempt = 0; attempt < 16; attempt++) {
-        const cx = Math.floor(rng() * N);
-        const cy = Math.floor(rng() * N);
-        // Walkable, off-road, and not deep in a private yard — one shared rule
-        // (an X mark is an ordinary pickup: a MINOR spawn).
-        if (!WorldGen.isSpawnCell(genGrid, N, N, cx, cy, ambientSpawnOpts, 'minor')) continue;
-        const { x: wmx, y: wmy } = tileCellCentre(this.tileEdgeM, tx, ty, cellM, cx, cy);
-        if (!isStarterTile) entry.treasure = { x: wmx, y: wmy, id: `treasure_${tx}_${ty}` };
-        break;
-      }
-    }
-    // Extra scatter: 4–10 X's per tile on random walkable cells, scaled by
-    // X_MARK_FREQUENCY (loot.js) to 6–15. Each gets a stable id derived from its cell so save.foundTreasures
-    // persists across reloads. Failed placement attempts (water/building cells)
-    // just drop that slot — small scatter variance is fine.
-    // Skip the extra-X scatter in test mode — the unified treasure handler
-    // runs BEFORE wildplant/creature/till/plant/water dispatches, and tests
-    // that tap arbitrary cells would have the tap stolen by a random X.
-    const EXTRA_X_COUNT = testMode ? 0 : Math.round((4 + Math.floor(rng() * 7)) * X_MARK_FREQUENCY);
-    for (let k = 0; k < EXTRA_X_COUNT; k++) {
-      let placed = false;
-      for (let attempt = 0; attempt < 8 && !placed; attempt++) {
-        const cx = Math.floor(rng() * N);
-        const cy = Math.floor(rng() * N);
-        if (!WorldGen.isSpawnCell(genGrid, N, N, cx, cy, ambientSpawnOpts, 'minor')) continue;
-        const { x: wmx, y: wmy } = tileCellCentre(this.tileEdgeM, tx, ty, cellM, cx, cy);
-        entry.extraTreasures.push({ x: wmx, y: wmy, id: WorldGen.cellId('treasure_x', tx, ty, cx, cy) });
-        placed = true;
-      }
-    }
+    // One shared zone-table pass; no legacy singleton, tile quota or deficit
+    // refill. Candidate identities and seats were fixed before player overlays.
+    entry.extraTreasures.push(...surfaceTreasures);
 
-    // The low-tier quota's X marks (X_TOP_UP_MAX), skipped in test mode for
-    // the same reason as the scatter above.
-    const xTopUp = testMode ? 0 : Math.ceil(X_TOP_UP_MAX * X_MARK_FREQUENCY
-      * Math.min(1, (entry.lowTierDeficit || 0) / WorldGen.LOW_TIER_CHEST_QUOTA));
-    for (let k = 0, laid = 0; laid < xTopUp && k < xTopUp * X_TOP_UP_TRIES; k++) {
-      const i = (WorldGen.cellHash(tx, ty, k, 0x7a0b) >>> 0) % (N * N);
-      const cx = i % N, cy = (i - cx) / N;
-      if (!WorldGen.isSpawnCell(genGrid, N, N, cx, cy, ambientSpawnOpts, 'minor')) continue;
-      const id = WorldGen.cellId('treasure_quota', tx, ty, cx, cy);
-      if (entry.extraTreasures.some(t => t.id === id)) continue;
-      const { x: wmx, y: wmy } = tileCellCentre(this.tileEdgeM, tx, ty, cellM, cx, cy);
-      entry.extraTreasures.push({ x: wmx, y: wmy, id });
-      laid++;
-    }
-
-    // Bonus X marks alongside pedestrian paths (terrain 8). Walkers drop
-    // things — the fiction is that the X marks small finds (a coin, an
-    // earring) just off the trail. We sample up to PATH_BONUS_COUNT
-    // path cells at random and place an X on a tillable neighbour cell
-    // (4-connected) so the X visually sits adjacent to the path, not on
-    // it. Skipped when the tile has no path cells.
-    // ONE pass over the grid for both bonus streams below (the path's and the
-    // beach's) — taken ahead of the flag, where the pass can still yield (see
-    // `pathCells` above) — so a second full-grid scan for the sand would be a
-    // second 100k-cell block.
-    // Cells are packed as their grid INDEX (cy * N + cx); cellsPerEdge can exceed 256,
-    // so a cx*256+cy packing would decode wrong.
-    // SHORE SAND (src/scenic.js — a SAND cell within SCENIC_SHORE_CELLS of
-    // water, entry.scenic.shore.mask) is the BEACH and takes its own stream
-    // below; `sandCells` is the INLAND sand (bunkers, sandpits, volleyball),
-    // which keeps the old capped scatter.
-    if (pathCells.length > 0) {
-      // 4-8 bonus X marks per tile that has any path, scaled by
-      // X_MARK_FREQUENCY. Capped by path density so a tile with one stub
-      // doesn't get spammed — the cap scales with the count (one per 2 path
-      // cells at 1×), otherwise a thin-path tile clamps at the old number and
-      // the extra marks never appear.
-      const PATH_BONUS_COUNT = Math.min(
-        Math.round((4 + Math.floor(rng() * 5)) * X_MARK_FREQUENCY),
-        Math.max(1, Math.floor(pathCells.length * X_MARK_FREQUENCY / 2))
-      );
-      const NEIGHBOURS = [[1,0],[-1,0],[0,1],[0,-1]];
-      for (let k = 0; k < PATH_BONUS_COUNT; k++) {
-        let placed = false;
-        for (let attempt = 0; attempt < 8 && !placed; attempt++) {
-          const cell = pathCells[Math.floor(rng() * pathCells.length)];
-          const pcx = cell % N, pcy = Math.floor(cell / N);
-          // Shuffle the neighbour list per attempt so a packed path
-          // doesn't always seat the X on the same side.
-          const [ndx, ndy] = NEIGHBOURS[Math.floor(rng() * 4)];
-          const ncx = pcx + ndx, ncy = pcy + ndy;
-          if (ncx < 0 || ncy < 0 || ncx >= N || ncy >= N) continue;
-          // Want the X visually OFF the trail: not on the path cell itself,
-          // and otherwise a legitimate spawn cell (walkable, off-road, out of
-          // private yards). Avoid stacking on an existing X below.
-          if (genGrid[ncy * N + ncx] === 8 /* PATH */) continue;
-          if (!WorldGen.isSpawnCell(genGrid, N, N, ncx, ncy, ambientSpawnOpts, 'minor')) continue;
-          const { x: wmx, y: wmy } = tileCellCentre(this.tileEdgeM, tx, ty, cellM, ncx, ncy);
-          const id = WorldGen.cellId('treasure_path', tx, ty, ncx, ncy);
-          if (entry.extraTreasures.some(t => t.id === id)) continue;
-          entry.extraTreasures.push({ x: wmx, y: wmy, id });
-          placed = true;
-        }
-      }
-    }
-
-    // Bonus X marks ON SAND. A beach is the one ground people actually dig,
-    // and what the tide leaves stays in it — so a shore carries marks at its
-    // OWN rate rather than its share of the tile-wide scatter above, which
-    // over a 2.4 km tile is nothing at all along a strip of shoreline. The
-    // mark sits on the sand cell itself (unlike the path's, which goes on a
-    // neighbour: a footpath is walked, a beach is dug).
-    // Capped by the beach's own size the way the path bonus is capped by path
-    // density, so a golf bunker or a sandpit doesn't get the whole roll.
-    // INLAND sand only since Sep 2026: SHORE sand is the beach's own stream
-    // (below, Scenic.beachXCount — its count follows the shoreline).
-    if (sandCells.length > 0) {
-      const BEACH_BONUS_COUNT = Math.min(
-        Math.round((4 + Math.floor(rng() * 5)) * X_MARK_FREQUENCY),
-        Math.max(1, Math.floor(sandCells.length * X_MARK_FREQUENCY / BEACH_X_PER_CELLS))
-      );
-      for (let k = 0; k < BEACH_BONUS_COUNT; k++) {
-        let placed = false;
-        for (let attempt = 0; attempt < 8 && !placed; attempt++) {
-          const cell = sandCells[Math.floor(rng() * sandCells.length)];
-          const scx = cell % N, scy = Math.floor(cell / N);
-          if (!WorldGen.isSpawnCell(genGrid, N, N, scx, scy, ambientSpawnOpts, 'minor')) continue;
-          const { x: wmx, y: wmy } = tileCellCentre(this.tileEdgeM, tx, ty, cellM, scx, scy);
-          const id = WorldGen.cellId('treasure_sand', tx, ty, scx, scy);
-          if (entry.extraTreasures.some(t => t.id === id)) continue;
-          entry.extraTreasures.push({ x: wmx, y: wmy, id });
-          placed = true;
-        }
-      }
-    }
-
-    // THE BEACH'S OWN MARKS (src/scenic.js): the count follows the SHORELINE
-    // — Scenic.beachXCount(shoreM), one per BEACH_X_SHORE_M of waterline,
-    // capped at BEACH_X_MAX, × X_MARK_FREQUENCY × BEACH_X_DENSITY — not the tile's flat count, so a long beach carries
-    // marks at its own rate. Its OWN stream (seeded off the tile, salted), so
-    // no other draw moves; each mark on a shore-sand cell that takes a minor
-    // spawn, keyed by position (treasure_sand ids, as before).
-    if (shore && shore.cells.length && typeof Scenic !== 'undefined') {
-      const want = Scenic.beachXCount(shore.shoreM);
-      const brng = WorldGen.makeRng(fnv1a(`beachx|${tx},${ty}`));
-      const eligible = shoreEligible || shore.cells.filter(cell => WorldGen.isSpawnCell(genGrid, N, N,
-        cell % N, Math.floor(cell / N), ambientSpawnOpts, 'minor'));
-      const occupied = [...entry.extraTreasures, ...(entry.treasure ? [entry.treasure] : [])]
-        .map(t => ({ x: Math.floor((t.x - tx * this.tileEdgeM) / cellM),
-          y: Math.floor((t.y - ty * this.tileEdgeM) / cellM) }))
-        .filter(c => c.x >= 0 && c.y >= 0 && c.x < N && c.y < N)
-        .map(c => c.y * N + c.x);
-      for (const cell of Scenic.beachXCells(eligible, N, want, brng, occupied)) {
-        const scx = cell % N, scy = Math.floor(cell / N);
-        const id = WorldGen.cellId('treasure_sand', tx, ty, scx, scy);
-        entry.extraTreasures.push({ ...tileCellCentre(this.tileEdgeM, tx, ty, cellM, scx, scy), id });
-      }
-    }
-
-    // FRONT-YARD MARKS (YARD_X_PER_CELLS): beside the street, where a walker
-    // passes close enough to see one. Skipped in test mode like the scatter.
-    if (yardWant > 0 && typeof Scenic !== 'undefined') {
-      const yrng = WorldGen.makeRng(fnv1a(`yardx|${tx},${ty}`));
-      const eligible = yardEligible || yardCells.filter(cell => WorldGen.isSpawnCell(genGrid, N, N,
-        cell % N, Math.floor(cell / N), ambientSpawnOpts, 'minor'));
-      const taken = [...entry.extraTreasures, ...(entry.treasure ? [entry.treasure] : [])]
-        .map(t => ({ x: Math.floor((t.x - tx * this.tileEdgeM) / cellM),
-          y: Math.floor((t.y - ty * this.tileEdgeM) / cellM) }))
-        .filter(c => c.x >= 0 && c.y >= 0 && c.x < N && c.y < N)
-        .map(c => c.y * N + c.x);
-      for (const cell of Scenic.beachXCells(eligible, N, yardWant, yrng, taken)) {
-        const ycx = cell % N, ycy = Math.floor(cell / N);
-        entry.extraTreasures.push({ ...tileCellCentre(this.tileEdgeM, tx, ty, cellM, ycx, ycy),
-          id: WorldGen.cellId('treasure_yard', tx, ty, ycx, ycy) });
-      }
-    }
+    entry.extraTreasures.push(...shoreTreasures);
 
     // Player-planted saplings (save.fruittrees) → growing objects on the tile
     // that owns each one. Injected AFTER the spawn-area strip above so a
@@ -1038,7 +800,7 @@ class SceneCreatures {
           const cx = cell % N, cy = Math.floor(cell / N);
           const seat = tileCellCentre(this.tileEdgeM, tx, ty, cellM, cx, cy);
           const point = { key: `land:${genGrid[cell]}:shore`, profile: group.owner?.profile?.id || 'shore', tx, ty, cx, cy, sourceCx: canonicalX, sourceCy: canonicalY, ...seat };
-          const c = WorldGen.makeCreature(kind, seat.x, seat.y, id, {
+          const c = CreatureSpawns.createOwned('shore-fauna', group.key, kind, seat.x, seat.y, id, {
             shiny: fauna || ITEM_BY_ID[kind]?.kind === 'animal' ? faunaShiny(kind, id) : false,
             _habitatSpawn: point,
           });
@@ -1064,7 +826,7 @@ class SceneCreatures {
       if (!variant?.pathFauna) continue;
       const perPath = Object.values(variant.pathFauna).some(row => row.perPath);
       const owner = perPath && ownerAt?.(cell % N, Math.floor(cell / N));
-      const key = owner?.variant === id ? owner.key : id;
+      const key = owner?.variant === id ? owner.key : `${id}|${tx},${ty}`;
       if (!groups.has(key)) groups.set(key, { variant, key, cells: [] });
       groups.get(key).cells.push(cell);
     }
@@ -1076,7 +838,7 @@ class SceneCreatures {
         const kind = kinds ? kinds[Math.floor(EnemySpawns.roll(`${stream}|kind`) * kinds.length)].id : baseKind;
         const spClass = creatureSpawnClass(kind);
         const requested = row.count
-          ? row.count[0] + Math.floor(EnemySpawns.roll(`${stream}|${tx},${ty}|count`) * (row.count[1] - row.count[0] + 1))
+          ? row.count[0] + Math.floor(EnemySpawns.roll(`${stream}|count`) * (row.count[1] - row.count[0] + 1))
           : Math.min(row.max, Math.floor(pathCells.length * WorldGen.CELL_M / row.perPathM));
         const rng = WorldGen.makeRng(fnv1a(`${stream}|${tx},${ty}`));
         const remaining = pathCells.slice().sort((a, b) => a - b);
@@ -1088,7 +850,8 @@ class SceneCreatures {
         for (let n = 0; n < requested && remaining.length; n++) {
           const canonical = remaining.splice(Math.floor(rng() * remaining.length), 1)[0];
           const sourceCx = canonical % N, sourceCy = Math.floor(canonical / N);
-          const id = WorldGen.cellId(`${kind}_path`, tx, ty, sourceCx, sourceCy);
+          const legacyId = WorldGen.cellId(`${kind}_path`, tx, ty, sourceCx, sourceCy);
+          const id = `${kind}_path_section_${fnv1a(key).toString(36)}_${n}`;
           let cell = null;
           // Search other path verges if the canonical one is occupied; never
           // relocate onto unrelated beach or open ground away from a path.
@@ -1107,10 +870,10 @@ class SceneCreatures {
           }
           if (cell == null) continue;
           reserved.add(cell);
-          if (caughtSet.has(id)) continue;
+          if (caughtSet.has(id) || caughtSet.has(legacyId)) continue;
           const cx = cell % N, cy = Math.floor(cell / N);
           const point = tileCellCentre(this.tileEdgeM, tx, ty, cellM, cx, cy);
-          const c = WorldGen.makeCreature(kind, point.x, point.y, id);
+          const c = CreatureSpawns.createOwned('path-fauna', key, kind, point.x, point.y, id, { _legacyDefeatIds: [legacyId] });
           EnemySpawns.surfaceActive(this, c);
           creatures.push(c); out.push(c);
         }
@@ -1197,6 +960,29 @@ class SceneCreatures {
   // defeated monster (recorded in save.caught) stays dead across reloads, just
   // like surface fauna.
   spawnCaveCreatures(entry, tx, ty, depth) {
+    return WorldGen.runSteps(SceneCreatures.prototype.spawnCaveCreaturesSteps.call(this, entry, tx, ty, depth));
+  }
+
+  _spawnCaveCreaturesSliced(entry, tx, ty, depth) {
+    if (entry._spawned) return Promise.resolve(true);
+    if (entry._caveSpawnPass) return entry._caveSpawnPass;
+    const key = WorldGen.tileKey(tx, ty), originDepth = this.depth;
+    const gone = () => WorldGen.tileCacheFor(depth).get(key) !== entry || this.depth !== originDepth;
+    const stats = {}, endSpawn = window.__boot?.begin(`tile ${depth}/${key} cave spawn`);
+    const pass = WorldGen.runStepsSliced(() => this.spawnCaveCreaturesSteps(entry, tx, ty, depth), { abort: gone, stats })
+      .then(result => result !== WorldGen.STEPS_ABORTED && !!entry._spawned)
+      .finally(() => {
+        endSpawn?.(`${stats.slices || 0} slices, worst block ${Math.round(stats.worstMs || 0)}ms in ${stats.worstAt || 'not started'}`);
+        if (entry._caveSpawnPass === pass) entry._caveSpawnPass = null;
+      });
+    entry._caveSpawnPass = pass;
+    return pass;
+  }
+
+  *spawnCaveCreaturesSteps(entry, tx, ty, depth) {
+    const previousSpawnOpts = entry._spawnOpts;
+    let completed = false;
+    try {
     PlacedFloor.restoreBarricades(this, entry, tx, ty, depth);
     PlacedFloor.restoreFurniture(this, entry, tx, ty, depth);
     const rng = WorldGen.makeRng((tx * 0x2c1b3a5f ^ ty * 0x9e3779b1 ^ depth * 0x85ebca77) >>> 0);
@@ -1207,7 +993,7 @@ class SceneCreatures {
     const eligible = EnemySpawns.caveRows(depth);
     const legacyDefeats = EnemySpawns.legacyCaveDefeats(caughtSet, depth, tx, ty);
     const monsterSeats = new Set();
-    if (!eligible.length) { entry._spawned = true; entry.creatures = entry.creatures || creatures; return; }
+    if (!eligible.length) { entry._spawned = true; entry.creatures = entry.creatures || creatures; completed = true; return; }
     // Anchor spawns near the up-staircases so monsters are visible rather than
     // scattered across the tile. A level has an up-stair at EVERY surface entrance,
     // so anchor around ALL of them. Falls back to the tile centre when none exists.
@@ -1244,9 +1030,12 @@ class SceneCreatures {
     // an object sitting on top of a grass cell.
     const occupiedIdx = new Set();
     for (let i = 0; i < (entry.gameplayTiers?.length || entry.spawnWhy?.length || 0); i++) {
+      if ((i & 1023) === 0) yield 'cave geographic occupancy';
       if (WorldGen.spawnTierAt(entry.baseGrid || entry.grid, i, entry) === 4) occupiedIdx.add(i);
     }
+    let occupiedIndex = 0;
     for (const o of [...genObjects, ...genWildplants]) {
+      if ((occupiedIndex++ & 255) === 0) yield 'cave object occupancy';
       const ox = Math.floor((o.x - tx * entry.tileEdgeM) / cellSizeM);
       const oy = Math.floor((o.y - ty * entry.tileEdgeM) / cellSizeM);
       if (ox >= 0 && oy >= 0 && ox < N && oy < N) occupiedIdx.add(oy * N + ox);
@@ -1257,7 +1046,7 @@ class SceneCreatures {
       const { x, y, id, culture, dwarf } = resident;
       if (!CreatureSpawns.gateAtEntry(this, entry, x, y, 'npc', { occupied: null })) continue;
       const identity = NPC.identity(id, culture, dwarf ? 'merchant' : null);
-      creatures.push(WorldGen.makeCreature('npc', x, y, id, {
+      creatures.push(CreatureSpawns.createOwned('npcs', id, 'npc', x, y, id, {
         ...identity, depth, homeX: x, homeY: y,
         ...(dwarf ? { name: 'Dwarf ' + identity.name, role: 'merchant', roleLabel: 'Dwarven Smith', shopTheme: 'supply', artScale: 0.8 } : {}),
       }));
@@ -1266,7 +1055,7 @@ class SceneCreatures {
     // cannot reveal a rock, mushroom or floor torch seated on its floor cell.
     entry._spawnOpts = { roadMask: null, spawnWhy: entry.spawnWhy, gameplayTiers: entry.gameplayTiers, occupied: occupiedIdx, pois: [] };
     // The lost miner's one seat on the level under the trailer (LostMiner.seat).
-    if (typeof LostMiner !== 'undefined') LostMiner.seat(this, entry, tx, ty, depth, creatures, occupiedIdx);
+    if (typeof LostMiner !== 'undefined') yield* LostMiner.seatSteps(this, entry, tx, ty, depth, creatures, occupiedIdx);
     // Cells THIS player's live entry holds that the generated layer doesn't —
     // their stairs. A seat drawn onto one is dropped (the attempt still ends
     // exactly where it would for anyone else).
@@ -1290,7 +1079,7 @@ class SceneCreatures {
       occupiedIdx.add(idx);
       monsterSeats.add(seat.id);
       if (caughtSet.has(seat.id) || heldByPlayer.has(idx)) continue;
-      creatures.push(WorldGen.makeCreature(seat.kind, seat.x, seat.y, seat.id, {
+      creatures.push(CreatureSpawns.createOwned('cave-finite', seat.caveArea || seat.id, seat.kind, seat.x, seat.y, seat.id, {
         depth, shiny: false, caveArea: seat.caveArea,
         hidden: !!seat.hidden, dormant: !!seat.dormant,
         revealDistanceCells: seat.revealDistanceCells,
@@ -1303,6 +1092,10 @@ class SceneCreatures {
       const cy = Math.floor((dragon.y - ty * this.tileEdgeM) / cellSizeM);
       if (!caughtSet.has(dragon.id) && !heldByPlayer.has(cy * N + cx)) creatures.push(dragon);
     }
+    const legacyOccupied = new Set(occupiedIdx);
+    const legacyPopulation = function* () {
+      const creatures = [], monsterSeats = new Set(), caughtSet = new Set(), heldByPlayer = new Set();
+      const legacyDefeats = { pack: new Set(), cells: new Set() }, occupiedIdx = new Set(legacyOccupied);
     const SPAWN_R = 25; // cells — fills 2–3 screens worth around each entry point
     const randCell = (draw = rng) => {
       const a = anchors[Math.floor(draw() * anchors.length)];
@@ -1347,16 +1140,18 @@ class SceneCreatures {
           { ...entry._spawnOpts, occupied: creatureCells }, creatureSpawnClass(kind)));
     const nearEntrance = (cx, cy) => anchors.some(a => Math.abs(cx - a.lix) <= SPAWN_R && Math.abs(cy - a.liy) <= SPAWN_R);
     let floors;
-    const floorCells = () => {
+    const floorCells = function* () {
       if (!floors) {
         floors = [];
-        for (let cy = 0; cy < N; cy++) for (let cx = 0; cx < N; cx++)
+        for (let cy = 0; cy < N; cy++) for (let cx = 0; cx < N; cx++) {
+          if (((cy * N + cx) & 255) === 0) yield 'cave legacy floor cells';
           if (rawFloor(cx, cy)) floors.push({ cx, cy });
+        }
       }
       return floors;
     };
     const rawAreaPools = new Map(), eligibleClassPools = new Map(), eligibleAreaPools = new Map();
-    const rawArea = (key, within) => {
+    const rawArea = function* (key, within) {
       if (rawAreaPools.has(key)) return rawAreaPools.get(key);
       let cells;
       if (key.startsWith('block:')) {
@@ -1365,14 +1160,23 @@ class SceneCreatures {
         for (let cy = by; cy < Math.min(N, by + 12); cy++)
           for (let cx = bx; cx < Math.min(N, bx + 12); cx++)
             if (rawFloor(cx, cy)) cells.push({ cx, cy });
-      } else cells = key === 'all' ? floorCells() : floorCells().filter(p => within(p.cx, p.cy));
+      } else {
+        cells = [];
+        let scanned = 0;
+        for (const p of yield* floorCells()) {
+          if ((scanned++ & 255) === 0) yield 'cave legacy area';
+          if (key === 'all' || within(p.cx, p.cy)) cells.push(p);
+        }
+      }
       rawAreaPools.set(key, cells); return cells;
     };
-    const eligibleClass = kind => {
+    const eligibleClass = function* (kind) {
       const cls = creatureSpawnClass(kind), key = `${canonicalPass}:${cls}`;
       if (eligibleClassPools.has(key)) return eligibleClassPools.get(key);
       const cells = new Set(), habitats = new Map();
-      for (const p of floorCells()) {
+      let scanned = 0;
+      for (const p of yield* floorCells()) {
+        if ((scanned++ & 255) === 0) yield 'cave legacy eligibility';
         if (!legalSeat(p.cx, p.cy, kind)) continue;
         const index = p.cy * N + p.cx, habitat = contextAt(p.cx, p.cy).id;
         cells.add(index);
@@ -1382,8 +1186,8 @@ class SceneCreatures {
       const pool = { key, cells, habitats };
       eligibleClassPools.set(key, pool); return pool;
     };
-    const fallbackSeat = (key, habitat, kindFor, within, areaKey) => {
-      const cells = rawArea(areaKey, within);
+    const fallbackSeat = function* (key, habitat, kindFor, within, areaKey) {
+      const cells = yield* rawArea(areaKey, within);
       if (!cells.length) return null;
       const start = fnv1a(key) % cells.length;
       // Resolve the requested habitat and species on raw floor, independently
@@ -1391,13 +1195,16 @@ class SceneCreatures {
       habitat ||= contextAt(cells[start].cx, cells[start].cy);
       const kind = kindFor(habitat);
       if (!kind) return null;
-      const available = eligibleClass(kind);
+      const available = yield* eligibleClass(kind);
       if (!available.cells.size) return null;
       const cacheKey = `${available.key}:${areaKey}:${habitat.id}`;
       if (!eligibleAreaPools.has(cacheKey)) {
-        const pool = areaKey === 'all' ? available.habitats.get(habitat.id) || []
-          : cells.filter(p => available.cells.has(p.cy * N + p.cx)
-            && contextAt(p.cx, p.cy).id === habitat.id);
+        const pool = areaKey === 'all' ? available.habitats.get(habitat.id) || [] : [];
+        if (areaKey !== 'all') for (let n = 0; n < cells.length; n++) {
+          if ((n & 255) === 0) yield 'cave legacy owner seats';
+          const p = cells[n];
+          if (available.cells.has(p.cy * N + p.cx) && contextAt(p.cx, p.cy).id === habitat.id) pool.push(p);
+        }
         eligibleAreaPools.set(cacheKey, pool);
       }
       const pool = eligibleAreaPools.get(cacheKey);
@@ -1410,6 +1217,7 @@ class SceneCreatures {
         if (index < origin) lo = mid + 1; else hi = mid;
       }
       for (let k = 0; k < pool.length; k++) {
+        if ((k & 255) === 0) yield 'cave legacy seat search';
         const p = pool[(lo + k) % pool.length];
         if (!legalSeat(p.cx, p.cy, kind)) continue;
         return { ...p, kind, habitat };
@@ -1440,8 +1248,9 @@ class SceneCreatures {
         { shiny: EnemySpawns.rollsElite(entry, kind, id, wmx, wmy, cellSizeM), habitat: habitat.theme,
           ...(aliases.length ? { _legacyDefeatIds: aliases } : {}) }));
     };
-    const populate = () => {
+    const populate = function* () {
       for (let i = 0; i < count; i++) {
+        if ((i & 7) === 0) yield 'cave legacy pack aliases';
         const draw = WorldGen.makeRng(fnv1a(`cave_pack_${depth}_${tx}_${ty}_${i}:draw`));
         const kindRoll = draw();
         let seat = null, habitat = null;
@@ -1455,7 +1264,7 @@ class SceneCreatures {
           if (!kind || !legalSeat(cx, cy, kind)) continue;
           seat = { cx, cy, kind, habitat }; break;
         }
-        seat ||= fallbackSeat(`cave_pack_${depth}_${tx}_${ty}_${i}`, habitat,
+        seat ||= yield* fallbackSeat(`cave_pack_${depth}_${tx}_${ty}_${i}`, habitat,
           h => EnemySpawns.caveKind(depth, kindRoll, h), nearEntrance, 'entrance');
         if (seat) addEnemy(seat, i, `enemy_cave_${depth}_${tx}_${ty}_pack_${i}`);
       }
@@ -1464,6 +1273,7 @@ class SceneCreatures {
       const roamP = Math.min(0.6, 0.4 * Difficulty.get().monsterCountMul);
       for (let py = 0; py < N; py += ROAM_PIVOT) {
         for (let px = 0; px < N; px += ROAM_PIVOT) {
+          yield 'cave legacy roamer aliases';
           const draw = WorldGen.makeRng(fnv1a(`cave_roam_${depth}_${tx}_${ty}_${px}_${py}:draw`));
           if (draw() >= roamP) continue;
           const kindRoll = draw();
@@ -1480,59 +1290,106 @@ class SceneCreatures {
             seat = { cx, cy, kind, habitat }; break;
           }
           const inBlock = (cx, cy) => cx >= px && cy >= py && cx < px + ROAM_PIVOT && cy < py + ROAM_PIVOT;
-          seat ||= fallbackSeat(`cave_roam_${depth}_${tx}_${ty}_${px}_${py}`, habitat,
+          seat ||= yield* fallbackSeat(`cave_roam_${depth}_${tx}_${ty}_${px}_${py}`, habitat,
             h => EnemySpawns.caveKind(depth, kindRoll, h), inBlock, `block:${px}:${py}`);
-          if (!seat && habitat) seat = fallbackSeat(`cave_roam_${depth}_${tx}_${ty}_${px}_${py}:pocket`, habitat,
+          if (!seat && habitat) seat = yield* fallbackSeat(`cave_roam_${depth}_${tx}_${ty}_${px}_${py}:pocket`, habitat,
             h => EnemySpawns.caveKind(depth, kindRoll, h), () => true, 'all');
           if (seat) addEnemy(seat, null, `enemy_cave_${depth}_${tx}_${ty}_roam_${px}_${py}`);
         }
       }
     };
     canonicalPass = true; creatureCells = canonicalOccupied;
-    populate();
+    yield* populate();
     canonicalPass = false; creatureCells = new Set(occupiedIdx);
     // Minor is the permissive placement class: if it has no floor seat,
     // every actual creature request is a shortfall. Keep the identity pass
     // above, but avoid searching the same wholly excluded cave repeatedly.
-    if (floorCells().some(p => WorldGen.isSpawnCell(genGrid, N, N, p.cx, p.cy,
-      { ...entry._spawnOpts, occupied: creatureCells }, 'minor'))) populate();
-    // Loose coins on the cave floor: a handful per level tile, scattered the
-    // same way as the fauna (around the entrances, so the ~2-cell torch bubble
-    // actually meets them) and picked up with the same tap as a coin-burst
-    // coin (interact.js 'coindrop'). They ride entry.coinDrops like the burst
-    // coins do — the renderer and the tap handler already walk that list at
-    // every depth, since WorldGen.tileCache is repointed per level — but with
-    // NO expiresAt: a coin found by digging should still be there when the
-    // torch swings back. In-memory only, like every coinDrop: a fresh build of
-    // the level lays a fresh handful, which is the trickle intended. The seeded
-    // rng keeps the draw order of the monsters above untouched.
-    // Not on a staircase or a rock: the coin handler wins the tap, but a coin
-    // under a rock sprite reads as a rock. Guarded like `creatures` — a tile
-    // REBUILT under the player (see CLAUDE.md) carries coinDrops across and
-    // re-runs this pass, so it must not lay a second handful onto the first.
-    if (!entry.coinDrops) {
-      const CAVE_COINS_MIN = 4, CAVE_COINS_MAX = 8;   // per level tile — a trickle, not a burst
-      const coins = [];
-      // Copy, not the shared Set itself: this loop adds each newly-placed
-      // coin's own cell to `taken` so two coins can't stack, and that's a
-      // coin-to-coin rule the monster/rabbit/trap passes have no business
-      // seeing. The object occupancy underneath it is the same occupiedIdx
-      // built once above — no second scan of entry.objects.
-      const taken = new Set(occupiedIdx);
-      const coinN = CAVE_COINS_MIN + Math.floor(rng() * (CAVE_COINS_MAX - CAVE_COINS_MIN + 1));
-      for (let i = 0; i < coinN; i++) {
-        for (let attempt = 0; attempt < 20; attempt++) {
-          const { cx, cy } = randCell();
-          if (cx < 0 || cy < 0 || cx >= N || cy >= N) continue;
-          const idx = cy * N + cx;
-          if (genGrid[idx] !== 24 /* CAVE_FLOOR */ || taken.has(idx)) continue;
-          taken.add(idx);
-          if (heldByPlayer.has(idx)) break;   // on the player's own stair
-          const { x: wmx, y: wmy } = tileCellCentre(this.tileEdgeM, tx, ty, cellSizeM, cx, cy);
-          coins.push({ kind: 'coindrop', x: wmx, y: wmy, id: `cavecoin_${depth}_${tx}_${ty}_${i}` });
-          break;
+    let anyFloor = false, scanned = 0;
+    for (const p of yield* floorCells()) {
+      if ((scanned++ & 255) === 0) yield 'cave legacy free floor';
+      if (WorldGen.isSpawnCell(genGrid, N, N, p.cx, p.cy,
+          { ...entry._spawnOpts, occupied: creatureCells }, 'minor')) { anyFloor = true; break; }
+    }
+    if (anyFloor) yield* populate();
+      return creatures;
+    };
+    // Cave habitats provide per-species cell rates. Entrances no longer add
+    // fixed packs, and twelve-cell blocks no longer add a second population.
+    const density = [], contexts = new Map(), rowsByHabitat = new Map();
+    const eligibleOpts = { ...entry._spawnOpts, occupied: occupiedIdx };
+    for (let index = 0; index < N * N; index++) {
+      if ((index & 255) === 0) yield 'cave species rate cells';
+      const cx = index % N, cy = Math.floor(index / N);
+      if (genGrid[index] !== WorldGen.T.CAVE_FLOOR || WorldGen.variantOwnerAt(entry, index)) continue;
+      if (!WorldGen.isSpawnCell(genGrid, N, N, cx, cy, eligibleOpts, 'minor')) continue;
+      const habitat = EnemySpawns.caveContextAt(entry, tx, ty, cx, cy, depth);
+      contexts.set(index, habitat);
+      if (!rowsByHabitat.has(habitat.id)) rowsByHabitat.set(habitat.id, EnemySpawns.caveDensityRows(depth, habitat));
+      for (const row of rowsByHabitat.get(habitat.id)) {
+        const cls = creatureSpawnClass(row.kind);
+        if (!WorldGen.isSpawnCell(genGrid, N, N, cx, cy, eligibleOpts, cls)) continue;
+        const id = `enemy_cave_${depth}_${tx}_${ty}_density_${row.kind}_${index}`;
+        if (SpawnPipeline.roll(id, row.per1000 / 1000)) density.push({ id, row, habitat, cx, cy, index });
+      }
+    }
+    const generated = yield* SpawnPipeline.generateSteps(null, {
+      count: density.length, member: function* (n) {
+        if ((n & 31) === 0) yield 'cave creature records';
+        return density[n];
+      },
+      seat: member => {
+        if (occupiedIdx.has(member.index)) return null;
+        return tileCellCentre(this.tileEdgeM, tx, ty, cellSizeM, member.cx, member.cy);
+      },
+      create: (member, seat) => WorldGen.makeCreature(member.row.kind, seat.x, seat.y, member.id, {
+        depth, habitat: member.habitat.theme, _spawnSource: 'zone-density',
+        _spawnOwner: `Underground:${depth}:${member.habitat.id}`,
+        _legacyDefeatIds: [EnemySpawns.caveId(depth, tx, ty, member.cx, member.cy)],
+        shiny: EnemySpawns.rollsElite(entry, member.row.kind, member.id, seat.x, seat.y, cellSizeM),
+      }),
+      onPlaced: (_, member) => occupiedIdx.add(member.index),
+    });
+    // Migration only: old pack/block IDs are translated to same-kind,
+    // same-habitat density candidates. This never creates live inhabitants.
+    if ([...caughtSet].some(id => String(id).startsWith(`enemy_cave_${depth}_${tx}_${ty}_`)
+        && !String(id).includes('_density_'))) {
+      const oldPopulation = yield* legacyPopulation.call(this);
+      const assigned = new Map(), aliasTargets = new Map();
+      for (const c of generated) for (const alias of c._legacyDefeatIds) aliasTargets.set(alias, c.id);
+      let aliasIndex = 0;
+      for (const old of oldPopulation.sort((a, b) => a.id.localeCompare(b.id))) {
+        if ((aliasIndex++ & 7) === 0) yield 'cave saved identity aliases';
+        const oldIndex = Math.floor((old.y - ty * entry.tileEdgeM) / cellSizeM) * N
+          + Math.floor((old.x - tx * entry.tileEdgeM) / cellSizeM);
+        const oldHabitat = contexts.get(oldIndex) || EnemySpawns.caveContextAt(entry, tx, ty, oldIndex % N, Math.floor(oldIndex / N), depth);
+        const pool = generated.filter(c => c.kind === old.kind && c._spawnOwner === `Underground:${depth}:${oldHabitat.id}`);
+        if (!pool.length) continue;
+        const bucket = `${old.kind}|${oldHabitat.id}`;
+        if (!assigned.has(bucket)) assigned.set(bucket, new Set());
+        const used = assigned.get(bucket);
+        if (used.size === pool.length) used.clear();
+        const target = pool.filter(c => !used.has(c.id)).reduce((best, c) => {
+          const d = (c.x-old.x)**2 + (c.y-old.y)**2;
+          return !best || d < best.d || d === best.d && c.id < best.c.id ? { c, d } : best;
+        }, null).c;
+        used.add(target.id);
+        for (const id of [old.id, ...old._legacyDefeatIds || []]) {
+          if (aliasTargets.has(id)) continue;
+          aliasTargets.set(id, target.id); target._legacyDefeatIds.push(id);
         }
       }
+    }
+    for (const c of generated) {
+      const cx = Math.floor((c.x - tx * entry.tileEdgeM) / cellSizeM), cy = Math.floor((c.y - ty * entry.tileEdgeM) / cellSizeM);
+      if (!caughtSet.has(c.id) && !c._legacyDefeatIds.some(id => caughtSet.has(id)) && !heldByPlayer.has(cy * N + cx)) creatures.push(c);
+    }
+    const cavePopulation = { requested: density.length, placed: generated.length,
+      shortfall: density.length - generated.length, ratePer1000: EnemySpawns.caveDensityRate(depth) };
+    // Materialize canonical generated coins once. No runtime coin allowance
+    // or replacement roll: collected identities stay spent across rebuilds.
+    let coinDrops = entry.coinDrops;
+    if (!coinDrops) {
+      const coins = [], taken = new Set(occupiedIdx);
       // And the level's SEEDED gold (worldgen.js caveCoins): generated where
       // it lies over the whole floor, less the ones already picked up — the
       // coin tap writes a `seeded` coin's id into save.foundTreasures.
@@ -1544,23 +1401,26 @@ class SceneCreatures {
         if (taken.has(idx) || heldByPlayer.has(idx)) continue;
         coins.push(c);
       }
-      entry.coinDrops = coins;
+      coinDrops = coins;
     }
-    // Cave traps — same anchors, same reason: a trap 200 cells out in the dark
-    // is a trap nobody ever meets. Seeded off its own stream (Traps.spawnCave),
-    // so the monster / coin draws above keep the numbers they had.
+    // Cave traps use independent per-cell density rows and sliced scans.
+    // Their rolls cannot change monster or coin identities.
     // Every cell an object already holds is refused, so a trap is never laid
     // under a rock or a staircase sprite — down here the art is the only
     // warning there is, and an unlit cell already swallows most of it.
-    entry.traps = [];
+    let traps = [];
     if (typeof Traps !== 'undefined' && !window.__TEST_MODE) {
       // Same occupiedIdx built once above.
       // Floor profiles may reduce ambient snares (the sewer stays sparse).
       // Other floors retain the shared rate, independent of game mode.
-      entry.traps = Traps.spawnCave(genGrid, N, tx, ty, entry.tileEdgeM, depth,
-        anchors, occupiedIdx, WorldGen.floorProfile(depth).trapDensityMul ?? Traps.DUNGEON_DENSITY_MUL)
+      traps = (yield* Traps.spawnCaveSteps(genGrid, N, tx, ty, entry.tileEdgeM, depth,
+        anchors, occupiedIdx, WorldGen.floorProfile(depth).trapDensityMul ?? Traps.DUNGEON_DENSITY_MUL, entry))
         .filter(t => !heldByPlayer.has(t._iy * N + t._ix));
     }
+    yield 'cave population ready';
+    entry.cavePopulation = cavePopulation;
+    entry.coinDrops = coinDrops;
+    entry.traps = traps;
     for (const c of creatures) { c._discovered = !HiddenObjects.isHidden(this.save, c); EnemySpawns.markShared(c); }
     entry._spawned = true;
     entry.creatures = entry.creatures || creatures;
@@ -1572,8 +1432,15 @@ class SceneCreatures {
     for (const guard of entry.underground?.boneGuards || []) {
       if (!caughtSet.has(guard.id) && !entry.creatures.some(c => c.id === guard.id)
         && CreatureSpawns.gateAtEntry(this, entry, guard.x, guard.y, guard.kind, { occupied: null })) {
-        entry.creatures.push(EnemySpawns.markShared(WorldGen.makeCreature(guard.kind, guard.x, guard.y, guard.id,
+        entry.creatures.push(EnemySpawns.markShared(CreatureSpawns.createOwned('bone-gallery', guard.id, guard.kind, guard.x, guard.y, guard.id,
           { depth, shiny: guard.shiny, _hunting: true })));
+      }
+    }
+      completed = true;
+    } finally {
+      if (!completed) {
+        if (previousSpawnOpts === undefined) delete entry._spawnOpts;
+        else entry._spawnOpts = previousSpawnOpts;
       }
     }
   }
@@ -1743,7 +1610,7 @@ class SceneCreatures {
               return WorldGen.isSpawnCell(tile.grid, tile.cellsPerEdge, tile.cellsPerEdge, dest.ix, dest.iy, WorldGen.spawnOptsOf(tile, { occupied: null }), creatureSpawnClass('deer'));
             });
             if (seat) {
-              entry.creatures.push(WorldGen.makeCreature('deer', seat.x, seat.y,
+              entry.creatures.push(CreatureSpawns.createOwned('crop-pests', `garden:${pc.tx}:${pc.ty}`, 'deer', seat.x, seat.y,
                 `pest_deer_${pc.tx}_${pc.ty}_${Math.floor(now)}_${Math.floor(Math.random() * 1e4)}`));
               EnemySpawns.refreshHomeFauna(this);
               this.save.pestDispatchAt = wallNow;

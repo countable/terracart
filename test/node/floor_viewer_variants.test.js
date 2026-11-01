@@ -11,10 +11,11 @@
         await FloorViewerVariants.withSelection(depth, index, async () => {
           for (const d of [0, 1, 3, 4, 5, 6, 7, 8]) assert.eq(WorldGen.floorProfile(d), originalProfile(d));
           const preview = spawn();
-          assert.inRange(preview.length, 7, 11, 'L2 uses its base snare count');
-          assert.gt(gameplay.length, preview.length * 10, 'preview removes the dense dungeon multiplier');
-          assert.eq(JSON.stringify(preview), JSON.stringify(gameplay.slice(0, preview.length)),
-            'retained traps preserve their generated IDs and positions');
+          const base = Traps.spawnCave(grid, N, 0, 0, N * WorldGen.CELL_M, 2, [], new Set(), 1);
+          assert.eq(JSON.stringify(preview), JSON.stringify(base), 'preview uses the base area rate');
+          const liveIds = new Set(gameplay.map(t => t.id));
+          assert.truthy(preview.every(t => liveIds.has(t.id)), 'lower density preserves surviving cell identities');
+          assert.gt(gameplay.length, preview.length, 'preview removes the dense dungeon multiplier');
           throw new Error('preview failed');
         });
       } catch (error) { failed = error.message === 'preview failed'; }

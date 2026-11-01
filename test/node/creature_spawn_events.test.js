@@ -31,8 +31,11 @@
     entry.gameplayTiers.fill(1);
     const ghost = raiseGhostAt(scene, x, y, 10000, 'headstone');
     assert.truthy(ghost); assert.eq(ghost.x, x); assert.eq(ghost.y, y);
+    assert.eq(ghost._spawnSource, 'headstone');
+    assert.eq(ghost._spawnCategory, 'trigger');
     const slime = fishedSlimeSpawn(scene, 10000, x, y, { tx: 0, ty: 0 });
     assert.truthy(slime); assert.eq(slime.kind, 'slime');
+    assert.eq(slime._spawnSource, 'fishing-slime');
     assert.inRange(Math.hypot(slime.x - x, slime.y - y), 6.999, 7.001);
     assert.truthy(slime._lastDamagedT, 'hooked slimes retain their angry reaction');
   }));
