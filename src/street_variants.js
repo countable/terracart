@@ -341,7 +341,8 @@
       story: 'street_scenic', art: 'street_greenway', title: 'A greenway',
       body: "Branches hang low over the path. You duck beneath them as leaves brush your hood.",
       flash: 'A greenway. The green holds.' },
-    { id: 'parkpath', materialLooks: { tree: 'mossy_tree' }, pathWeight: .27, terrain: 'PARK', affinities: ['formal', 'cultivated'], size: 'path', share: 0, rung: 'uncommon',
+    { id: 'parkpath', pathFauna: { butterfly: { count: [1, 3], kinds: 'BUTTERFLY_VARIANTS',
+        perPath: true, salt: 'pathfauna|butterfly' } }, materialLooks: { tree: 'mossy_tree' }, pathWeight: .27, terrain: 'PARK', affinities: ['formal', 'cultivated'], size: 'path', share: 0, rung: 'uncommon',
       stone: { weathered: '#7b756b', restored: '#898a80' },
       lampGlow: '#a8e07a',
       story: 'street_scenic', art: 'street_parkpath', title: 'The park path',
@@ -2190,7 +2191,8 @@
     const influence = (paintsTerrain ? row?.terrainVergeCells : row?.influenceVergeCells) ?? TERRAIN_VERGE_CELLS;
     return Math.min(maximum, influence, row?.placementVergeCells ?? maximum);
   }
-  function variantOwner(index, N, maxVergeCells = Infinity) {
+  // Population budgets can request the winning section identity as well as its theme.
+  function variantOwner(index, N, maxVergeCells = Infinity, withIdentity = false) {
     const scale = N / (index.extent || 4096), segments = [], cache = new Map();
     const records = [...(index.dressingLines || index.lines || [])];
     if (index.dressingLines) {
@@ -2253,8 +2255,9 @@
       visit(rootNode);
       const reach = Number.isFinite(maxVergeCells) ? placementVergeCellsFor(variant, maxVergeCells, size) : maxVergeCells;
       if (distance > (halfW + reach) ** 2 + 1e-10) variant=null;
-      cache.set(i,variant);
-      return variant;
+      const result = withIdentity && variant ? { variant, key: identity } : variant;
+      cache.set(i,result);
+      return result;
     };
   }
 

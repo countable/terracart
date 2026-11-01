@@ -19,7 +19,14 @@ const { chromium } = require('playwright-core');
           s.presentThemedShop(0,0,house,()=>ShopsMath.recordDeal(s.save,house));
         },theme);
         await page.waitForTimeout(150);
-        assert.equal(await page.locator('.shop-shelf-row').count(),3);
+        assert.equal(await page.locator('.shop-shelf-row').count(),1);
+        await page.evaluate(() => {
+          const s=__scene;
+          document.querySelectorAll('.game-modal').forEach(el=>el.remove());
+          s.save.inv.push({id:'commerce_key',count:1});
+          s.presentThemedShop(0,0,__shelfHouse,()=>ShopsMath.recordDeal(s.save,__shelfHouse));
+        });
+        assert.equal(await page.locator('.shop-shelf-row').count(),2);
         const assertReachable = async label => {
           const layout = await page.evaluate(() => {
             const modal = document.getElementById('offer-modal');
@@ -52,8 +59,7 @@ const { chromium } = require('playwright-core');
           await page.waitForTimeout(100);
           const after=await page.evaluate(()=>__scene.shopBucketState(__shelfHouse).shelf);
           assert.deepEqual(after[1],before[1],`${theme} second slot unchanged`);
-          assert.deepEqual(after[2],before[2],`${theme} third slot unchanged`);
-          assert.equal(await page.locator('.shop-shelf-row').count(),3);
+          assert.equal(await page.locator('.shop-shelf-row').count(),2);
           const saved=await page.evaluate(()=>{
             const s=__scene,cur=s.shopBucketState(__shelfHouse);cur.rerolls=4;
             s.presentThemedShop(0,0,__shelfHouse,()=>ShopsMath.recordDeal(s.save,__shelfHouse));
@@ -69,7 +75,7 @@ const { chromium } = require('playwright-core');
         if (theme !== 'relic') {
           await page.evaluate(() => {
             const s=__scene, ids=[...new Set(s.shopBucketState(__shelfHouse).shelf.filter(Boolean).map(o=>o.id))];
-            s.save.inv=ids.map(id=>({id,count:Inventory.stackCapFor(s.save,id)}));
+            s.save.inv=[{id:'commerce_key',count:1}, ...ids.map(id=>({id,count:Inventory.stackCapFor(s.save,id)}))];
             s.presentThemedShop(0,0,__shelfHouse,()=>ShopsMath.recordDeal(s.save,__shelfHouse));
           });
           await page.waitForTimeout(100);
@@ -77,7 +83,7 @@ const { chromium } = require('playwright-core');
           assert.equal(await page.locator('.shop-shelf-row button:enabled').count(),0,'full stacks disable buying');
         }
       }
-      console.log(`${width}x${height}: six shelf themes remain reachable; purchases keep two slots and reduce penalty`);
+      console.log(`${width}x${height}: six shelf themes remain reachable; purchases keep the other slot and reduce penalty`);
       await page.close();
     }
   } finally {await browser.close();}

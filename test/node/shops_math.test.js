@@ -840,7 +840,7 @@ test('rerollPeek: every re-roll button draws through it with what is on display'
     'the trader rides the shared button with its own peek and ladder');
   assert.falsy(/curState\.rerolls \+= 1|ShopsMath\.rerollPeek\(/.test(trader), 'and draws nowhere else');
   // Each caller names its current offer.
-  assert.truthy(/cost: ShopsMath\.themedRerollCost, current: shelf/.test(src), 'the themed shelf rerolls all three offers');
+  assert.truthy(/cost: ShopsMath\.themedRerollCost, current: shelf/.test(src), 'the themed shelf rerolls all unlocked offers');
   assert.truthy(/\{ cost: ShopsMath\.smithyRerollCost, current: offer \}/.test(src), 'the smithy: the forge target');
   assert.truthy(/\{ \.\.\.rerollOpts, current: offer \}/.test(src), 'the relic stall: the piece');
 });
@@ -852,26 +852,28 @@ test('shop shelf: purchase replaces only its slot and survives save round trip',
   const cur = ShopsMath.bucketState(save, house, 1000);
   let next = 0;
   const draw = () => ({ id: `stock-${next++}`, price: next * 2 });
-  const first = ShopsMath.shelf(cur, draw).slice();
+  const first = ShopsMath.shelf(cur, draw, null, 3).slice();
   assert.eq(first.length, 3);
   cur.rerolls = 3;
   ShopsMath.recordDeal(save, house, 1001);
-  ShopsMath.shelf(cur, draw, 1);
+  ShopsMath.shelf(cur, draw, 1, 3);
   assert.eq(cur.shelf[0], first[0]);
   assert.eq(cur.shelf[2], first[2]);
   assert.truthy(cur.shelf[1].id !== first[1].id);
   assert.eq(cur.rerolls, 2);
   const restored = JSON.parse(JSON.stringify(save));
-  const shelf = ShopsMath.shelf(ShopsMath.bucketState(restored, house, 1002), draw);
+  const shelf = ShopsMath.shelf(ShopsMath.bucketState(restored, house, 1002), draw, null, 3);
   assert.eq(JSON.stringify(shelf), JSON.stringify(cur.shelf));
   assert.eq(next, 4, 'reopening draws nothing');
 });
 
-test('shop shelf: Seed and Relic shops show two offers, the other lines three', () => {
-  assert.eq(Shops.shelfSize('seed'), 2);
-  assert.eq(Shops.shelfSize('relic'), 2);
-  for (const line of ['supply', 'potion', 'pet', 'book']) assert.eq(Shops.shelfSize(line), ShopsMath.SHELF_SIZE, line);
-  assert.eq(ShopsMath.SHELF_SIZE, 3);
+test('shop shelf: Key of Commerce expands every shop line from one offer to two', () => {
+  const save = { inv: [] };
+  const lines = [...Shops.THEMES, ...Object.keys(Shops.SOLO_LINES)];
+  for (const line of lines) assert.eq(Shops.shelfSize(line, save), 1, line);
+  save.inv.push({ id: 'commerce_key', count: 1 });
+  for (const line of lines) assert.eq(Shops.shelfSize(line, save), 2, line);
+  assert.eq(ShopsMath.SHELF_SIZE, 1);
   let next = 0;
   const draw = () => ({ id: `stock-${next++}` });
   const cur = {};
@@ -882,6 +884,20 @@ test('shop shelf: Seed and Relic shops show two offers, the other lines three', 
   const trimmed = ShopsMath.shelf(saved, draw, null, 2);
   assert.eq(trimmed.map(o => o.id).join(), 'a,b', 'trimmed, not redrawn');
   assert.eq(next, 2);
+});
+
+
+test('shop shelf: obtaining the commerce key fills the new slot and preserves the existing offer', () => {
+  const save = { inv: [] }, cur = {};
+  let draws = 0;
+  const draw = () => ({ id: `stock-${draws++}`, price: 7 });
+  const first = ShopsMath.shelf(cur, draw, null, Shops.shelfSize('seed', save))[0];
+  save.inv.push({ id: 'commerce_key', count: 1 });
+  const expanded = ShopsMath.shelf(cur, draw, null, Shops.shelfSize('seed', save));
+  assert.eq(expanded.length, 2);
+  assert.eq(expanded[0], first);
+  assert.eq(draws, 2);
+  assert.truthy(/Shops\.shelfSize\(theme, this\.save\)/.test(SCENE_SRC), 'the live shop reads player progression');
 });
 
 test('shop penalty: overnight resets remaining rungs even inside one shop bucket', () => {

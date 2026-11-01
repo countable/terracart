@@ -138,6 +138,45 @@ test('path fauna: Greenway deer use safe verges and stable catch identities', ()
   assert.eq(pathPopulation(false,new Set(a.map(c=>c.id)),'greenway').length,0);
 });
 
+test('path fauna: each Park Path keeps one butterfly type, 1–3 seats and stable catches', () => {
+  const run = (keys, caught = new Set(), reverse = false, blocked = false) => {
+    const grid = new Uint8Array(NB * NB).fill(T.PARK), cells = [], lines = [];
+    const spawnWhy = new Uint16Array(NB * NB);
+    keys.forEach((key, n) => {
+      const x = 20 + n * 30;
+      for (let y = 5; y < NB - 5; y++) {
+        const i = y * NB + x; grid[i] = T.PATH; cells.push(i);
+        if (blocked && y < NB - 12) for (const dx of [-1, 1]) spawnWhy[i + dx] = WorldGen.SPAWN_WHY.RESTRICTED;
+      }
+      const rec = { key, variant: 'parkpath', size: 'path', halfW: 2,
+        line: [{ x: x + .5, y: 5.5 }, { x: x + .5, y: NB - 5.5 }] };
+      lines.push(rec, { ...rec }); // Duplicate source fragments cannot multiply the budget.
+    });
+    const entry = { grid, cellsPerEdge: NB, streetArea: new Uint8Array(NB * NB).fill(1),
+      streetAreaVariants: new Uint8Array(NB * NB).fill(StreetVariants.VARIANT_BY_ID.parkpath.code),
+      streetIndex: { extent: NB, dressingLines: reverse ? lines.reverse() : lines } };
+    return pathLift().call({ tileEdgeM: NB * CM }, [], reverse ? cells.reverse() : cells,
+      NB, 3, 4, CM, grid, { spawnWhy }, caught, entry);
+  };
+  const seen = new Set();
+  for (let seed = 0; seed < 16; seed++) {
+    const keys = ['park-a-' + seed, 'park-b-' + seed], a = run(keys), b = run(keys, new Set(), true);
+    const signature = list => list.map(c => `${c.id}@${c.x},${c.y}`).sort().join('|');
+    assert.eq(signature(a), signature(b), 'input order does not change a path population');
+    for (const x of [20, 50]) {
+      const residents = a.filter(c => Math.abs(cellOf(c) % NB - x) === 1);
+      assert.gte(residents.length, 1); assert.lte(residents.length, 3);
+      assert.eq(new Set(residents.map(c => c.kind)).size, 1, 'one type per path');
+      assert.truthy(SpriteLayout.BUTTERFLY_VARIANTS.some(row => row.id === residents[0].kind));
+      seen.add(residents[0].kind);
+    }
+    const relocated = run(keys, new Set(), false, true);
+    assert.eq(a.map(c => c.id).sort().join(), relocated.map(c => c.id).sort().join(), 'safety keeps catch identities');
+    assert.eq(run(keys, new Set(a.map(c => c.id))).length, 0, 'caught butterflies stay caught');
+  }
+  assert.gt(seen.size, 1, 'different path keys select different butterfly types');
+});
+
 test('shore fauna: crabs on shore sand only, gulls on the beach only, counted off the waterline', () => {
   const b = beach();
   const out = seat(b);

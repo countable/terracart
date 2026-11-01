@@ -718,6 +718,7 @@ const MINERAL_ICON_SHEET = {
   stealth_ring:      { sheet: 'icon_rings',   frame: 8 },
   perception_ring:   { sheet: 'icon_rings',   frame: 10 },
   portal_stone: { sheet: 'icon_progression', frame: 0 },
+  commerce_key: { sheet: 'icon_commerce_key', frame: 0 },
   depth_key: { sheet: 'icon_progression', frame: 1 },
   coin_ring:         { sheet: 'icon_rings',   frame: 7 },
   invisibility_ring: { sheet: 'icon_rings',   frame: 11 },
@@ -982,7 +983,7 @@ const BASE_TIER = {
   // a T2 utility like the protection potion, under the T3 explosive flask.
   poison_flask: 2,
   // Unique jewelry is intrinsically magical, never a metal rung.
-  portal_stone: 3, depth_key: 4,
+  portal_stone: 3, depth_key: 4, commerce_key: 1,
   stealth_ring: 2, perception_ring: 2, coin_ring: 2, invisibility_ring: 4, ember_ring: 3, vampire_ring: 4, xray_ring: 3, meteor_ring: 3, comet_ring: 6, regeneration_amulet: 3, vigor_amulet: 5,
   // Tomes: a tome's tier is one above the potion it channels (the books
   // group's top-tier pick makes each tier's chest hand its own tome).
@@ -1242,6 +1243,7 @@ const ITEMS = [
   { id: 'stealth_ring',      name: 'Stealth Ring',          kind: 'unique_relic', uniqueJewelry: true },
   { id: 'perception_ring',   name: 'Ring of Perception',    kind: 'unique_relic', uniqueJewelry: true },
   { id: 'portal_stone', name: 'Portal Stone', kind: 'unique_relic', progressionOnly: true },
+  { id: 'commerce_key', name: 'Key of Commerce', kind: 'unique_relic', progressionOnly: true },
   { id: 'depth_key', name: 'Key of the Fourth Depth', kind: 'unique_relic', progressionOnly: true },
   { id: 'coin_ring',         name: 'Ring of Gathering',     kind: 'unique_relic', uniqueJewelry: true },
   { id: 'invisibility_ring', name: 'Ring of Invisibility',  kind: 'unique_relic', uniqueJewelry: true },
@@ -2277,6 +2279,7 @@ const ITEM_EFFECTS = {
   stealth_ring: 'Hungry eyes slide past the stone in its band.',
   perception_ring: 'Hidden tracks sharpen at the edge of your sight.',
   portal_stone: 'A pale doorway waits inside the stone for quiet ground beneath the sky.',
+  commerce_key: 'Shops offer two items instead of one while you carry this key.',
   depth_key: 'The metal warms in your palm, answering a lock far below.',
   coin_ring: 'Loose coins slide across the ground toward its golden band.',
   ember_ring: 'Its banked ember drinks the heat before it reaches your skin.',

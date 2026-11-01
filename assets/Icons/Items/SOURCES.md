@@ -15,3 +15,5 @@
 source box `[624, 624, 48, 48]`. The unmodified crop is retained as
 `source/lantern-48.png`; the runtime icon is a nearest-neighbor resize to
 16×16. Its saved item id remains `evertorch`.
+
+- `commerce_key.png`: existing spare key art from `docs/art/proposal-art/round2/commercial_uncommon_key4.png`, reused unchanged for the Key of Commerce.

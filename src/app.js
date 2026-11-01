@@ -1580,6 +1580,7 @@ const ICON_SHEETS = {
   icon_compass: { url: 'assets/Icons/Items/compass.png', cols: 1, srcW: 16, srcH: 16 },
   icon_orb: { url: 'assets/Icons/Items/orb.png', cols: 1, srcW: 16, srcH: 16 },
   icon_goblet: { url: 'assets/Icons/Items/goblet.png', cols: 1, srcW: 16, srcH: 16 },
+  icon_commerce_key: { url: 'assets/Icons/Items/commerce_key.png', cols: 1, srcW: 16, srcH: 16 },
   icon_lucky_key: { url: 'assets/Icons/Items/lucky_key.png', cols: 1, srcW: 16, srcH: 16 },
   icon_wood_shield: { url: 'assets/Icons/Items/wood_shield.png', cols: 1, srcW: 16, srcH: 16 },
   icon_metal_shield: { url: 'assets/Icons/Items/metal_shield.png', cols: 1, srcW: 16, srcH: 16 },

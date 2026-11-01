@@ -100,7 +100,7 @@ def material_art(material):
             art = frames[str(frame)]
         return {**art, 'source': r['assets'][art['sheet']].get('path', 'runtime texture bake').split('?')[0] + ' · frame ' + str(art['frames'][0])}
     kind = material['kind']
-    if material.get('redBarrel') or kind in ('mineralrock', 'headstone', 'waystone', 'tree', 'fruittree', 'staircase', 'roadsign', 'ground_hole', 'pressure_plate') or (kind != 'wildplant' and material.get('_streetArt')):
+    if material.get('hive') or material.get('redBarrel') or kind in ('mineralrock', 'headstone', 'waystone', 'tree', 'fruittree', 'staircase', 'roadsign', 'ground_hole', 'pressure_plate') or (kind != 'wildplant' and material.get('_streetArt')):
         fields = r['materialArtFields']
         key = json.dumps([material.get(field) for field in fields], separators=(',', ':'))
         if key not in r['materialArt']:
@@ -186,7 +186,7 @@ def sprite_cell(prefix, material, x, y, size, definition=None):
             fw, fh = fruit['width'] * unit, fruit['height'] * unit
             picture += art_image(fruit, f'class="sprite-cell" data-fruit-overlay="{fruit["sheet"]}" x="{x+size/2+fruit["dxPx"]*unit-fw/2}" y="{y+size/2+fruit["dyPx"]*unit-fh/2}" width="{fw}" height="{fh}"')
         return picture
-    if definition and (definition.get('_objectArt') or definition.get('_streetArt') or definition.get('kind') in ('mineralrock', 'headstone', 'waystone', 'roadsign', 'barrel', 'clay_pot', 'box', 'ground_hole', 'pressure_plate') or definition.get('barrelStyle') or definition.get('barrel')):
+    if definition and (definition.get('hive') or definition.get('_objectArt') or definition.get('_streetArt') or definition.get('kind') in ('mineralrock', 'headstone', 'waystone', 'roadsign', 'barrel', 'clay_pot', 'box', 'ground_hole', 'pressure_plate') or definition.get('barrelStyle') or definition.get('barrel')):
         art = material_art(definition)
         if 'width' in art:
             unit = size / .8 / art_registry()['cellPx']
@@ -677,6 +677,8 @@ def street_material_key(o):
         # street_materials keeps one object per key, so a crate chest and a
         # clay pot sharing 'chest' would bake one symbol for both.
         suffix += '_' + container_look(o)
+    if o.get('hive'):
+        suffix += '_hive_' + o['hive']
     return kind + suffix
 
 
@@ -695,7 +697,8 @@ def street_svg(v, cell_m, detail=False):
     suffix = '-detail' if detail else ''
     pattern_id = f'street-grid-{v["id"]}{suffix}'
     vine = next((o for o in v['objects'] if o.get('crop') == 'creeping_vine'), None)
-    focus = f' data-focus-x="{vine["x"]}"' if vine else ''
+    focal = next((o for o in v['objects'] if o.get('hive')), vine)
+    focus = f' data-focus-x="{focal["x"]}"' if focal else ''
     parts = [f'<svg role="img" aria-label="{html.escape(v["title"])} generated street arrangement" viewBox="{left} {top} {width} {height}"{focus}>',
              f'<defs><pattern id="{pattern_id}" width="{cell_m}" height="{cell_m}" patternUnits="userSpaceOnUse"><path d="M {cell_m} 0 H 0 V {cell_m}" fill="none" stroke="#bfd0b3" stroke-opacity=".08" stroke-width=".35"/></pattern></defs>',
              f'<rect x="{left}" y="{top}" width="{width}" height="{height}" fill="#172820"/>',
@@ -736,6 +739,8 @@ def street_svg(v, cell_m, detail=False):
         label = html.escape(kind + (f' ({o["species"]})' if o.get('species') else '') + (f' · growth stage {o["variant"]}' if kind == 'tree' and 'variant' in o else ''))
         parts.append(f'<rect class="geometry-cell" x="{o["x"]-size/2}" y="{o["y"]-size/2}" width="{size}" height="{size}" rx=".8" fill="{color}"><title>{label}</title></rect>')
         parts.append(sprite_cell(art_prefix, street_material_key(o), o['x']-size/2, o['y']-size/2, size, o))
+        if o.get('hive'):
+            parts.append(f'<g data-hive-marker><title>Mushroom house hive · attack to stop monster spawns</title><text x="{o["x"]}" y="{o["y"]+cell_m*.6}" text-anchor="middle" font-size="2.4" fill="#f4edbb">Mushroom hive</text></g>')
         if o.get('crop') == 'creeping_vine':
             parts.append(f'<g data-vine-marker><title>Creeping vine seed · grows during gameplay</title><path d="M {o["x"]} {o["y"]-cell_m*.4} v {-cell_m*.8}" stroke="#f4edbb" stroke-width=".3"/><text x="{o["x"]}" y="{o["y"]-cell_m*1.4}" text-anchor="middle" font-size="2.6" fill="#f4edbb">Creeping vine</text></g>')
     for vent in v.get('vents', []):
@@ -764,7 +769,7 @@ def street_svg(v, cell_m, detail=False):
     for kind, rule in v.get('pathFauna', {}).items():
         # A short sample may not earn a population slot: label this as an example.
         parts.append(creature_at(kind, mid_x, mid_y + cell_m, cell_m,
-            f'Example {kind.replace("_", " ")}: 1 per {rule["perPathM"]} m; max {rule["max"]}/tile'))
+            path_fauna_description({kind: rule})))
     for kind in v.get('habitatEnemies', {}).get('kinds', []):
         parts.append(creature_at(kind, mid_x + cell_m * 3, mid_y + cell_m, cell_m,
             f'Example {kind}; up to {v["habitatEnemies"]["count"]} per eligible tile habitat'))
@@ -790,6 +795,18 @@ def street_svg(v, cell_m, detail=False):
     return ''.join(parts)
 
 
+def path_fauna_description(rules):
+    descriptions = []
+    for kind, rule in rules.items():
+        name = kind.replace('_', ' ').title()
+        if rule.get('count'):
+            low, high = rule['count']
+            descriptions.append(f'{name}: {low}–{high} per path section per tile, all one seeded type; on eligible ground. Creature shown as an example.')
+        else:
+            descriptions.append(f'{name}: one per {rule["perPathM"]} m of path, at most {rule["max"]} per tile, on eligible ground; stays defeated. Creature shown as an example.')
+    return '; '.join(descriptions)
+
+
 def street_section(streets):
     cards = []
     streets = {**streets, 'rows': [row for row in streets['rows'] if row['size'] in ('minor', 'path')]}
@@ -800,7 +817,7 @@ def street_section(streets):
         inventory = ', '.join(f'{n} {kind}' for kind, n in mix.items()) or 'No extra verge props'
         fauna = 'Local habitat wildlife'
         if v.get('pathFauna'):
-            fauna = '; '.join(f'{kind.replace("_", " ").title()}: one per {rule["perPathM"]} m of path, at most {rule["max"]} per tile, on eligible ground; stays defeated. Creature shown as an example.' for kind, rule in v['pathFauna'].items())
+            fauna = path_fauna_description(v['pathFauna'])
         selection = f"Small road · {v['share']*100:g}% base share"
         if v['size'] == 'path':
             selection = f"Walking path · {v.get('pathWeight', 0)*100:g}% base weight"
@@ -1352,7 +1369,7 @@ def render(d, out):
         mode = {'concentric_rings':'Three rings · central POI', 'bounded_line_grid':f'{b.get("plots",[0,0])[0]} × {b.get("plots",[0,0])[1]} plots · POI centered in a plot', 'line_grid':f'Lines every {b.get("spacingCells")} cells · repeat to zone edge', 'seeded_scatter':'Seeded scatter · no repeating tile', 'repeat_motif':'Repeating cell pattern', 'procedural_layout':'Repeating procedural layout'}[b['type']]
         fauna = 'Local habitat wildlife'
         if v.get('pathFauna'):
-            fauna = '; '.join(f'{kind.replace("_", " ").title()}: one per {rule["perPathM"]} m of path, at most {rule["max"]} per tile, on eligible ground; stays defeated. Creature shown as an example.' for kind, rule in v['pathFauna'].items())
+            fauna = path_fauna_description(v['pathFauna'])
         guard = v['guards']
         kinds = guard.get('kinds') or guard.get('choices') or [guard.get('kind', 'guard')]
         guard_text = 'None'

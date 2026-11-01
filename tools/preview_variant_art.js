@@ -9,7 +9,7 @@ const read = (name) => fs.readFileSync(path.join(root, 'src', name + '.js'), 'ut
 const ctx = { addEventListener() {} };
 ctx.window = ctx;
 vm.createContext(ctx);
-for (const name of ['enemy_roster', 'enemy_spawns', 'util', 'polygon_geometry', 'coords', 'sprite_layout', 'art_atlas', 'selected_world_atlas', 'selected_item_art', 'ground_materials', 'assets', 'items', 'placed_floor', 'crops', 'chest_themes', 'loot', 'zone_variant_data', 'terrain', 'zone_variants', 'shrines', 'streets', 'street_variants', 'street_lights', 'street_signs', 'biome_profiles', 'habitat_spawns', 'macros', 'obstacle_step', 'interactables', 'quarry_layout', 'gameplay_tiers', 'conditions', 'explosive_barrels', 'combat', 'creature_ai', 'worldgen', 'road_overlay', 'lighting', 'lairs', 'zones', 'environment_hazards', 'rogue_object_bounds', 'rogue_prop_profile', 'street_decoration_art', 'rogue_objects']) {
+for (const name of ['enemy_roster', 'enemy_spawns', 'util', 'polygon_geometry', 'coords', 'sprite_layout', 'art_atlas', 'selected_world_atlas', 'selected_item_art', 'ground_materials', 'assets', 'items', 'placed_floor', 'crops', 'chest_themes', 'loot', 'zone_variant_data', 'terrain', 'zone_variants', 'shrines', 'hives', 'streets', 'street_variants', 'street_lights', 'street_signs', 'biome_profiles', 'habitat_spawns', 'macros', 'obstacle_step', 'interactables', 'quarry_layout', 'gameplay_tiers', 'conditions', 'explosive_barrels', 'combat', 'creature_ai', 'worldgen', 'road_overlay', 'lighting', 'lairs', 'zones', 'environment_hazards', 'rogue_object_bounds', 'rogue_prop_profile', 'street_decoration_art', 'rogue_objects']) {
   vm.runInContext(read(name), ctx, { filename: name + '.js' });
 }
 // Resolve the same installed profile as index.html, including generated textures.
@@ -46,9 +46,15 @@ vm.runInContext(shrineFooting[0] + ';globalThis.CELL_PX=SpriteLayout.CELL_PX;', 
 // Representative inputs omit placement metadata and IDs. Actual quarry
 // records export their art directly, retaining their seeded rock shape.
 const materialArtFields = ['kind', 'yieldTier', 'requiredTier', 'rockMaterial', 'deposit', 'caveVariant',
-  'rockStyle', 'rockTheme', 'zoneVariant', '_zoneObjectFrame', '_plantArt', '_objectArt', '_streetArt', '_smashed', 'barrelStyle', 'barrel', 'redBarrel', 'cache', 'cacheTheme', 'tier', 'sightBlocking', 'species', 'size', 'variant', 'directions'];
+  'rockStyle', 'rockTheme', 'zoneVariant', '_zoneObjectFrame', '_plantArt', '_objectArt', '_streetArt', '_smashed', 'barrelStyle', 'barrel', 'redBarrel', 'cache', 'cacheTheme', 'tier', 'sightBlocking', 'species', 'size', 'variant', 'directions', 'hive', 'area'];
 const materialArtKey = object => JSON.stringify(materialArtFields.map(field => object[field] ?? null));
 vm.runInContext(`globalThis.previewMaterialArt = object => {
+  if (object.hive) {
+    const hive = Hives.KINDS[object.hive], asset = ASSETS[hive.texture];
+    const scale = houseArtScale(object.area, asset.frameWidth, 'wreck', WorldGen.CELL_M, SpriteLayout.CELL_PX);
+    return {sheet:hive.texture, frames:[hive.frame], preserveFrame:true, origin:[.5,1],
+      width:asset.frameWidth*scale, height:asset.frameHeight*scale, dxPx:0, dyPx:0};
+  }
   const scene = {save:{}, depth:0, textures:{exists:key => !!ASSETS[key],
     getFrame:(key, frame) => {
       const asset=ASSETS[key], rect=asset?.frameRects?.[String(frame)];

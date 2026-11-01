@@ -1057,18 +1057,28 @@ class SceneCreatures {
   // Each species keeps an independent stream and stable canonical path-cell IDs.
   spawnPathVariantFauna(creatures, allPathCells, N, tx, ty, cellM, grid, opts, caughtSet, entry, authoredCreatures = []) {
     const out = [], groups = new Map();
+    const ownerAt = entry?.streetIndex ? StreetVariants.variantOwner(entry.streetIndex, N, Infinity, true) : null;
     for (const cell of allPathCells) {
       const id = HabitatSpawns.resolve(entry, cell).variant;
       const variant = StreetVariants.VARIANT_BY_ID[id];
       if (!variant?.pathFauna) continue;
-      if (!groups.has(id)) groups.set(id, { variant, cells: [] });
-      groups.get(id).cells.push(cell);
+      const perPath = Object.values(variant.pathFauna).some(row => row.perPath);
+      const owner = perPath && ownerAt?.(cell % N, Math.floor(cell / N));
+      const key = owner?.variant === id ? owner.key : id;
+      if (!groups.has(key)) groups.set(key, { variant, key, cells: [] });
+      groups.get(key).cells.push(cell);
     }
-    for (const { variant, cells: pathCells } of groups.values()) {
-      for (const [kind, row] of Object.entries(variant.pathFauna)) {
+    for (const { variant, key, cells: pathCells } of [...groups.values()].sort((a, b) => a.key.localeCompare(b.key))) {
+      pathCells.sort((a, b) => a - b);
+      for (const [baseKind, row] of Object.entries(variant.pathFauna)) {
+        const stream = row.perPath ? `${row.salt}|${key}` : row.salt;
+        const kinds = row.kinds && SpriteLayout[row.kinds];
+        const kind = kinds ? kinds[Math.floor(EnemySpawns.roll(`${stream}|kind`) * kinds.length)].id : baseKind;
         const spClass = creatureSpawnClass(kind);
-        const requested = Math.min(row.max, Math.floor(pathCells.length * WorldGen.CELL_M / row.perPathM));
-        const rng = WorldGen.makeRng(fnv1a(`${row.salt}|${tx},${ty}`));
+        const requested = row.count
+          ? row.count[0] + Math.floor(EnemySpawns.roll(`${stream}|${tx},${ty}|count`) * (row.count[1] - row.count[0] + 1))
+          : Math.min(row.max, Math.floor(pathCells.length * WorldGen.CELL_M / row.perPathM));
+        const rng = WorldGen.makeRng(fnv1a(`${stream}|${tx},${ty}`));
         const remaining = pathCells.slice().sort((a, b) => a - b);
         const reserved = new Set(opts.creatureCells || []);
         for (const c of [...creatures, ...authoredCreatures]) {
@@ -1090,6 +1100,7 @@ class SceneCreatures {
               const cx = px + dx, cy = py + dy, i = cy * N + cx;
               if (cx < 0 || cy < 0 || cx >= N || cy >= N || grid[i] === WorldGen.T.PATH || reserved.has(i)) continue;
               if (HabitatSpawns.resolve(entry, i).variant !== variant.id) continue;
+              if (row.perPath && ownerAt && ownerAt(cx, cy)?.key !== key) continue;
               if (!WorldGen.isSpawnCell(grid, N, N, cx, cy, opts, spClass)) continue;
               cell = i; break;
             }

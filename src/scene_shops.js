@@ -978,7 +978,7 @@ class SceneShops {
     const { theme } = this.shopLine(house);
     const cur = this.shopBucketState(house);
     const draw = (slot, others, previous) => this._drawShopShelf(house, slot, others, previous);
-    const size = Shops.shelfSize(theme);
+    const size = Shops.shelfSize(theme, this.save);
     const shelf = ShopsMath.shelf(cur, draw, null, size);
     persistSave(this.save);
     const { wrap, box, mount, mkBtn } = this.makeModalShell('offer-modal', {

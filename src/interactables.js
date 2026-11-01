@@ -682,18 +682,22 @@ const INTERACTABLES = {
       const liftDepth = o.depth ?? scene.depth ?? 0;
       const liftTier = o.tierSeed || 1;
       const liftChest = !row && !stand && o.kind === 'chest' && !isBarrel(o) && liftDepth > 0;
+      const progressionChest = !row && !stand && !o.fixedLoot && !o.crate && iconLook?.texKey === 'chest';
+      const progressionTier = chestBaseTier(o);
+      const progressionItem = progressionChest && DungeonProgression.treasureDue(save, { depth: liftDepth, tier: progressionTier });
       const routeParts = liftChest && Elevators.partsDue(save, liftDepth, liftTier);
       const repairParts = liftChest && liftDepth === 1 && Elevators.partsDue(save);
       const markOpened = () => {
         if (row) Macros.markUsed(save, row, o);
         else save.opened.push(o.id);
+        if (progressionChest) DungeonProgression.recordTreasure(save, liftDepth, progressionTier);
         if (liftChest) Elevators.recordChest(save, liftDepth, liftTier);
         if (chapel) return;
         if (typeof DungeonProgression !== 'undefined' && Inventory.count(save, 'portal_stone') > 0) DungeonProgression.state(save).portalStoneFound = true;
         scene.questEvent?.('chest');
 
       };
-      if (routeParts || repairParts) {
+      if ((routeParts || repairParts) && !progressionItem) {
         markOpened();
         delete save.chestHold[o.id];
         ctx.dirty = true;
@@ -729,18 +733,16 @@ const INTERACTABLES = {
                     ? pickReward('chest:' + theme, save, undefined, { tier: chestT, depth: chestLootDepth(o),
                         venueProduct: venueProductFor(o) })
                     : null)));
-      // The first qualifying Underdark search always reveals the reusable stone.
-      const home = scene._elevatorHomePosition?.() || (typeof HomeArea !== 'undefined' ? HomeArea.worldM : null);
-      const portalStone = !chapel && !stand && iconLook?.texKey === 'chest'
-        && typeof DungeonProgression !== 'undefined' && DungeonProgression.portalStoneDue(save, {
-          depth: scene.depth || o.depth || 0, tier: chestT,
-          distanceM: home ? Math.hypot(o.x - home.x, o.y - home.y) : NaN,
-        });
-      if (portalStone) {
-        result = { kind: 'item', id: 'portal_stone', qty: 1, consolation: 0 };
+      if (progressionItem) {
+        result = { kind: 'item', id: progressionItem, qty: 1, consolation: 0 };
+      }
+      if (result?.id === 'portal_stone') {
         dress.art = 'progression_portal';
-        dress.header = 'A light beyond the Underdark';
-        dress.sub = 'Among the dust lies a portal stone. Bring it to the surface, at least 50 metres from a road. Beyond its light waits the Transcendent Arena: five different victories earn the key to Level 5.';
+        dress.header = 'Progression treasure';
+        dress.sub = 'Bring the portal stone to the surface, at least 50 metres from a road. Beyond its light waits the Transcendent Arena: five different victories earn the key to Level 5.';
+      } else if (result?.id === 'commerce_key') {
+        dress.header = 'Progression treasure';
+        dress.sub = 'The Key of Commerce increases the items offered in shops from one to two.';
       }
       result = Rewards.reconcileUnique(save, result);
       if (!result) {
