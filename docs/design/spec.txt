@@ -261,7 +261,7 @@ CORE
    the browser.
  - vector map tiles from OpenFreeMap (OpenMapTiles schema, no API key),
    decoded by hand (`mvt.js`) and cached in IndexedDB; fetched through
-   `fetchTileResponse` (CLAUDE.md).
+   `fetchTileBuffer` (CLAUDE.md).
  - Phaser 3 renders the world to a canvas. The view centres on a CAMERA ANCHOR
    — the player plus any peek drag (see INTERACTION MODEL).
  - graceful network loss: a 'reconnecting' banner; cached tiles still serve,
