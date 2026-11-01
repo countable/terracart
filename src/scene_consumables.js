@@ -1126,19 +1126,18 @@ class SceneConsumables {
     const restore = featherRevive ? null : FOOD_ENERGY[sel.id];
     if (!featherRevive && restore == null) return false;
     if (Energy.fishRegenWait(this.save, sel.id)) return false;
-    const { gained, extra } = this._consumeFoodEffects(sel.id, featherRevive);
+    const { gained, extra, firstTaste } = this._consumeFoodEffects(sel.id, featherRevive);
     if (!ITEM_BY_ID[sel.id]?.reusable) consumeSelected(this.save);
     // Armed only now, after a bite has actually landed.
     Energy.startEatCooldown(this.save);
     persistSave(this.save);
     this.buildInventoryDOM();
     this.updateEnergyDOM();
-    // Quiet pop-up instead of a modal — eating is a frequent action and a
-    // dismiss-tap every time would get old fast. Longer dwellMul so the
-    // gain (+ any compass / water side-effect) is readable before fading.
+    // Immediate effects stay readable while a new taste's story waits for
+    // the story lane. Its mystery dish never uses the specific food's icon.
     const flashMsg = Energy.fishRegenTotal(sel.id) || CONSUMABLE_SPEC[sel.id]?.eatLabel
       ? extra.trim() : `+${gained}⚡${extra}`;
-    this.flashLoot(flashMsg, UI_GREEN, 1.8, sel.id);
+    this.flashLoot(flashMsg, UI_GREEN, 1.8, firstTaste ? null : sel.id);
     return true;
   }
 
@@ -1154,6 +1153,7 @@ class SceneConsumables {
     if (!this.save.eaten.includes(id)) {
       this.save.eaten.push(id);
       firstTaste = true;
+      (this.save.firstTastesPending ||= []).push(id);
     }
     const before = this.save.energy ?? 0;
     const fish = Energy.fishRegenTotal(id);
@@ -1203,8 +1203,7 @@ class SceneConsumables {
     } else if (id === 'worldpeach' && Conditions.clearDebuffs(this.save)) {
       extra = '\nDebuffs cleared';
     }
-    if (firstTaste) extra += `\n🍽 first taste: +${Energy.tasteBonus(id)} max ⚡`;
-    return { gained, extra };
+    return { gained, extra, firstTaste };
   }
 
   _tickShrineRegen(dt, now = Date.now()) {

@@ -3416,6 +3416,7 @@ class MapScene extends Phaser.Scene {
       this._lowHealthStory();
       this._firstSaleStory();
       this._firstCoinStory();
+      this._firstTasteStories();
       PetStories.drain(this);
       DragonStory.drain(this);
       StoryEncounters.tick(this, Date.now());
@@ -8986,6 +8987,24 @@ class MapScene extends Phaser.Scene {
       this.updateHUD?.();
       return true;
     }, { key: 'coin:first', defer: true });
+  }
+
+  _firstTasteStories() {
+    for (const id of this.save.firstTastesPending || []) {
+      this._enqueueCeremony('story', (done) => {
+        if (!this.save.firstTastesPending?.includes(id)) return false;
+        this.showMessageModal({ kind: 'story', title: 'A first taste',
+          art: 'food_first_taste',
+          body: `A new flavour, a little warmth. You savour every bite.\n\n+${Energy.tasteBonus(id)} max ⚡`,
+          onDismiss: () => {
+            this.save.firstTastesPending = this.save.firstTastesPending.filter(food => food !== id);
+            persistSave(this.save);
+            done();
+          },
+        });
+        return true;
+      }, { key: `taste:${id}`, defer: true });
+    }
   }
 
   _firstSaleStory() {

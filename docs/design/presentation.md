@@ -377,6 +377,15 @@ pixels and decorative details do not define additional tap cells.
   well as skipping the opening story. Explicit interactions remain available;
   the override does not consume story progress.
 
+- Each newly tasted food earns an illustrated “A first taste” story, including
+  the Wayfarer's Pairy gift. Every event shares `food_first_taste`: Hood enjoying
+  an unidentified glowing dish, without the specific food's name or icon. The
+  panel states that food's permanent energy-cap increase. Food effects apply
+  immediately; the story waits through busy dialogs and the story hold, survives
+  reload, and leaves `firstTastesPending` only when dismissed. Repeat meals keep
+  their ordinary effect toast and earn no new story; existing eaten foods are
+  not replayed on older saves.
+
 - Dungeon arrival splashes select their story ID through
   `WorldGen.floorProfile(depth).arrivalStory`; presentation owns the copy and
   art, while the existing story ledger owns one-time delivery.
