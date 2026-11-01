@@ -553,11 +553,24 @@
     },
   };
 
+  const HIVES = {
+    name: 'HIVES', label: 'BEE HIVE · MUSHROOM HOUSE', w: 24, h: 18, fill: T.FOREST,
+    ambientFlora: false, spawn: { dx: 5, dy: 10 },
+    subLabels: [{ label: 'DAILY HONEY', dx: 5, dy: 10 },
+      { label: 'MUSHROOM HOUSE', dx: 17, dy: 10 }],
+    paint(p) { p.rect(16, 5, 3, 3, T.BUILDING); },
+    populate(s) {
+      s.object('hive', 5, 6, { _sandboxProbe: 'bee-hive' });
+      s.house(17, 6, 0, 9, { hive: 'mushroom', _sandboxWreck: true,
+        _sandboxProbe: 'mushroom-hive' });
+    },
+  };
+
   const HAZARDS = {
     name: 'HAZARDS', label: 'WEBS · SINKHOLE / CAVE HAZARDS', w: 24, h: 12, fill: T.GRASS,
     ambientFlora: false, spawn: { dx: 2, dy: 5 },
     subLabels: [{ label: 'SPIDER WEB', dx: 5, dy: 3 }, { label: 'SINKHOLE', dx: 16, dy: 3 },
-      { label: 'CAVE-IN ARRIVAL', dx: 19, dy: 5 }, { label: 'CAVE ENTRANCE', dx: 22, dy: 11 }],
+      { label: 'WHIRLWIND', dx: 11, dy: 9 }, { label: 'CAVE-IN ARRIVAL', dx: 19, dy: 5 }, { label: 'CAVE ENTRANCE', dx: 22, dy: 11 }],
     populate(s) {
       s.creature('spider', 8, 7, 1, { _sandboxProbe: 'web-spider' });
       s.object('staircase', 22, 10, { dir: 'down', _sandboxProbe: 'cave-entrance' });
@@ -592,7 +605,7 @@
     { roadAfter: { type: T.ROAD, class: 'minor', name: 'Garden Row', thick: 1, variant: 'toadstool' }, scenes: [RESIDENTIAL, CIVIC, SMALLHOUSE, FORAGE] },
     { roadAfter: null, scenes: [RECREATION, CASTLE, HAZARDS] },
     { roadAfter: null, scenes: [SHOWCASE, ZONES, RESTORATION, QUARRY] },
-    { roadAfter: null, scenes: [COMBAT] },
+    { roadAfter: null, scenes: [COMBAT, HIVES] },
   ];
 
   // Resolve each scene's grid-local origin (lx, ly) and the road rows. Sizes
@@ -1497,7 +1510,7 @@
     installControls(params);
     scene._sandboxHazardOrigin = origin;
     scene._sandboxHazardFixtures = null;
-    if ((scene.depth >= 1 && scene.depth <= 3) || SandboxDestinations.find(params.get('sandboxZone'))?.id === 'hazards'
+    if ((scene.depth >= 1 && scene.depth <= 3) || SandboxDestinations.find(params.get('sandboxZone'))?.scene === 'HAZARDS'
         || params.get('sandboxScene')?.toUpperCase() === 'HAZARDS') seedHazardState(scene, origin);
   }
 
@@ -1643,13 +1656,23 @@
     const save = scene.save;
     const ids = new Set(['objects', 'creatures', 'wildplants', 'extraTreasures']
       .flatMap(key => (entry?.[key] || []).flatMap(o => [o.id, `sandbox-L1-${o.id}`])));
+    // Hive offspring inherit their fixture's identity. Reset their defeat
+    // ledger too, otherwise serial 1 would still be dead after restarting.
+    const hiveIds = (entry?.objects || []).filter(o => o.kind === 'hive' || o.hive).map(o => o.id);
+    const hiveChild = id => hiveIds.some(h => id.startsWith(`${h}_hive_`) || id.startsWith(`hivebee_${h}_`));
+    for (const id of save.caught || []) if (hiveChild(id)) ids.add(id);
+    if (entry?.creatures) entry.creatures = entry.creatures.filter(c => !hiveChild(c.id));
+    for (const id of Object.keys(save.coinBurstClaimed || {})) {
+      if (hiveIds.includes(id.slice(0, -8)) && /^\d{8}$/.test(id.slice(-8))) delete save.coinBurstClaimed[id];
+    }
+    for (const id of hiveIds) scene._hives?.clocks.delete(id);
     // Mining reads the runtime binding created before Sandbox.install. Delete
     // through it as well as clearing saved history, so reload restores the rock.
     for (const id of ids) scene.brokenRockSet?.delete(id);
     for (const key of ['picked', 'caught', 'chopped', 'brokenRocks', 'opened', 'foundTreasures', 'burnedObjects']) {
       if (Array.isArray(save[key])) save[key] = save[key].filter(id => !ids.has(id));
     }
-    for (const key of ['lastProduce', 'fruitPicked', 'chestHold', 'quarryMined', 'grassRegrowth']) {
+    for (const key of ['lastProduce', 'fruitPicked', 'chestHold', 'quarryMined', 'grassRegrowth', 'hives']) {
       for (const id of Object.keys(save[key] || {})) if (ids.has(id)) delete save[key][id];
     }
   }
@@ -1889,6 +1912,7 @@
     scene._environmentHazards = new Map();
     scene._pressureTraps = null;
     scene._spiderWebRuntime = null;
+    scene._whirlwinds = (scene._whirlwinds || []).filter(h => !h._sandboxProbe);
     const at = (x, y) => absCellOffset(scene, origin.cellIX, origin.cellIY, x, y);
     const env = EnvironmentHazards.lists(scene), fixtures = [];
     const add = (type, x, y, kind = 'poison', tag = type) => {
@@ -1919,6 +1943,12 @@
       });
     } else if (scene.depth === 0) {
       add('sinkhole', 16, 6);
+      const windCell = at(11, 8);
+      const windPoint = absCellCenterMeters(scene, windCell.cellIX, windCell.cellIY);
+      const wind = Whirlwinds.create(windPoint, performance.now(), () => .5, prefix + 'whirlwind');
+      wind._sandboxProbe = 'whirlwind';
+      scene._whirlwinds.push(wind);
+      fixtures.push(wind);
       const cell = at(5, 6), point = absCellCenterMeters(scene, cell.cellIX, cell.cellIY);
       SpiderWebs.land(scene, { depth: scene.depth, ...cell, targetX: point.x, targetY: point.y });
       const web = SpiderWebs.lists(scene).webs.find(w => w.cellIX === cell.cellIX && w.cellIY === cell.cellIY);
