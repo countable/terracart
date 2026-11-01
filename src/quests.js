@@ -40,6 +40,10 @@ function settleSingleTarget(q) {
   return true;
 }
 
+// What each luxury job asks for, by assignment order: the first Archive is a
+// gentle introduction to furnishing; every later one asks for a proper home.
+const LUXURY_NEED = [3, 16];
+
 // The hunt board names game that is hunted FOR something (its row's `drop`:
 // meat from the deer and livestock, the rabbit's pelt, the crow's feather) —
 // not a butterfly, game that a bare-handed tap takes but no board would
@@ -72,7 +76,7 @@ const Quests = {
       q.reward = 40;
     } else if (verb === 'luxury') {
       q.title = 'A respectable address';
-      q.need = 16;
+      q.need = LUXURY_NEED[Math.min(order, LUXURY_NEED.length - 1)];
       q.reward = 60;
       q.have = Furniture.luxuryOf(save, save.starterShopId);
     } else {

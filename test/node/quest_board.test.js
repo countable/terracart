@@ -161,17 +161,17 @@
   test('castle quests: luxury reads the active Home, revalidates decreases and survives reload', () => {
     const key = Array.from({ length: 100 }, (_, i) => `luxury-castle:${i}`)
       .find(k => CastleStyles.questTypeFor(k, 'archive') === 'luxury');
-    const save = { starterShopId: 'home', houseLuxury: { home: { score: 16, footprintKey: 'room' } } };
+    const save = { starterShopId: 'home', houseLuxury: { home: { score: 3, footprintKey: 'room' } } };
     const q = Quests.assign(save, key, 'archive');
-    assert.eq(q.verb, 'luxury'); assert.eq(q.have, 16); assert.eq(q.need, 16);
+    assert.eq(q.verb, 'luxury'); assert.eq(q.have, 3); assert.eq(q.need, 3, 'the first luxury job asks for 3');
     assert.eq(q.title, 'A respectable address'); assert.eq(q.reward, 60);
     assert.eq(Quests.flavour(q), "We don't admit rabble here!");
-    assert.truthy(q.body.includes('16 luxury'));
+    assert.truthy(q.body.includes('3 luxury'));
     Quests.onEvent(save, 'luxury'); Quests.onEvent(save, 'place');
-    assert.eq(q.have, 16, 'placement events never increment the score');
-    save.houseLuxury.home.score = 9;
+    assert.eq(q.have, 3, 'placement events never increment the score');
+    save.houseLuxury.home.score = 2;
     assert.eq(Quests.claim(save, key), null, 'stale completed card cannot claim after pickup');
-    assert.eq(q.have, 9);
+    assert.eq(q.have, 2);
     save.starterShopId = 'new-home';
     assert.eq(Quests.open(save, key, 'archive').have, 0, 'moving Home reads its own score');
     save.houseLuxury['new-home'] = { score: 25, footprintKey: 'new-room' };
