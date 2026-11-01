@@ -802,6 +802,112 @@ class TerrainCache {
   }
 }
 Render.TerrainCache = TerrainCache;
+
+// Canvas pays one drawImage per sprite even when a still wildplant has not
+// changed. Cache static wildplants by ground row so their data and taps stay
+// live while each row retains its place in the world depth order.
+let plantCanvasCacheSerial = 0;
+class PlantCanvasBand {
+  constructor(owner, key) {
+    this.owner = owner; this.key = key; this.records = []; this.n = 0; this.used = 0;
+    const scene = owner.scene;
+    this.textureKey = `plant_row_baked_${++plantCanvasCacheSerial}`;
+    this.image = scene.add.image(0, 0, '__DEFAULT').setOrigin(0, 0).setVisible(false);
+    this.image.renderCanvas = (renderer, image, camera, parent) => this.renderCanvas(renderer, camera, parent);
+    scene.worldContainer.add(this.image);
+  }
+  begin() { this.used = 0; this.depth = Infinity; }
+  offer(sprite, item) {
+    const sig = [sprite.texture?.key, sprite.frame?.name, sprite.x, sprite.y, sprite.originX, sprite.originY,
+      sprite.scaleX, sprite.scaleY, sprite.alpha, sprite.tintTopLeft, sprite.flipX, sprite.flipY].join(',');
+    let record = this.records[this.used];
+    if (!record) record = this.records[this.used] = {};
+    if (record.sprite !== sprite || record.sig !== sig) { record.sprite = sprite; record.sig = sig; this.dirty = true; }
+    this.used++; this.depth = Math.min(this.depth, item._z ?? 0);
+    sprite.setVisible(false);
+  }
+  end() {
+    if (this.used !== this.n) this.dirty = true;
+    this.n = this.used; this.image.setVisible(this.n > 0);
+    return this.n > 0;
+  }
+  renderCanvas(renderer, camera, parent) {
+    if (!this.n) return;
+    camera.addToRenderList(this.image);
+    const m = camera.matrix, p = parent || {};
+    const matrixKey = [m.a,m.b,m.c,m.d,m.e,m.f,p.a,p.b,p.c,p.d,p.e,p.f,camera.alpha].join(',');
+    if (matrixKey !== this.matrixKey) { this.matrixKey = matrixKey; this.dirty = true; }
+    let left = Infinity, top = Infinity, right = -Infinity, bottom = -Infinity;
+    for (let i = 0; i < this.n; i++) {
+      const s = this.records[i].sprite, w = s.displayWidth, h = s.displayHeight;
+      left = Math.min(left, s.x - s.originX * w); top = Math.min(top, s.y - s.originY * h);
+      right = Math.max(right, s.x + (1 - s.originX) * w); bottom = Math.max(bottom, s.y + (1 - s.originY) * h);
+    }
+    const screen = (x, y) => ({ x: m.a*x + m.c*y + m.e, y: m.b*x + m.d*y + m.f });
+    const corners = [screen(left,top),screen(right,top),screen(right,bottom),screen(left,bottom)];
+    left = Math.floor(Math.min(...corners.map(q=>q.x))) - 2;
+    top = Math.floor(Math.min(...corners.map(q=>q.y))) - 2;
+    right = Math.ceil(Math.max(...corners.map(q=>q.x))) + 2;
+    bottom = Math.ceil(Math.max(...corners.map(q=>q.y))) + 2;
+    const width = Math.max(1, right-left), height = Math.max(1, bottom-top), scene = this.owner.scene;
+    if (!this.tex) {
+      this.tex = scene.textures.createCanvas(this.textureKey, width, height);
+      this.image.setTexture(this.textureKey); this.dirty = true;
+    } else if (this.tex.width !== width || this.tex.height !== height) {
+      this.tex.setSize(width, height); this.dirty = true;
+    }
+    if (this.dirty) {
+      const ctx = this.tex.context;
+      ctx.setTransform(1,0,0,1,0,0); ctx.clearRect(0,0,width,height);
+      if (!this.paintCamera || Object.getPrototypeOf(this.paintCamera) !== camera) {
+        this.paintCamera = Object.create(camera); this.paintCamera.matrix = new m.constructor();
+      }
+      const paint = this.paintCamera;
+      paint.matrix.copyFrom(m); paint.matrix.e -= left; paint.matrix.f -= top;
+      const previous = renderer.currentContext;
+      try {
+        renderer.currentContext = ctx;
+        for (let i=0;i<this.n;i++) renderer.batchSprite(this.records[i].sprite, this.records[i].sprite.frame, paint, parent);
+      } finally { renderer.currentContext = previous; }
+      this.tex.refresh(); this.dirty = false;
+    }
+    const ctx = renderer.currentContext;
+    ctx.save(); ctx.setTransform(1,0,0,1,0,0); ctx.globalAlpha = 1;
+    ctx.globalCompositeOperation = 'source-over'; ctx.imageSmoothingEnabled = false;
+    ctx.drawImage(this.tex.canvas,left,top); ctx.restore();
+  }
+  destroy() {
+    if (this.image.scene) this.image.destroy();
+    if (this.tex && this.owner.scene.textures.exists(this.textureKey)) this.owner.scene.textures.remove(this.textureKey);
+  }
+}
+class PlantCanvasCache {
+  constructor(scene) {
+    this.scene = scene; this.bands = new Map(); this.enabled = typeof Phaser !== 'undefined'
+      && scene.sys?.game?.renderer?.type === Phaser.CANVAS;
+    scene.events?.once('shutdown', () => { for (const band of this.bands.values()) band.destroy(); this.bands.clear(); });
+  }
+  begin() { this.cached = 0; for (const band of this.bands.values()) band.begin(); }
+  offer(sprite, item, cacheable) {
+    if (!this.enabled || !cacheable) return false;
+    const cell = worldMetersToAbsCell(this.scene,item.p.x,item.p.y);
+    const key = `${Render.itemLayer(item)}:${cell.cellIY}`;
+    let band = this.bands.get(key);
+    if (!band) { band = new PlantCanvasBand(this,key); this.bands.set(key,band); }
+    band.offer(sprite,item); this.cached++; return true;
+  }
+  flush() {
+    const live = [];
+    for (const [key, band] of this.bands) {
+      if (band.end()) live.push(band);
+      else { band.destroy(); this.bands.delete(key); }
+    }
+    window.__boot?.count?.('plant canvas cached', this.cached);
+    window.__boot?.count?.('plant canvas bands', live.length);
+    return live;
+  }
+}
+Render.PlantCanvasCache = PlantCanvasCache;
 // A bounded display-list pool, shared by base tiles and transparent terrain layers.
 // Order is cell-by-cell so overlays never jump above a later neighbour.
 Render.terrainSpriteAt = function(scene, index) {
@@ -4189,14 +4295,11 @@ Render.drawGrassPrisms = function (scene, plantItems) {
       const points = [{ x, y }, { x: x + CELL_PX, y }, { x: x + CELL_PX, y: y + CELL_PX }, { x, y: y + CELL_PX }];
       const faces = WallMaterials.geometry('grass', points, WallMaterials.GRASS.height,
         { ...cell, cellSize: CELL_PX, underdark: WorldGen.floorProfile(scene.depth || 0)?.biome === 'underdark' });
-      for (let blade = 0; blade < faces.length; blade += 2) {
-        const { x: cx, y: cy } = faces[blade].billboard;
+      if (faces.length) {
         const bladeScale = cell.sparseClump ? WallMaterials.GRASS.sparseScale : 1;
-        const half = WallMaterials.GRASS.width * bladeScale / 2;
-        WallPerspective.prism(scene, 'grass', [{ x: cx - half, y: cy - half }, { x: cx + half, y: cy - half },
-          { x: cx + half, y: cy + half }, { x: cx - half, y: cy + half }], 0, WallMaterials.GRASS.height * bladeScale,
+        WallPerspective.prism(scene, 'grass', points, 0, WallMaterials.GRASS.height * bladeScale,
           { face: 0x7f7f46, top: 0x7f7f46, dark: 0x7f7f46 }, null, false,
-          { materialFaces: faces.slice(blade, blade + 2) });
+          { materialFaces: faces, canvasCache: true });
       }
     }
   });
@@ -5917,6 +6020,8 @@ Render.drawObjects = function drawObjects(scene) {
   }
 
   const _plantNow = Date.now();
+  const plantCanvasCache = scene._plantCanvasCache || (scene._plantCanvasCache = new Render.PlantCanvasCache(scene));
+  plantCanvasCache.begin();
   // The nest bush's swing, degrees; its beat length lives in NEST_BUSH_BEAT.
   const NEST_WIGGLE_DEG = 8;
   // The cells an enemy stands on this frame (the sim bubble's foes — the
@@ -5999,7 +6104,13 @@ Render.drawObjects = function drawObjects(scene) {
     // (the pool reset its rotation before this configure).
     Render.applyWorkImpact(s, Render.workImpactPose(scene._workProgress, p, performance.now()),
       s.x, s.y + (1 - placement.oy) * s.displayHeight);
+    // Only still, unchanged wildplants enter the Canvas row cache. Their data
+    // records remain in plantedList, so interaction and contact stay live.
+    const cacheable = !!scene._boot_still && p.wildId != null && wig < 0
+      && !isShinyFlora && weatherTint == null && !scene._workProgress && !s.rotation && !s.flipX && !s.flipY;
+    plantCanvasCache.offer(s, item, cacheable);
   });
+  for (const band of plantCanvasCache.flush()) setWorldDepth(band.image, band.depth);
 
   // Growth-timer corner badges: for a watered, still-growing crop, render the
   // minutes-until-next-stage in the top-left of its cell. ✓ when the timer

@@ -132,6 +132,13 @@
     assert.eq(group.blocks.length, 1, 'a removed piece leaves the batch');
   });
 
+  test('grass prisms: Canvas caches one world-sorted part per data cell', () => {
+    const body = RENDER_SRC.slice(RENDER_SRC.indexOf('Render.drawGrassPrisms ='), RENDER_SRC.indexOf('Render.drawLowPolyProps ='));
+    assert.truthy(body.includes('{ materialFaces: faces, canvasCache: true }'),
+      'all blade faces in one cell share one retained Canvas raster');
+    assert.falsy(body.includes('faces.slice(blade'), 'the renderer no longer creates a display part per blade');
+  });
+
   test('connected wall prisms: north-up and underground keep the sprites', () => {
     const s = makeScene();
     const items = [item(wallAt(0, 0, 0))], art = new Map([[items[0].o, { variant: 0 }]]);

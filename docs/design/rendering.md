@@ -981,8 +981,13 @@ the surrounding grove’s shrub scale.
   `drawObjects` caches appearance by identity only for generation-immutable
   records, reuses their configured pool slots while body and camera stand still,
   and sorts the shared world container only when membership or assigned depth
-  changes; work transitions invalidate reuse, while connected, clock-driven
-  and saved-state art stays live.
+  changes. Canvas also rasterizes unchanged wildplant sprites by absolute ground
+  row while standing; movement, work, shine, weather tint and cover animation
+  keep their ordinary live sprites. Heading-up grass retains one world-sorted
+  part per data cell and rasterizes that cell's blade faces once under Canvas.
+  Plant data remains in the draw list, so taps and contact never depend on the
+  cache. Work transitions invalidate reuse,
+  while connected, clock-driven and saved-state art stays live.
   Appearance passes carry their own scene, house roles, fruit clock and fruit
   list. Spec callbacks receive that context explicitly; cached resolution uses
   the same pass as its scene owner, so interleaved previews stay independent.
