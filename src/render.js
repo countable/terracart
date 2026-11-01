@@ -4250,9 +4250,11 @@ Render.drawConnectedWallPrisms = function (scene, objectItems, plantItems, conne
       // pass made only of low vines stays in the raised-prop layer and bakes
       // its retained Canvas triangles into one image until the key changes.
       const onlyVines = pieces.length > 0 && pieces.every(({ piece }) => piece.art.profile === 'vine');
-      group.perWall = !onlyVines;
-      group.gfx._wallCanvasCache = onlyVines;
-      if (!onlyVines) group.gfx._wallCanvasLayer = null;
+      const cacheVines = onlyVines && typeof Phaser !== 'undefined'
+        && scene.sys?.game?.renderer?.type === Phaser.CANVAS;
+      group.perWall = !cacheVines;
+      group.gfx._wallCanvasCache = cacheVines;
+      if (!cacheVines) group.gfx._wallCanvasLayer = null;
       for (const { piece, cell } of pieces) {
         const centre = absCellScreenCentre(scene, pc, cell.cellIX, cell.cellIY);
         const x0 = centre.x + fracX * CELL_PX - CELL_PX / 2, y0 = centre.y + fracY * CELL_PX - CELL_PX / 2;

@@ -6,6 +6,7 @@
   function makeScene() {
     const list = [], architecture = [], world = [];
     return { _headingUp: true, depth: 0, mapRot: 0, list,
+      sys: { game: { renderer: { type: 1 } } },
       worldContainer: { list: world, add(g) { world.push(g); } },
       startWorldM: { x: 0, y: 0 }, originPx: { x: 0, y: 0 }, mPerPx: 5 / 8,
       cellsPerTile: 32, cellM: 5, playerM: { x: 0, y: 0 },
@@ -97,13 +98,22 @@
   });
 
   test('connected wall prisms: Canvas caches an all-vine pass as one low raised-prop image', () => {
-    const s = makeScene(), vines = [plant(vineAt(0, 0, 2)), plant(vineAt(1, 0, 8))];
-    Render.drawConnectedWallPrisms(s, [], vines, new Map());
-    const group = s._wallPerspective.props;
-    assert.eq(group.blocks.length, 2, 'both tappable data cells retain geometry');
-    assert.falsy(group.perWall, 'the low crowns share one display pass');
-    assert.truthy(group.gfx._wallCanvasCache, 'Canvas flattens the stable pass to one image');
-    assert.eq(WallPerspective.worldPieces(s).length, 0, 'the cached pass stays in the raised-prop layer');
+    const previous = globalThis.Phaser;
+    globalThis.Phaser = { CANVAS: 1 };
+    try {
+      const s = makeScene(), vines = [plant(vineAt(0, 0, 2)), plant(vineAt(1, 0, 8))];
+      Render.drawConnectedWallPrisms(s, [], vines, new Map());
+      const group = s._wallPerspective.props;
+      assert.eq(group.blocks.length, 2, 'both tappable data cells retain geometry');
+      assert.falsy(group.perWall, 'the low crowns share one display pass');
+      assert.truthy(group.gfx._wallCanvasCache, 'Canvas flattens the stable pass to one image');
+      assert.eq(WallPerspective.worldPieces(s).length, 0, 'the cached pass stays in the raised-prop layer');
+      s.sys.game.renderer.type = 2;
+      s._connectedWallKey = null;
+      Render.drawConnectedWallPrisms(s, [], vines, new Map());
+      assert.truthy(group.perWall, 'WebGL retains exact per-cell world sorting');
+      assert.falsy(group.gfx._wallCanvasCache, 'the Canvas-only cache stays off');
+    } finally { globalThis.Phaser = previous; }
   });
 
   test('connected wall prisms: neighbouring pieces share their seam exactly and the batch is retained while panning', () => {
