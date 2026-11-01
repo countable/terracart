@@ -7,18 +7,19 @@
 
   test('gear stats: a melee weapon shows its blow, reach and cadence off the combat ladder', () => {
     const sword = sheet('relic', 'sword', 1);
-    assert.eq(Object.keys(sword).join(','), 'Damage,Range,Attack speed');
+    assert.eq(Object.keys(sword).join(','), 'Damage,Range', 'the base beat earns no attack-speed row');
     assert.eq(sword.Damage, `${Math.round(Combat.meleeSwingDamage({ sword: { tier: 1 } }, 1, undefined, 'sword') * 10) / 10} a blow`);
     assert.eq(sword.Damage, '3.8 a blow', 'Wood: 15000 / 4000 ms over a 1 s beat');
     assert.eq(sword.Range, `${Combat.MELEE_REACH_CELLS} cells`);
-    assert.eq(sword['Attack speed'], 'every 1 s');
     assert.eq(sheet('relic', 'sword', 7).Damage, '50 a blow', 'Frost: the top rung');
     assert.eq(sheet('relic', 'sword', 1, { playerClass: 'enforcer' }).Damage, '8.8 a blow', 'the enforcer\'s class bonus is on the sheet');
     const lance = sheet('relic', 'lance', 3);
     assert.eq(lance.Damage, sheet('relic', 'sword', 3).Damage, 'a lance blow is the sword\'s');
     assert.eq(lance.Range, `${Combat.MELEE_REACH_CELLS * 2} cells`);
-    assert.eq(lance['Attack speed'], 'every 2 s (every 1 s mounted)');
-    assert.eq(sheet('relic', 'dagger', 1).Range, '0.5 cells', 'the dagger\'s 0.45, to a tenth');
+    assert.eq(lance['Attack speed'], '0.5× (1× mounted)', 'a modifier against the sword\'s beat');
+    const dagger = sheet('relic', 'dagger', 1);
+    assert.eq(dagger.Range, '0.5 cells', 'the dagger\'s 0.45, to a tenth');
+    assert.eq(dagger['Attack speed'], undefined, 'the dagger swings at the sword\'s pace');
     assert.eq(sheet('relic', 'sword', 1, { cellM: 2 }).Range, '1.2 m', 'a cell size prints the reach in metres');
   });
 
@@ -26,13 +27,15 @@
     const bow = sheet('relic', 'bow', 2, { reachCells: 3 });
     assert.eq(bow.Damage, `${Combat.shotDamage({ bow: { tier: 2 } }, 'bow')} a shot`);
     assert.eq(bow.Range, `${Combat.rangeCellsFor('bow', 3)} cells`);
-    assert.eq(bow['Attack speed'], 'every 2 s');
+    assert.eq(bow['Attack speed'], undefined, 'the bow is the base ranged beat');
+    assert.eq(Object.keys(bow).join(','), 'Damage,Range');
     assert.eq(sheet('relic', 'bow', 2, { playerClass: 'hunter' }).Damage, `${Combat.shotDamage({ bow: { tier: 2 } }, 'bow', 'hunter')} a shot`);
     assert.eq(sheet('relic', 'bow', 2).Range, `${Combat.SHOT.bow.rangeCells} cells`, 'no live reach: the flat range');
     const staff = sheet('relic', 'staff', 1);
     assert.eq(staff.Damage, '5 a shot', 'a Wood bolt');
-    assert.eq(staff['Attack speed'], 'every 5 s');
+    assert.eq(staff['Attack speed'], '0.4×', 'a bolt every 5 s against the bow\'s 2 s');
     assert.eq(sheet('relic', 'musket', 1).Damage, sheet('relic', 'musket', 5).Damage, 'the musket\'s fixed damage tier');
+    assert.eq(sheet('relic', 'musket', 1)['Attack speed'], undefined, 'the musket fires on the bow\'s beat');
   });
 
   test('gear stats: armour shows its rating; tools, bags and the amulet show nothing', () => {

@@ -235,8 +235,9 @@ pixels and decorative details do not define additional tap cells.
   records the dialog and opts the plate into pointer events). For a weapon or
   a piece of armour that dialog, and the shop's gear offer, carry the piece's
   stat sheet under the sentence (`Combat.gearStats`: damage a blow or a shot,
-  range, attack speed, armour), each figure read off the function the fight
-  runs on, with the player's calling but no transient buff. The plate is
+  range, armour, and attack speed only as a modifier on the base beat when it
+  differs, e.g. `0.5× (1× mounted)`), each figure read off the function the
+  fight runs on, with the player's calling but no transient buff. The plate is
   inert when the selection has no description, so taps there still reach the
   map, and a plate tap is swallowed like a HUD button's, never reaching the map
   or the item action. Enter/Space open it from the keyboard (role button, tabIndex

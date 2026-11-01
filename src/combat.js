@@ -1351,6 +1351,12 @@
   // rangeCellsFor, meleeIntervalMs / fireIntervalMs, items.js
   // armorSlotReduction — never a second table, so the number on the sheet is
   // the number in the fight (the roadOverlayWidthM discipline).
+  // ATTACK SPEED IS A MODIFIER, not a beat: how much faster or slower than
+  // the base beat the piece strikes (×0.5 for the lance on foot, ×0.4 for the
+  // staff), against MELEE_INTERVAL_MS for a blade and FIRE_INTERVAL_MS for a
+  // shot — and ONLY APPLICABLE ROWS show: a weapon on the base beat (sword,
+  // dagger, bow, musket) has no attack-speed row at all. The lance notes its
+  // mounted beat beside the walking one.
   // `playerClass` (the wizard's one-time calling) is on the sheet as it is in
   // every blow; transient multipliers (powders, drills, the dragon, a potion)
   // are not — those are the status row's chips. `reachCells` is the player's
@@ -1362,7 +1368,7 @@
     const t = Math.floor(Number(tier) || 0);
     if (!(t > 0)) return [];
     const tenth = (n) => String(Math.round(n * 10) / 10);
-    const every = (ms) => `every ${tenth(ms / 1000)} s`;
+    const times = (mul) => `${tenth(mul)}×`;
     const span = (cells) => cellM > 0 ? `${tenth(cells * cellM)} m` : `${tenth(cells)} cells`;
     if (kind === 'armor') {
       if (typeof armorSlotReduction !== 'function') return [];
@@ -1371,19 +1377,24 @@
     if (kind !== 'relic') return [];
     const relics = { [slot]: { tier: t } };
     if (MELEE_WEAPONS[slot]) {
-      const walking = meleeIntervalMs(slot), mounted = meleeIntervalMs(slot, true);
-      return [
+      const walking = MELEE_INTERVAL_MS / meleeIntervalMs(slot), mounted = MELEE_INTERVAL_MS / meleeIntervalMs(slot, true);
+      const rows = [
         { label: 'Damage', value: `${tenth(meleeSwingDamage(relics, 1, playerClass, slot))} a blow` },
         { label: 'Range', value: span(MELEE_REACH_CELLS * (MELEE_WEAPONS[slot].reachMul || 1)) },
-        { label: 'Attack speed', value: every(walking) + (mounted !== walking ? ` (${every(mounted)} mounted)` : '') },
       ];
+      if (walking !== 1 || mounted !== 1) {
+        rows.push({ label: 'Attack speed', value: times(walking) + (mounted !== walking ? ` (${times(mounted)} mounted)` : '') });
+      }
+      return rows;
     }
     if (SHOT[slot]) {
-      return [
+      const beat = FIRE_INTERVAL_MS / fireIntervalMs(slot);
+      const rows = [
         { label: 'Damage', value: `${shotDamage(relics, slot, playerClass)} a shot` },
         { label: 'Range', value: span(rangeCellsFor(slot, reachCells)) },
-        { label: 'Attack speed', value: every(fireIntervalMs(slot)) },
       ];
+      if (beat !== 1) rows.push({ label: 'Attack speed', value: times(beat) });
+      return rows;
     }
     return [];
   }
