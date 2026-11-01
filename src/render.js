@@ -4390,8 +4390,9 @@ const LABEL_STYLES = {
   plate:     { size: 9, stroke: false, align: 'center', origin: [0.5, 0], depth: 50 },
   // A growing crop's timer, in the bottom-right corner of its own cell.
   timer:   { size: 9, color: '#ffffff', background: 'rgba(0,0,0,0.7)', padding: { x: 2, y: 1 }, stroke: false, origin: [1, 1], depth: Z_OVERLAY },
-  // The 💗 over a tame creature — a glyph, no outline.
-  heart:   { weight: '', stroke: false, origin: [0.5, 1], depth: Z_OVERLAY },
+  // The 💗 over a tame creature — a glyph, no outline. 7 px: at the 10 px
+  // default the heart was as wide as the pet (owner's call: 30% smaller).
+  heart:   { size: 7, weight: '', stroke: false, origin: [0.5, 1], depth: Z_OVERLAY },
   // A creature's status word (Zzz, ♥) over its crown, in the status's ink.
   status:  { origin: [0.5, 1], depth: Z_OVERLAY },
   // The QC zone / road variant labels (?variantlabels), on a dark chip.
