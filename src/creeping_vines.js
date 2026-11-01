@@ -3,6 +3,7 @@
   'use strict';
   const CONFIG = Object.freeze({ intervalMs: 20000, maxFrameMs: 100, maxCells: 128 });
   const DIRECTIONS = [[0,-1],[1,0],[0,1],[-1,0]];
+  const markRevision = scene => { scene._vineRevision = (scene._vineRevision || 0) + 1; };
   function visible(scene, p) {
     if (!(scene.viewSize > 0)) return false;
     const a = viewAnchorWorldM(scene), scale = CELL_PX / scene.cellM;
@@ -52,6 +53,7 @@
     target.e.wildplants ||= [];
     target.e.wildplants.push(p); save.creepingVines.push({ ...p });
     save.vineGrowth[id] = { elapsedMs: 0, count: 1 };
+    markRevision(scene);
     return p;
   }
   function tick(scene, dt) {
@@ -69,10 +71,12 @@
       if (e._vineSave !== save) {
         e._vineSave = save;
         const ids = new Set(e.wildplants.map(p=>p.id));
+        let rehydrated = false;
         for (const p of save.creepingVines) {
           const at = worldMetersToTileCell(scene,p.x,p.y);
-          if (at.tx===tx && at.ty===ty && !ids.has(p.id)) e.wildplants.push({...p});
+          if (at.tx===tx && at.ty===ty && !ids.has(p.id)) { e.wildplants.push({...p}); rehydrated = true; }
         }
+        if (rehydrated) markRevision(scene);
       }
       W.forEachItemInBox(e,'wildplants',a.x-radius,a.y-radius,a.x+radius,a.y+radius,p=>{
         if (!p._creepingVine) return;
@@ -107,6 +111,7 @@
             _creepingVine:true,_vineColony:id,_plantArt:'creeping_vine',_ix:target.ix,_iy:target.iy,
             ...(street ? {_street:street} : {})});
           target.e.wildplants.push(p); save.creepingVines.push({...p}); state.count++;
+          markRevision(scene);
           grown = changed = true; break;
         }
       }

@@ -316,6 +316,10 @@ shifted toward blue-green), the side faces one step darker, across tops and beve
 cropped strip carried its sawtooth divider into every repeat and read as stripes.
 Creeping vines reuse the former procedural green leaf material, with a broad
 24px footprint and a low 4px crown; cardinal masks join neighboring vine cells.
+An all-vine Canvas pass stays in the low raised-prop layer and rasterizes its
+textured triangles once. Planting, growth and tile rehydration advance the
+scene's vine revision, so stable visible colonies render as one image until
+geometry changes. Mixed wall and hedge passes retain per-cell world sorting.
 Hedges have their own profile there
 (`hedgeGeometry`): exposed convex corners round off in plan, a tucked-in foot
 undercuts the clipped face, and a quarter-round shoulder rolls into a flat crown

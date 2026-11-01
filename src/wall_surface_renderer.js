@@ -67,8 +67,48 @@
     return cx + rx < camera.x - 2 || cx - rx > camera.x + camera.width + 2
       || cy + ry < camera.y - 2 || cy - ry > camera.y + camera.height + 2;
   }
+  // Canvas can flatten a retained low-prop pass, or one sorted prop part, into
+  // one image until its geometry or atlas changes.
+  function wallCanvasLayer(src, image) {
+    if (!src._wallCanvasCache || !src._wallTriangles.length) return null;
+    let layer = src._wallCanvasLayer;
+    if (layer && !src._wallCanvasDirty && layer.imageW === image.width && layer.imageH === image.height) return layer;
+    let left = Infinity, top = Infinity, right = -Infinity, bottom = -Infinity;
+    for (const t of src._wallTriangles) for (const p of t.points) {
+      left = Math.min(left, p.x); top = Math.min(top, p.y);
+      right = Math.max(right, p.x); bottom = Math.max(bottom, p.y);
+    }
+    left = Math.floor(left) - 1; top = Math.floor(top) - 1;
+    const width = Math.max(1, Math.ceil(right) - left + 2), height = Math.max(1, Math.ceil(bottom) - top + 2);
+    const canvas = layer?.canvas || document.createElement('canvas');
+    canvas.width = width; canvas.height = height;
+    const g = canvas.getContext('2d');
+    g.setTransform(1, 0, 0, 1, 0, 0); g.clearRect(0, 0, width, height);
+    g.setTransform(1, 0, 0, 1, -left, -top); g.imageSmoothingEnabled = false;
+    for (const t of src._wallTriangles) {
+      const cached = canvasBounds(t, image);
+      prepareCanvasTriangle(t, image, cached);
+      g.globalAlpha = t.alpha;
+      if (!cached.path) {
+        const [a, b, c] = t.points;
+        g.beginPath(); g.moveTo(a.x, a.y); g.lineTo(b.x, b.y); g.lineTo(c.x, c.y); g.closePath();
+      }
+      if (!t.uv) {
+        g.fillStyle = cached.fill;
+        if (cached.path) g.fill(cached.path); else g.fill();
+      } else if (cached.matrix) {
+        g.save();
+        if (cached.path) g.clip(cached.path); else g.clip();
+        g.transform(...cached.matrix);
+        g.drawImage(wallTintSource(src._wallAtlas, t.color), 0, 0); g.restore();
+      }
+    }
+    layer = src._wallCanvasLayer = { canvas, left, top, imageW: image.width, imageH: image.height };
+    src._wallCanvasDirty = false;
+    return layer;
+  }
   function install(scene, target, atlas) {
-    if (atlas) target._wallAtlas = atlas;
+    if (atlas && target._wallAtlas !== atlas) { target._wallAtlas = atlas; target._wallCanvasDirty = true; }
     if (target._wallTriangles) {
       if (target._wallAtlas?.key === 'fdr_castle_atlas') global.FDRCastleCanvas?.attach(target);
       return;
@@ -105,6 +145,12 @@
       // flat walls offscreen when they share a batch with textured walls.
       g.setTransform(matrix.a, matrix.b, matrix.c, matrix.d, matrix.e, matrix.f);
       g.imageSmoothingEnabled = false;
+      const layer = wallCanvasLayer(src, image);
+      if (layer) {
+        g.globalAlpha = src.alpha * camera.alpha;
+        g.drawImage(layer.canvas, layer.left, layer.top);
+        g.restore(); return;
+      }
       for (const t of src._wallTriangles) {
         const cached = canvasBounds(t, image);
         if (outsideCamera(cached, matrix, camera)) continue;
@@ -145,6 +191,7 @@
       t.uv = face?.points; t.color = face ? (face.color ?? 0xffffff) : color; t.alpha = alpha;
       if (t.canvas) t.canvas.dirty = true;
       target._wallTriangles.push(t);
+      target._wallCanvasDirty = true;
     }
     else { target.fillStyle(face?.flatColor ?? color, alpha); target.fillTriangle(x1, y1, x2, y2, x3, y3); }
   }

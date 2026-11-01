@@ -47,6 +47,26 @@
       assert.eq(f.draws.length, 3, 'clearing commands leaves no cached stale geometry');
     } finally { f.close(); }
   });
+  test('wall surfaces: opted-in Canvas layers rasterize once until commands change', () => {
+    const f = fixture(), createElement = document.createElement;
+    let rasterDraws = 0;
+    const offscreen = { width: 0, height: 0, getContext() { return {
+      save() {}, restore() {}, clearRect() {}, setTransform() {}, beginPath() {}, moveTo() {}, lineTo() {}, closePath() {},
+      clip() {}, fill() {}, transform() {}, drawImage() { rasterDraws++; },
+    }; } };
+    document.createElement = () => offscreen;
+    try {
+      f.target._wallCanvasCache = true;
+      f.paint(); f.render();
+      assert.eq(rasterDraws, 1, 'the textured triangle rasterizes into the layer');
+      assert.eq(f.draws.length, 1, 'the display pass draws one cached image');
+      f.render();
+      assert.eq(rasterDraws, 1, 'an unchanged frame reuses the raster');
+      assert.eq(f.draws.length, 2, 'each frame still submits the one image');
+      f.target._wallTriangles.length = 0; f.paint(4); f.render();
+      assert.eq(rasterDraws, 2, 'changed commands rebuild the raster once');
+    } finally { document.createElement = createElement; f.close(); }
+  });
   test('wall surfaces: heading repaint reuses commands without retaining stale paths or UV transforms', () => {
     const f = fixture();
     try {

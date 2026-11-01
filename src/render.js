@@ -4126,7 +4126,7 @@ Render.drawConnectedWallPrisms = function (scene, objectItems, plantItems, conne
   const pc = viewAnchorCell(scene), base = viewAnchorAbsCell(scene, pc);
   const fracX = pc.cx - Math.floor(pc.cx), fracY = pc.cy - Math.floor(pc.cy);
   let key = `${base.cellIX}|${base.cellIY}|${viewBandKey(scene, pc, base.cellIY, (VIEW_CELLS - 1) / 2)}`
-    + `|${scene.viewCenterX}|${scene.viewCenterY}|${scene.viewLeft}|${scene.viewTop}|${scene.viewSize}`;
+    + `|${scene.viewCenterX}|${scene.viewCenterY}|${scene.viewLeft}|${scene.viewTop}|${scene.viewSize}|v${scene._vineRevision || 0}`;
   const pieces = [];
   const collect = (item, o, art) => {
     const piece = Render.connectedWallPiece(o, art);
@@ -4140,12 +4140,13 @@ Render.drawConnectedWallPrisms = function (scene, objectItems, plantItems, conne
   for (const item of plantItems) collect(item, item.p, null);
   Render.prismGroupPass(scene, 'props', '_connectedWallKey', key,
     -fracX * CELL_PX, -fracY * CELL_PX, (group) => {
-      // ONE PART PER CELL PIECE in the shared world sort (WallPerspective
-      // perWall / worldPieces, as grass, loose props and castle walls): a
-      // hedge or wall hides the props and the player behind it and draws
-      // under those in front. One flat batch under every sprite let a
-      // creature behind a hedge paint over its crown (owner, Oct 2026).
-      group.perWall = true;
+      // Walls and hedges keep one part per cell in the shared world sort. A
+      // pass made only of low vines stays in the raised-prop layer and bakes
+      // its retained Canvas triangles into one image until the key changes.
+      const onlyVines = pieces.length > 0 && pieces.every(({ piece }) => piece.art.profile === 'vine');
+      group.perWall = !onlyVines;
+      group.gfx._wallCanvasCache = onlyVines;
+      if (!onlyVines) group.gfx._wallCanvasLayer = null;
       for (const { piece, cell } of pieces) {
         const centre = absCellScreenCentre(scene, pc, cell.cellIX, cell.cellIY);
         const x0 = centre.x + fracX * CELL_PX - CELL_PX / 2, y0 = centre.y + fracY * CELL_PX - CELL_PX / 2;
@@ -4157,6 +4158,7 @@ Render.drawConnectedWallPrisms = function (scene, objectItems, plantItems, conne
           { openEdges: outline.openEdges,
             capRegions: Render.connectedWallFootprints(piece.mask, piece.art.thickness).map(([ax, ay, bx, by], i) =>
               ({ x0: x0 + ax, y0: y0 + ay, x1: x0 + bx, y1: y0 + by, horizontal: bx - ax > by - ay, joints: i !== 0 })),
+            canvasCache: piece.art.profile === 'vine',
             textureOriginX: cell.cellIX * CELL_PX - x0, textureOriginY: cell.cellIY * CELL_PX - y0 });
       }
     });

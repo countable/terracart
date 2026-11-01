@@ -22,6 +22,8 @@
     x: (cx + 0.5) * 5, y: (cy + 0.5) * 5 });
   const hedgeAt = (cx, cy, frame) => ({ crop: 'shrub', wildId: `h${cx}_${cy}`, _plantArt: 'zone_hedge',
     _hedgeFrame: frame, x: (cx + 0.5) * 5, y: (cy + 0.5) * 5 });
+  const vineAt = (cx, cy, mask = 0) => ({ crop: 'creeping_vine', wildId: `v${cx}_${cy}`,
+    _plantArt: 'creeping_vine', _vineMask: mask, x: (cx + 0.5) * 5, y: (cy + 0.5) * 5 });
   const same = (a, b, m) => assert.eq(a.join(','), b.join(','), m);
   const item = o => ({ o, dx: 0, dy: 0 });
   const plant = p => ({ p, dx: 0, dy: 0 });
@@ -92,6 +94,16 @@
     assert.truthy(wallRow.every(w => hedgeRow.every(h => w.piece.groundY < h.piece.groundY)),
       'a piece further south sorts in front');
     assert.truthy(pieces.every(w => w.layer === WorldLayers.STANDING_PROP && w.rank === 1), 'standing props, like grass and castle walls');
+  });
+
+  test('connected wall prisms: Canvas caches an all-vine pass as one low raised-prop image', () => {
+    const s = makeScene(), vines = [plant(vineAt(0, 0, 2)), plant(vineAt(1, 0, 8))];
+    Render.drawConnectedWallPrisms(s, [], vines, new Map());
+    const group = s._wallPerspective.props;
+    assert.eq(group.blocks.length, 2, 'both tappable data cells retain geometry');
+    assert.falsy(group.perWall, 'the low crowns share one display pass');
+    assert.truthy(group.gfx._wallCanvasCache, 'Canvas flattens the stable pass to one image');
+    assert.eq(WallPerspective.worldPieces(s).length, 0, 'the cached pass stays in the raised-prop layer');
   });
 
   test('connected wall prisms: neighbouring pieces share their seam exactly and the batch is retained while panning', () => {

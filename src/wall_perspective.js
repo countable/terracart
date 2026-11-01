@@ -97,6 +97,7 @@
       group.runs = null;
       group.blocks.push({ building: group.building || null, points, topPoints: geometry.topPoints || points, allFaces: !!geometry.allFaces, bottom, top, colors, support, capped, winding: Math.sign(area),
         materialFaces: geometry.materialFaces || null, topOutline: geometry.topOutline || null,
+        canvasCache: !!geometry.canvasCache,
         segment: geometry.segment || null,   // the wall baseline this block stands on (addSegment), for its sort point
         x: x / points.length, y: y / points.length, order: group.blocks.length,
         faceOrder: Array.from({ length: points.length }, (_, i) => i), faceDepth: new Float64Array(points.length),
@@ -114,7 +115,7 @@
       const faces = WallMaterials.geometry(kind, points, height, options);
       this.prism(scene, source, points, 0, top,
         { face: 0xa99e8b, top: 0xc6baa4, dark: 0x615b50 }, null, true,
-        { materialFaces: faces, segment: options.segment });
+        { materialFaces: faces, segment: options.segment, canvasCache: options.canvasCache });
     },
     palisade(scene, source, spec) {
       const { ax, ay, bx, by } = spec, wood = WallMaterials.WOOD;
@@ -342,6 +343,11 @@
             const p = seg ? this.wallSortPoint({ x: seg.ax, y: seg.ay }, { x: seg.bx, y: seg.by }, angle, local) : (block.support || block);
             part._huAnchor.x = p.x + group.x; part._huAnchor.y = p.y + group.y;
             part.visible = true; part.setPosition(group.x, group.y);
+            if (part._wallCanvasCache !== block.canvasCache) {
+              part._wallCanvasCache = block.canvasCache;
+              part._wallCanvasDirty = true;
+              if (!block.canvasCache) part._wallCanvasLayer = null;
+            }
             if (block.materialFaces) WallSurfaceRenderer.install(scene, part, group.atlas);
           });
           for (let i = group.blocks.length; i < group.parts.length; i++) { const part = group.parts[i]; if (part.visible) { part.visible = false; part.clear(); } }

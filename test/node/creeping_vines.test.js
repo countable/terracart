@@ -12,7 +12,11 @@
   test('creeping vines grow once per visible 20 seconds and never catch up offline',()=>fixture((s,e)=>{
     CreepingVines.tick(s,3600); assert.eq(e.wildplants.length,1);
     assert.eq(s.save.vineGrowth['vine-seed'].elapsedMs,100);
+    const revision = s._vineRevision || 0;
     advance(s); assert.eq(e.wildplants.length,2);
+    assert.gt(s._vineRevision, revision, 'growth invalidates the retained vine paint once');
+    const grownRevision = s._vineRevision;
+    CreepingVines.tick(s,.1); assert.eq(s._vineRevision, grownRevision, 'the visible-time clock alone keeps the cache');
     assert.eq(s.save.creepingVines.length,1);
     s.playerM={x:5000,y:5000}; advance(s);assert.eq(e.wildplants.length,2);
     s.playerM={x:59.5,y:59.5}; s.depth=1;advance(s);assert.eq(e.wildplants.length,2);
