@@ -285,9 +285,21 @@ access or tile lifecycle mechanics.
 
 - L2 carries the natural cave profile previously used on L1: its authored
   areas have no goblin warrens, and `generationDepth: 1` retains the original
-  depth seed and deterministic slot ordering. L1 sewer has no authored
-  natural areas. Physical-depth encounter, ore and travel progression remain
+  depth seed and deterministic slot ordering. L1 sewer keeps its own grove
+  menu. Physical-depth encounter, ore and travel progression remain
   unchanged by this wall update; saved object IDs still include actual depth.
+- Every underground floor carries a grove menu (`GROVE_MENUS`, at least four
+  variants; floors 2–3 keep their classic six). Floors 1 and 4–8 draw the
+  program variants: moat islands (`CaveAreas.ISLANDS`) paint cell-exact
+  water or lava rings with seeded per-angle jitter, stepping-stone lanes on
+  the crossings, and move the grove's surviving mirror cache onto the island
+  focus — never minting one. Theme dressing seats through the street art
+  table (`_streetArt` on wildplants, mineralrock and clay-pot barrels), so
+  the program ships no new art; stakes carry silk and stalagmite slows.
+  Each variant rolls a signature enemy set (`CaveAreas.SIGNATURES`, often
+  one kind, chance-gated on the area's own seed stream; named-zone roster
+  exceptions follow the spring-skeleton precedent). Deep floors (4–8) never
+  draw the shared `caveContainerBudget`; their groves dress themselves.
 - Authored cave areas use `ZoneVariants.anchorFrame` and run before ordinary
   floor passes. Keep their empty-ground reservations separate from object
   occupancy (`CaveAreas`); ambient spawns must respect both. Derive deeper
