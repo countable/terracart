@@ -26,7 +26,17 @@
       const row = WorldGen.floorProfile(depth);
       assert.eq(row.pressureTraps, depth === 3, 'ball and wall traps live on L3 only');
       if (depth) assert.eq(row.vents.join(), depth === 1 || depth === 2 ? 'confusion' : 'poison,fire,paralysis', 'L1 vents confusion only');
-      assert.eq(!!row.caveAreas, depth === 2 || depth === 3);
+      assert.eq(!!row.caveAreas, depth >= 1 && depth <= 8, 'authored groves cover every floor');
+      if (depth >= 1 && depth <= 8 && depth !== 2 && depth !== 3) {
+        const ids = row.caveAreas.weights.map(r => r.id).sort().join();
+        const menus = { 1: 'flooded_cistern,glowworm_grotto,moss_garden,rat_cache_den',
+          4: 'echo_hollow,fossil_ridge,obsidian_vault,petrified_grove',
+          5: 'echo_hollow,flooded_cistern,glowworm_grotto,moss_garden',
+          6: 'ember_sanctum,magma_atoll,obsidian_garden,salamander_nest',
+          7: 'bone_hoard,ember_sanctum,magma_atoll,obsidian_vault',
+          8: 'bone_hoard,egg_nursery,ember_sanctum,web_gallery' };
+        assert.eq(ids, menus[depth], `floor ${depth} keeps its grove menu`);
+      }
       assert.eq(row.streetMirror, depth >= 1 && depth <= 3);
     }
     const first = WorldGen.floorProfile(2).caveAreas, second = WorldGen.floorProfile(3).caveAreas;

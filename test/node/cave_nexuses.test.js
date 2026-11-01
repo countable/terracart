@@ -39,9 +39,13 @@
       assert.falsy(props.some(o => o.kind === 'chest' && !o.barrel), 'no added cache reward');
       for (const o of props) assert.truthy(p.reserved.has(idx(f, o)), 'props stay inside own region');
     }
-    for (const depth of [0, 1, 4, 10]) for (const kind of ['grove', 'quarry', 'seep'])
+    for (const depth of [0, 10]) for (const kind of ['grove', 'quarry', 'seep'])
       assert.eq(CaveAreas.select({ kind, gx: 5, gy: 5 }, depth), null);
-    for (const depth of [2, 3]) assert.eq(CaveAreas.select({ kind: 'seep', gx: 5, gy: 5 }, depth), null);
+    for (const depth of [1, 4, 5, 6, 7, 8]) {
+      assert.eq(CaveAreas.select({ kind: 'seep', gx: 5, gy: 5 }, depth), null, 'seep never maps');
+      assert.eq(CaveAreas.select({ kind: 'quarry', gx: 5, gy: 5 }, depth), 'mine_tunnels',
+        'the program floors keep Mine Tunnels for quarries');
+    }
   });
 
   test('quicksand cavern: native sand and hazard mask stay inside owned dry-safe ground', () => {
