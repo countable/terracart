@@ -125,7 +125,7 @@ const FILES = [
   // Fight maths (pure; combat.test.js registers a synthetic monster table).
   'ground_fire.js', 'combat.js', 'pirates.js', 'pets.js', 'character_portraits.js', 'companions.js', 'creature_ai.js', 'npc.js', 'npc_benefits.js',
   // The wizard tower's offers — pure, so wizard.test.js drives the shipping rules.
-  'wizard.js', 'dragon_story.js', 'memory_story.js', 'pet_story_art.js', 'pet_stories.js', 'story_encounters.js',
+  'wizard.js', 'dragon_story.js', 'memory_story.js', 'pet_story_art.js', 'pet_stories.js', 'story_encounters.js', 'lost_miner.js',
   'interact.js',
   // The Book curriculum loads after the mechanic owners whose values it teaches.
   'play_tips.js',

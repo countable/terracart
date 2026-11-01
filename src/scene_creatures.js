@@ -1254,6 +1254,8 @@ class SceneCreatures {
     // Cave spawners share this generated occupancy because terrain alone
     // cannot reveal a rock, mushroom or floor torch seated on its floor cell.
     entry._spawnOpts = { roadMask: null, spawnWhy: entry.spawnWhy, gameplayTiers: entry.gameplayTiers, occupied: occupiedIdx, pois: [] };
+    // The lost miner's one seat on the level under the trailer (LostMiner.seat).
+    if (typeof LostMiner !== 'undefined') LostMiner.seat(this, entry, tx, ty, depth, creatures, occupiedIdx);
     // Cells THIS player's live entry holds that the generated layer doesn't —
     // their stairs. A seat drawn onto one is dropped (the attempt still ends
     // exactly where it would for anyone else).

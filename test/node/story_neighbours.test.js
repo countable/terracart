@@ -34,7 +34,8 @@
     const remember = (n) => { for (let i = Object.keys(save.discovered).length; i < n; i++) save.discovered[`m${i}`] = 1; };
     const present = () => NPC.STORY_NEIGHBOURS.filter(role => entry.creatures.some(c => c.id === `npc_${role}_0_0`));
     const at = role => entry.creatures.find(c => c.id === `npc_${role}_0_0`);
-    assert.eq(JSON.stringify(NPC.STORY_NEIGHBOURS), JSON.stringify(['warden', 'witness', 'wanderer', 'believer', 'archaeologist', 'stranger']), 'existing neighbours retain their order');
+    assert.eq(JSON.stringify(NPC.STORY_NEIGHBOURS), JSON.stringify(['warden', 'witness', 'wanderer', 'believer', 'archaeologist', 'stranger', 'miner']), 'existing neighbours retain their order');
+    assert.eq(NPC.STORY_ROLES.miner.arrives, 'underground', 'Cobb arrives from the shafts, not by the trailer\'s memory count');
     // The gates, in the owner's order (Oct 2026): Tilly, then Bryn at three,
     // Maud at six (through the goblin-archer rescue, never the trailer), Edda at nine.
     assert.eq(NPC.STORY_ROLES.wanderer.minMemories, 0);

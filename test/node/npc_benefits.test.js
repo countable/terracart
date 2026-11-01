@@ -46,38 +46,100 @@
     f.scene.depth = 1;
     assert.eq(NPCBenefits.summary(f.scene, f.c), '');
   });
-  test('NPC benefits: each neighbour gives a distinct luxury-scaled daily gift without missed-day banking', () => {
-    for (const [role, id] of [['warden', 'wood'], ['witness', 'apple'], ['believer', 'flowers'], ['archaeologist', 'rubble'], ['scout', 'berry']]) {
+  test('NPC benefits: the reward ladder climbs at 4, 12, 20 and 28 luxury', () => {
+    assert.eq(JSON.stringify(NPCBenefits.REWARD_STEPS), JSON.stringify([4, 12, 20, 28]));
+    const ladder = [[0, 0], [1, 1], [3, 1], [4, 2], [11, 2], [12, 3], [19, 3], [20, 4], [27, 4], [28, 5], [40, 5]];
+    for (const [luxury, size] of ladder) assert.eq(NPCBenefits.rewardSize(luxury), size, `${luxury} luxury`);
+    const f = fixture('warden', 12);
+    assert.eq(NPCBenefits.summary(f.scene, f.c), '3 Wood each day. Visit or talk to collect.');
+    assert.eq(NPCBenefits.visit(f.scene, f.c, EPOCH).qty, 3);
+  });
+  test('NPC benefits: each neighbour gives a distinct ladder-sized daily gift without missed-day banking', () => {
+    for (const [role, id] of [['warden', 'wood'], ['witness', 'apple'], ['believer', 'flowers'], ['archaeologist', 'rubble'], ['miner', 'torch'], ['mason', 'berry']]) {
       const f = fixture(role, 3);
       const first = NPCBenefits.visit(f.scene, f.c, EPOCH);
-      assert.eq(first.id, id); assert.eq(first.qty, 3);
-      assert.eq(Inventory.count(f.save, id), 3);
+      assert.eq(first.id, id); assert.eq(first.qty, 1, `${role}: one below the first rung`);
+      assert.eq(Inventory.count(f.save, id), 1);
       f.save.houseLuxury.roof.score = 8;
       assert.eq(NPCBenefits.visit(f.scene, f.c, EPOCH + 1000).qty, 0, 'same day cannot repeat after furniture upgrade');
-      Inventory.remove(f.save, id, 3);
-      assert.eq(NPCBenefits.visit(f.scene, f.c, EPOCH + 8 * 86400000).qty, 8, 'only the current day is offered');
-      assert.eq(Inventory.count(f.save, id), 8);
+      Inventory.remove(f.save, id, 1);
+      assert.eq(NPCBenefits.visit(f.scene, f.c, EPOCH + 8 * 86400000).qty, 2, 'only the current day is offered, at the ladder\'s size');
+      assert.eq(Inventory.count(f.save, id), 2);
     }
   });
   test('NPC benefits: bag overflow retains the rest of today’s original gift across save reload', () => {
-    const f = fixture('warden', 5), cap = Inventory.stackCapFor(f.save, 'wood');
+    const f = fixture('warden', 20), cap = Inventory.stackCapFor(f.save, 'wood');
     Inventory.add(f.save, 'wood', cap - 2);
-    assert.eq(NPCBenefits.visit(f.scene, f.c, EPOCH).qty, 2);
+    assert.eq(NPCBenefits.visit(f.scene, f.c, EPOCH).qty, 2, 'two of today\'s four fit');
     f.scene.save = f.save = JSON.parse(JSON.stringify(f.save));
-    f.save.houseLuxury.roof.score = 12;
+    f.save.houseLuxury.roof.score = 28;
     assert.eq(NPCBenefits.visit(f.scene, f.c, EPOCH + 1).qty, 0, 'full bag cannot consume remaining gift');
     Inventory.remove(f.save, 'wood', 10);
-    assert.eq(NPCBenefits.visit(f.scene, f.c, EPOCH + 2).qty, 3, 'only original uncollected portion remains');
+    assert.eq(NPCBenefits.visit(f.scene, f.c, EPOCH + 2).qty, 2, 'only original uncollected portion remains');
   });
   test('NPC benefits: a full bag on the first visit still pins today’s gift quantity', () => {
     const f = fixture('warden', 4), cap = Inventory.stackCapFor(f.save, 'wood');
     Inventory.add(f.save, 'wood', cap);
     assert.eq(NPCBenefits.visit(f.scene, f.c, EPOCH).qty, 0);
-    f.save.houseLuxury.roof.score = 9;
+    f.save.houseLuxury.roof.score = 12;
     f.scene.save = f.save = JSON.parse(JSON.stringify(f.save));
     Inventory.remove(f.save, 'wood', cap);
-    assert.eq(NPCBenefits.visit(f.scene, f.c, EPOCH + 1).qty, 4,
+    assert.eq(NPCBenefits.visit(f.scene, f.c, EPOCH + 1).qty, 2,
       'the day pins the quantity at the luxury the first visit evaluated');
+  });
+  test('NPC benefits: a housed scout gives new directions every day, as many as the ladder earns', () => {
+    const f = fixture('scout', 4), sighting = id => ({ o: { id, x: 0, y: 0 }, label: 'chest', d: 1 });
+    const candidates = ['b', 'a', 'c'].map(sighting), ids = picks => picks.map(p => p.o.id).join();
+    const DAY = 86400000;
+    assert.eq(ids(NPCBenefits.directions(f.scene, f.c, candidates, EPOCH)), 'a,b', 'two at four luxury, fresh ones first by id');
+    assert.eq(ids(NPCBenefits.directions(f.scene, f.c, candidates, EPOCH + 1000)), 'a,b', 'pinned for the day');
+    f.save.houseLuxury.roof.score = 40;
+    assert.eq(ids(NPCBenefits.directions(f.scene, f.c, candidates, EPOCH + 2000)), 'a,b', 'furniture added today does not re-roll today');
+    f.save.houseLuxury.roof.score = 4;
+    assert.eq(ids(NPCBenefits.directions(f.scene, f.c, candidates, EPOCH + DAY)), 'c,a', 'tomorrow: the one never given, then the longest ago');
+    f.scene.save = f.save = JSON.parse(JSON.stringify(f.save));
+    assert.eq(ids(NPCBenefits.directions(f.scene, f.c, candidates, EPOCH + DAY + 1)), 'c,a', 'the day survives reload');
+    assert.eq(ids(NPCBenefits.directions(f.scene, f.c, candidates, EPOCH + 2 * DAY)), 'b,a');
+    assert.eq(ids(NPCBenefits.directions(f.scene, f.c, [sighting('z')], EPOCH + 3 * DAY)), 'z', 'never more than there is to see');
+    assert.eq(NPCBenefits.summary(f.scene, f.c), '2 new directions each day. Talk to hear them.');
+    assert.eq(NPCBenefits.visit(f.scene, f.c, EPOCH).message, NPCBenefits.summary(f.scene, f.c), 'a visit hears the summary, not a berry');
+    assert.eq(Inventory.count(f.save, 'berry'), 0);
+    f.save.houseLuxury.roof.score = 0;
+    assert.eq(NPCBenefits.directions(f.scene, f.c, candidates, EPOCH + 4 * DAY), null, 'a bare home: the unhoused daily pick');
+    delete f.save.npcHomes.helper;
+    assert.eq(NPCBenefits.directions(f.scene, f.c, candidates, EPOCH + 4 * DAY), null, 'unhoused: the unhoused daily pick');
+  });
+  test('NPC benefits: a housed scout\'s talk points at every direction of the day, with the story after', () => {
+    const f = fixture('scout', 12);
+    f.scene.houseShopRole = () => null;
+    f.scene.showMessageModal = p => { f.scene.shown = p; };
+    for (let i = 0; i < 9; i++) (f.save.discovered ||= {})[`m${i}`] = 1;   // act 1, the rumour due
+    f.save.restoredHouses = {};
+    const realWalk = WorldGen.forEachItemInBox, realAll = WorldGen.forEachItem;
+    const cache = Array.from(WorldGen.tileCache.entries());
+    WorldGen.tileCache.clear(); WorldGen.tileCache.set('0,0', {});
+    WorldGen.forEachItemInBox = () => {};
+    WorldGen.forEachItem = (kind, fn) => { for (const id of ['foe2', 'foe1', 'foe3', 'foe4']) fn({ kind: 'slime', id, x: 5, y: 10 }); };
+    try {
+      const talk = NPC.dialogue(f.scene, f.c, EPOCH);
+      assert.eq(talk.targets.map(t => t.targetId).join(), 'foe1,foe2,foe3', 'three at twelve luxury');
+      assert.eq(talk.target.targetId, 'foe1');
+      assert.eq((talk.pages[0].match(/roams/g) || []).length, 3, 'one sighting line each');
+      assert.eq(talk.pages.length, 3, 'directions, the rumour, the help summary');
+      assert.truthy(/Old Tim/.test(talk.pages[1]), 'the story is a page after the directions, not instead');
+      assert.eq(talk.pages[2], NPCBenefits.summary(f.scene, f.c));
+      // The talk itself speaks for today: its marks are today's three.
+      NPC.interact(f.scene, f.c, 0, 0);
+      const today = NPC.dialogue(f.scene, f.c).targets.map(t => t.targetId);
+      assert.eq(today.length, 3);
+      assert.eq(f.save.wayfarerCompass.map(m => m.targetId).join(), today.join(), 'every direction of the day marks the rim');
+      delete f.save.npcHomes.helper;
+      const unhoused = NPC.dialogue(f.scene, f.c, EPOCH);
+      assert.truthy(/Old Tim/.test(unhoused.body) && !/roams/.test(unhoused.body), 'unhoused, the story still replaces the daily pick');
+    } finally {
+      WorldGen.forEachItemInBox = realWalk; WorldGen.forEachItem = realAll;
+      WorldGen.tileCache.clear(); for (const [key, value] of cache) WorldGen.tileCache.set(key, value);
+    }
   });
   test('Tilly: watering uses crop rules without borrowing the player’s watering can', () => inWorld(fixture(), f => {
     const p = crop(f);

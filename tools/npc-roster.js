@@ -11,7 +11,8 @@
     await loadGame();
     // What each role does when tapped (NPC.dialogue / MemoryStory.npcDialogue).
     const DOES = {
-      scout: 'Points out a discovery within 250 m. After 9 memories passes on the rumour; from act 2 tells of the Breaking.',
+      scout: 'Points out a discovery within 250 m. After 9 memories passes on the rumour; from act 2 tells of the Breaking. Housed, gives new directions every day, as many as the home\'s luxury earns.',
+      miner: 'Lost in the shafts under the lane since before the Breaking; found on the first level down, he comes up to the trailer and, housed, hands out torches.',
       scholar: 'Reads a tip aloud from a scorched book page.',
       merchant: 'Opens the culture\'s themed shop.',
       trader: 'Offers a swap.',
@@ -51,7 +52,7 @@
     // Story neighbours first: each has a name and a look of its own.
     for (const [role, row] of Object.entries(NPC.STORY_ROLES || {})) {
       const c = NPC.storyNeighbour(`npc_${role}_0_0`, role);
-      rows.push({ id: `story:${role}`, named: true, label: row.name || row.label, culture: row.arrives ? 'rescue' : row.radiusM ? 'dig site' : 'trailer',
+      rows.push({ id: `story:${role}`, named: true, label: row.name || row.label, culture: row.arrives === 'underground' ? 'the shafts' : row.arrives ? 'rescue' : row.radiusM ? 'dig site' : 'trailer',
         role: `${row.label} · from ${row.minMemories} memories`, share: null, tints: [], art: artFor(c, row.artScale || 1), does: DOES[role] });
     }
     // Culture roles. One label is one role (Peddler, Lamplighter): a single row
