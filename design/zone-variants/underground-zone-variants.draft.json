@@ -1,6 +1,6 @@
 {
   "status": "nexus_runtime_with_route_design_reference",
-  "revision": 16,
+  "revision": 17,
   "date": "2026-11-01",
   "purpose": "Project grove nexus variants and quarry Mine Tunnels from their matching surface regions. Apply path themes to all paths on cave floors 2 and 3; medium/large roads and buildings remain cave walls; sm_road receives underground street variants. Revision 16 adds the four-per-floor grove program (levelProgram): draft variants for floors 1 and 4-8, reusing variants across two or three floors; runtime floors 2-3 keep their implemented variants unchanged.",
   "scope": {
@@ -1095,7 +1095,17 @@
         "activation": "Reveal within one cell; remain revealed and preserve defeats.",
         "mechanicStatus": "Shared proximity reveal is implemented in HiddenObjects."
       },
-      "status": "runtime"
+      "status": "runtime",
+      "signatureEnemies": [
+        {
+          "kinds": [
+            "skeleton"
+          ],
+          "count": 6,
+          "chance": 1.0,
+          "note": "Six dormant skeletons already authored: reveal within one cell."
+        }
+      ]
     },
     {
       "id": "goblin_warrens",
@@ -2125,7 +2135,17 @@
           "2": 16
         },
         "countPolicy": "Study: 12 goblins on floor 2; 16 on floor 3. Scale by usable rooms, cap per region and omit blocked seats."
-      }
+      },
+      "signatureEnemies": [
+        {
+          "kinds": [
+            "club_goblin",
+            "spear_goblin"
+          ],
+          "chance": 1.0,
+          "note": "The room garrison already authored, scaled to fitted rooms."
+        }
+      ]
     },
     {
       "id": "mushroom_cavern",
@@ -2252,7 +2272,16 @@
         "minimumPerStandardRegion": 8,
         "countPolicy": "Study target: at least eight per 25 \u00d7 25 region, or twice the surface count at equal area. Omit blocked seats."
       },
-      "status": "runtime"
+      "status": "runtime",
+      "signatureEnemies": [
+        {
+          "kinds": [
+            "mushroom_monster"
+          ],
+          "chance": 1.0,
+          "note": "The bed keepers already authored; the kind has no ambient cave pool."
+        }
+      ]
     },
     {
       "poi": "One pictured gem per deposit, using shared mining rules.",
@@ -2339,7 +2368,16 @@
         3
       ],
       "maxGemTier": "depth",
-      "status": "runtime"
+      "status": "runtime",
+      "signatureEnemies": [
+        {
+          "kinds": [
+            "thief"
+          ],
+          "chance": 0.4,
+          "note": "A gem thief is looting the pockets when you arrive."
+        }
+      ]
     },
     {
       "id": "mine_tunnels",
@@ -2420,7 +2458,17 @@
         2,
         3
       ],
-      "status": "runtime"
+      "status": "runtime",
+      "signatureEnemies": [
+        {
+          "kinds": [
+            "club_goblin"
+          ],
+          "count": 2,
+          "chance": 0.5,
+          "note": "A mining crew still on shift guards the seam."
+        }
+      ]
     },
     {
       "id": "root_passage",
@@ -2457,7 +2505,16 @@
         3
       ],
       "shrineChance": 0.5,
-      "shrineKind": "wayfarer_post"
+      "shrineKind": "wayfarer_post",
+      "signatureEnemies": [
+        {
+          "kinds": [
+            "spider"
+          ],
+          "chance": 0.4,
+          "note": "Webs strung on the roots; named-zone roster exception, per the encounter policy at floor 2."
+        }
+      ]
     },
     {
       "id": "seep_passage",
@@ -2530,7 +2587,16 @@
         "countPolicy": "One cube on reachable floor per connected route and depth."
       },
       "shrineChance": 0.5,
-      "shrineKind": "wayfarer_post"
+      "shrineKind": "wayfarer_post",
+      "signatureEnemies": [
+        {
+          "kinds": [
+            "gelatinous_cube"
+          ],
+          "chance": 1.0,
+          "note": "One cube per qualifying channel, already authored; named-zone roster exception, per the encounter policy at floors 2-3."
+        }
+      ]
     },
     {
       "id": "miners_way",
@@ -2620,7 +2686,17 @@
       "pathWidthCells": 2,
       "shrineChance": 0.5,
       "shrineKind": "wayfarer_post",
-      "maxGemTier": "depth"
+      "maxGemTier": "depth",
+      "signatureEnemies": [
+        {
+          "kinds": [
+            "club_goblin"
+          ],
+          "count": 2,
+          "chance": 0.5,
+          "note": "A shakedown crew works the carts."
+        }
+      ]
     },
     {
       "id": "warren_run",
@@ -2791,7 +2867,18 @@
         "countPolicy": "Study: three goblins per connected route and depth."
       },
       "shrineChance": 0.5,
-      "shrineKind": "wayfarer_post"
+      "shrineKind": "wayfarer_post",
+      "signatureEnemies": [
+        {
+          "kinds": [
+            "club_goblin",
+            "spear_goblin"
+          ],
+          "count": 3,
+          "chance": 1.0,
+          "note": "The route patrol already authored."
+        }
+      ]
     },
     {
       "poi": "One pictured gem per deposit, using shared mining rules.",
@@ -2879,7 +2966,16 @@
       ],
       "shrineChance": 0.5,
       "shrineKind": "wayfarer_post",
-      "maxGemTier": "depth"
+      "maxGemTier": "depth",
+      "signatureEnemies": [
+        {
+          "kinds": [
+            "metal_slime"
+          ],
+          "chance": 0.15,
+          "note": "A metal slime, rare as the gems it feeds on; named-zone roster exception, per the encounter policy past its floor-1 window."
+        }
+      ]
     },
     {
       "id": "sm_road_passage",
@@ -2926,7 +3022,17 @@
       "connection": "Keep a clear lane and hazard bypasses; preserve buildings, water and stairs.",
       "monsters": "Existing depth-legal cave encounter budget.",
       "depthNote": "Floor 2 and 3 street variants; a floor 3 hole may land on ordinary floor 4 cave floor.",
-      "artNote": "Game hole, stalagmite and pit frames; candidate inactive vent."
+      "artNote": "Game hole, stalagmite and pit frames; candidate inactive vent.",
+      "signatureEnemies": [
+        {
+          "kinds": [
+            "rat"
+          ],
+          "count": 2,
+          "chance": 0.4,
+          "note": "Street rats under the sewered road; named-zone roster exception, per the encounter policy at floor 3."
+        }
+      ]
     },
     {
       "id": "depth2_rock_scatter",
@@ -3088,7 +3194,16 @@
       },
       "shrineChance": 0.5,
       "shrineKind": "wayfarer_post",
-      "artNote": "Shipped bone_cache art and one-time rewards."
+      "artNote": "Shipped bone_cache art and one-time rewards.",
+      "signatureEnemies": [
+        {
+          "kinds": [
+            "strongest depth-eligible elite"
+          ],
+          "chance": 1.0,
+          "note": "One elite of the floor\u2019s strongest kind, already authored."
+        }
+      ]
     },
     {
       "id": "dungeon_maze",
@@ -3136,7 +3251,16 @@
         ]
       },
       "status": "runtime",
-      "runtimeNote": "In-game maze reference. Live generation fits it to the nexus and preserves access."
+      "runtimeNote": "In-game maze reference. Live generation fits it to the nexus and preserves access.",
+      "signatureEnemies": [
+        {
+          "kinds": [
+            "goblin_trapper"
+          ],
+          "chance": 0.5,
+          "note": "The trapkeeper works the corridors."
+        }
+      ]
     },
     {
       "id": "flooded_cistern",
@@ -3176,7 +3300,9 @@
             }
           }
         ],
-        "focusNote": "Focal chest on the island - the grove\u2019s surviving mirror cache"
+        "focusNote": "Focal chest on the island - the grove\u2019s surviving mirror cache",
+        "moatJitterCells": 0.7,
+        "bankJitterCells": 0.8
       },
       "source": "Beneath grove nexuses only; exclude surface seep and quarry regions. wet and low-lying affinities.",
       "atmosphere": "A drowned cistern beneath the park: black water rings a footing of old masonry, and the cache waits on the island.",
@@ -3233,7 +3359,22 @@
         ]
       },
       "water": "Impassable water moat; island and bank stay dry.",
-      "depthNote": "Floors 1 and 5; dressing shifts from sewer slick to underdark glow."
+      "depthNote": "Floors 1 and 5; dressing shifts from sewer slick to underdark glow.",
+      "patternNote": "Cell-exact moat: island and water painted per cell centre, the moat edge jittered \u00b10.7 cells by seeded angle noise so the cistern reads broken-backed, not compass-drawn.",
+      "signatureEnemies": [
+        {
+          "byFloor": {
+            "1": [
+              "cave_slime"
+            ],
+            "5": [
+              "gelatinous_cube"
+            ]
+          },
+          "chance": 0.5,
+          "note": "Something lives in the cistern: a slime at home in the wet, a cube on the underdark floor."
+        }
+      ]
     },
     {
       "id": "magma_atoll",
@@ -3270,7 +3411,9 @@
             "material": "fire_rock"
           }
         ],
-        "focusNote": "Focal chest on the basalt islet - the grove\u2019s surviving mirror cache"
+        "focusNote": "Focal chest on the basalt islet - the grove\u2019s surviving mirror cache",
+        "moatJitterCells": 1.2,
+        "bankJitterCells": 1.0
       },
       "source": "Beneath grove nexuses only; exclude surface seep and quarry regions. burned and rocky affinities.",
       "atmosphere": "A ring of live lava around a cooled basalt core. Heat shimmers over the crossing stones.",
@@ -3304,7 +3447,17 @@
         ]
       },
       "water": "Live lava moat (T.CAVE_LAVA); standing in it burns.",
-      "depthNote": "Floors 6 and 7; the atoll is the lava floor\u2019s signature grove and the dragon floor\u2019s bathing pool."
+      "depthNote": "Floors 6 and 7; the atoll is the lava floor\u2019s signature grove and the dragon floor\u2019s bathing pool.",
+      "patternNote": "Cell-exact moat: the lava edge jitters \u00b11.2 cells by seeded angle noise, throwing jagged fingers round the islet; stones paint whole cells on the crossing lanes.",
+      "signatureEnemies": [
+        {
+          "kinds": [
+            "red_demon"
+          ],
+          "chance": 0.35,
+          "note": "A fire demon bathes in the moat; it never needs the stones."
+        }
+      ]
     },
     {
       "id": "moss_garden",
@@ -3315,81 +3468,12 @@
         5
       ],
       "status": "draft",
-      "motifCells": [
-        6,
-        6
-      ],
       "shrineKind": "moss_cairn",
       "source": "Beneath grove nexuses only; exclude surface seep and quarry regions. shaded and damp affinities.",
       "atmosphere": "The park above, drowned in green. Moss eats the statues; everything is soft and quiet.",
       "poi": "Moss cairn (Unseen) daily boon; harvests replace ordinary mushroom seats.",
       "connection": "Four clear approaches through the slick; no walls.",
       "monsters": "Four purple slimes nest in the slick; the cairn\u2019s Unseen boon slips you past them.",
-      "slots": [
-        {
-          "at": [
-            0,
-            1
-          ],
-          "material": "green_slick"
-        },
-        {
-          "at": [
-            1,
-            1
-          ],
-          "material": "green_slick"
-        },
-        {
-          "at": [
-            1,
-            3
-          ],
-          "material": "game_mushroom"
-        },
-        {
-          "at": [
-            2,
-            5
-          ],
-          "material": "green_slick"
-        },
-        {
-          "at": [
-            4,
-            0
-          ],
-          "material": "mossy_rock"
-        },
-        {
-          "at": [
-            5,
-            2
-          ],
-          "material": "green_slick"
-        },
-        {
-          "at": [
-            3,
-            3
-          ],
-          "material": "green_slick"
-        },
-        {
-          "at": [
-            0,
-            5
-          ],
-          "material": "mossy_rock"
-        },
-        {
-          "at": [
-            5,
-            5
-          ],
-          "material": "game_mushroom"
-        }
-      ],
       "encounters": {
         "placement": "fixed",
         "extentCells": [
@@ -3428,7 +3512,342 @@
         ],
         "countPolicy": "Four purple slimes per region and depth (legal on floors 1-5)."
       },
-      "depthNote": "Floors 1 and 5."
+      "depthNote": "Floors 1 and 5.",
+      "cellSlots": [
+        {
+          "at": [
+            18,
+            11
+          ],
+          "material": "green_slick"
+        },
+        {
+          "at": [
+            16,
+            13
+          ],
+          "material": "green_slick"
+        },
+        {
+          "at": [
+            17,
+            13
+          ],
+          "material": "green_slick"
+        },
+        {
+          "at": [
+            18,
+            13
+          ],
+          "material": "green_slick"
+        },
+        {
+          "at": [
+            19,
+            13
+          ],
+          "material": "green_slick"
+        },
+        {
+          "at": [
+            17,
+            14
+          ],
+          "material": "green_slick"
+        },
+        {
+          "at": [
+            19,
+            14
+          ],
+          "material": "green_slick"
+        },
+        {
+          "at": [
+            20,
+            14
+          ],
+          "material": "green_slick"
+        },
+        {
+          "at": [
+            16,
+            15
+          ],
+          "material": "green_slick"
+        },
+        {
+          "at": [
+            17,
+            15
+          ],
+          "material": "green_slick"
+        },
+        {
+          "at": [
+            18,
+            15
+          ],
+          "material": "green_slick"
+        },
+        {
+          "at": [
+            19,
+            15
+          ],
+          "material": "green_slick"
+        },
+        {
+          "at": [
+            20,
+            15
+          ],
+          "material": "game_mushroom"
+        },
+        {
+          "at": [
+            17,
+            16
+          ],
+          "material": "game_mushroom"
+        },
+        {
+          "at": [
+            18,
+            16
+          ],
+          "material": "green_slick"
+        },
+        {
+          "at": [
+            17,
+            5
+          ],
+          "material": "game_mushroom"
+        },
+        {
+          "at": [
+            14,
+            7
+          ],
+          "material": "green_slick"
+        },
+        {
+          "at": [
+            15,
+            7
+          ],
+          "material": "green_slick"
+        },
+        {
+          "at": [
+            16,
+            7
+          ],
+          "material": "green_slick"
+        },
+        {
+          "at": [
+            17,
+            7
+          ],
+          "material": "green_slick"
+        },
+        {
+          "at": [
+            18,
+            7
+          ],
+          "material": "green_slick"
+        },
+        {
+          "at": [
+            15,
+            8
+          ],
+          "material": "green_slick"
+        },
+        {
+          "at": [
+            16,
+            8
+          ],
+          "material": "green_slick"
+        },
+        {
+          "at": [
+            17,
+            8
+          ],
+          "material": "green_slick"
+        },
+        {
+          "at": [
+            18,
+            8
+          ],
+          "material": "green_slick"
+        },
+        {
+          "at": [
+            16,
+            9
+          ],
+          "material": "green_slick"
+        },
+        {
+          "at": [
+            17,
+            9
+          ],
+          "material": "game_mushroom"
+        },
+        {
+          "at": [
+            11,
+            17
+          ],
+          "material": "green_slick"
+        },
+        {
+          "at": [
+            10,
+            18
+          ],
+          "material": "game_mushroom"
+        },
+        {
+          "at": [
+            11,
+            18
+          ],
+          "material": "green_slick"
+        },
+        {
+          "at": [
+            13,
+            18
+          ],
+          "material": "green_slick"
+        },
+        {
+          "at": [
+            11,
+            19
+          ],
+          "material": "green_slick"
+        },
+        {
+          "at": [
+            13,
+            19
+          ],
+          "material": "green_slick"
+        },
+        {
+          "at": [
+            11,
+            20
+          ],
+          "material": "green_slick"
+        },
+        {
+          "at": [
+            13,
+            20
+          ],
+          "material": "game_mushroom"
+        },
+        {
+          "at": [
+            14,
+            16
+          ],
+          "material": "green_slick"
+        },
+        {
+          "at": [
+            15,
+            17
+          ],
+          "material": "green_slick"
+        },
+        {
+          "at": [
+            16,
+            17
+          ],
+          "material": "game_mushroom"
+        },
+        {
+          "at": [
+            14,
+            18
+          ],
+          "material": "green_slick"
+        },
+        {
+          "at": [
+            15,
+            18
+          ],
+          "material": "green_slick"
+        },
+        {
+          "at": [
+            16,
+            18
+          ],
+          "material": "mossy_rock"
+        },
+        {
+          "at": [
+            14,
+            19
+          ],
+          "material": "green_slick"
+        },
+        {
+          "at": [
+            15,
+            19
+          ],
+          "material": "green_slick"
+        },
+        {
+          "at": [
+            16,
+            19
+          ],
+          "material": "green_slick"
+        },
+        {
+          "at": [
+            14,
+            20
+          ],
+          "material": "green_slick"
+        },
+        {
+          "at": [
+            15,
+            20
+          ],
+          "material": "green_slick"
+        }
+      ],
+      "patternNote": "Five seeded moss drifts, damp green core to dry mushroom-and-rock edge. 46 cells on the 25 \u00d7 25 plan; deterministic seed.",
+      "signatureEnemies": [
+        {
+          "kinds": [
+            "purple_slime"
+          ],
+          "count": 4,
+          "chance": 0.75,
+          "note": "The slick-keepers nest in the drifts."
+        }
+      ]
     },
     {
       "id": "rat_cache_den",
@@ -3438,60 +3857,12 @@
         1
       ],
       "status": "draft",
-      "motifCells": [
-        6,
-        6
-      ],
       "centralReserveCells": 1,
       "source": "Beneath grove nexuses only; exclude surface seep and quarry regions. built-edge affinities.",
       "atmosphere": "Somebody\u2019s hidey-hole under the park, inherited by teeth.",
       "poi": "The surviving cache, dropped inside a refuse cage; the rat pack nests around it.",
       "connection": "Open ground; the pack is the obstacle, not the layout.",
       "monsters": "Six sewer rats in a scuttling pack; one cave slime oozes at the mouth.",
-      "slots": [
-        {
-          "at": [
-            4,
-            4
-          ],
-          "material": "cage"
-        },
-        {
-          "at": [
-            0,
-            2
-          ],
-          "material": "barrel"
-        },
-        {
-          "at": [
-            2,
-            0
-          ],
-          "material": "barrel"
-        },
-        {
-          "at": [
-            5,
-            1
-          ],
-          "material": "rock"
-        },
-        {
-          "at": [
-            1,
-            5
-          ],
-          "material": "rock"
-        },
-        {
-          "at": [
-            5,
-            4
-          ],
-          "material": "green_slick"
-        }
-      ],
       "encounters": {
         "placement": "fixed",
         "extentCells": [
@@ -3551,7 +3922,217 @@
         ],
         "countPolicy": "One pack of six rats plus a slime guard per region; finite seats."
       },
-      "depthNote": "Floor 1 only - the pack is a sewer story."
+      "depthNote": "Floor 1 only - the pack is a sewer story.",
+      "cellSlots": [
+        {
+          "at": [
+            13,
+            13
+          ],
+          "material": "cage",
+          "over": true
+        },
+        {
+          "at": [
+            15,
+            15
+          ],
+          "material": "rock"
+        },
+        {
+          "at": [
+            14,
+            16
+          ],
+          "material": "rock"
+        },
+        {
+          "at": [
+            13,
+            16
+          ],
+          "material": "barrel"
+        },
+        {
+          "at": [
+            11,
+            17
+          ],
+          "material": "barrel"
+        },
+        {
+          "at": [
+            11,
+            16
+          ],
+          "material": "rock"
+        },
+        {
+          "at": [
+            10,
+            16
+          ],
+          "material": "rock"
+        },
+        {
+          "at": [
+            9,
+            15
+          ],
+          "material": "rock"
+        },
+        {
+          "at": [
+            8,
+            15
+          ],
+          "material": "rock"
+        },
+        {
+          "at": [
+            8,
+            14
+          ],
+          "material": "rock"
+        },
+        {
+          "at": [
+            8,
+            13
+          ],
+          "material": "barrel"
+        },
+        {
+          "at": [
+            7,
+            11
+          ],
+          "material": "rock"
+        },
+        {
+          "at": [
+            8,
+            10
+          ],
+          "material": "barrel"
+        },
+        {
+          "at": [
+            9,
+            9
+          ],
+          "material": "barrel"
+        },
+        {
+          "at": [
+            10,
+            8
+          ],
+          "material": "barrel"
+        },
+        {
+          "at": [
+            11,
+            7
+          ],
+          "material": "rock"
+        },
+        {
+          "at": [
+            7,
+            16
+          ],
+          "material": "green_slick"
+        },
+        {
+          "at": [
+            5,
+            17
+          ],
+          "material": "green_slick"
+        },
+        {
+          "at": [
+            6,
+            17
+          ],
+          "material": "green_slick"
+        },
+        {
+          "at": [
+            7,
+            17
+          ],
+          "material": "green_slick"
+        },
+        {
+          "at": [
+            7,
+            18
+          ],
+          "material": "green_slick"
+        },
+        {
+          "at": [
+            17,
+            7
+          ],
+          "material": "green_slick"
+        },
+        {
+          "at": [
+            18,
+            7
+          ],
+          "material": "green_slick"
+        },
+        {
+          "at": [
+            19,
+            7
+          ],
+          "material": "green_slick"
+        },
+        {
+          "at": [
+            17,
+            8
+          ],
+          "material": "green_slick"
+        },
+        {
+          "at": [
+            18,
+            8
+          ],
+          "material": "green_slick"
+        },
+        {
+          "at": [
+            19,
+            8
+          ],
+          "material": "green_slick"
+        }
+      ],
+      "patternNote": "A midden arc of barrels and rock round the caged cache; two slick patches. 27 cells on the 25 \u00d7 25 plan; deterministic seed.",
+      "signatureEnemies": [
+        {
+          "kinds": [
+            "rat"
+          ],
+          "count": 6,
+          "chance": 0.8,
+          "note": "The pack nests round the cage."
+        },
+        {
+          "kinds": [
+            "thief"
+          ],
+          "chance": 0.35,
+          "note": "The smuggler returns for the cache; named-zone roster exception, per the encounter policy at floor 1."
+        }
+      ]
     },
     {
       "id": "glowworm_grotto",
@@ -3562,88 +4143,12 @@
         5
       ],
       "status": "draft",
-      "motifCells": [
-        6,
-        6
-      ],
       "shrineKind": "lantern_saint",
       "source": "Beneath grove nexuses only; exclude surface seep and quarry regions. dark and rocky affinities.",
       "atmosphere": "Threads of cold light strung across a black vault. The worms glow; everything else waits.",
       "poi": "Lantern saint shrine (light boon) across the dark stretch; one surviving cache beside it.",
       "connection": "Four approaches; only the glow clusters light them.",
       "monsters": "Bats own the dark - vampire bats on floor 5; the saint\u2019s lantern is the only sure light.",
-      "slots": [
-        {
-          "at": [
-            0,
-            0
-          ],
-          "material": "glow_bulbs"
-        },
-        {
-          "at": [
-            1,
-            2
-          ],
-          "material": "glow_bulbs"
-        },
-        {
-          "at": [
-            2,
-            4
-          ],
-          "material": "glow_bulbs"
-        },
-        {
-          "at": [
-            4,
-            1
-          ],
-          "material": "glow_bulbs"
-        },
-        {
-          "at": [
-            5,
-            3
-          ],
-          "material": "glow_bulbs"
-        },
-        {
-          "at": [
-            3,
-            5
-          ],
-          "material": "glow_bulbs"
-        },
-        {
-          "at": [
-            0,
-            3
-          ],
-          "material": "rune_violet"
-        },
-        {
-          "at": [
-            3,
-            0
-          ],
-          "material": "rune_violet"
-        },
-        {
-          "at": [
-            5,
-            5
-          ],
-          "material": "rune_violet"
-        },
-        {
-          "at": [
-            4,
-            4
-          ],
-          "material": "rock"
-        }
-      ],
       "encounters": {
         "placement": "fixed",
         "extentCells": [
@@ -3687,7 +4192,389 @@
         ],
         "countPolicy": "Three bat seats per region; the floor roster picks the species."
       },
-      "depthNote": "Floors 1 and 5."
+      "depthNote": "Floors 1 and 5.",
+      "cellSlots": [
+        {
+          "at": [
+            2,
+            8
+          ],
+          "material": "glow_bulbs"
+        },
+        {
+          "at": [
+            3,
+            9
+          ],
+          "material": "glow_bulbs"
+        },
+        {
+          "at": [
+            4,
+            9
+          ],
+          "material": "rune_violet"
+        },
+        {
+          "at": [
+            5,
+            9
+          ],
+          "material": "glow_bulbs"
+        },
+        {
+          "at": [
+            6,
+            10
+          ],
+          "material": "glow_bulbs"
+        },
+        {
+          "at": [
+            7,
+            10
+          ],
+          "material": "glow_bulbs"
+        },
+        {
+          "at": [
+            8,
+            11
+          ],
+          "material": "glow_bulbs"
+        },
+        {
+          "at": [
+            9,
+            11
+          ],
+          "material": "glow_bulbs"
+        },
+        {
+          "at": [
+            15,
+            13
+          ],
+          "material": "glow_bulbs"
+        },
+        {
+          "at": [
+            16,
+            13
+          ],
+          "material": "rune_violet"
+        },
+        {
+          "at": [
+            17,
+            14
+          ],
+          "material": "glow_bulbs"
+        },
+        {
+          "at": [
+            19,
+            15
+          ],
+          "material": "glow_bulbs"
+        },
+        {
+          "at": [
+            20,
+            15
+          ],
+          "material": "glow_bulbs"
+        },
+        {
+          "at": [
+            21,
+            15
+          ],
+          "material": "glow_bulbs"
+        },
+        {
+          "at": [
+            22,
+            15
+          ],
+          "material": "rune_violet"
+        },
+        {
+          "at": [
+            2,
+            15
+          ],
+          "material": "glow_bulbs"
+        },
+        {
+          "at": [
+            3,
+            15
+          ],
+          "material": "glow_bulbs"
+        },
+        {
+          "at": [
+            5,
+            14
+          ],
+          "material": "glow_bulbs"
+        },
+        {
+          "at": [
+            6,
+            14
+          ],
+          "material": "glow_bulbs"
+        },
+        {
+          "at": [
+            7,
+            14
+          ],
+          "material": "glow_bulbs"
+        },
+        {
+          "at": [
+            7,
+            13
+          ],
+          "material": "glow_bulbs"
+        },
+        {
+          "at": [
+            8,
+            13
+          ],
+          "material": "glow_bulbs"
+        },
+        {
+          "at": [
+            9,
+            13
+          ],
+          "material": "glow_bulbs"
+        },
+        {
+          "at": [
+            15,
+            11
+          ],
+          "material": "glow_bulbs"
+        },
+        {
+          "at": [
+            17,
+            11
+          ],
+          "material": "glow_bulbs"
+        },
+        {
+          "at": [
+            17,
+            10
+          ],
+          "material": "glow_bulbs"
+        },
+        {
+          "at": [
+            18,
+            10
+          ],
+          "material": "glow_bulbs"
+        },
+        {
+          "at": [
+            20,
+            9
+          ],
+          "material": "glow_bulbs"
+        },
+        {
+          "at": [
+            21,
+            9
+          ],
+          "material": "glow_bulbs"
+        },
+        {
+          "at": [
+            22,
+            9
+          ],
+          "material": "glow_bulbs"
+        },
+        {
+          "at": [
+            3,
+            18
+          ],
+          "material": "glow_bulbs"
+        },
+        {
+          "at": [
+            4,
+            18
+          ],
+          "material": "glow_bulbs"
+        },
+        {
+          "at": [
+            4,
+            17
+          ],
+          "material": "glow_bulbs"
+        },
+        {
+          "at": [
+            5,
+            17
+          ],
+          "material": "glow_bulbs"
+        },
+        {
+          "at": [
+            6,
+            16
+          ],
+          "material": "glow_bulbs"
+        },
+        {
+          "at": [
+            7,
+            16
+          ],
+          "material": "glow_bulbs"
+        },
+        {
+          "at": [
+            7,
+            15
+          ],
+          "material": "glow_bulbs"
+        },
+        {
+          "at": [
+            8,
+            15
+          ],
+          "material": "glow_bulbs"
+        },
+        {
+          "at": [
+            9,
+            14
+          ],
+          "material": "glow_bulbs"
+        },
+        {
+          "at": [
+            15,
+            10
+          ],
+          "material": "rune_violet"
+        },
+        {
+          "at": [
+            16,
+            9
+          ],
+          "material": "glow_bulbs"
+        },
+        {
+          "at": [
+            17,
+            9
+          ],
+          "material": "glow_bulbs"
+        },
+        {
+          "at": [
+            17,
+            8
+          ],
+          "material": "glow_bulbs"
+        },
+        {
+          "at": [
+            18,
+            8
+          ],
+          "material": "glow_bulbs"
+        },
+        {
+          "at": [
+            19,
+            7
+          ],
+          "material": "glow_bulbs"
+        },
+        {
+          "at": [
+            20,
+            7
+          ],
+          "material": "glow_bulbs"
+        },
+        {
+          "at": [
+            20,
+            6
+          ],
+          "material": "rune_violet"
+        },
+        {
+          "at": [
+            21,
+            6
+          ],
+          "material": "glow_bulbs"
+        },
+        {
+          "at": [
+            19,
+            10
+          ],
+          "material": "rock"
+        },
+        {
+          "at": [
+            10,
+            6
+          ],
+          "material": "rock"
+        },
+        {
+          "at": [
+            11,
+            3
+          ],
+          "material": "rock"
+        },
+        {
+          "at": [
+            6,
+            18
+          ],
+          "material": "rock"
+        }
+      ],
+      "patternNote": "Three chords of glow strung across the vault, violet runes where the light pools. 52 cells on the 25 \u00d7 25 plan; deterministic seed.",
+      "signatureEnemies": [
+        {
+          "byFloor": {
+            "1": [
+              "bat"
+            ],
+            "5": [
+              "vampire_bat"
+            ]
+          },
+          "count": 3,
+          "chance": 0.6,
+          "note": "Bats own the dark; the floor roster picks the species."
+        }
+      ]
     },
     {
       "id": "echo_hollow",
@@ -3698,88 +4585,12 @@
         5
       ],
       "status": "draft",
-      "motifCells": [
-        6,
-        6
-      ],
       "shrineKind": "bone_watcher",
       "source": "Beneath grove nexuses only; exclude surface seep and quarry regions. stony-ground affinities.",
       "atmosphere": "A vault that answers every footstep. Stone sleepers lean in ring-straight rows.",
       "poi": "Bone watcher shrine guards the hollow; striking the gong wakes the sleepers.",
       "connection": "Four approaches between the stalagmite rows.",
       "monsters": "Six dormant skeletons (hidden until one cell away, like the spring cave\u2019s).",
-      "slots": [
-        {
-          "at": [
-            0,
-            1
-          ],
-          "material": "stalagmites"
-        },
-        {
-          "at": [
-            1,
-            0
-          ],
-          "material": "stalagmites"
-        },
-        {
-          "at": [
-            5,
-            1
-          ],
-          "material": "stalagmites"
-        },
-        {
-          "at": [
-            1,
-            5
-          ],
-          "material": "stalagmites"
-        },
-        {
-          "at": [
-            5,
-            4
-          ],
-          "material": "stalagmites"
-        },
-        {
-          "at": [
-            4,
-            5
-          ],
-          "material": "stalagmites"
-        },
-        {
-          "at": [
-            0,
-            4
-          ],
-          "material": "stalagmites"
-        },
-        {
-          "at": [
-            2,
-            1
-          ],
-          "material": "dusty_stones"
-        },
-        {
-          "at": [
-            3,
-            4
-          ],
-          "material": "dusty_stones"
-        },
-        {
-          "at": [
-            4,
-            2
-          ],
-          "material": "gong"
-        }
-      ],
       "encounters": {
         "placement": "fixed",
         "extentCells": [
@@ -3853,7 +4664,461 @@
         "revealDistanceCells": 1,
         "countPolicy": "Six dormant skeletons; reveal within one cell (shared hidden mechanic)."
       },
-      "depthNote": "Floors 4 and 5."
+      "depthNote": "Floors 4 and 5.",
+      "cellSlots": [
+        {
+          "at": [
+            9,
+            9
+          ],
+          "material": "gong"
+        },
+        {
+          "at": [
+            9,
+            10
+          ],
+          "material": "stalagmites"
+        },
+        {
+          "at": [
+            8,
+            11
+          ],
+          "material": "stalagmites"
+        },
+        {
+          "at": [
+            16,
+            11
+          ],
+          "material": "stalagmites"
+        },
+        {
+          "at": [
+            8,
+            13
+          ],
+          "material": "stalagmites"
+        },
+        {
+          "at": [
+            16,
+            13
+          ],
+          "material": "stalagmites"
+        },
+        {
+          "at": [
+            9,
+            14
+          ],
+          "material": "stalagmites"
+        },
+        {
+          "at": [
+            9,
+            15
+          ],
+          "material": "stalagmites"
+        },
+        {
+          "at": [
+            10,
+            15
+          ],
+          "material": "stalagmites"
+        },
+        {
+          "at": [
+            14,
+            15
+          ],
+          "material": "stalagmites"
+        },
+        {
+          "at": [
+            15,
+            15
+          ],
+          "material": "stalagmites"
+        },
+        {
+          "at": [
+            14,
+            6
+          ],
+          "material": "stalagmites"
+        },
+        {
+          "at": [
+            9,
+            7
+          ],
+          "material": "stalagmites"
+        },
+        {
+          "at": [
+            8,
+            8
+          ],
+          "material": "stalagmites"
+        },
+        {
+          "at": [
+            16,
+            8
+          ],
+          "material": "stalagmites"
+        },
+        {
+          "at": [
+            17,
+            8
+          ],
+          "material": "stalagmites"
+        },
+        {
+          "at": [
+            7,
+            9
+          ],
+          "material": "stalagmites"
+        },
+        {
+          "at": [
+            17,
+            9
+          ],
+          "material": "stalagmites"
+        },
+        {
+          "at": [
+            18,
+            10
+          ],
+          "material": "stalagmites"
+        },
+        {
+          "at": [
+            18,
+            11
+          ],
+          "material": "stalagmites"
+        },
+        {
+          "at": [
+            6,
+            13
+          ],
+          "material": "stalagmites"
+        },
+        {
+          "at": [
+            18,
+            13
+          ],
+          "material": "stalagmites"
+        },
+        {
+          "at": [
+            6,
+            14
+          ],
+          "material": "stalagmites"
+        },
+        {
+          "at": [
+            18,
+            14
+          ],
+          "material": "stalagmites"
+        },
+        {
+          "at": [
+            7,
+            15
+          ],
+          "material": "stalagmites"
+        },
+        {
+          "at": [
+            17,
+            15
+          ],
+          "material": "stalagmites"
+        },
+        {
+          "at": [
+            16,
+            16
+          ],
+          "material": "stalagmites"
+        },
+        {
+          "at": [
+            17,
+            16
+          ],
+          "material": "stalagmites"
+        },
+        {
+          "at": [
+            8,
+            17
+          ],
+          "material": "stalagmites"
+        },
+        {
+          "at": [
+            16,
+            17
+          ],
+          "material": "stalagmites"
+        },
+        {
+          "at": [
+            10,
+            18
+          ],
+          "material": "stalagmites"
+        },
+        {
+          "at": [
+            11,
+            18
+          ],
+          "material": "stalagmites"
+        },
+        {
+          "at": [
+            14,
+            18
+          ],
+          "material": "stalagmites"
+        },
+        {
+          "at": [
+            10,
+            4
+          ],
+          "material": "stalagmites"
+        },
+        {
+          "at": [
+            11,
+            4
+          ],
+          "material": "stalagmites"
+        },
+        {
+          "at": [
+            13,
+            4
+          ],
+          "material": "stalagmites"
+        },
+        {
+          "at": [
+            14,
+            4
+          ],
+          "material": "stalagmites"
+        },
+        {
+          "at": [
+            8,
+            5
+          ],
+          "material": "stalagmites"
+        },
+        {
+          "at": [
+            15,
+            5
+          ],
+          "material": "stalagmites"
+        },
+        {
+          "at": [
+            16,
+            5
+          ],
+          "material": "stalagmites"
+        },
+        {
+          "at": [
+            7,
+            6
+          ],
+          "material": "stalagmites"
+        },
+        {
+          "at": [
+            17,
+            6
+          ],
+          "material": "stalagmites"
+        },
+        {
+          "at": [
+            5,
+            8
+          ],
+          "material": "stalagmites"
+        },
+        {
+          "at": [
+            19,
+            8
+          ],
+          "material": "stalagmites"
+        },
+        {
+          "at": [
+            5,
+            9
+          ],
+          "material": "stalagmites"
+        },
+        {
+          "at": [
+            4,
+            11
+          ],
+          "material": "stalagmites"
+        },
+        {
+          "at": [
+            20,
+            11
+          ],
+          "material": "stalagmites"
+        },
+        {
+          "at": [
+            20,
+            13
+          ],
+          "material": "stalagmites"
+        },
+        {
+          "at": [
+            4,
+            14
+          ],
+          "material": "stalagmites"
+        },
+        {
+          "at": [
+            20,
+            14
+          ],
+          "material": "stalagmites"
+        },
+        {
+          "at": [
+            5,
+            16
+          ],
+          "material": "stalagmites"
+        },
+        {
+          "at": [
+            18,
+            17
+          ],
+          "material": "stalagmites"
+        },
+        {
+          "at": [
+            17,
+            18
+          ],
+          "material": "stalagmites"
+        },
+        {
+          "at": [
+            8,
+            19
+          ],
+          "material": "stalagmites"
+        },
+        {
+          "at": [
+            15,
+            19
+          ],
+          "material": "stalagmites"
+        },
+        {
+          "at": [
+            16,
+            19
+          ],
+          "material": "stalagmites"
+        },
+        {
+          "at": [
+            10,
+            20
+          ],
+          "material": "stalagmites"
+        },
+        {
+          "at": [
+            13,
+            20
+          ],
+          "material": "stalagmites"
+        },
+        {
+          "at": [
+            9,
+            5
+          ],
+          "material": "dusty_stones"
+        },
+        {
+          "at": [
+            10,
+            17
+          ],
+          "material": "dusty_stones"
+        },
+        {
+          "at": [
+            6,
+            7
+          ],
+          "material": "dusty_stones"
+        },
+        {
+          "at": [
+            5,
+            14
+          ],
+          "material": "dusty_stones"
+        },
+        {
+          "at": [
+            7,
+            14
+          ],
+          "material": "dusty_stones"
+        }
+      ],
+      "patternNote": "Stalagmite sleepers in ring-straight ranks (radii 4, 6, 8); the gong sits by the court. 63 cells on the 25 \u00d7 25 plan; deterministic seed.",
+      "signatureEnemies": [
+        {
+          "kinds": [
+            "skeleton"
+          ],
+          "count": 6,
+          "chance": 1.0,
+          "note": "The six sleepers wake within one cell; the gong calls them early."
+        }
+      ]
     },
     {
       "id": "obsidian_vault",
@@ -3991,7 +5256,32 @@
         6,
         6
       ],
-      "slots": []
+      "slots": [],
+      "signatureEnemies": [
+        {
+          "kinds": [
+            "goblin"
+          ],
+          "byFloor": {
+            "4": [
+              "goblin"
+            ],
+            "7": [
+              "orc_mage"
+            ]
+          },
+          "count": 3,
+          "chance": 0.7,
+          "note": "The vault garrison."
+        },
+        {
+          "kinds": [
+            "mimic"
+          ],
+          "chance": 0.35,
+          "note": "The vault chest may be a mimic; named-zone roster exception, per the encounter policy at floors 4 and 7."
+        }
+      ]
     },
     {
       "id": "fossil_ridge",
@@ -4001,95 +5291,12 @@
         4
       ],
       "status": "draft",
-      "motifCells": [
-        8,
-        8
-      ],
       "maxGemTier": "depth",
       "source": "Beneath grove nexuses only; exclude surface seep and quarry regions. exposed rock affinities.",
       "atmosphere": "A spine of ancient bone turned to strata. Everything here was alive once, in rows.",
       "poi": "Mineable fossil seams and pressed gems (capped at tier 4); the surviving cache sits at the ridge crest.",
       "connection": "Ridge line runs north-south; approaches from the sides.",
       "monsters": "Two rooted plants hold the seam ends; they spit, they do not chase.",
-      "slots": [
-        {
-          "at": [
-            1,
-            1
-          ],
-          "material": "fossil_bone"
-        },
-        {
-          "at": [
-            2,
-            0
-          ],
-          "material": "fossil_bone"
-        },
-        {
-          "at": [
-            6,
-            2
-          ],
-          "material": "fossil_bone"
-        },
-        {
-          "at": [
-            5,
-            6
-          ],
-          "material": "fossil_bone"
-        },
-        {
-          "at": [
-            0,
-            4
-          ],
-          "material": "fossil_bone"
-        },
-        {
-          "at": [
-            3,
-            3
-          ],
-          "material": "rock"
-        },
-        {
-          "at": [
-            7,
-            7
-          ],
-          "material": "rock"
-        },
-        {
-          "at": [
-            6,
-            4
-          ],
-          "material": "amethyst_deposit"
-        },
-        {
-          "at": [
-            4,
-            6
-          ],
-          "material": "topaz_deposit"
-        },
-        {
-          "at": [
-            7,
-            1
-          ],
-          "material": "quarry_sapphire"
-        },
-        {
-          "at": [
-            2,
-            5
-          ],
-          "material": "dusty_stones"
-        }
-      ],
       "encounters": {
         "placement": "fixed",
         "extentCells": [
@@ -4114,7 +5321,692 @@
         ],
         "countPolicy": "Two rooted plants per region and depth."
       },
-      "depthNote": "Floor 4."
+      "depthNote": "Floor 4.",
+      "cellSlots": [
+        {
+          "at": [
+            4,
+            0
+          ],
+          "material": "rock"
+        },
+        {
+          "at": [
+            6,
+            0
+          ],
+          "material": "fossil_bone"
+        },
+        {
+          "at": [
+            10,
+            0
+          ],
+          "material": "fossil_bone"
+        },
+        {
+          "at": [
+            11,
+            0
+          ],
+          "material": "fossil_bone"
+        },
+        {
+          "at": [
+            20,
+            0
+          ],
+          "material": "rock"
+        },
+        {
+          "at": [
+            6,
+            1
+          ],
+          "material": "fossil_bone"
+        },
+        {
+          "at": [
+            10,
+            1
+          ],
+          "material": "fossil_bone"
+        },
+        {
+          "at": [
+            24,
+            1
+          ],
+          "material": "fossil_bone"
+        },
+        {
+          "at": [
+            6,
+            2
+          ],
+          "material": "fossil_bone"
+        },
+        {
+          "at": [
+            9,
+            2
+          ],
+          "material": "fossil_bone"
+        },
+        {
+          "at": [
+            24,
+            2
+          ],
+          "material": "fossil_bone"
+        },
+        {
+          "at": [
+            3,
+            3
+          ],
+          "material": "fossil_bone"
+        },
+        {
+          "at": [
+            4,
+            3
+          ],
+          "material": "topaz_deposit"
+        },
+        {
+          "at": [
+            7,
+            3
+          ],
+          "material": "fossil_bone"
+        },
+        {
+          "at": [
+            19,
+            3
+          ],
+          "material": "rock"
+        },
+        {
+          "at": [
+            20,
+            3
+          ],
+          "material": "fossil_bone"
+        },
+        {
+          "at": [
+            21,
+            3
+          ],
+          "material": "fossil_bone"
+        },
+        {
+          "at": [
+            22,
+            3
+          ],
+          "material": "fossil_bone"
+        },
+        {
+          "at": [
+            24,
+            3
+          ],
+          "material": "fossil_bone"
+        },
+        {
+          "at": [
+            2,
+            4
+          ],
+          "material": "rock"
+        },
+        {
+          "at": [
+            3,
+            4
+          ],
+          "material": "topaz_deposit"
+        },
+        {
+          "at": [
+            23,
+            4
+          ],
+          "material": "fossil_bone"
+        },
+        {
+          "at": [
+            24,
+            4
+          ],
+          "material": "fossil_bone"
+        },
+        {
+          "at": [
+            0,
+            5
+          ],
+          "material": "fossil_bone"
+        },
+        {
+          "at": [
+            1,
+            5
+          ],
+          "material": "fossil_bone"
+        },
+        {
+          "at": [
+            2,
+            5
+          ],
+          "material": "fossil_bone"
+        },
+        {
+          "at": [
+            4,
+            5
+          ],
+          "material": "topaz_deposit"
+        },
+        {
+          "at": [
+            5,
+            5
+          ],
+          "material": "topaz_deposit"
+        },
+        {
+          "at": [
+            7,
+            5
+          ],
+          "material": "rock"
+        },
+        {
+          "at": [
+            19,
+            5
+          ],
+          "material": "fossil_bone"
+        },
+        {
+          "at": [
+            21,
+            5
+          ],
+          "material": "fossil_bone"
+        },
+        {
+          "at": [
+            22,
+            5
+          ],
+          "material": "rock"
+        },
+        {
+          "at": [
+            4,
+            7
+          ],
+          "material": "fossil_bone"
+        },
+        {
+          "at": [
+            17,
+            7
+          ],
+          "material": "fossil_bone"
+        },
+        {
+          "at": [
+            22,
+            7
+          ],
+          "material": "fossil_bone"
+        },
+        {
+          "at": [
+            0,
+            8
+          ],
+          "material": "fossil_bone"
+        },
+        {
+          "at": [
+            2,
+            8
+          ],
+          "material": "rock"
+        },
+        {
+          "at": [
+            3,
+            8
+          ],
+          "material": "fossil_bone"
+        },
+        {
+          "at": [
+            4,
+            8
+          ],
+          "material": "fossil_bone"
+        },
+        {
+          "at": [
+            6,
+            8
+          ],
+          "material": "rock"
+        },
+        {
+          "at": [
+            10,
+            8
+          ],
+          "material": "rock"
+        },
+        {
+          "at": [
+            16,
+            8
+          ],
+          "material": "fossil_bone"
+        },
+        {
+          "at": [
+            17,
+            8
+          ],
+          "material": "fossil_bone"
+        },
+        {
+          "at": [
+            18,
+            8
+          ],
+          "material": "fossil_bone"
+        },
+        {
+          "at": [
+            19,
+            8
+          ],
+          "material": "fossil_bone"
+        },
+        {
+          "at": [
+            20,
+            8
+          ],
+          "material": "fossil_bone"
+        },
+        {
+          "at": [
+            21,
+            8
+          ],
+          "material": "fossil_bone"
+        },
+        {
+          "at": [
+            2,
+            9
+          ],
+          "material": "fossil_bone"
+        },
+        {
+          "at": [
+            11,
+            9
+          ],
+          "material": "rock"
+        },
+        {
+          "at": [
+            18,
+            9
+          ],
+          "material": "fossil_bone"
+        },
+        {
+          "at": [
+            19,
+            9
+          ],
+          "material": "fossil_bone"
+        },
+        {
+          "at": [
+            23,
+            9
+          ],
+          "material": "rock"
+        },
+        {
+          "at": [
+            1,
+            10
+          ],
+          "material": "fossil_bone"
+        },
+        {
+          "at": [
+            15,
+            10
+          ],
+          "material": "fossil_bone"
+        },
+        {
+          "at": [
+            16,
+            10
+          ],
+          "material": "amethyst_deposit"
+        },
+        {
+          "at": [
+            17,
+            10
+          ],
+          "material": "fossil_bone"
+        },
+        {
+          "at": [
+            18,
+            10
+          ],
+          "material": "fossil_bone"
+        },
+        {
+          "at": [
+            19,
+            10
+          ],
+          "material": "fossil_bone"
+        },
+        {
+          "at": [
+            0,
+            11
+          ],
+          "material": "topaz_deposit"
+        },
+        {
+          "at": [
+            15,
+            11
+          ],
+          "material": "fossil_bone"
+        },
+        {
+          "at": [
+            17,
+            11
+          ],
+          "material": "fossil_bone"
+        },
+        {
+          "at": [
+            0,
+            14
+          ],
+          "material": "rock"
+        },
+        {
+          "at": [
+            20,
+            14
+          ],
+          "material": "rock"
+        },
+        {
+          "at": [
+            24,
+            14
+          ],
+          "material": "rock"
+        },
+        {
+          "at": [
+            0,
+            15
+          ],
+          "material": "rock"
+        },
+        {
+          "at": [
+            9,
+            16
+          ],
+          "material": "fossil_bone"
+        },
+        {
+          "at": [
+            11,
+            16
+          ],
+          "material": "rock"
+        },
+        {
+          "at": [
+            18,
+            16
+          ],
+          "material": "rock"
+        },
+        {
+          "at": [
+            7,
+            17
+          ],
+          "material": "fossil_bone"
+        },
+        {
+          "at": [
+            8,
+            17
+          ],
+          "material": "fossil_bone"
+        },
+        {
+          "at": [
+            11,
+            17
+          ],
+          "material": "fossil_bone"
+        },
+        {
+          "at": [
+            17,
+            17
+          ],
+          "material": "rock"
+        },
+        {
+          "at": [
+            21,
+            17
+          ],
+          "material": "quarry_sapphire"
+        },
+        {
+          "at": [
+            0,
+            18
+          ],
+          "material": "rock"
+        },
+        {
+          "at": [
+            4,
+            18
+          ],
+          "material": "rock"
+        },
+        {
+          "at": [
+            5,
+            18
+          ],
+          "material": "fossil_bone"
+        },
+        {
+          "at": [
+            8,
+            18
+          ],
+          "material": "amethyst_deposit"
+        },
+        {
+          "at": [
+            11,
+            18
+          ],
+          "material": "fossil_bone"
+        },
+        {
+          "at": [
+            1,
+            19
+          ],
+          "material": "rock"
+        },
+        {
+          "at": [
+            7,
+            19
+          ],
+          "material": "fossil_bone"
+        },
+        {
+          "at": [
+            8,
+            19
+          ],
+          "material": "fossil_bone"
+        },
+        {
+          "at": [
+            9,
+            19
+          ],
+          "material": "fossil_bone"
+        },
+        {
+          "at": [
+            11,
+            19
+          ],
+          "material": "fossil_bone"
+        },
+        {
+          "at": [
+            22,
+            19
+          ],
+          "material": "quarry_sapphire"
+        },
+        {
+          "at": [
+            4,
+            20
+          ],
+          "material": "fossil_bone"
+        },
+        {
+          "at": [
+            3,
+            21
+          ],
+          "material": "fossil_bone"
+        },
+        {
+          "at": [
+            4,
+            21
+          ],
+          "material": "amethyst_deposit"
+        },
+        {
+          "at": [
+            6,
+            21
+          ],
+          "material": "fossil_bone"
+        },
+        {
+          "at": [
+            2,
+            22
+          ],
+          "material": "fossil_bone"
+        },
+        {
+          "at": [
+            4,
+            22
+          ],
+          "material": "fossil_bone"
+        },
+        {
+          "at": [
+            6,
+            22
+          ],
+          "material": "fossil_bone"
+        },
+        {
+          "at": [
+            20,
+            22
+          ],
+          "material": "quarry_sapphire"
+        },
+        {
+          "at": [
+            5,
+            23
+          ],
+          "material": "fossil_bone"
+        },
+        {
+          "at": [
+            0,
+            24
+          ],
+          "material": "amethyst_deposit"
+        },
+        {
+          "at": [
+            1,
+            24
+          ],
+          "material": "rock"
+        },
+        {
+          "at": [
+            3,
+            24
+          ],
+          "material": "fossil_bone"
+        }
+      ],
+      "patternNote": "Diagonal strata bands with jittered edges; fossils fill the bands, gems sit at the crests. 96 cells on the 25 \u00d7 25 plan; deterministic seed.",
+      "signatureEnemies": [
+        {
+          "kinds": [
+            "plant"
+          ],
+          "count": 2,
+          "chance": 0.5,
+          "note": "Rooted keepers grow where the strata reach."
+        }
+      ]
     },
     {
       "id": "petrified_grove",
@@ -4124,74 +6016,12 @@
         4
       ],
       "status": "draft",
-      "motifCells": [
-        6,
-        6
-      ],
       "shrineKind": "toad_idol",
       "source": "Beneath grove nexuses only; exclude surface seep and quarry regions. wooded affinities.",
       "atmosphere": "The grove above, remembered in stone below. The idol is the only soft thing left.",
       "poi": "Toad idol (Mending) still warm in a ring of stone trunks.",
       "connection": "Four clear approaches between the trunks.",
       "monsters": "Two rooted plants grow where the roots still reach.",
-      "slots": [
-        {
-          "at": [
-            0,
-            2
-          ],
-          "material": "mossy_tree"
-        },
-        {
-          "at": [
-            2,
-            0
-          ],
-          "material": "mossy_tree"
-        },
-        {
-          "at": [
-            5,
-            3
-          ],
-          "material": "mossy_tree"
-        },
-        {
-          "at": [
-            3,
-            5
-          ],
-          "material": "mossy_tree"
-        },
-        {
-          "at": [
-            1,
-            4
-          ],
-          "material": "rock"
-        },
-        {
-          "at": [
-            4,
-            1
-          ],
-          "material": "rock"
-        },
-        {
-          "at": [
-            5,
-            0
-          ],
-          "material": "game_mushroom"
-        },
-        {
-          "at": [
-            0,
-            5
-          ],
-          "material": "game_mushroom"
-        }
-      ],
       "encounters": {
         "placement": "fixed",
         "extentCells": [
@@ -4216,7 +6046,559 @@
         ],
         "countPolicy": "Two rooted plants per region and depth."
       },
-      "depthNote": "Floor 4."
+      "depthNote": "Floor 4.",
+      "cellSlots": [
+        {
+          "at": [
+            21,
+            0
+          ],
+          "material": "rock"
+        },
+        {
+          "at": [
+            22,
+            0
+          ],
+          "material": "rock"
+        },
+        {
+          "at": [
+            3,
+            2
+          ],
+          "material": "rock"
+        },
+        {
+          "at": [
+            14,
+            2
+          ],
+          "material": "rock"
+        },
+        {
+          "at": [
+            24,
+            2
+          ],
+          "material": "rock"
+        },
+        {
+          "at": [
+            4,
+            4
+          ],
+          "material": "rock"
+        },
+        {
+          "at": [
+            22,
+            4
+          ],
+          "material": "rock"
+        },
+        {
+          "at": [
+            15,
+            5
+          ],
+          "material": "game_mushroom"
+        },
+        {
+          "at": [
+            7,
+            6
+          ],
+          "material": "game_mushroom"
+        },
+        {
+          "at": [
+            2,
+            7
+          ],
+          "material": "rock"
+        },
+        {
+          "at": [
+            9,
+            7
+          ],
+          "material": "rock"
+        },
+        {
+          "at": [
+            10,
+            7
+          ],
+          "material": "mossy_tree"
+        },
+        {
+          "at": [
+            11,
+            7
+          ],
+          "material": "mossy_tree"
+        },
+        {
+          "at": [
+            13,
+            7
+          ],
+          "material": "rock"
+        },
+        {
+          "at": [
+            14,
+            7
+          ],
+          "material": "mossy_tree"
+        },
+        {
+          "at": [
+            15,
+            7
+          ],
+          "material": "mossy_tree"
+        },
+        {
+          "at": [
+            18,
+            7
+          ],
+          "material": "game_mushroom"
+        },
+        {
+          "at": [
+            5,
+            8
+          ],
+          "material": "game_mushroom"
+        },
+        {
+          "at": [
+            8,
+            8
+          ],
+          "material": "mossy_tree"
+        },
+        {
+          "at": [
+            13,
+            8
+          ],
+          "material": "rock"
+        },
+        {
+          "at": [
+            14,
+            8
+          ],
+          "material": "rock"
+        },
+        {
+          "at": [
+            19,
+            8
+          ],
+          "material": "game_mushroom"
+        },
+        {
+          "at": [
+            2,
+            9
+          ],
+          "material": "rock"
+        },
+        {
+          "at": [
+            7,
+            9
+          ],
+          "material": "rock"
+        },
+        {
+          "at": [
+            8,
+            9
+          ],
+          "material": "rock"
+        },
+        {
+          "at": [
+            15,
+            9
+          ],
+          "material": "rock"
+        },
+        {
+          "at": [
+            16,
+            9
+          ],
+          "material": "rock"
+        },
+        {
+          "at": [
+            17,
+            9
+          ],
+          "material": "rock"
+        },
+        {
+          "at": [
+            7,
+            10
+          ],
+          "material": "mossy_tree"
+        },
+        {
+          "at": [
+            17,
+            10
+          ],
+          "material": "mossy_tree"
+        },
+        {
+          "at": [
+            20,
+            10
+          ],
+          "material": "game_mushroom"
+        },
+        {
+          "at": [
+            22,
+            10
+          ],
+          "material": "rock"
+        },
+        {
+          "at": [
+            4,
+            11
+          ],
+          "material": "game_mushroom"
+        },
+        {
+          "at": [
+            17,
+            11
+          ],
+          "material": "rock"
+        },
+        {
+          "at": [
+            6,
+            13
+          ],
+          "material": "rock"
+        },
+        {
+          "at": [
+            7,
+            13
+          ],
+          "material": "mossy_tree"
+        },
+        {
+          "at": [
+            8,
+            13
+          ],
+          "material": "rock"
+        },
+        {
+          "at": [
+            16,
+            13
+          ],
+          "material": "rock"
+        },
+        {
+          "at": [
+            17,
+            13
+          ],
+          "material": "mossy_tree"
+        },
+        {
+          "at": [
+            20,
+            13
+          ],
+          "material": "game_mushroom"
+        },
+        {
+          "at": [
+            22,
+            13
+          ],
+          "material": "rock"
+        },
+        {
+          "at": [
+            2,
+            14
+          ],
+          "material": "rock"
+        },
+        {
+          "at": [
+            3,
+            14
+          ],
+          "material": "rock"
+        },
+        {
+          "at": [
+            7,
+            14
+          ],
+          "material": "mossy_tree"
+        },
+        {
+          "at": [
+            17,
+            14
+          ],
+          "material": "mossy_tree"
+        },
+        {
+          "at": [
+            20,
+            14
+          ],
+          "material": "game_mushroom"
+        },
+        {
+          "at": [
+            0,
+            15
+          ],
+          "material": "rock"
+        },
+        {
+          "at": [
+            5,
+            15
+          ],
+          "material": "game_mushroom"
+        },
+        {
+          "at": [
+            6,
+            15
+          ],
+          "material": "rock"
+        },
+        {
+          "at": [
+            7,
+            15
+          ],
+          "material": "rock"
+        },
+        {
+          "at": [
+            11,
+            15
+          ],
+          "material": "rock"
+        },
+        {
+          "at": [
+            2,
+            16
+          ],
+          "material": "rock"
+        },
+        {
+          "at": [
+            5,
+            16
+          ],
+          "material": "game_mushroom"
+        },
+        {
+          "at": [
+            8,
+            16
+          ],
+          "material": "mossy_tree"
+        },
+        {
+          "at": [
+            9,
+            16
+          ],
+          "material": "mossy_tree"
+        },
+        {
+          "at": [
+            6,
+            17
+          ],
+          "material": "game_mushroom"
+        },
+        {
+          "at": [
+            10,
+            17
+          ],
+          "material": "mossy_tree"
+        },
+        {
+          "at": [
+            11,
+            17
+          ],
+          "material": "rock"
+        },
+        {
+          "at": [
+            13,
+            17
+          ],
+          "material": "mossy_tree"
+        },
+        {
+          "at": [
+            14,
+            17
+          ],
+          "material": "mossy_tree"
+        },
+        {
+          "at": [
+            15,
+            17
+          ],
+          "material": "mossy_tree"
+        },
+        {
+          "at": [
+            22,
+            17
+          ],
+          "material": "rock"
+        },
+        {
+          "at": [
+            11,
+            19
+          ],
+          "material": "rock"
+        },
+        {
+          "at": [
+            13,
+            20
+          ],
+          "material": "rock"
+        },
+        {
+          "at": [
+            8,
+            21
+          ],
+          "material": "rock"
+        },
+        {
+          "at": [
+            11,
+            21
+          ],
+          "material": "rock"
+        },
+        {
+          "at": [
+            17,
+            21
+          ],
+          "material": "rock"
+        },
+        {
+          "at": [
+            20,
+            21
+          ],
+          "material": "rock"
+        },
+        {
+          "at": [
+            3,
+            22
+          ],
+          "material": "rock"
+        },
+        {
+          "at": [
+            20,
+            22
+          ],
+          "material": "rock"
+        },
+        {
+          "at": [
+            21,
+            22
+          ],
+          "material": "rock"
+        },
+        {
+          "at": [
+            1,
+            23
+          ],
+          "material": "rock"
+        },
+        {
+          "at": [
+            3,
+            23
+          ],
+          "material": "rock"
+        },
+        {
+          "at": [
+            9,
+            24
+          ],
+          "material": "rock"
+        },
+        {
+          "at": [
+            17,
+            24
+          ],
+          "material": "rock"
+        },
+        {
+          "at": [
+            19,
+            24
+          ],
+          "material": "rock"
+        },
+        {
+          "at": [
+            23,
+            24
+          ],
+          "material": "rock"
+        }
+      ],
+      "patternNote": "Stone trunks on a ring (the surface grove's tree-ring pattern, petrified), mushrooms on an outer arc. 77 cells on the 25 \u00d7 25 plan; deterministic seed.",
+      "signatureEnemies": [
+        {
+          "kinds": [
+            "plant"
+          ],
+          "count": 2,
+          "chance": 0.5,
+          "note": "What still grows in the stone grove, grows angry."
+        }
+      ]
     },
     {
       "id": "ember_sanctum",
@@ -4228,102 +6610,12 @@
         8
       ],
       "status": "draft",
-      "motifCells": [
-        8,
-        8
-      ],
       "shrineKind": "ember_altar",
       "source": "Beneath grove nexuses only; exclude surface seep and quarry regions. burned affinities.",
       "atmosphere": "A shrine the fire keeps for itself. The vents exhale on a clock; the altar never cools.",
       "poi": "Ember altar (fireball boon) at the sanctum heart - dash between vent breaths to reach it.",
       "connection": "Four approaches, each crossed by a vent row.",
       "monsters": "Fire-country guards hold the outer ring (floor roster: fiends; succubi on floor 8).",
-      "slots": [
-        {
-          "at": [
-            1,
-            1
-          ],
-          "material": "fire_vent"
-        },
-        {
-          "at": [
-            6,
-            1
-          ],
-          "material": "fire_vent"
-        },
-        {
-          "at": [
-            1,
-            6
-          ],
-          "material": "fire_vent"
-        },
-        {
-          "at": [
-            6,
-            6
-          ],
-          "material": "fire_vent"
-        },
-        {
-          "at": [
-            3,
-            0
-          ],
-          "material": "fire_vent"
-        },
-        {
-          "at": [
-            0,
-            3
-          ],
-          "material": "fire_vent"
-        },
-        {
-          "at": [
-            7,
-            4
-          ],
-          "material": "fire_vent"
-        },
-        {
-          "at": [
-            4,
-            7
-          ],
-          "material": "fire_vent"
-        },
-        {
-          "at": [
-            2,
-            2
-          ],
-          "material": "flame_pillar"
-        },
-        {
-          "at": [
-            5,
-            5
-          ],
-          "material": "flame_pillar"
-        },
-        {
-          "at": [
-            5,
-            2
-          ],
-          "material": "fire_rock"
-        },
-        {
-          "at": [
-            2,
-            5
-          ],
-          "material": "fire_rock"
-        }
-      ],
       "encounters": {
         "placement": "fixed",
         "extentCells": [
@@ -4358,7 +6650,175 @@
         ],
         "countPolicy": "Two outer-ring guards per region and depth."
       },
-      "depthNote": "Floors 6, 7 and 8 - reused three floors, as the program allows."
+      "depthNote": "Floors 6, 7 and 8 - reused three floors, as the program allows.",
+      "cellSlots": [
+        {
+          "at": [
+            15,
+            14
+          ],
+          "material": "fire_vent"
+        },
+        {
+          "at": [
+            17,
+            15
+          ],
+          "material": "fire_vent"
+        },
+        {
+          "at": [
+            18,
+            16
+          ],
+          "material": "fire_vent"
+        },
+        {
+          "at": [
+            8,
+            14
+          ],
+          "material": "flame_pillar"
+        },
+        {
+          "at": [
+            7,
+            15
+          ],
+          "material": "fire_vent"
+        },
+        {
+          "at": [
+            6,
+            16
+          ],
+          "material": "fire_vent"
+        },
+        {
+          "at": [
+            8,
+            10
+          ],
+          "material": "flame_pillar"
+        },
+        {
+          "at": [
+            9,
+            10
+          ],
+          "material": "fire_vent"
+        },
+        {
+          "at": [
+            7,
+            9
+          ],
+          "material": "fire_vent"
+        },
+        {
+          "at": [
+            6,
+            8
+          ],
+          "material": "fire_vent"
+        },
+        {
+          "at": [
+            16,
+            10
+          ],
+          "material": "flame_pillar"
+        },
+        {
+          "at": [
+            15,
+            10
+          ],
+          "material": "fire_vent"
+        },
+        {
+          "at": [
+            17,
+            9
+          ],
+          "material": "fire_vent"
+        },
+        {
+          "at": [
+            18,
+            8
+          ],
+          "material": "fire_vent"
+        },
+        {
+          "at": [
+            16,
+            14
+          ],
+          "material": "flame_pillar"
+        },
+        {
+          "at": [
+            4,
+            13
+          ],
+          "material": "fire_rock"
+        },
+        {
+          "at": [
+            19,
+            8
+          ],
+          "material": "fire_rock"
+        },
+        {
+          "at": [
+            10,
+            20
+          ],
+          "material": "fire_rock"
+        },
+        {
+          "at": [
+            18,
+            6
+          ],
+          "material": "fire_rock"
+        },
+        {
+          "at": [
+            5,
+            9
+          ],
+          "material": "fire_rock"
+        },
+        {
+          "at": [
+            18,
+            18
+          ],
+          "material": "fire_rock"
+        }
+      ],
+      "patternNote": "Six vent spokes at three radii; flame pillars set between the spokes. 21 cells on the 25 \u00d7 25 plan; deterministic seed.",
+      "signatureEnemies": [
+        {
+          "byFloor": {
+            "6": [
+              "fiend"
+            ],
+            "7": [
+              "fiend"
+            ],
+            "8": [
+              "succubus"
+            ]
+          },
+          "count": 2,
+          "chance": 0.6,
+          "note": "The fire\u2019s keepers hold the outer ring."
+        }
+      ]
     },
     {
       "id": "obsidian_garden",
@@ -4368,88 +6828,12 @@
         6
       ],
       "status": "draft",
-      "motifCells": [
-        8,
-        8
-      ],
       "maxGemTier": "depth",
       "source": "Beneath grove nexuses only; exclude surface seep and quarry regions. burned affinities.",
       "atmosphere": "Blades of black glass where a garden used to be. Rubies read like embers in the panes.",
       "poi": "Fire-country gems pressed in black glass; two hidden pits guard the best seams.",
       "connection": "Open glass field; the pits are the trap, the spires the maze.",
       "monsters": "Two poison spiders keep the seams.",
-      "slots": [
-        {
-          "at": [
-            0,
-            1
-          ],
-          "material": "dark_rubble"
-        },
-        {
-          "at": [
-            1,
-            5
-          ],
-          "material": "dark_rubble"
-        },
-        {
-          "at": [
-            5,
-            0
-          ],
-          "material": "dark_rubble"
-        },
-        {
-          "at": [
-            6,
-            6
-          ],
-          "material": "dark_rubble"
-        },
-        {
-          "at": [
-            4,
-            2
-          ],
-          "material": "dark_urn"
-        },
-        {
-          "at": [
-            2,
-            4
-          ],
-          "material": "dark_urn"
-        },
-        {
-          "at": [
-            6,
-            3
-          ],
-          "material": "ruby_deposit"
-        },
-        {
-          "at": [
-            3,
-            6
-          ],
-          "material": "emerald_deposit"
-        },
-        {
-          "at": [
-            1,
-            2
-          ],
-          "material": "hidden_pit"
-        },
-        {
-          "at": [
-            6,
-            5
-          ],
-          "material": "hidden_pit"
-        }
-      ],
       "encounters": {
         "placement": "fixed",
         "extentCells": [
@@ -4474,7 +6858,456 @@
         ],
         "countPolicy": "Two poison spiders per region and depth."
       },
-      "depthNote": "Floor 6; gems capped at tier 6."
+      "depthNote": "Floor 6; gems capped at tier 6.",
+      "cellSlots": [
+        {
+          "at": [
+            7,
+            0
+          ],
+          "material": "dark_rubble"
+        },
+        {
+          "at": [
+            8,
+            0
+          ],
+          "material": "dark_rubble"
+        },
+        {
+          "at": [
+            21,
+            0
+          ],
+          "material": "dark_urn"
+        },
+        {
+          "at": [
+            22,
+            0
+          ],
+          "material": "dark_rubble"
+        },
+        {
+          "at": [
+            1,
+            1
+          ],
+          "material": "dark_rubble"
+        },
+        {
+          "at": [
+            8,
+            1
+          ],
+          "material": "dark_rubble"
+        },
+        {
+          "at": [
+            16,
+            1
+          ],
+          "material": "dark_rubble"
+        },
+        {
+          "at": [
+            22,
+            1
+          ],
+          "material": "dark_urn"
+        },
+        {
+          "at": [
+            3,
+            2
+          ],
+          "material": "dark_urn"
+        },
+        {
+          "at": [
+            9,
+            2
+          ],
+          "material": "dark_rubble"
+        },
+        {
+          "at": [
+            23,
+            2
+          ],
+          "material": "dark_rubble"
+        },
+        {
+          "at": [
+            24,
+            2
+          ],
+          "material": "dark_urn"
+        },
+        {
+          "at": [
+            17,
+            3
+          ],
+          "material": "dark_rubble"
+        },
+        {
+          "at": [
+            4,
+            4
+          ],
+          "material": "dark_rubble"
+        },
+        {
+          "at": [
+            5,
+            5
+          ],
+          "material": "dark_rubble"
+        },
+        {
+          "at": [
+            13,
+            5
+          ],
+          "material": "dark_rubble"
+        },
+        {
+          "at": [
+            7,
+            6
+          ],
+          "material": "dark_rubble"
+        },
+        {
+          "at": [
+            13,
+            6
+          ],
+          "material": "dark_rubble"
+        },
+        {
+          "at": [
+            14,
+            7
+          ],
+          "material": "dark_rubble"
+        },
+        {
+          "at": [
+            15,
+            7
+          ],
+          "material": "dark_rubble"
+        },
+        {
+          "at": [
+            21,
+            7
+          ],
+          "material": "dark_rubble"
+        },
+        {
+          "at": [
+            22,
+            7
+          ],
+          "material": "dark_urn"
+        },
+        {
+          "at": [
+            1,
+            8
+          ],
+          "material": "dark_rubble"
+        },
+        {
+          "at": [
+            8,
+            8
+          ],
+          "material": "dark_rubble"
+        },
+        {
+          "at": [
+            2,
+            9
+          ],
+          "material": "dark_rubble"
+        },
+        {
+          "at": [
+            3,
+            9
+          ],
+          "material": "dark_urn"
+        },
+        {
+          "at": [
+            9,
+            9
+          ],
+          "material": "dark_rubble"
+        },
+        {
+          "at": [
+            10,
+            9
+          ],
+          "material": "dark_rubble"
+        },
+        {
+          "at": [
+            3,
+            10
+          ],
+          "material": "dark_rubble"
+        },
+        {
+          "at": [
+            19,
+            11
+          ],
+          "material": "dark_rubble"
+        },
+        {
+          "at": [
+            0,
+            13
+          ],
+          "material": "dark_rubble"
+        },
+        {
+          "at": [
+            20,
+            13
+          ],
+          "material": "dark_rubble"
+        },
+        {
+          "at": [
+            21,
+            14
+          ],
+          "material": "dark_rubble"
+        },
+        {
+          "at": [
+            22,
+            14
+          ],
+          "material": "dark_rubble"
+        },
+        {
+          "at": [
+            2,
+            15
+          ],
+          "material": "dark_rubble"
+        },
+        {
+          "at": [
+            15,
+            15
+          ],
+          "material": "dark_rubble"
+        },
+        {
+          "at": [
+            22,
+            15
+          ],
+          "material": "dark_rubble"
+        },
+        {
+          "at": [
+            23,
+            15
+          ],
+          "material": "dark_rubble"
+        },
+        {
+          "at": [
+            2,
+            16
+          ],
+          "material": "dark_rubble"
+        },
+        {
+          "at": [
+            3,
+            16
+          ],
+          "material": "dark_rubble"
+        },
+        {
+          "at": [
+            16,
+            16
+          ],
+          "material": "dark_rubble"
+        },
+        {
+          "at": [
+            24,
+            16
+          ],
+          "material": "dark_urn"
+        },
+        {
+          "at": [
+            3,
+            17
+          ],
+          "material": "dark_rubble"
+        },
+        {
+          "at": [
+            17,
+            17
+          ],
+          "material": "dark_rubble"
+        },
+        {
+          "at": [
+            24,
+            17
+          ],
+          "material": "dark_rubble"
+        },
+        {
+          "at": [
+            7,
+            20
+          ],
+          "material": "dark_rubble"
+        },
+        {
+          "at": [
+            20,
+            20
+          ],
+          "material": "dark_rubble"
+        },
+        {
+          "at": [
+            0,
+            21
+          ],
+          "material": "dark_rubble"
+        },
+        {
+          "at": [
+            1,
+            21
+          ],
+          "material": "dark_urn"
+        },
+        {
+          "at": [
+            8,
+            21
+          ],
+          "material": "dark_rubble"
+        },
+        {
+          "at": [
+            14,
+            21
+          ],
+          "material": "dark_rubble"
+        },
+        {
+          "at": [
+            15,
+            21
+          ],
+          "material": "dark_rubble"
+        },
+        {
+          "at": [
+            2,
+            22
+          ],
+          "material": "dark_urn"
+        },
+        {
+          "at": [
+            16,
+            22
+          ],
+          "material": "dark_rubble"
+        },
+        {
+          "at": [
+            23,
+            22
+          ],
+          "material": "dark_urn"
+        },
+        {
+          "at": [
+            3,
+            23
+          ],
+          "material": "dark_urn"
+        },
+        {
+          "at": [
+            9,
+            23
+          ],
+          "material": "dark_rubble"
+        },
+        {
+          "at": [
+            16,
+            23
+          ],
+          "material": "dark_rubble"
+        },
+        {
+          "at": [
+            4,
+            11
+          ],
+          "material": "ruby_deposit",
+          "over": true
+        },
+        {
+          "at": [
+            20,
+            14
+          ],
+          "material": "emerald_deposit",
+          "over": true
+        },
+        {
+          "at": [
+            5,
+            13
+          ],
+          "material": "hidden_pit"
+        },
+        {
+          "at": [
+            21,
+            16
+          ],
+          "material": "hidden_pit"
+        }
+      ],
+      "patternNote": "Glass spires in diagonal beds; urns at the bed ends, a hidden pit flanking each fire gem. 62 cells on the 25 \u00d7 25 plan; deterministic seed.",
+      "signatureEnemies": [
+        {
+          "kinds": [
+            "poison_spider"
+          ],
+          "count": 2,
+          "chance": 0.5,
+          "note": "Spiders den between the glass beds."
+        }
+      ]
     },
     {
       "id": "salamander_nest",
@@ -4484,66 +7317,11 @@
         6
       ],
       "status": "draft",
-      "motifCells": [
-        6,
-        6
-      ],
       "source": "Beneath grove nexuses only; exclude surface seep and quarry regions. burned affinities.",
       "atmosphere": "A hollow kept oven-warm. The eggs tick softly when you come near.",
       "poi": "A clutch of ember eggs (candidate art) over one heat-kept cache; the brood counts as the guard.",
       "connection": "Open hollow; the heat funnels you past the brood.",
       "monsters": "Two fiends brood (lava-immune); the eggs are hot to the touch.",
-      "slots": [
-        {
-          "at": [
-            1,
-            1
-          ],
-          "material": "ember_eggs"
-        },
-        {
-          "at": [
-            2,
-            1
-          ],
-          "material": "ember_eggs"
-        },
-        {
-          "at": [
-            1,
-            2
-          ],
-          "material": "ember_eggs"
-        },
-        {
-          "at": [
-            4,
-            4
-          ],
-          "material": "ember_eggs"
-        },
-        {
-          "at": [
-            5,
-            0
-          ],
-          "material": "fire_rock"
-        },
-        {
-          "at": [
-            0,
-            5
-          ],
-          "material": "fire_rock"
-        },
-        {
-          "at": [
-            4,
-            2
-          ],
-          "material": "flame_pillar"
-        }
-      ],
       "encounters": {
         "placement": "fixed",
         "extentCells": [
@@ -4568,7 +7346,132 @@
         ],
         "countPolicy": "Two brooding fiends per region and depth."
       },
-      "depthNote": "Floor 6."
+      "depthNote": "Floor 6.",
+      "cellSlots": [
+        {
+          "at": [
+            15,
+            14
+          ],
+          "material": "ember_eggs"
+        },
+        {
+          "at": [
+            14,
+            15
+          ],
+          "material": "ember_eggs"
+        },
+        {
+          "at": [
+            10,
+            16
+          ],
+          "material": "ember_eggs"
+        },
+        {
+          "at": [
+            8,
+            15
+          ],
+          "material": "ember_eggs"
+        },
+        {
+          "at": [
+            7,
+            13
+          ],
+          "material": "ember_eggs"
+        },
+        {
+          "at": [
+            7,
+            10
+          ],
+          "material": "ember_eggs"
+        },
+        {
+          "at": [
+            8,
+            8
+          ],
+          "material": "ember_eggs"
+        },
+        {
+          "at": [
+            11,
+            6
+          ],
+          "material": "ember_eggs"
+        },
+        {
+          "at": [
+            14,
+            6
+          ],
+          "material": "ember_eggs"
+        },
+        {
+          "at": [
+            4,
+            15
+          ],
+          "material": "fire_rock"
+        },
+        {
+          "at": [
+            10,
+            4
+          ],
+          "material": "fire_rock"
+        },
+        {
+          "at": [
+            4,
+            14
+          ],
+          "material": "fire_rock"
+        },
+        {
+          "at": [
+            19,
+            16
+          ],
+          "material": "fire_rock"
+        },
+        {
+          "at": [
+            4,
+            11
+          ],
+          "material": "fire_rock"
+        },
+        {
+          "at": [
+            17,
+            6
+          ],
+          "material": "fire_rock"
+        },
+        {
+          "at": [
+            9,
+            4
+          ],
+          "material": "fire_rock"
+        }
+      ],
+      "patternNote": "The clutch laid on an archimedean spiral; fire rock rings the warm hollow. 16 cells on the 25 \u00d7 25 plan; deterministic seed.",
+      "signatureEnemies": [
+        {
+          "kinds": [
+            "fiend"
+          ],
+          "count": 2,
+          "chance": 0.85,
+          "note": "The brooding pair; the eggs are hot to the touch."
+        }
+      ]
     },
     {
       "id": "bone_hoard",
@@ -4579,80 +7482,11 @@
         8
       ],
       "status": "draft",
-      "motifCells": [
-        6,
-        6
-      ],
       "source": "Beneath grove nexuses only; exclude surface seep and quarry regions. built-edge and burned affinities.",
       "atmosphere": "Centuries of leftovers, picked clean and stacked. Something still checks the pile.",
       "poi": "A dragon\u2019s midden: the surviving cache under the bone fall, coin-flecked through it.",
       "connection": "Open midden floor; bone rows break line of sight.",
       "monsters": "Floor 7: dryads pick the pile. Floor 8: bone plants root in it.",
-      "slots": [
-        {
-          "at": [
-            0,
-            0
-          ],
-          "material": "bone_fragments"
-        },
-        {
-          "at": [
-            2,
-            1
-          ],
-          "material": "bone_fragments"
-        },
-        {
-          "at": [
-            4,
-            0
-          ],
-          "material": "bone_fragments"
-        },
-        {
-          "at": [
-            5,
-            2
-          ],
-          "material": "bone_fragments"
-        },
-        {
-          "at": [
-            0,
-            4
-          ],
-          "material": "skeletal_hand"
-        },
-        {
-          "at": [
-            5,
-            5
-          ],
-          "material": "skeletal_hand"
-        },
-        {
-          "at": [
-            4,
-            2
-          ],
-          "material": "golden_bowl"
-        },
-        {
-          "at": [
-            2,
-            5
-          ],
-          "material": "golden_bowl"
-        },
-        {
-          "at": [
-            2,
-            3
-          ],
-          "material": "dark_rubble"
-        }
-      ],
       "encounters": {
         "placement": "fixed",
         "extentCells": [
@@ -4696,7 +7530,305 @@
         ],
         "countPolicy": "Three pile-keepers per region and depth; rooted kinds never chase."
       },
-      "depthNote": "Floors 7 and 8."
+      "depthNote": "Floors 7 and 8.",
+      "cellSlots": [
+        {
+          "at": [
+            16,
+            14
+          ],
+          "material": "bone_fragments"
+        },
+        {
+          "at": [
+            16,
+            15
+          ],
+          "material": "skeletal_hand"
+        },
+        {
+          "at": [
+            15,
+            16
+          ],
+          "material": "bone_fragments"
+        },
+        {
+          "at": [
+            14,
+            16
+          ],
+          "material": "bone_fragments"
+        },
+        {
+          "at": [
+            14,
+            17
+          ],
+          "material": "bone_fragments"
+        },
+        {
+          "at": [
+            13,
+            17
+          ],
+          "material": "bone_fragments"
+        },
+        {
+          "at": [
+            11,
+            17
+          ],
+          "material": "bone_fragments"
+        },
+        {
+          "at": [
+            10,
+            17
+          ],
+          "material": "bone_fragments"
+        },
+        {
+          "at": [
+            10,
+            16
+          ],
+          "material": "bone_fragments"
+        },
+        {
+          "at": [
+            9,
+            16
+          ],
+          "material": "bone_fragments"
+        },
+        {
+          "at": [
+            8,
+            15
+          ],
+          "material": "bone_fragments"
+        },
+        {
+          "at": [
+            8,
+            14
+          ],
+          "material": "bone_fragments"
+        },
+        {
+          "at": [
+            7,
+            14
+          ],
+          "material": "bone_fragments"
+        },
+        {
+          "at": [
+            7,
+            13
+          ],
+          "material": "bone_fragments"
+        },
+        {
+          "at": [
+            7,
+            11
+          ],
+          "material": "bone_fragments"
+        },
+        {
+          "at": [
+            7,
+            10
+          ],
+          "material": "bone_fragments"
+        },
+        {
+          "at": [
+            8,
+            9
+          ],
+          "material": "bone_fragments"
+        },
+        {
+          "at": [
+            5,
+            13
+          ],
+          "material": "bone_fragments"
+        },
+        {
+          "at": [
+            5,
+            11
+          ],
+          "material": "bone_fragments"
+        },
+        {
+          "at": [
+            6,
+            9
+          ],
+          "material": "bone_fragments"
+        },
+        {
+          "at": [
+            6,
+            8
+          ],
+          "material": "bone_fragments"
+        },
+        {
+          "at": [
+            7,
+            7
+          ],
+          "material": "bone_fragments"
+        },
+        {
+          "at": [
+            8,
+            7
+          ],
+          "material": "bone_fragments"
+        },
+        {
+          "at": [
+            8,
+            6
+          ],
+          "material": "bone_fragments"
+        },
+        {
+          "at": [
+            9,
+            6
+          ],
+          "material": "bone_fragments"
+        },
+        {
+          "at": [
+            10,
+            5
+          ],
+          "material": "bone_fragments"
+        },
+        {
+          "at": [
+            11,
+            5
+          ],
+          "material": "bone_fragments"
+        },
+        {
+          "at": [
+            13,
+            5
+          ],
+          "material": "bone_fragments"
+        },
+        {
+          "at": [
+            14,
+            5
+          ],
+          "material": "bone_fragments"
+        },
+        {
+          "at": [
+            15,
+            6
+          ],
+          "material": "bone_fragments"
+        },
+        {
+          "at": [
+            16,
+            6
+          ],
+          "material": "bone_fragments"
+        },
+        {
+          "at": [
+            17,
+            7
+          ],
+          "material": "bone_fragments"
+        },
+        {
+          "at": [
+            17,
+            8
+          ],
+          "material": "skeletal_hand"
+        },
+        {
+          "at": [
+            18,
+            8
+          ],
+          "material": "skeletal_hand"
+        },
+        {
+          "at": [
+            11,
+            15
+          ],
+          "material": "golden_bowl"
+        },
+        {
+          "at": [
+            9,
+            15
+          ],
+          "material": "golden_bowl"
+        },
+        {
+          "at": [
+            8,
+            5
+          ],
+          "material": "dark_rubble"
+        },
+        {
+          "at": [
+            14,
+            20
+          ],
+          "material": "dark_rubble"
+        },
+        {
+          "at": [
+            7,
+            5
+          ],
+          "material": "dark_rubble"
+        },
+        {
+          "at": [
+            20,
+            9
+          ],
+          "material": "dark_rubble"
+        }
+      ],
+      "patternNote": "Two crescent bone drifts; skeletal hands at the tips, bowls in the lee, rubble at the rim. 40 cells on the 25 \u00d7 25 plan; deterministic seed.",
+      "signatureEnemies": [
+        {
+          "byFloor": {
+            "7": [
+              "dryad"
+            ],
+            "8": [
+              "bone_plant"
+            ]
+          },
+          "count": 3,
+          "chance": 0.6,
+          "note": "The pile-keepers; rooted kinds never chase."
+        }
+      ]
     },
     {
       "id": "web_gallery",
@@ -4706,87 +7838,11 @@
         8
       ],
       "status": "draft",
-      "motifCells": [
-        6,
-        6
-      ],
       "source": "Beneath grove nexuses only; exclude surface seep and quarry regions. dark affinities.",
       "atmosphere": "Old silk sheets the walls. The dust never lands; it hangs.",
       "poi": "A cocooned cache strung in the silk; the web slows every step into strike range.",
       "connection": "Silk-choked passages; slow going in, fast going out (for them).",
       "monsters": "A poison spider brood - a named-zone exception past its floor 6-7 window, per the encounter policy.",
-      "slots": [
-        {
-          "at": [
-            0,
-            1
-          ],
-          "material": "silk_web"
-        },
-        {
-          "at": [
-            1,
-            2
-          ],
-          "material": "silk_web"
-        },
-        {
-          "at": [
-            2,
-            0
-          ],
-          "material": "silk_web"
-        },
-        {
-          "at": [
-            4,
-            5
-          ],
-          "material": "silk_web"
-        },
-        {
-          "at": [
-            5,
-            4
-          ],
-          "material": "silk_web"
-        },
-        {
-          "at": [
-            3,
-            2
-          ],
-          "material": "silk_web"
-        },
-        {
-          "at": [
-            2,
-            4
-          ],
-          "material": "silk_web"
-        },
-        {
-          "at": [
-            5,
-            0
-          ],
-          "material": "bone_fragments"
-        },
-        {
-          "at": [
-            0,
-            5
-          ],
-          "material": "bone_fragments"
-        },
-        {
-          "at": [
-            5,
-            2
-          ],
-          "material": "dark_rubble"
-        }
-      ],
       "encounters": {
         "placement": "fixed",
         "extentCells": [
@@ -4818,7 +7874,1007 @@
         ],
         "countPolicy": "Three brood spiders per region; named-zone roster exception."
       },
-      "depthNote": "Floor 8."
+      "depthNote": "Floor 8.",
+      "cellSlots": [
+        {
+          "at": [
+            1,
+            1
+          ],
+          "material": "silk_web"
+        },
+        {
+          "at": [
+            1,
+            2
+          ],
+          "material": "silk_web"
+        },
+        {
+          "at": [
+            1,
+            3
+          ],
+          "material": "silk_web"
+        },
+        {
+          "at": [
+            1,
+            4
+          ],
+          "material": "silk_web"
+        },
+        {
+          "at": [
+            1,
+            5
+          ],
+          "material": "silk_web"
+        },
+        {
+          "at": [
+            1,
+            9
+          ],
+          "material": "silk_web"
+        },
+        {
+          "at": [
+            1,
+            10
+          ],
+          "material": "silk_web"
+        },
+        {
+          "at": [
+            1,
+            11
+          ],
+          "material": "silk_web"
+        },
+        {
+          "at": [
+            1,
+            13
+          ],
+          "material": "silk_web"
+        },
+        {
+          "at": [
+            1,
+            17
+          ],
+          "material": "silk_web"
+        },
+        {
+          "at": [
+            1,
+            18
+          ],
+          "material": "silk_web"
+        },
+        {
+          "at": [
+            1,
+            19
+          ],
+          "material": "silk_web"
+        },
+        {
+          "at": [
+            1,
+            20
+          ],
+          "material": "silk_web"
+        },
+        {
+          "at": [
+            1,
+            21
+          ],
+          "material": "silk_web"
+        },
+        {
+          "at": [
+            2,
+            1
+          ],
+          "material": "silk_web"
+        },
+        {
+          "at": [
+            2,
+            5
+          ],
+          "material": "silk_web"
+        },
+        {
+          "at": [
+            2,
+            9
+          ],
+          "material": "silk_web"
+        },
+        {
+          "at": [
+            2,
+            13
+          ],
+          "material": "silk_web"
+        },
+        {
+          "at": [
+            2,
+            17
+          ],
+          "material": "silk_web"
+        },
+        {
+          "at": [
+            2,
+            21
+          ],
+          "material": "silk_web"
+        },
+        {
+          "at": [
+            3,
+            1
+          ],
+          "material": "silk_web"
+        },
+        {
+          "at": [
+            3,
+            5
+          ],
+          "material": "silk_web"
+        },
+        {
+          "at": [
+            3,
+            9
+          ],
+          "material": "silk_web"
+        },
+        {
+          "at": [
+            3,
+            13
+          ],
+          "material": "silk_web"
+        },
+        {
+          "at": [
+            3,
+            17
+          ],
+          "material": "silk_web"
+        },
+        {
+          "at": [
+            3,
+            21
+          ],
+          "material": "silk_web"
+        },
+        {
+          "at": [
+            4,
+            1
+          ],
+          "material": "silk_web"
+        },
+        {
+          "at": [
+            4,
+            5
+          ],
+          "material": "silk_web"
+        },
+        {
+          "at": [
+            4,
+            9
+          ],
+          "material": "silk_web"
+        },
+        {
+          "at": [
+            4,
+            13
+          ],
+          "material": "silk_web"
+        },
+        {
+          "at": [
+            4,
+            17
+          ],
+          "material": "silk_web"
+        },
+        {
+          "at": [
+            4,
+            21
+          ],
+          "material": "silk_web"
+        },
+        {
+          "at": [
+            5,
+            1
+          ],
+          "material": "silk_web"
+        },
+        {
+          "at": [
+            5,
+            5
+          ],
+          "material": "silk_web"
+        },
+        {
+          "at": [
+            5,
+            6
+          ],
+          "material": "silk_web"
+        },
+        {
+          "at": [
+            5,
+            7
+          ],
+          "material": "silk_web"
+        },
+        {
+          "at": [
+            5,
+            8
+          ],
+          "material": "silk_web"
+        },
+        {
+          "at": [
+            5,
+            9
+          ],
+          "material": "silk_web"
+        },
+        {
+          "at": [
+            5,
+            13
+          ],
+          "material": "silk_web"
+        },
+        {
+          "at": [
+            5,
+            14
+          ],
+          "material": "silk_web"
+        },
+        {
+          "at": [
+            5,
+            15
+          ],
+          "material": "silk_web"
+        },
+        {
+          "at": [
+            5,
+            16
+          ],
+          "material": "silk_web"
+        },
+        {
+          "at": [
+            5,
+            17
+          ],
+          "material": "silk_web"
+        },
+        {
+          "at": [
+            5,
+            18
+          ],
+          "material": "silk_web"
+        },
+        {
+          "at": [
+            5,
+            19
+          ],
+          "material": "silk_web"
+        },
+        {
+          "at": [
+            5,
+            20
+          ],
+          "material": "silk_web"
+        },
+        {
+          "at": [
+            5,
+            21
+          ],
+          "material": "silk_web"
+        },
+        {
+          "at": [
+            6,
+            1
+          ],
+          "material": "silk_web"
+        },
+        {
+          "at": [
+            6,
+            21
+          ],
+          "material": "silk_web"
+        },
+        {
+          "at": [
+            7,
+            1
+          ],
+          "material": "bone_fragments"
+        },
+        {
+          "at": [
+            7,
+            21
+          ],
+          "material": "silk_web"
+        },
+        {
+          "at": [
+            8,
+            1
+          ],
+          "material": "silk_web"
+        },
+        {
+          "at": [
+            8,
+            21
+          ],
+          "material": "silk_web"
+        },
+        {
+          "at": [
+            9,
+            1
+          ],
+          "material": "silk_web"
+        },
+        {
+          "at": [
+            9,
+            2
+          ],
+          "material": "silk_web"
+        },
+        {
+          "at": [
+            9,
+            3
+          ],
+          "material": "silk_web"
+        },
+        {
+          "at": [
+            9,
+            4
+          ],
+          "material": "silk_web"
+        },
+        {
+          "at": [
+            9,
+            5
+          ],
+          "material": "silk_web"
+        },
+        {
+          "at": [
+            9,
+            6
+          ],
+          "material": "silk_web"
+        },
+        {
+          "at": [
+            9,
+            7
+          ],
+          "material": "bone_fragments"
+        },
+        {
+          "at": [
+            9,
+            8
+          ],
+          "material": "silk_web"
+        },
+        {
+          "at": [
+            9,
+            9
+          ],
+          "material": "silk_web"
+        },
+        {
+          "at": [
+            9,
+            10
+          ],
+          "material": "silk_web"
+        },
+        {
+          "at": [
+            9,
+            11
+          ],
+          "material": "silk_web"
+        },
+        {
+          "at": [
+            9,
+            13
+          ],
+          "material": "silk_web"
+        },
+        {
+          "at": [
+            9,
+            17
+          ],
+          "material": "silk_web"
+        },
+        {
+          "at": [
+            9,
+            18
+          ],
+          "material": "silk_web"
+        },
+        {
+          "at": [
+            9,
+            19
+          ],
+          "material": "silk_web"
+        },
+        {
+          "at": [
+            9,
+            20
+          ],
+          "material": "silk_web"
+        },
+        {
+          "at": [
+            9,
+            21
+          ],
+          "material": "silk_web"
+        },
+        {
+          "at": [
+            10,
+            1
+          ],
+          "material": "silk_web"
+        },
+        {
+          "at": [
+            10,
+            17
+          ],
+          "material": "silk_web"
+        },
+        {
+          "at": [
+            10,
+            21
+          ],
+          "material": "silk_web"
+        },
+        {
+          "at": [
+            11,
+            1
+          ],
+          "material": "silk_web"
+        },
+        {
+          "at": [
+            11,
+            17
+          ],
+          "material": "silk_web"
+        },
+        {
+          "at": [
+            11,
+            21
+          ],
+          "material": "silk_web"
+        },
+        {
+          "at": [
+            13,
+            1
+          ],
+          "material": "silk_web"
+        },
+        {
+          "at": [
+            13,
+            2
+          ],
+          "material": "silk_web"
+        },
+        {
+          "at": [
+            13,
+            3
+          ],
+          "material": "silk_web"
+        },
+        {
+          "at": [
+            13,
+            4
+          ],
+          "material": "silk_web"
+        },
+        {
+          "at": [
+            13,
+            5
+          ],
+          "material": "silk_web"
+        },
+        {
+          "at": [
+            13,
+            6
+          ],
+          "material": "silk_web"
+        },
+        {
+          "at": [
+            13,
+            7
+          ],
+          "material": "silk_web"
+        },
+        {
+          "at": [
+            13,
+            8
+          ],
+          "material": "silk_web"
+        },
+        {
+          "at": [
+            13,
+            9
+          ],
+          "material": "silk_web"
+        },
+        {
+          "at": [
+            13,
+            17
+          ],
+          "material": "silk_web"
+        },
+        {
+          "at": [
+            13,
+            21
+          ],
+          "material": "silk_web"
+        },
+        {
+          "at": [
+            14,
+            9
+          ],
+          "material": "silk_web"
+        },
+        {
+          "at": [
+            14,
+            17
+          ],
+          "material": "silk_web"
+        },
+        {
+          "at": [
+            14,
+            21
+          ],
+          "material": "silk_web"
+        },
+        {
+          "at": [
+            15,
+            9
+          ],
+          "material": "silk_web"
+        },
+        {
+          "at": [
+            15,
+            17
+          ],
+          "material": "silk_web"
+        },
+        {
+          "at": [
+            15,
+            21
+          ],
+          "material": "silk_web"
+        },
+        {
+          "at": [
+            16,
+            9
+          ],
+          "material": "silk_web"
+        },
+        {
+          "at": [
+            16,
+            17
+          ],
+          "material": "silk_web"
+        },
+        {
+          "at": [
+            16,
+            21
+          ],
+          "material": "silk_web"
+        },
+        {
+          "at": [
+            17,
+            1
+          ],
+          "material": "silk_web"
+        },
+        {
+          "at": [
+            17,
+            2
+          ],
+          "material": "silk_web"
+        },
+        {
+          "at": [
+            17,
+            3
+          ],
+          "material": "silk_web"
+        },
+        {
+          "at": [
+            17,
+            4
+          ],
+          "material": "silk_web"
+        },
+        {
+          "at": [
+            17,
+            5
+          ],
+          "material": "silk_web"
+        },
+        {
+          "at": [
+            17,
+            6
+          ],
+          "material": "silk_web"
+        },
+        {
+          "at": [
+            17,
+            7
+          ],
+          "material": "silk_web"
+        },
+        {
+          "at": [
+            17,
+            8
+          ],
+          "material": "silk_web"
+        },
+        {
+          "at": [
+            17,
+            9
+          ],
+          "material": "silk_web"
+        },
+        {
+          "at": [
+            17,
+            13
+          ],
+          "material": "silk_web"
+        },
+        {
+          "at": [
+            17,
+            14
+          ],
+          "material": "silk_web"
+        },
+        {
+          "at": [
+            17,
+            15
+          ],
+          "material": "silk_web"
+        },
+        {
+          "at": [
+            17,
+            16
+          ],
+          "material": "silk_web"
+        },
+        {
+          "at": [
+            17,
+            17
+          ],
+          "material": "silk_web"
+        },
+        {
+          "at": [
+            17,
+            21
+          ],
+          "material": "bone_fragments"
+        },
+        {
+          "at": [
+            18,
+            1
+          ],
+          "material": "silk_web"
+        },
+        {
+          "at": [
+            18,
+            13
+          ],
+          "material": "silk_web"
+        },
+        {
+          "at": [
+            18,
+            21
+          ],
+          "material": "silk_web"
+        },
+        {
+          "at": [
+            19,
+            1
+          ],
+          "material": "silk_web"
+        },
+        {
+          "at": [
+            19,
+            13
+          ],
+          "material": "silk_web"
+        },
+        {
+          "at": [
+            19,
+            21
+          ],
+          "material": "silk_web"
+        },
+        {
+          "at": [
+            20,
+            1
+          ],
+          "material": "silk_web"
+        },
+        {
+          "at": [
+            20,
+            13
+          ],
+          "material": "silk_web"
+        },
+        {
+          "at": [
+            20,
+            21
+          ],
+          "material": "silk_web"
+        },
+        {
+          "at": [
+            21,
+            1
+          ],
+          "material": "silk_web"
+        },
+        {
+          "at": [
+            21,
+            2
+          ],
+          "material": "silk_web"
+        },
+        {
+          "at": [
+            21,
+            3
+          ],
+          "material": "silk_web"
+        },
+        {
+          "at": [
+            21,
+            4
+          ],
+          "material": "silk_web"
+        },
+        {
+          "at": [
+            21,
+            5
+          ],
+          "material": "silk_web"
+        },
+        {
+          "at": [
+            21,
+            6
+          ],
+          "material": "silk_web"
+        },
+        {
+          "at": [
+            21,
+            7
+          ],
+          "material": "silk_web"
+        },
+        {
+          "at": [
+            21,
+            8
+          ],
+          "material": "silk_web"
+        },
+        {
+          "at": [
+            21,
+            9
+          ],
+          "material": "silk_web"
+        },
+        {
+          "at": [
+            21,
+            10
+          ],
+          "material": "bone_fragments"
+        },
+        {
+          "at": [
+            21,
+            11
+          ],
+          "material": "silk_web"
+        },
+        {
+          "at": [
+            21,
+            13
+          ],
+          "material": "silk_web"
+        },
+        {
+          "at": [
+            21,
+            14
+          ],
+          "material": "silk_web"
+        },
+        {
+          "at": [
+            21,
+            15
+          ],
+          "material": "silk_web"
+        },
+        {
+          "at": [
+            21,
+            16
+          ],
+          "material": "silk_web"
+        },
+        {
+          "at": [
+            21,
+            17
+          ],
+          "material": "silk_web"
+        },
+        {
+          "at": [
+            21,
+            18
+          ],
+          "material": "silk_web"
+        },
+        {
+          "at": [
+            21,
+            19
+          ],
+          "material": "silk_web"
+        },
+        {
+          "at": [
+            21,
+            20
+          ],
+          "material": "silk_web"
+        },
+        {
+          "at": [
+            21,
+            21
+          ],
+          "material": "silk_web"
+        }
+      ],
+      "patternNote": "The maze braid's wall lines (step 4, loops 58) sheeted in silk; husks cocooned at junctions. 140 cells on the 25 \u00d7 25 plan; deterministic seed.",
+      "signatureEnemies": [
+        {
+          "kinds": [
+            "poison_spider"
+          ],
+          "count": 3,
+          "chance": 1.0,
+          "note": "The brood; named-zone roster exception, per the encounter policy past its floor 6-7 window."
+        },
+        {
+          "kinds": [
+            "mimic"
+          ],
+          "chance": 0.3,
+          "note": "The cocooned cache may be a mimic; named-zone roster exception, per the encounter policy at floor 8."
+        }
+      ]
     },
     {
       "id": "egg_nursery",
@@ -4828,66 +8884,11 @@
         8
       ],
       "status": "draft",
-      "motifCells": [
-        6,
-        6
-      ],
       "source": "Beneath grove nexuses only; exclude surface seep and quarry regions. burned and built-edge affinities.",
       "atmosphere": "Sand hot as a griddle, eggs the size of pumpkins. Do not wake what keeps them.",
       "poi": "A roost nursery: eggs too big to steal, and one overlooked cache in the warm sand.",
       "connection": "Open nursery floor; the keeper watches the only wide lane.",
       "monsters": "An orc shaman keeps the clutch; bone plants fence the warm corners.",
-      "slots": [
-        {
-          "at": [
-            1,
-            1
-          ],
-          "material": "ember_eggs"
-        },
-        {
-          "at": [
-            4,
-            1
-          ],
-          "material": "ember_eggs"
-        },
-        {
-          "at": [
-            1,
-            4
-          ],
-          "material": "ember_eggs"
-        },
-        {
-          "at": [
-            5,
-            5
-          ],
-          "material": "fire_rock"
-        },
-        {
-          "at": [
-            3,
-            0
-          ],
-          "material": "fire_rock"
-        },
-        {
-          "at": [
-            0,
-            3
-          ],
-          "material": "dark_urn"
-        },
-        {
-          "at": [
-            5,
-            2
-          ],
-          "material": "golden_bowl"
-        }
-      ],
       "encounters": {
         "placement": "fixed",
         "extentCells": [
@@ -4919,10 +8920,203 @@
         ],
         "countPolicy": "One keeper and two rooted fence plants per region and depth."
       },
-      "depthNote": "Floor 8."
+      "depthNote": "Floor 8.",
+      "cellSlots": [
+        {
+          "at": [
+            10,
+            9
+          ],
+          "material": "ember_eggs"
+        },
+        {
+          "at": [
+            15,
+            10
+          ],
+          "material": "ember_eggs"
+        },
+        {
+          "at": [
+            9,
+            11
+          ],
+          "material": "ember_eggs"
+        },
+        {
+          "at": [
+            9,
+            13
+          ],
+          "material": "ember_eggs"
+        },
+        {
+          "at": [
+            9,
+            14
+          ],
+          "material": "ember_eggs"
+        },
+        {
+          "at": [
+            15,
+            14
+          ],
+          "material": "ember_eggs"
+        },
+        {
+          "at": [
+            10,
+            15
+          ],
+          "material": "ember_eggs"
+        },
+        {
+          "at": [
+            14,
+            15
+          ],
+          "material": "ember_eggs"
+        },
+        {
+          "at": [
+            9,
+            7
+          ],
+          "material": "ember_eggs"
+        },
+        {
+          "at": [
+            16,
+            9
+          ],
+          "material": "ember_eggs"
+        },
+        {
+          "at": [
+            7,
+            11
+          ],
+          "material": "ember_eggs"
+        },
+        {
+          "at": [
+            7,
+            13
+          ],
+          "material": "ember_eggs"
+        },
+        {
+          "at": [
+            17,
+            14
+          ],
+          "material": "ember_eggs"
+        },
+        {
+          "at": [
+            9,
+            17
+          ],
+          "material": "ember_eggs"
+        },
+        {
+          "at": [
+            20,
+            10
+          ],
+          "material": "fire_rock"
+        },
+        {
+          "at": [
+            18,
+            8
+          ],
+          "material": "fire_rock"
+        },
+        {
+          "at": [
+            19,
+            16
+          ],
+          "material": "fire_rock"
+        },
+        {
+          "at": [
+            19,
+            9
+          ],
+          "material": "fire_rock"
+        },
+        {
+          "at": [
+            6,
+            18
+          ],
+          "material": "fire_rock"
+        },
+        {
+          "at": [
+            9,
+            5
+          ],
+          "material": "fire_rock"
+        },
+        {
+          "at": [
+            4,
+            16
+          ],
+          "material": "dark_urn"
+        },
+        {
+          "at": [
+            20,
+            8
+          ],
+          "material": "golden_bowl"
+        }
+      ],
+      "patternNote": "Clutch rings with a keeper's gap lane to the south; fire rock at the rim. 22 cells on the 25 \u00d7 25 plan; deterministic seed.",
+      "signatureEnemies": [
+        {
+          "kinds": [
+            "orc_shaman"
+          ],
+          "chance": 0.8,
+          "note": "The clutch\u2019s keeper."
+        },
+        {
+          "kinds": [
+            "red_dragon"
+          ],
+          "chance": 0.1,
+          "note": "Sometimes the mother is home. Run."
+        }
+      ]
+    },
+    {
+      "id": "quicksand_cavern",
+      "kind": "nexus",
+      "name": "Quicksand Cavern",
+      "depths": [
+        2,
+        3
+      ],
+      "status": "runtime",
+      "signatureEnemies": [
+        {
+          "kinds": [
+            "cave_slime"
+          ],
+          "count": 2,
+          "chance": 0.5,
+          "note": "Slimes drawn to the wet sand wait beside the approaches."
+        }
+      ]
     }
   ],
-  "previewNote": "Design-only layouts. Registered game art supplies rocks, gems, walls, shrines, stalagmites, holes and pit traps. Compact inactive poison vent is a new proposal asset; spring source remains an archived candidate. Minecart uses labeled handcart placeholder. Hidden pits are shown revealed only in annotated design previews. Moat-island cards (flooded cistern, magma atoll) draw water and lava from the live terrain tiles; ember eggs, sheeted silk and fossil seams are colour-only geometry pending candidate art.",
+  "previewNote": "Design-only layouts. Registered game art supplies rocks, gems, walls, shrines, stalagmites, holes and pit traps. Compact inactive poison vent is a new proposal asset; spring source remains an archived candidate. Minecart uses labeled handcart placeholder. Hidden pits are shown revealed only in annotated design previews. Moat-island cards (flooded cistern, magma atoll) draw water and lava from the live terrain tiles; ember eggs, sheeted silk and fossil seams are colour-only geometry pending candidate art. Revision 17 bakes themed arrangements from seeded pattern generators (rings, spokes, strata, spiral, crescents, drifts, chords, and the maze braid for the silk gallery); moat-island cards paint every cell cell-exact with seeded edge jitter. Every grove and road variant names a signature enemy set with a spawn chance.",
   "encounterPolicy": {
     "scope": "Authored underground zone encounters on floors 2 and 3 only. Skeletons and gelatinous cubes ordinarily start at floor 4, while Mushroom Monster has no ambient cave pool; explicitly permit them in these named zones without changing global ambient depth rules.",
     "population": "Warrens and mushroom caverns intentionally have denser authored populations than ordinary cave dressing. Region and route ownership prevents duplication across fragments.",
@@ -5047,7 +9241,7 @@
   },
   "levelProgram": {
     "status": "Floors 2-3 list the runtime variants unchanged. Floors 1 and 4-8 are drafts pending review.",
-    "policy": "Every underground floor offers at least four grove nexus variants beneath park groves. Each variant pairs a challenge - a guarded, caged or hard-to-reach focus - or a novel environment with its bonus: the surviving mirror cache, a daily shrine, or a rich seam. Variants repeat across two or three neighbouring floors where the biome allows.",
+    "policy": "Every underground floor offers at least four grove nexus variants beneath park groves. Each variant pairs a challenge - a guarded, caged or hard-to-reach focus - or a novel environment with its bonus: the surviving mirror cache, a daily shrine, or a rich seam. Variants repeat across two or three neighbouring floors where the biome allows. Every grove and road variant also names a signature enemy set - often one kind - rolled per region or route with a chance, so it need not always spawn.",
     "levels": [
       {
         "floor": 1,

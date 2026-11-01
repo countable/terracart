@@ -82,9 +82,10 @@ def _at_depth(row, data, depth):
     materials = data['previewMaterials']
     eligible = sorted((m for m,r in materials.items() if 0 < r.get('gemTier',0) <= depth),
                       key=lambda m: materials[m]['gemTier'])
-    for i,slot in enumerate(row.get('slots', [])):
-        if materials[slot['material']].get('gemTier',0) > depth:
-            slot['material'] = eligible[i % len(eligible)] if eligible else 'rock'
+    for group in ('slots', 'cellSlots'):
+        for i, slot in enumerate(row.get(group, [])):
+            if materials[slot['material']].get('gemTier', 0) > depth:
+                slot['material'] = eligible[i % len(eligible)] if eligible else 'rock'
     # Encounter seats may swap species by floor (legal rosters change every
     # two floors); moat-island bank dressing follows the floor's biome.
     for seat in row.get('encounters',{}).get('seats',[]):
@@ -100,6 +101,58 @@ def _at_depth(row, data, depth):
 def _scatter_roll(row, x, y):
     key = f"{row['id']}:{row.get('previewDepth',2)}:{x}:{y}"
     return int.from_bytes(hashlib.sha256(key.encode()).digest()[:4],'big') / 2**32
+
+
+def _roll(*key):
+    """A deterministic [0,1) roll, like the runtime's seeded world plans."""
+    return int.from_bytes(hashlib.sha256('|'.join(map(str, key)).encode()).digest()[:4], 'big') / 2**32
+
+
+def _signature_summary(row):
+    """The dl text for a variant's signature enemy sets."""
+    out = []
+    for sig in row.get('signatureEnemies', []):
+        kinds = sig.get('kinds') or [k for by in sig.get('byFloor', {}).values() for k in by]
+        who = ' + '.join(k.replace('_', ' ') for k in kinds)
+        if sig.get('count', 1) > 1:
+            who = f"{sig['count']} × {who}"
+        pct = int(round(sig.get('chance', .5) * 100))
+        out.append(f"{who} · {pct}% chance per region{' - ' + sig['note'] if sig.get('note') else ''}")
+    return '; '.join(out)
+
+
+def _signature_layer(row, helpers, cx, cy, unit, width, height, radius_range=(6, 9), seat_ok=None):
+    """Draw each signature set once, dashed-ringed, at a seeded free seat.
+    `seat_ok(x, y)` vetoes wet or lava cells for moat-island plans."""
+    parts = []
+    drawn = 0
+    for n, sig in enumerate(row.get('signatureEnemies', [])):
+        kinds = sig.get('byFloor', {}).get(str(row.get('previewDepth'))) or sig.get('kinds') or []
+        kinds = [k for k in kinds if k.replace('_', '').replace('-', '').isalnum()]
+        if not kinds:
+            continue  # prose entries (e.g. the bone gallery's 'strongest elite') stay text-only
+        kind = kinds[n % len(kinds)]
+        ang = _roll(row['id'], 'sig', n) * 2 * math.pi
+        radius = radius_range[0] + _roll(row['id'], 'sigd', n) * (radius_range[1] - radius_range[0])
+        x, y = int(cx + .5 + math.cos(ang) * radius), int(cy + .5 + math.sin(ang) * radius)
+        for _ in range(4):
+            if seat_ok is None or seat_ok(x, y):
+                break
+            x += (x > cx) - (x < cx)
+            y += (y > cy) - (y < cy)
+        if not (0 <= x < width and 0 <= y < height) or (seat_ok and not seat_ok(x, y)):
+            continue
+        pct = int(round(sig.get('chance', .5) * 100))
+        label = f"Signature: {kind.replace('_', ' ')} · {pct}% chance per region"
+        if sig.get('note'):
+            label += f" · {sig['note']}"
+        sx, sy = (x + .5) * unit, (y + .5) * unit
+        badge = (f'<circle cx="{sx:g}" cy="{sy:g}" r="{unit*.6:g}" fill="none" stroke="#e6c779" '
+                 f'stroke-width=".8" stroke-dasharray="2 1.5"><title>{html.escape(label)}</title></circle>')
+        parts.append(f'<g class="signature-enemy" style="opacity:.85">'
+                     + helpers['creature_at'](kind, sx, sy, unit, html.escape(label)) + badge + '</g>')
+        drawn += 1
+    return ''.join(parts)
 
 
 def _wall_cells(row, width, height):
@@ -206,6 +259,7 @@ def _spring_card(row,data,helpers):
     detail_rows=[('Source region',row['source']),('Depth',_floors_note(row.get('depths',[2,3]))+'.'),
         ('Pattern','Pool radius: 3 cells. Mushroom ring: 5 cells. Rock ring: 8 cells.'),
         ('POI / rewards',row['poi']),('Connection',row['connection']),('Monsters',row['monsters']),
+        ('Signature enemies', _signature_summary(row)),
         ('Hidden encounters',row['encounters']['activation']),
         ('Mechanic status',row['encounters']['mechanicStatus']),
         ('Water','Impassable pool with a dry bank.'),
@@ -220,56 +274,100 @@ def _spring_card(row,data,helpers):
         f'<p>Click dry ground to move the marker and reveal adjacent skeletons. <button type="button" data-reset-spring>Reset hidden skeletons</button></p><p>{html.escape(row["atmosphere"])}</p><dl>{dl}</dl></article>')
 
 
-def _island_sample(row, data, helpers, detail=False):
-    """One moat-island study: focal chest on the island, stepping-stone
-    crossings, bank props in rings outside the moat."""
+def _island_cells(row):
+    """The cell-exact plan: every cell is island, moat or stone, from seeded
+    per-angle band jitter - the way the runtime plan would paint terrain."""
+    layout = row['layout']
+    full = layout['extentCells'][0]
+    half = full / 2
+    base_in = layout['islandRadiusCells']
+    width = layout['moatWidthCells']
+    jitter = layout.get('moatJitterCells', 0)
+    cells = {}
+    for y in range(full):
+        for x in range(full):
+            u, v = x + .5 - half, y + .5 - half
+            r, th = math.hypot(u, v), round(math.atan2(v, u), 2)
+            inner = base_in + (_roll(row['id'], 'in', th) * 2 - 1) * jitter
+            outer = inner + width + (_roll(row['id'], 'out', th) * 2 - 1) * jitter * .5
+            if r <= inner:
+                cells[(x, y)] = 'island'
+            elif r <= outer:
+                cells[(x, y)] = 'moat'
+    for du, dv in layout['crossings']:
+        for (x, y), kind in list(cells.items()):
+            if kind != 'moat':
+                continue
+            u, v = x + .5 - half, y + .5 - half
+            if abs(u * dv - v * du) <= .5 and u * du + v * dv > 0:
+                cells[(x, y)] = 'stone'
+    return cells
+
+
+def _island_sample(row, data, helpers, cells=None, detail=False):
+    """One moat-island study, painted cell by cell: island, moat, stepping
+    stones, jittered bank props, and the focal chest on the island."""
     layout = row['layout']
     water = layout['moatTerrain'] == 'WATER'
-    side, unit = (13 if detail else layout['extentCells'][0]), 10
-    centre = side / 2
-    c = centre * unit
+    cells = cells if cells is not None else _island_cells(row)
+    full = layout['extentCells'][0]
+    side = 13 if detail else full
+    off = (full - side) // 2
+    unit = 10
     depth = row.get('previewDepth', row.get('depths', [1])[0])
     prefix = f'island-{row["id"]}-d{depth}-' + ('detail' if detail else 'wide')
-    r_island = layout['islandRadiusCells'] * unit
-    r_moat = (layout['islandRadiusCells'] + layout['moatWidthCells']) * unit
-    parts = [f'<svg role="img" aria-label="{html.escape(row["name"])}: focal chest on an island ringed by {"water" if water else "lava"}" viewBox="0 0 {side*unit} {side*unit}">',
+    stroke = '#669a9d' if water else '#c96b3a'
+    moat_label = 'Impassable water moat' if water else 'Live lava moat (T.CAVE_LAVA): standing in it burns'
+    stone_title = 'Stepping stone - the only safe crossing' if water else 'Basalt stepping stone - lava burns a cell off it'
+    parts = [f'<svg role="img" aria-label="{html.escape(row["name"])}: focal chest on an island ringed by {"water" if water else "lava"}, painted cell by cell" viewBox="0 0 {side*unit} {side*unit}">',
              helpers['ground_pattern']('CAVE_FLOOR', prefix, unit),
              helpers['ground_pattern'](layout['moatTerrain'], prefix + '-moat', unit),
              f'<rect width="100%" height="100%" fill="url(#{prefix})"/>', '<g class="background">']
-    stroke = '#669a9d' if water else '#c96b3a'
-    moat_label = 'Impassable water moat' if water else 'Live lava moat (T.CAVE_LAVA): standing in it burns'
-    parts.append(f'<path d="M {c-r_moat:g} {c:g} a {r_moat:g} {r_moat:g} 0 1 0 {2*r_moat:g} 0 a {r_moat:g} {r_moat:g} 0 1 0 {-2*r_moat:g} 0 '
-                 f'M {c-r_island:g} {c:g} a {r_island:g} {r_island:g} 0 1 1 {2*r_island:g} 0 a {r_island:g} {r_island:g} 0 1 1 {-2*r_island:g} 0" '
-                 f'fill="url(#{prefix}-moat)" fill-rule="evenodd" stroke="{stroke}" stroke-width="1"><title>{moat_label}</title></path>')
-    parts.append(f'<circle cx="{c:g}" cy="{c:g}" r="{r_island:g}" fill="#77786b" stroke="#a5a78f" stroke-width=".8"><title>Island of solid ground: the focal point sits here</title></circle>')
-    stone_title = 'Stepping stone - the only safe crossing' if water else 'Basalt stepping stone - lava burns a cell off it'
-    inner, outer = layout['islandRadiusCells'], layout['islandRadiusCells'] + layout['moatWidthCells']
-    for du, dv in layout['crossings']:
-        at = inner + 0.7
-        while at < outer - 0.2:
-            x, y = c + du * at * unit, c + dv * at * unit
-            parts.append(f'<rect class="stepping-stone" x="{x-3.6:g}" y="{y-3.6:g}" width="7.2" height="7.2" rx="2.4" fill="#8e8770" stroke="#a5a78f" stroke-width=".7"><title>{stone_title}</title></rect>')
-            at += 1.2
+    for (x, y), kind in sorted(cells.items()):
+        sx, sy = (x - off) * unit, (y - off) * unit
+        if not (0 <= sx < side * unit and 0 <= sy < side * unit):
+            continue
+        if kind == 'moat':
+            parts.append(f'<rect x="{sx+.5:g}" y="{sy+.5:g}" width="{unit-1}" height="{unit-1}" fill="url(#{prefix}-moat)" stroke="{stroke}" stroke-opacity=".35" stroke-width=".5"><title>{moat_label}</title></rect>')
+        elif kind == 'island':
+            parts.append(f'<rect x="{sx+.5:g}" y="{sy+.5:g}" width="{unit-1}" height="{unit-1}" fill="#a5a78f" fill-opacity=".14" stroke="#a5a78f" stroke-opacity=".55" stroke-width=".6"><title>Island floor cell</title></rect>')
+        else:
+            parts.append(f'<rect class="stepping-stone" x="{sx+1:g}" y="{sy+1:g}" width="{unit-2}" height="{unit-2}" rx="2" fill="#8e8770" stroke="#a5a78f" stroke-width=".7"><title>{stone_title}</title></rect>')
+    centre = full // 2
     for ring in layout.get('bankRings', []):
         radius, band = ring['radiusCells'], ring.get('bandHalfWidthCells', 0.5)
-        bound = math.ceil(radius + band)
+        bank_jitter = layout.get('bankJitterCells', 0)
+        bound = math.ceil(radius + band + bank_jitter)
         for dy in range(-bound, bound + 1):
             for dx in range(-bound, bound + 1):
                 if abs(dx) <= 1 or abs(dy) <= 1:
                     continue  # keep every cardinal lane, crossings included
-                if abs(math.hypot(dx, dy) - radius) > band:
+                r, th = math.hypot(dx, dy), round(math.atan2(dy, dx), 2)
+                eff = radius + (_roll(row['id'], 'bank', th) * 2 - 1) * bank_jitter
+                if abs(r - eff) > band:
                     continue
-                x, y = (centre + dx) * unit, (centre + dy) * unit
-                if 0 <= x < side * unit and 0 <= y < side * unit:
-                    parts.append(_image(ring['material'], x, y, unit, data['previewMaterials'], helpers))
+                x, y = centre + dx, centre + dy
+                if cells.get((x, y)):  # never prop the moat, island or stones
+                    continue
+                sx, sy = (x - off) * unit, (y - off) * unit
+                if 0 <= sx < side * unit and 0 <= sy < side * unit:
+                    parts.append(_image(ring['material'], sx, sy, unit, data['previewMaterials'], helpers))
     parts.append('</g><g class="poi-layer">')
-    parts.append(helpers['art_image']({'sheet': 'chest', 'frames': [0]}, f'class="sprite-cell" x="{c-5:g}" y="{c-5:g}" width="10" height="10"'))
-    parts.append(f'<rect class="geometry-cell" x="{c-3:g}" y="{c-3:g}" width="6" height="6" fill="#e6c779"><title>{html.escape(layout.get("focusNote", "Focal chest on the island"))}</title></rect>')
+    cxp = (centre - off) * unit
+    parts.append(helpers['art_image']({'sheet': 'chest', 'frames': [0]}, f'class="sprite-cell" x="{cxp:g}" y="{cxp:g}" width="10" height="10"'))
+    parts.append(f'<rect class="geometry-cell" x="{cxp+2:g}" y="{cxp+2:g}" width="6" height="6" fill="#e6c779"><title>{html.escape(layout.get("focusNote", "Focal chest on the island"))}</title></rect>')
     parts.append('</g>')
+    dry = lambda x, y: not cells.get((x + off, y + off))
     for seat in row.get('encounters', {}).get('seats', []):
-        x, y = (centre + seat['at'][0] + 0.5) * unit, (centre + seat['at'][1] + 0.5) * unit
-        if 0 <= x < side * unit and 0 <= y < side * unit:
-            parts.append(helpers['creature_at'](seat['kind'], x, y, unit, html.escape(row.get('monsters', 'Proposed encounter seat'))))
+        x, y = centre + seat['at'][0] - off, centre + seat['at'][1] - off
+        for _ in range(4):  # a guard never stands in the moat: walk outward
+            if not cells.get((x + off, y + off)):
+                break
+            x += (1 if x > centre - off else -1)
+            y += (1 if y > centre - off else -1)
+        if 0 <= x < side and 0 <= y < side:
+            parts.append(helpers['creature_at'](seat['kind'], (x + .5) * unit, (y + .5) * unit, unit, html.escape(row.get('monsters', 'Proposed encounter seat'))))
+    parts.append(_signature_layer(row, helpers, centre - off, centre - off, unit, side, side, seat_ok=dry))
     parts.append(f'<path d="M 6 {side*unit-6} h 50" stroke="#e5ecdf"/><text x="6" y="{side*unit-10}" fill="#e5ecdf" font-size="5">35 m · 5 cells</text></svg>')
     return ''.join(parts)
 
@@ -279,20 +377,21 @@ def _island_card(row, data, helpers):
     water = layout['moatTerrain'] == 'WATER'
     adjusted = [(depth, _at_depth(row, data, depth)) for depth in row.get('depths', [1])]
     views = [(depth, _island_sample(arow, data, helpers)) for depth, arow in adjusted]
-    detail = _island_sample(_at_depth(row, data, row['depths'][0]), data, helpers, True)
+    detail = _island_sample(_at_depth(row, data, row['depths'][0]), data, helpers, detail=True)
     figures = ''.join(f'<figure>{svg}<figcaption>Floor {depth} · {FLOOR_NAMES.get(depth, "")} · {_floors_bank(arow)}</figcaption></figure>' for (depth, arow), svg in zip(adjusted, views))
     figures += f'<figure class="detail">{detail}<figcaption>Island close-up<br>1 cell = 7 m</figcaption></figure>'
     detail_rows = [('Source region', row['source']), ('Depth', row.get('depthNote', _floors_note(row.get('depths', [1])) + '.')),
-        ('Pattern', f'Island radius {layout["islandRadiusCells"]:g} cells; moat width {layout["moatWidthCells"]:g} cells; {len(layout["crossings"])} stepping-stone crossings; bank props on a ring.'),
+        ('Pattern', row.get('patternNote', f'Island radius {layout["islandRadiusCells"]:g} cells; moat width {layout["moatWidthCells"]:g} cells; {len(layout["crossings"])} stepping-stone crossings; bank props on a jittered ring.')),
         ('POI / rewards', row['poi']), ('Connection', row['connection']), ('Monsters', row['monsters']),
         ('Water' if water else 'Lava', row.get('water', 'Impassable moat.')),
         ('Encounter population', row['encounters'].get('countPolicy', 'Finite seats per region and depth.')),
+        ('Signature enemies', _signature_summary(row)),
         ('Lighting', 'Cave torches and player light.'),
-        ('Art', 'Live water/lava terrain tiles; game chest and bank props; schematic stones and islands.')]
+        ('Art', 'Live water/lava terrain tiles painted per cell; game chest and bank props; schematic stones and islands.')]
     dl = ''.join(f'<dt>{html.escape(k)}</dt><dd>{html.escape(v)}</dd>' for k, v in detail_rows)
     status = 'in game' if row.get('status') == 'runtime' else 'draft'
     return (f'<article id="underground-{row["id"]}"><header><small>Underground nexus · {status} · floors {_floors_label(row.get("depths", [1]))} · moat island</small><h2>{html.escape(row["name"])}</h2></header>'
-        f'<p class="mix"><b>Moat → stepping stones → island → focal chest</b><br>The chest only crosses by stone; the bank guard never leaves dry land.</p>'
+        f'<p class="mix"><b>Moat → stepping stones → island → focal chest</b><br>Painted cell by cell; the chest only crosses by stone, and the bank guard never leaves dry land.</p>'
         f'<div class="visual underground-depths" style="grid-template-columns:1fr 1fr">{figures}</div>'
         f'<p>{html.escape(row["atmosphere"])}</p><dl>{dl}</dl></article>')
 
@@ -328,9 +427,17 @@ def _sample(row, data, helpers, detail=False):
         parts.append(f'<path d="M {cx*unit+(unit/2 if motif_width%2 else 0)} 0 V {height*unit}" stroke="#707668" stroke-opacity=".25" stroke-width="{10 if motif_width==3 else 20}"/>')
         parts.append(f'<path d="M {start*unit} 0 V {height*unit} M {(start+motif_width)*unit} 0 V {height*unit}" stroke="#a6b6a7" stroke-dasharray="2 3" stroke-opacity=".5"/>')
     parts.append('<g class="background">')
-    mw, mh = row['motifCells']
+    mw, mh = row.get('motifCells', (0, 0))
     walls = _wall_cells(row, width, height)
     occupied = {(cx+2,cy)} if path and row.get('shrineKind') else set()
+    if row.get('cellSlots'):
+        # Baked pattern arrangements: absolute cells on the 25 × 25 plan.
+        ox = (25 - width) // 2
+        for slot in row['cellSlots']:
+            x, y = slot['at'][0] - ox, slot['at'][1] - ox
+            if 0 <= x < width and 0 <= y < height and (x, y) not in walls:
+                parts.append(_image(slot['material'], x*unit, y*unit, unit, data['previewMaterials'], helpers))
+                occupied.add((x, y))
     if row.get('layout',{}).get('type') == 'rooms':
         ox,oy = (row['layout']['extentCells'][0]-width)//2,(row['layout']['extentCells'][1]-height)//2
         for slot in row['layout'].get('props',[]):
@@ -340,6 +447,8 @@ def _sample(row, data, helpers, detail=False):
                 occupied.add((x,y))
     for y in range(height):
         for x in range(width):
+            if row.get('cellSlots'):
+                continue  # the baked arrangement already claimed its cells
             if (x,y) in walls:
                 continue
             if path:
@@ -384,6 +493,8 @@ def _sample(row, data, helpers, detail=False):
         parts.append('</g>')
     parts.append(_wall_art(walls, width, height, unit, helpers))
     parts.append('</g>')
+    parts.append(_signature_layer(row, helpers, cx, cy, unit, width, height,
+                                  radius_range=(2, 3.5) if path else (6, 9)))
     if not path:
         parts.append('<g class="poi-layer">')
         if row.get('shrineKind'):
@@ -515,7 +626,8 @@ def _maze_card(row, data, helpers):
     settings = 'types=configured&gx=34&gy=33&count=429&structure=100&distortion=0&variation=34&grouping=100&a=tree&b=none&c=none&d=none&e=none&points=false&guides=false&selection=density&inverted=false&clusterSize=true&decimation=0&mazeStep=3&loops=77&seed=2718&layouts=maze_braid&focus=maze_braid'
     details = [('Source region',row['source']),('Depth',_floors_note(row.get('depths',[2,3]))+'.'),
                ('Pattern',f'34 × 33 cells · spacing 3 · loops 77% · seed 2718. {len(rocks)} mineable wall cells; 3 × 3 reward clearing. Mining opens enclosed spaces.'),
-               ('POI / rewards',row['poi']),('Connection',row['connection']),('Monsters',row['monsters'])]
+               ('POI / rewards',row['poi']),('Connection',row['connection']),('Monsters',row['monsters']),
+       ('Signature enemies', _signature_summary(row))]
     dl = ''.join(f'<dt>{html.escape(k)}</dt><dd>{html.escape(v)}</dd>' for k,v in details)
     return (f'<article id="underground-{row["id"]}"><header><small>Underground park nexus · {"in game" if row.get("status") == "runtime" else "draft"} · braided maze</small><h2>{row["name"]}</h2></header>'
             + '<div class="visual underground-depths" style="grid-template-columns:1fr 1fr">'+''.join(views)+'</div><p>Either floor can contain a shrine or T3 treasure.</p>'
@@ -548,15 +660,22 @@ def _quicksand_card(helpers, out):
 
 
 def _generic_card(row, data, helpers):
-    """The motif / rooms study card every nexus and path row shares."""
-    mw,mh = row['motifCells']
-    assert 0 < mw <= 8 and 0 < mh <= 8
-    assert len({tuple(s['at']) for s in row['slots']}) == len(row['slots'])
-    for slot in row['slots']:
-        assert 0 <= slot['at'][0] < mw and 0 <= slot['at'][1] < mh
-        assert slot['material'] in data['previewMaterials']
-    mix = collections.Counter(s['material'] for s in _at_depth(row,data,row.get('depths',[2])[0])['slots'])
-    coverage = len(row['slots']) / (mw*mh) * 100
+    """The motif / rooms / baked-pattern study card every row shares."""
+    if row.get('cellSlots'):
+        mw = mh = 25
+        shown = _at_depth(row, data, row.get('depths', [2])[0])['cellSlots']
+    else:
+        mw, mh = row['motifCells']
+        assert 0 < mw <= 8 and 0 < mh <= 8
+        assert len({tuple(s['at']) for s in row['slots']}) == len(row['slots'])
+        for slot in row['slots']:
+            assert 0 <= slot['at'][0] < mw and 0 <= slot['at'][1] < mh
+            assert slot['material'] in data['previewMaterials']
+        shown = _at_depth(row, data, row.get('depths', [2])[0])['slots']
+    coverage = len(shown) / (mw * mh) * 100
+    candidates = sorted({data['previewMaterials'][s['material']]['candidateArt']
+                         for s in shown if data['previewMaterials'][s['material']].get('candidateArt')})
+    mix = collections.Counter(s['material'] for s in shown)
     wall_text = f'; {len(_wall_cells(row,25,25))/625*100:.2f}% structural stone-wall footprint in overview' if row.get('walls') and row['kind']=='nexus' else f'; {len(row.get("wallSlots", []))/(mw*mh)*100:.2f}% structural stone-wall footprint' if row.get('walls') else ''
     mix_text = ', '.join(f'{count} {key.replace("_", " ")}' for key,count in mix.items())
     status = 'in game' if row.get('status') == 'runtime' else 'draft'
@@ -565,20 +684,20 @@ def _generic_card(row, data, helpers):
                ('POI / rewards',row['poi']),('Connection',row['connection']),('Monsters',row['monsters']),
                ('Lighting','Cave torches and player light.'),
                ('Art',('Existing Stronghold stone wall set; ' if row.get('walls') else '') + 'game sprites in proposed layouts.')]
-    candidates = sorted({data['previewMaterials'][s['material']]['candidateArt']
-                         for s in row['slots'] if data['previewMaterials'][s['material']].get('candidateArt')})
     if candidates:
         details.append(('Candidate art', '; '.join(candidates) + '.'))
     if row.get('walls'):
         details.append(('Stone walls', 'Connected Stronghold walls with open doors and passages.'))
     if row.get('encounters'):
         details.append(('Encounter population',row['encounters'].get('countPolicy','Finite seats per region and depth.')))
+    if row.get('signatureEnemies'):
+        details.append(('Signature enemies', _signature_summary(row)))
     if row.get('shrineKind'):
         shrine=helpers['art_registry']()['shrineKinds'][row['shrineKind']]
         details.append(('Shrine', f'{shrine["name"]} · {shrine.get("boon", shrine.get("lever", "Blessing"))}; daily boon, one shrine per region and depth.'))
     if row.get('shrineChance'):
         details.append(('Route shrine chance', 'Draft: 50% per route and depth. Shown here with a shrine.'))
-    if any(slot['material'] == 'hidden_pit' for slot in row['slots']):
+    if any(slot['material'] == 'hidden_pit' for slot in shown):
         details.append(('Hidden pit preview', 'Click beside or on a pit to reveal it until reload.'))
     if row.get('scatterCoverage'):
         details.append(('Hazard scatter', 'Draft: 10% of free floor for poison vents, stalagmites and holes.'))
@@ -592,7 +711,9 @@ def _generic_card(row, data, helpers):
         coverage = overview.count('class="proposal-prop"') / 625 * 100
         mix_text = ', '.join(f'{overview.count(chr(34)+key+chr(34))} {key.replace(chr(95), chr(32))}' for key in mix)
     cap='Connected rooms' if row.get('layout',{}).get('type') == 'rooms' else 'Background + nexus arrangement' if row['kind']=='nexus' else 'Representative straight passage · not a live carved route'
-    motif_label = 'generated rooms' if row.get('layout',{}).get('type') == 'rooms' else f'{mw} × {mh} motif'
+    motif_label = ('seeded pattern' if row.get('cellSlots')
+                   else 'generated rooms' if row.get('layout',{}).get('type') == 'rooms'
+                   else f'{mw} × {mh} motif')
     coverage_label = '10% hazard scatter + ' + f'{coverage:.2f}% motif objects' if row.get('scatterCoverage') else f'{coverage:.2f}% object occupancy{wall_text}'
     floors = _floors_label(row.get('depths',[2,3]))
     return (f'<article id="underground-{row["id"]}"><header><small>Underground {row["kind"]} · {status} · floors {floors} · {motif_label}</small><h2>{html.escape(row["name"])}</h2></header>{story_panel(row, helpers)}<p class="mix"><b>{cap}: {coverage_label}</b><br>{html.escape(mix_text)}; excludes nexus and encounter seats.</p><div class="visual underground-depths" style="grid-template-columns:1fr 1fr">{depth_views}</div><p>{html.escape(row["atmosphere"])}</p><dl>{dl}</dl></article>')
@@ -616,7 +737,11 @@ def underground_section(helpers, out):
     rows = {row['id']: row for row in data['previewRows']}
     def card_for(vid):
         if vid == 'quicksand_cavern':
-            return _quicksand_card(helpers, out)
+            card = _quicksand_card(helpers, out)
+            sig = _signature_summary(rows['quicksand_cavern'])
+            if sig:
+                card = card.replace('</article>', f'<p><b>Signature enemies:</b> {html.escape(sig)}</p></article>')
+            return card
         row = rows[vid]
         kind = (row.get('layout') or {}).get('type')
         if kind == 'maze_braid':
@@ -634,9 +759,7 @@ def underground_section(helpers, out):
     placed, sections, matrix_rows = {}, [], []
     for level in program['levels']:
         floor, vids = level['floor'], level['variants']
-        cards = ''.join(card_for(v) for v in vids if v not in placed and v != 'quicksand_cavern')
-        if floor == 2 and 'quicksand_cavern' in vids:
-            cards += _quicksand_card(helpers, out)
+        cards = ''.join(card_for(v) for v in vids if v not in placed)
         reused = {v: placed[v] for v in vids if v in placed}
         for v in vids:
             placed.setdefault(v, floor)
