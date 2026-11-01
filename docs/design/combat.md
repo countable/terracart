@@ -175,10 +175,14 @@ mechanics.
   torch with the torch's duration and reach derived off its row, in a softer,
   colder light; it has no flame and ignites nothing.
 - KNOCKBACK has one owner, `Whirlwinds.impulse` / `pushStep`: a whirlwind's
-  contact (GRASS, PITCH and SCHOOL cells only, surface only) and the T1 Scroll of Wind
+  contact (surface only; the funnel itself roams GRASS, PITCH and SCHOOL
+  cells, or any biome in weather wind) and the T1 Scroll of Wind
   (`CAST_ROWS.wind_scroll`: every foe in reach takes 5 and is blown
-  `pushCells` away on any ground the enemy gate allows, at any depth). A push
-  plays out at the depth it began on; a level change cancels it.
+  `pushCells` away, at any depth). Either push carries the body the full
+  `pushCells` (1.5) over any ground the enemy gate allows — a path, a park,
+  past a lawn's edge — stopping only at roads, buildings, private or
+  unloaded ground. A push plays out at the depth it began on; a level change
+  cancels it.
 - THE MOONBEAM (T6 `moonbeam_scroll`, its own `useMoonbeamScroll`): the
   `moonbeam` Buffs row runs eight seconds (a second reading extends it). While
   it runs, `_moonbeamSegment` lays an instant beam `rangeCells` out along the
@@ -465,8 +469,9 @@ mechanics.
   no rest, ward, light or burning contact; flint relights them for another day.
 - Explosive barrels arm on tap with a saved five-second foreground fuse.
   They flash and show a countdown, then become permanently spent. The blast
-  deals 20 base damage within one cell, applies six seconds of burning and
-  ignites eligible ground cells for ten seconds. It reuses normal damage,
+  deals 20 base damage within one cell (a circle), applies six seconds of
+  burning and ignites the whole 3×3 square of eligible ground cells around
+  the barrel, corners included, for ten seconds. It reuses normal damage,
   immunity, ground-fire and explosion effects; unloaded floors pause the fuse.
 - Fire slimes resist burning and fireball damage through their roster row. Each accepted cell
   exit lights the cell left behind through `GroundFire`, including while

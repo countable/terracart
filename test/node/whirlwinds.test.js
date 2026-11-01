@@ -186,6 +186,30 @@
     assert.gt(Math.hypot(fauna.x - 24, fauna.y - 24), 0);
     assert.gt(Math.hypot(ally.x - 24, ally.y - 24), 0);
   }));
+  test('whirlwind: contact throws the player the full pushCells over park ground and past a lawn edge', () => fixture((s, e) => {
+    const T = WorldGen.T, C = Whirlwinds.CONFIG;
+    // Standing in a park: the funnel cannot roam here, but the body still flies.
+    e.grid.fill(T.PARK);
+    s._whirlwinds = [Whirlwinds.create({ x: 20, y: 24 }, 0, () => 0, 'test')];
+    Whirlwinds.tick(s, 0, C.warningMs, CALM);
+    assert.lt(s.save.energy, 100, 'contact landed');
+    for (const now of [100, 200, 300, 350]) Whirlwinds.tick(s, 0, C.warningMs + now, CALM);
+    assert.lt(Math.abs(s.playerM.x - (24 + C.pushCells * s.cellM)), 1e-8, 'the full 1.5 cells, not zero');
+    // A lawn ending at a park: the push crosses the edge, not stops at it.
+    e.grid.fill(T.GRASS); for (let y = 0; y < 8; y++) e.grid[y * 8 + 4] = T.PARK;
+    s.playerM = { x: 24, y: 24 }; s._targetM = { ...s.playerM }; s._manualOffsetM = { x: 4, y: 0 };
+    s._whirlwinds = [Whirlwinds.create({ x: 20, y: 24 }, 0, () => 0, 'test2')];
+    Whirlwinds.tick(s, 0, C.warningMs, CALM);
+    for (const now of [100, 200, 300, 350]) Whirlwinds.tick(s, 0, C.warningMs + now, CALM);
+    assert.lt(Math.abs(s.playerM.x - 36), 1e-8, 'across the lawn edge into the park');
+    // A road still stops it short, on the near side.
+    for (let y = 0; y < 8; y++) e._spawnOpts.spawnWhy[y * 8 + 4] = WorldGen.SPAWN_WHY.RESTRICTED;
+    s.playerM = { x: 24, y: 24 }; s._targetM = { ...s.playerM }; s._manualOffsetM = { x: 4, y: 0 };
+    s._whirlwinds = [Whirlwinds.create({ x: 20, y: 24 }, 0, () => 0, 'test3')];
+    Whirlwinds.tick(s, 0, C.warningMs, CALM);
+    for (const now of [100, 200, 300, 350]) Whirlwinds.tick(s, 0, C.warningMs + now, CALM);
+    assert.lt(s.playerM.x, 32); assert.gte(s.playerM.x, 24);
+  }));
   test('whirlwind: push distance is identical at 10, 30 and 60fps, including final partial frame', () => fixture(s => {
     const h = Whirlwinds.create({ x: 20, y: 24 }, 0, () => 0, 'test');
     for (const step of [100, 1000 / 30, 1000 / 60]) {

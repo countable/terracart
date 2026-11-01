@@ -1849,7 +1849,8 @@ fragments remain ground decals. Pottery stacks use the shared terracotta ground
 shards; ordinary pots retain their colour-matched shared shards.
 Young fern uses a 14-pixel visible width on the map.
 Mossy, conifer, bare and lavender tree families use the same silhouette at three
-growth sizes; bare trees share one family across burned, thorny and haunted routes.
+growth sizes; the conifer's mature map width (30 px, the tool's `widths`) matches
+a mature pine's, since at 44 it stood half again taller than every tree beside it; bare trees share one family across burned, thorny and haunted routes.
 The small grass-clump variant retains the longgrass 3D blade material and root
 placement, with one third of blades and 65% blade dimensions. It stays harvestable
 longgrass. The hedged lane adds white flowers but no grass clumps or trees. Detected trees

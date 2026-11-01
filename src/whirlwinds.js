@@ -122,6 +122,10 @@
   // THE ONE KNOCKBACK: a whirlwind's contact, and a Scroll of Wind's gust
   // (opts: `cells` how far, `ms` over how long, `anyGround` past the
   // whirlwind's grass). A push plays out at the depth it began on.
+  // Both callers pass anyGround: the turf rule says where a whirlwind may
+  // FORM and wander, not where a body may land. Swept on turf alone, a
+  // player on a path or a park cell beside the funnel went nowhere, and one
+  // on a lawn stopped at its edge — the full pushCells never showed.
   function impulse(scene, unit, hazard, now, player = false, opts = {}) {
     const x = player ? scene.startWorldM.x + scene.playerM.x : unit.x;
     const y = player ? scene.startWorldM.y + scene.playerM.y : unit.y;
@@ -202,7 +206,7 @@
       // retreat and summoned-companion recovery, not just enemy deaths.
       scene._damageBurningUnit(unit, CONFIG.damage, 'obstacle', now);
     }
-    impulse(scene, unit, hazard, now, player);
+    impulse(scene, unit, hazard, now, player, { anyGround: true });
   }
   function tick(scene, dt, now = performance.now(), wall = Date.now()) {
     scene._whirlwinds ||= [];

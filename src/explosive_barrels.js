@@ -2,6 +2,9 @@
 // burning, ground-fire and blast effects. No offline clock or loot reroll.
 (function (root) {
   'use strict';
+  // Bodies take the blast within radiusCells (a circle); the ground catches
+  // across the whole square of cells that radius spans (3×3 for 1), corners
+  // included — a blast scorches its surroundings, it does not draw a plus.
   const CONFIG = Object.freeze({ fuseMs: 5000, radiusCells: 1, damage: 20, burningMs: 6000, groundFireMs: 10000, maxStepMs: 100 });
   function fuse(scene, object) {
     return scene.save?.barrelFuses?.[typeof object === 'string' ? object : object.id] || null;
@@ -56,8 +59,7 @@
     for (let dy = -CONFIG.radiusCells; dy <= CONFIG.radiusCells; dy++) {
       for (let dx = -CONFIG.radiusCells; dx <= CONFIG.radiusCells; dx++) {
         const cell = absCellOffset(scene, centre.cellIX, centre.cellIY, dx, dy);
-        const point = absCellCenterMeters(scene, cell.cellIX, cell.cellIY);
-        if (inside(point)) scene._igniteGroundCell?.({ ...cell, depth: active.depth }, now,
+        scene._igniteGroundCell?.({ ...cell, depth: active.depth }, now,
           { durationMs: CONFIG.groundFireMs, relight: true });
       }
     }

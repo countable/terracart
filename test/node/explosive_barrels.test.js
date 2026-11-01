@@ -30,14 +30,16 @@
     advance(s,100);assert.eq(blasts.length,1);assert.includes(s.save.opened,b.id);
     assert.falsy(ExplosiveBarrels.arm(s,b));advance(s,6000);assert.eq(blasts.length,1);
   }));
-  test('explosive barrels: circular one-cell blast damages and burns bodies, lights five cells and reuses blast art',()=>fixture(({scene:s,barrel:b,entry,fire,hits,blasts})=>{
+  test('explosive barrels: circular one-cell blast damages and burns bodies, lights the 3×3 square and reuses blast art',()=>fixture(({scene:s,barrel:b,entry,fire,hits,blasts})=>{
     entry.creatures=[{id:'inside',kind:'goblin_runt',x:32,y:28},{id:'edge',kind:'goblin_runt',x:36,y:28},
       {id:'diagonal',kind:'goblin_runt',x:36,y:36},{id:'outside',kind:'goblin_runt',x:36.01,y:28}];
     ExplosiveBarrels.arm(s,b);advance(s,5000);
     assert.eq(s.save.energy,80);assert.eq(s.save.conditions.burning.remainingMs,6000);
     assert.eq(hits.map(h=>h.id).sort().join(),'edge,inside');assert.truthy(hits.every(h=>h.n===20&&h.source==='player'));
     assert.eq(entry.creatures[0]._burnState.remainingMs,6000);assert.falsy(entry.creatures[2]._burnState);
-    assert.eq(fire.length,5);assert.truthy(fire.every(c=>c.durationMs===10000&&Math.hypot(c.cellIX-3,c.cellIY-3)<=1));
+    assert.eq(fire.length,9,'every cell of the 3×3 square, corners included');
+    assert.truthy(fire.every(c=>c.durationMs===10000&&Math.max(Math.abs(c.cellIX-3),Math.abs(c.cellIY-3))<=1));
+    assert.eq(new Set(fire.map(c=>`${c.cellIX},${c.cellIY}`)).size,9,'each cell once');
     assert.eq(blasts.length,1);assert.eq(blasts[0].sparks,'trailspark');assert.eq(blasts[0].chips,'timber');
   }));
   test('explosive barrels: chest interaction arms without loot and damage uses armour plus shielding',()=>fixture(({scene:s,barrel:b})=>{
