@@ -9,7 +9,7 @@
     const scene = Object.assign(Object.create(proto), {
       save, shopLine: () => ({ theme: 'seed', tier: 1 }), shopRng: () => () => 0, shopCharmMul: () => 1, priceMul: () => 1, guildPrice: (_h, n) => n,
       moneyHTML: n => String(n), iconSpanHTML: () => '',
-      buildingFlavorTitle: () => 'Seed Shop', shopTierBadgeHTML: () => '',
+      buildingFlavorTitle: () => 'Seed Shop', shopTierBadgeHTML: () => '', gearStatsHTML: () => '',
       invRoomFor: id => Inventory.roomFor(save, id), _themedStockCount: () => 1,
       showOfferModal(offer) { this.offer = offer; },
       addToInv: (id, n) => Inventory.add(save, id, n),

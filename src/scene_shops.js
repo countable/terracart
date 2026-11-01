@@ -204,7 +204,7 @@ class SceneShops {
     const isItem = offer.kind === 'item';
     const name = isItem ? itemName(offer.id) : gearName(offer.kind, offer.slot, offer.tier);
     const icon = isItem ? this.iconSpanHTML(offer.id) : this.gearIconHTML(offer.kind, offer.slot, offer.tier, 24);
-    const blurb = (isItem ? '' : (gearDef(offer.kind, offer.slot)?.blurb || ''))
+    const blurb = (isItem ? '' : (gearDef(offer.kind, offer.slot)?.blurb || '') + this.gearStatsHTML(offer.kind, offer.slot, offer.tier))
       + `<div style="margin-top:6px">${tierBadgeHTML(offer.tier)}</div>`;
     this.showOfferModal({
       kind, kindLabel, art, title,
@@ -1199,7 +1199,8 @@ class SceneShops {
   _buildRelicOffer(sx, sy, offer, recordDeal, house, allowReroll = false, rerollOpts = {}) {
     const name = gearName(offer.kind, offer.slot, offer.tier);
     const iconHtml = this.gearIconHTML(offer.kind, offer.slot, offer.tier, 24);
-    const blurb = (gearDef(offer.kind, offer.slot)?.blurb || '') + this.shopTierBadgeHTML(house);
+    const blurb = (gearDef(offer.kind, offer.slot)?.blurb || '')
+      + this.gearStatsHTML(offer.kind, offer.slot, offer.tier) + this.shopTierBadgeHTML(house);
     // The charm's hour and the hammer's standing cut (floor $1) — priceMul —
     // then a guild badge takes its share off (guildPrice).
     const price = this.finalPrice(house, offer.price);

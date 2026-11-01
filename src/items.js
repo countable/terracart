@@ -2742,10 +2742,10 @@ function gearName(kind, slot, tier) {
 // same amount of protection.
 //
 // This is the ONE place the per-piece number is written. Both sides read it:
-// Combat.mitigate spends the pool against a hit, and the Stats panel / shop
-// offer print the same figure on the piece itself (app.js) — the
-// roadOverlayWidthM discipline, so what the armour SAYS it soaks is what it
-// soaks.
+// Combat.mitigate spends the pool against a hit, and the piece's stat sheet
+// (Combat.gearStats: the inventory detail dialog and the shop offer) prints
+// the same figure on the piece itself — the roadOverlayWidthM discipline, so
+// what the armour SAYS it soaks is what it soaks.
 function armorSlotReduction(tier) {
   const t = Math.max(0, Math.floor(tier || 0));
   return t;

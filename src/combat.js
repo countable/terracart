@@ -1342,6 +1342,56 @@
     return Math.max(1, Math.round(perSecond * fireIntervalMs(slot) / 1000));
   }
 
+  // ── The piece's own stat sheet ───────────────────────────────────────────
+  // What a weapon or a piece of armour SAYS of itself — on the inventory
+  // detail dialog (app.js refreshInventoryHighlight → _effectLineEl) and on
+  // a counter's gear offer (scene_shops.js): damage a blow or a shot, reach,
+  // cadence, armour. Every figure is read off the SAME functions the fight
+  // runs on — meleeSwingDamage / shotDamage, MELEE_REACH_CELLS /
+  // rangeCellsFor, meleeIntervalMs / fireIntervalMs, items.js
+  // armorSlotReduction — never a second table, so the number on the sheet is
+  // the number in the fight (the roadOverlayWidthM discipline).
+  // `playerClass` (the wizard's one-time calling) is on the sheet as it is in
+  // every blow; transient multipliers (powders, drills, the dragon, a potion)
+  // are not — those are the status row's chips. `reachCells` is the player's
+  // live reach (coords.js reachCells), which the ranged slots build their
+  // range from; omitted, a slot shows its flat rangeCells. `cellM` prints the
+  // ranges in metres; without it they read in cells. Tools, bags and the
+  // amulet have no sheet: an empty array.
+  function gearStats(kind, slot, tier, { playerClass, reachCells, cellM } = {}) {
+    const t = Math.floor(Number(tier) || 0);
+    if (!(t > 0)) return [];
+    const tenth = (n) => String(Math.round(n * 10) / 10);
+    const every = (ms) => `every ${tenth(ms / 1000)} s`;
+    const span = (cells) => cellM > 0 ? `${tenth(cells * cellM)} m` : `${tenth(cells)} cells`;
+    if (kind === 'armor') {
+      if (typeof armorSlotReduction !== 'function') return [];
+      return [{ label: 'Armour', value: String(armorSlotReduction(t)) }];
+    }
+    if (kind !== 'relic') return [];
+    const relics = { [slot]: { tier: t } };
+    if (MELEE_WEAPONS[slot]) {
+      const walking = meleeIntervalMs(slot), mounted = meleeIntervalMs(slot, true);
+      return [
+        { label: 'Damage', value: `${tenth(meleeSwingDamage(relics, 1, playerClass, slot))} a blow` },
+        { label: 'Range', value: span(MELEE_REACH_CELLS * (MELEE_WEAPONS[slot].reachMul || 1)) },
+        { label: 'Attack speed', value: every(walking) + (mounted !== walking ? ` (${every(mounted)} mounted)` : '') },
+      ];
+    }
+    if (SHOT[slot]) {
+      return [
+        { label: 'Damage', value: `${shotDamage(relics, slot, playerClass)} a shot` },
+        { label: 'Range', value: span(rangeCellsFor(slot, reachCells)) },
+        { label: 'Attack speed', value: every(fireIntervalMs(slot)) },
+      ];
+    }
+    return [];
+  }
+  // The sheet as lines of text, `Label: value`, for a dialog body.
+  function gearStatLines(kind, slot, tier, opts) {
+    return gearStats(kind, slot, tier, opts).map(r => `${r.label}: ${r.value}`);
+  }
+
   // The heading a 'nearest'-aimed slot fires along from (x, y): a vector to
   // the closest of `enemies` (the caller's already-filtered hostile list), or
   // null when none, or none within optional `maxRangeM`. Ties go to the first
@@ -1775,6 +1825,7 @@
     TRAINING_KINDS, TRAINING_ORDER, TRAINING_PERM_MAX, TRAINING_BUFF_MS, TRAINING_SLOT_KIND,
     trainingLevel, trainingDrillUntil, trainingBuffActive, trainingBonus, trainingIntervalMul, playerAttackIntervalMul,
     dpsForDurationMs, meleeDps, MELEE_INTERVAL_MS, meleeSwingDamage, shotDamage,
+    gearStats, gearStatLines,
     HUNTER_BOW_MUL, ENFORCER_MELEE_DPS,
     MITIGATION_ROUNDS, MIN_PLAYER_DAMAGE, mitigate, armorBonus, playerDamage, playerDamageRate, playerDamageMultiplier, incomingDamage, incomingProjectileDamage, projectileReduction, playerDowned,
     theftKind, THEFT_COINS, theftAmount, theftFood, theftDay, theftSated, incomingTheft, bankTheft, raidSpent, bankRaid,

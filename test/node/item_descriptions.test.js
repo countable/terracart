@@ -79,9 +79,10 @@ test('consumables: gameplay numbers read the owning spec rows', () => {
 test('effect line: the ✦ line arms the plate with the whole description', () => {
   // The tap itself belongs to the whole plate, through the one opener
   // (_openSelectedDescription) — inventory_description_plate.test.js drives it.
-  const m = SCENE_SRC.match(/\n  _effectLineEl\(nameLbl, text, titleHTML\) \{[\s\S]*?\n  \}\n/);
+  const m = SCENE_SRC.match(/\n  _effectLineEl\(nameLbl, text, titleHTML, statLines = \[\]\) \{[\s\S]*?\n  \}\n/);
   assert.truthy(m, '_effectLineEl exists');
-  assert.truthy(/this\._selectedDescription = \{ title: titleHTML, body: `✦ \$\{text\}` \};/.test(m[0]), 'it records the dialog the plate opens');
+  assert.truthy(/this\._selectedDescription = \{ title: titleHTML, body: \[`✦ \$\{text\}`, \.\.\.statLines\]\.join\('\\n'\) \};/.test(m[0]),
+    'it records the dialog the plate opens: the sentence, then the piece\'s stat sheet');
   assert.truthy(/nameLbl\.style\.pointerEvents = 'auto';/.test(m[0]), 'and opts the plate back into taps');
   assert.falsy(/showMessageModal\(/.test(m[0]), 'it opens nothing itself');
   const uses = SCENE_SRC.match(/this\._effectLineEl\(/g) || [];

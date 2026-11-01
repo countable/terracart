@@ -148,6 +148,10 @@ mechanics.
   change signature odds or tiers. The ordinary kill bounty is separate.
 - `combat.js` owns foe HP for melee, projectiles and pets. Damage derives from
   `TOOL_DURATION_MS`; tune that or monster HP, not an extra combat multiplier.
+  What a weapon or armour piece says of itself (the inventory detail dialog,
+  a shop's gear offer) is `Combat.gearStats`, read off `meleeSwingDamage` /
+  `shotDamage`, the reach and range resolvers, the cadence readers and
+  `armorSlotReduction`; never print a weapon number from a second table.
   Game animals (every wild animal: `SpriteLayout.isGame`) are not enemies or
   projectile targets; released slime pets are never targets.
 - Route incoming damage through `Combat.playerDamage` and armour mitigation,

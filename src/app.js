@@ -10907,6 +10907,17 @@ class MapScene extends Phaser.Scene {
       this.buildInventoryDOM();
     }
   }
+  // A weapon's or armour piece's stat sheet (Combat.gearStats) as it reads
+  // from THIS scene: the player's calling, live reach and cell size. Lines
+  // for a dialog body; gearStatsHTML for an offer's blurb.
+  gearStatLines(kind, slot, tier) {
+    return Combat.gearStatLines(kind, slot, tier,
+      { playerClass: this.save?.playerClass, reachCells: reachCells(this), cellM: this.cellM });
+  }
+  gearStatsHTML(kind, slot, tier) {
+    const lines = this.gearStatLines(kind, slot, tier);
+    return lines.length ? `<div style="margin-top:6px;color:#9fe6ff">${lines.join('<br>')}</div>` : '';
+  }
   gearIconHTML(kind, slot, tier, sizePx = 20) {
     const detailed = sizePx >= 48 && typeof DialogItemArt !== 'undefined'
       && DialogItemArt.entries[`${kind}:${slot}:${tier}`];
@@ -11466,11 +11477,13 @@ class MapScene extends Phaser.Scene {
   // is pointer-events:none while it has nothing to open, so it never eats a
   // tap meant for the map; this is the one place it opts back in, by
   // recording the dialog the plate's tap (buildInventoryDOM) will show.
-  _effectLineEl(nameLbl, text, titleHTML) {
+  // `statLines` (a weapon's or armour piece's sheet, Combat.gearStatLines)
+  // follow the sentence in the dialog, one a line; the plate shows only the ✦.
+  _effectLineEl(nameLbl, text, titleHTML, statLines = []) {
     const fx = document.createElement('div');
     fx.textContent = `✦ ${text}`;
     fx.style.cssText = 'font:10px/12px var(--font-ui);color:#9fe6ff;opacity:0.92;max-width:100%;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;';
-    this._selectedDescription = { title: titleHTML, body: `✦ ${text}` };   // catalog text, static — no markup in it
+    this._selectedDescription = { title: titleHTML, body: [`✦ ${text}`, ...statLines].join('\n') };   // catalog text, static — no markup in it
     nameLbl.style.pointerEvents = 'auto';
     nameLbl.style.cursor = 'pointer';
     nameLbl.tabIndex = 0;
@@ -11517,7 +11530,8 @@ class MapScene extends Phaser.Scene {
           if (def && def.blurb) {
             const tier = (g.kind === 'armor' ? this.save.armor : Gear.effectiveRelics(this.save))?.[g.slot]?.tier;
             nameLbl.appendChild(this._effectLineEl(nameLbl, def.blurb,
-              `<div style="margin-bottom:8px;line-height:0">${this.gearIconHTML(g.kind, g.slot, tier, 96)}</div>${nameSpan.textContent}`));
+              `<div style="margin-bottom:8px;line-height:0">${this.gearIconHTML(g.kind, g.slot, tier, 96)}</div>${nameSpan.textContent}`,
+              this.gearStatLines(g.kind, g.slot, tier)));
           }
         }
       } else {
