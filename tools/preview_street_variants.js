@@ -25,7 +25,7 @@ const middle = Math.floor(N / 2);
 const halfLengthCells = 22 * .7;
 const line = [point(middle - halfLengthCells, middle), point(middle + halfLengthCells, middle)];
 const lengthM = ctx.Streets.lineLengthM(line, tileEdgeM / extent);
-const local = (o) => ({ ...o, ...(o.kind === 'chest' ? { previewContainerFrame: ctx.chestLook(o).frame } : {}), x: o.x - tx * tileEdgeM, y: o.y - ty * tileEdgeM });
+const local = (o) => ({ ...o, ...(o.kind === 'chest' ? { previewContainerKind: ctx.chestLook(o).texKey, previewContainerFrame: ctx.chestLook(o).frame } : {}), x: o.x - tx * tileEdgeM, y: o.y - ty * tileEdgeM });
 
 // Export the shipping raster, cropped to the preview viewport. Road surfaces are
 // drawn by the pavement painter; park is the fixture's unchanged base ground.
@@ -75,12 +75,23 @@ function preview(row) {
   if (rec.variant !== row.id) throw new Error(`Preview rolled ${rec.variant}, wanted ${row.id}`);
   // Isolate street dressing from ambient park objects, keeping the actual
   // rasterized terrain, road band and all spawn reasons / kerb buffers.
+  // A representative ordinary wreck shows the existing-building hive route
+  // at the centre of the sample instead of following a distant fallback seat.
+  const fixtureObjects = [], occupied = new Set();
+  if (row.hives) {
+    const ix = middle, iy = middle + 2;
+    fixtureObjects.push(WG.makeObject('house', (tx * N + ix + .5) * cellM,
+      (ty * N + iy + .5) * cellM, WG.cellId('preview_wreck', tx, ty, ix, iy),
+      { tier: WG.T.BUILDING, area: cellM * cellM }));
+    occupied.add(iy * N + ix);
+  }
   const dress = SV.dress({ index: tile.streetIndex, tx, ty, N, tileEdgeM, grid: tile.grid,
+    objects: fixtureObjects,
     spawnOpts: { roadMask: tile.roadMask, roadClass: tile.roadClass,
-      spawnWhy: tile.spawnWhy, occupied: new Set(), pois: [] } });
+      spawnWhy: tile.spawnWhy, occupied, pois: [] } });
   const lamps = ctx.RoadOverlay.lampSitesForTile(tx, ty,
     { ...tile, layers, tileEdgeM, cellsPerEdge: N }).map(local);
-  const objects = [...dress.objects, ...dress.wildplants, ...(dress.traps || []).map(t => ({ ...t, kind: 'trap', recordType: 'surface_trap' }))].map(local);
+  const objects = [...fixtureObjects, ...dress.objects, ...dress.wildplants, ...(dress.traps || []).map(t => ({ ...t, kind: 'trap', recordType: 'surface_trap' }))].map(local);
   const lairs = dress.lairs.map((o) => ({ tier: o.tier, kind: o.tier + ' guard site', x: o.lx, y: o.ly }));
   return { ...row, ...groundPreview(tile), words: row.words ? row.words.source : null, sampleName: name,
     roadWidthM: WG.roadOverlayWidthM(tags), lengthM,
@@ -148,7 +159,10 @@ function previewPath(row) {
     line: line.map(p => ({ x: p.x * tileEdgeM / extent, y: p.y * tileEdgeM / extent })) };
 }
 
-const rows = SV.STREET_VARIANTS.filter(row => !row.retired && ['minor', 'path'].includes(row.size)).map(preview);
+const selectedVariant = process.argv.find(arg => arg.startsWith('--variant='))?.slice('--variant='.length);
+const rows = SV.STREET_VARIANTS.filter(row => !row.retired && ['minor', 'path'].includes(row.size)
+  && (!selectedVariant || row.id === selectedVariant)).map(preview);
+if (!rows.length) throw new Error('Unknown road variant: ' + selectedVariant);
 // Use the runtime weighting helper, with no name match, to make soft affinities
 // inspectable without changing the generated art fixture or rarity roll.
 const affinityContexts = Object.fromEntries(['neutral', 'cultivated', 'woodland', 'damp', 'formal', 'sacred', 'ruined', 'coastal'].map(trait =>

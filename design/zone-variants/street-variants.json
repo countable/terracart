@@ -8976,15 +8976,13 @@
       "objects": [
         {
           "kind": "house",
-          "x": 906.5,
+          "x": 801.5,
           "y": 815.5,
-          "id": "street_hive_2622_5615_129_116",
+          "id": "preview_wreck_2622_5615_114_116",
           "tier": 9,
           "area": 49,
           "hive": "mushroom",
-          "hiveStreet": "preview 15|163,350|toadstool",
-          "_street": "toadstool",
-          "_hiveSynthetic": true
+          "hiveStreet": "preview 15|163,350|toadstool"
         },
         {
           "kind": "chest",
@@ -8993,6 +8991,7 @@
           "id": "crate_end_2622_5615_129_114",
           "crate": true,
           "tierSeed": 1,
+          "previewContainerKind": "box",
           "previewContainerFrame": 2
         },
         {
@@ -9002,6 +9001,7 @@
           "id": "crate_end_2622_5615_99_114",
           "crate": true,
           "tierSeed": 1,
+          "previewContainerKind": "box",
           "previewContainerFrame": 0
         },
         {
@@ -9475,15 +9475,6 @@
         {
           "kind": "wildplant",
           "crop": "mushroom",
-          "x": 801.5,
-          "y": 815.5,
-          "id": "wp_ts_2622_5615_114_116",
-          "_street": "toadstool",
-          "_plantArt": "ordinary"
-        },
-        {
-          "kind": "wildplant",
-          "crop": "mushroom",
           "x": 808.5,
           "y": 794.5,
           "id": "wp_ts_2622_5615_115_113",
@@ -9779,6 +9770,15 @@
           "id": "wp_ts_2622_5615_129_115",
           "_street": "toadstool",
           "_plantArt": "ordinary"
+        },
+        {
+          "kind": "wildplant",
+          "crop": "mushroom_bush",
+          "x": 906.5,
+          "y": 815.5,
+          "id": "wp_ts_2622_5615_129_116",
+          "_street": "toadstool",
+          "_streetArt": "red_mushroom"
         }
       ],
       "lamps": [

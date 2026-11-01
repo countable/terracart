@@ -90,6 +90,8 @@ def material_art(material):
     if material.get('recordType') == 'surface_trap':
         return {'procedural': 'trap_hidden', 'source': 'src/textures.js · hidden trap scuff', 'alternates': ['trap_open']}
     container = ('cache' if material.get('cache') else None) or material.get('barrelStyle') or ('barrel' if material.get('barrel') else None)
+    if not container and material.get('previewContainerKind') in ('barrel', 'clay_pot', 'box'):
+        container = material['previewContainerKind']
     if not container and material['kind'] in ('barrel', 'clay_pot', 'box'):
         container = material['kind']
     if container and not material.get('_streetArt') and not material.get('redBarrel'):
@@ -661,7 +663,7 @@ STREET_COLORS = {
 
 def container_look(o):
     """The chest-kind object's container art look, as material_art resolves it."""
-    return ('cache' if o.get('cache') else None) or o.get('barrelStyle') or ('barrel' if o.get('barrel') else 'chest')
+    return ('cache' if o.get('cache') else None) or o.get('barrelStyle') or ('barrel' if o.get('barrel') else None) or o.get('previewContainerKind', 'chest')
 
 
 def street_material_key(o):
@@ -733,7 +735,7 @@ def street_svg(v, cell_m, detail=False):
         if o.get('hidden') or o.get('concealed'): continue  # Exact-cell caches are undiscovered in this static view.
         kind = o.get('crop', o['kind'])
         if o.get('kind') == 'chest' and container_look(o) != 'chest':
-            kind = 'clay pot' if container_look(o) == 'clay_pot' else 'salvage barrel'
+            kind = {'clay_pot': 'clay pot', 'box': 'supply crate'}.get(container_look(o), 'salvage barrel')
         color = STREET_COLORS.get(o.get('crop', o['kind']), '#d4d4d4')
         size = cell_m * .8
         label = html.escape(kind + (f' ({o["species"]})' if o.get('species') else '') + (f' · growth stage {o["variant"]}' if kind == 'tree' and 'variant' in o else ''))
