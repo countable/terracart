@@ -150,11 +150,11 @@ test('drawObjects cache: Canvas batches only unchanged wildplants and keeps thei
   const body = RENDER_SRC.slice(RENDER_SRC.indexOf('class PlantCanvasCache'));
   assert.truthy(body.includes("worldMetersToAbsCell(this.scene,item.p.x,item.p.y)"),
     'the cache preserves ground-row world ordering');
-  assert.truthy(body.includes('const cacheable = !!scene._boot_still && p.wildId != null && wig < 0'),
-    'only still generated plants without cover animation enter the cache');
+  assert.truthy(body.includes('const cacheable = !!scene._boot_still && !(scene.mapRot || 0) && p.wildId != null && wig < 0'),
+    'only still north-up plants without cover animation enter the cache');
   assert.truthy(body.includes('!isShinyFlora && weatherTint == null && !scene._workProgress'),
     'shine, weather and work stay on live sprites');
-  assert.truthy(body.includes('Their data\n    // records remain in plantedList'),
+  assert.truthy(body.includes('Their data records remain in plantedList'),
     'the renderer keeps tappable records instead of density-culling them');
 });
 

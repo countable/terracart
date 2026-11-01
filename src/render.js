@@ -6106,9 +6106,9 @@ Render.drawObjects = function drawObjects(scene) {
     // (the pool reset its rotation before this configure).
     Render.applyWorkImpact(s, Render.workImpactPose(scene._workProgress, p, performance.now()),
       s.x, s.y + (1 - placement.oy) * s.displayHeight);
-    // Only still, unchanged wildplants enter the Canvas row cache. Their data
-    // records remain in plantedList, so interaction and contact stay live.
-    const cacheable = !!scene._boot_still && p.wildId != null && wig < 0
+    // Only still, north-up, unchanged wildplants enter the Canvas row cache.
+    // Their data records remain in plantedList, so interaction and contact stay live.
+    const cacheable = !!scene._boot_still && !(scene.mapRot || 0) && p.wildId != null && wig < 0
       && !isShinyFlora && weatherTint == null && !scene._workProgress && !s.rotation && !s.flipX && !s.flipY;
     plantCanvasCache.offer(s, item, cacheable);
   });
