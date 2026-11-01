@@ -447,7 +447,10 @@ ACT 1 — THE MENDING (memories 0–8, before the tower)
   leftover magic, which Tim will later learn to read); Maud the survivor at
   six, met near Home hunted by a goblin archer, who stays where she is saved and tells
   of the night the roofs fell and names the Warmonger; Edda the believer at
-  nine (lauds the wizard: "restore his tower and he will save us").
+  nine (lauds the wizard: "restore his tower and he will save us"). Cobb the
+  miner arrives by no memory count: he is found in the shafts under the
+  lane, whenever the Hood first goes down and speaks to him, and follows the
+  Hood's light up to the trailer. He knows nothing of the war, only rock.
   Memory 3: a bell in the smoke, a child held, the name Warmonger. Memory 6: a
   still figure watching from a window (Tim, who was there). Memory 9: the
   rumour of a wise man "who may know why the old roads feel familiar".
@@ -625,9 +628,11 @@ Hard rules, enforced by the tests (memory_arc, story_neighbours, books):
   prose; survivors say "the hooded one", "stranger", "neighbour").
 - ORRIN: working name for the dragon archaeologist.
 - The story neighbours: TILLY (the child), BRYN (the warden), MAUD (the
-  survivor), EDDA (the believer). Tilly keeps a doorknob, all that remains
-  of her house. She is frightened but cautiously trusting, and stubbornly
-  holds on.
+  survivor), EDDA (the believer), COBB (the miner). Tilly keeps a doorknob,
+  all that remains of her house. She is frightened but cautiously trusting,
+  and stubbornly holds on. Cobb went down the shafts under the lane for ore
+  before the roofs fell and never found the way up; the Hood finds him on
+  the first level down, and housed on the lane he makes torches.
 - The FROST DRAGON QUEEN: Tiamat's late wife; personal name still open.
 - The Warmonger: the title, never a name.
 - The Breaking: the survivors' word for fifty years ago.

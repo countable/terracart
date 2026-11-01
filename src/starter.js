@@ -2129,8 +2129,10 @@
   // (MemoryStory.HOME); the others speak through MemoryStory.npcDialogue.
   // WHEN each is here is the memory ledger's call (NPC.storyNeighbourDue —
   // the wanderer from the first morning, the rest as memories return), so a
-  // new save has the one neighbour on screen; a row that `arrives` another
-  // way (the survivor, through StoryEncounters) is never seated here; the arrivals pass
+  // new save has the one neighbour on screen; a row that `arrives` by
+  // rescue (the survivor, through StoryEncounters) is never seated here,
+  // while the miner, who `arrives` from underground, is seated here once
+  // the player has found him (NPC.storyNeighbourDue); the arrivals pass
   // (NPC.tickArrivals) calls back here as the count grows, with `seating.
   // offscreen` so nobody is watched appearing. PLACED, like the greeter:
   // they belong to this player's starting area, so their ids are the starter
@@ -2155,7 +2157,7 @@
     // same gate every other seat on the tile is judged by).
     const occupied = WorldGen.occupiedIndexSet(f, entry.objects, entry.wildplants, entry.creatures);
     const opts = WorldGen.spawnOptsOf(entry, { occupied });
-    const roles = (NPC.STORY_NEIGHBOURS || ['warden']).filter(role => !NPC.STORY_ROLES[role]?.radiusM && !NPC.STORY_ROLES[role]?.arrives);
+    const roles = (NPC.STORY_NEIGHBOURS || ['warden']).filter(role => !NPC.STORY_ROLES[role]?.radiusM && NPC.STORY_ROLES[role]?.arrives !== 'rescue');
     let placed = 0;
     for (const role of roles) {
       const id = `npc_${role}_${tx}_${ty}`;

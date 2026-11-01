@@ -1,24 +1,60 @@
 // A furnished neighbour's help. Persistent clocks use epoch time; walking
 // uses the creature simulation clock and integrates foreground time only.
+// WHAT a housed neighbour gives is their role's: Tilly waters (tick), a
+// scout gives directions (directions), everyone else a daily gift (GIFTS).
+// HOW MUCH is the home's luxury through one reward ladder (rewardSize): one
+// from the first luxury point, one more at each REWARD_STEPS rung — so a
+// gift's count and a scout's directions a day climb together.
 const NPCBenefits = (() => {
   const HOUR_MS = 60 * 60 * 1000;
   const MINUTE_MS = 60 * 1000;
   const RANGE_CELLS = 15;
   const WATER_INTERVAL_MS = 1200;
+  const REWARD_STEPS = Object.freeze([4, 12, 20, 28]);
   const GIFTS = Object.freeze({
     warden: { id: 'wood', label: 'Wood', line: 'I saved some timber for you.' },
     witness: { id: 'apple', label: 'Apple', line: 'I put aside something to eat.' },
     believer: { id: 'flowers', label: 'Flowers', line: 'A few flowers to brighten your day.' },
     archaeologist: { id: 'rubble', label: 'Rock', line: 'Useful stone from my digging. No potsherds, I checked.' },
+    miner: { id: 'torch', label: 'Torch', line: 'Never go down without a light. I made these.' },
     resident: { id: 'berry', label: 'Berry', line: 'A little something from your neighbour.' },
   });
   const dayOf = now => new Date(now).toISOString().slice(0, 10);
   function homeOf(scene, c) {
     return c?.kind === 'npc' && (scene.depth || 0) === 0 ? scene.save?.npcHomes?.[c.id] : null;
   }
+  function homed(scene, c) { return !!homeOf(scene, c)?.houseId; }
   function luxuryOf(scene, c) {
     const home = homeOf(scene, c);
     return home?.houseId ? Furniture.luxuryOf(scene.save, home.houseId) : 0;
+  }
+  // The reward ladder: nothing from a bare home, one from the first luxury
+  // point, one more at each rung of REWARD_STEPS.
+  function rewardSize(luxury) {
+    return luxury > 0 ? 1 + REWARD_STEPS.filter(step => luxury >= step).length : 0;
+  }
+  // A scout's directions are a sighting a day — one not pointed at before
+  // while any remain, else the one longest ago — rewardSize of them, pinned
+  // for the UTC day on the first talk so a second talk hears the same ones.
+  // `candidates` are the scout's sightings (NPC.sightings: { o, label, d }).
+  // Null hands the choice back to the unhoused daily pick.
+  function directions(scene, c, candidates, now = Date.now()) {
+    const size = rewardSize(luxuryOf(scene, c));
+    if (!homed(scene, c) || c.role !== 'scout' || size <= 0) return null;
+    const state = stateOf(scene, c), day = dayOf(now);
+    if (state.directionsDay !== day || !Array.isArray(state.directionIds)) {
+      const given = state.directed && typeof state.directed === 'object' ? state.directed : {};
+      const ranked = [...candidates].sort((a, b) => (given[a.o.id] || '').localeCompare(given[b.o.id] || '')
+        || String(a.o.id).localeCompare(String(b.o.id)));
+      const picks = ranked.slice(0, size);
+      for (const p of picks) given[p.o.id] = day;
+      // Remember the newest few dozen; older sightings count as fresh again.
+      state.directed = Object.fromEntries(Object.entries(given).sort(([, a], [, b]) => b.localeCompare(a)).slice(0, 64));
+      state.directionsDay = day;
+      state.directionIds = picks.map(p => p.o.id);
+      persist(scene);
+    }
+    return state.directionIds.map(id => candidates.find(p => p.o.id === id)).filter(Boolean);
   }
   // Chores belong to a loaded home, even when its resident walks beyond the
   // player's ordinary creature bubble. Keep this exception specific to Tilly
@@ -161,11 +197,12 @@ const NPCBenefits = (() => {
     return true;
   }
   function summary(scene, c) {
-    const luxury = luxuryOf(scene, c);
+    const luxury = luxuryOf(scene, c), size = rewardSize(luxury);
     if (!homeOf(scene, c)?.houseId) return '';
     if (c.role === 'wanderer') return `Tilly waters crops within ${RANGE_CELLS} cells of home for ${luxury} minute${luxury === 1 ? '' : 's'} per round, resting an hour between rounds.`;
+    if (c.role === 'scout') return `${size} new direction${size === 1 ? '' : 's'} each day. Talk to hear them.`;
     const gift = GIFTS[c.role] || GIFTS.resident;
-    return `${luxury} ${gift.label} each day. Visit or talk to collect.`;
+    return `${size} ${gift.label} each day. Visit or talk to collect.`;
   }
   function dialogue(scene, c, now = Date.now()) {
     if (!homeOf(scene, c)?.houseId) return '';
@@ -177,14 +214,14 @@ const NPCBenefits = (() => {
   function visit(scene, c, now = Date.now()) {
     const luxury = luxuryOf(scene, c);
     if (!homeOf(scene, c)?.houseId || NPC.isDormant(c, now)) return { message: '' };
-    if (c.role === 'wanderer') return { message: dialogue(scene, c, now) };
+    if (c.role === 'wanderer' || c.role === 'scout') return { message: dialogue(scene, c, now) };
     const gift = GIFTS[c.role] || GIFTS.resident, state = stateOf(scene, c), day = dayOf(now);
     const collected = state.giftDay === day ? Math.max(0, state.giftCollected || 0) : 0;
     // Once today's entitlement is fixed, adding or removing furniture cannot
     // re-roll it. A full bag keeps the uncollected portion available today, so
     // the first visit that evaluates the day pins its quantity, accepted or not.
     const quantity = state.giftDay === day && Number.isFinite(state.giftQuantity)
-      ? state.giftQuantity : Math.floor(luxury);
+      ? state.giftQuantity : rewardSize(luxury);
     if (state.giftDay !== day || !Number.isFinite(state.giftQuantity)) {
       Object.assign(state, { giftDay: day, giftQuantity: quantity, giftCollected: collected });
       persist(scene);
@@ -200,6 +237,6 @@ const NPCBenefits = (() => {
     return { message: wanted > 0 ? `I have ${wanted} ${gift.label} for you. Make a little room in your bag.`
       : collected > 0 ? 'That was today’s gift. Come by tomorrow.' : summary(scene, c), qty: 0 };
   }
-  return { HOUR_MS, MINUTE_MS, RANGE_CELLS, WATER_INTERVAL_MS, GIFTS,
-    luxuryOf, shouldSimulate, tick, summary, dialogue, visit, claim: visit };
+  return { HOUR_MS, MINUTE_MS, RANGE_CELLS, WATER_INTERVAL_MS, REWARD_STEPS, GIFTS,
+    homed, luxuryOf, rewardSize, directions, shouldSimulate, tick, summary, dialogue, visit, claim: visit };
 })();

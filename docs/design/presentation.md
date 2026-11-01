@@ -762,7 +762,13 @@ pixels and decorative details do not define additional tap cells.
   `Starter.placeSafeAreaWarden`) arrive by the memory ledger (`minMemories`
   per role, re-run from `_bankDiscovery` and
   `NPC.tickArrivals`) and speak through `MemoryStory.npcDialogue` by act; a
-  new story voice is a role there, not a new placer or dialog path. Ordinary
+  new story voice is a role there, not a new placer or dialog path. A row's
+  `arrives` names the one other way in: Maud by rescue (below), Cobb the
+  miner from underground (`LostMiner`: seated once on the first level under
+  the trailer, out of sight of the stairs; the talk that finds him marks the
+  save, stamps him met, and he comes up to the trailer with the others; his
+  surface lines and torches are `LostMiner.dialogue` and
+  `NPCBenefits.GIFTS.miner`). Ordinary
   residents are drawn in full by `NPC.spawn` but seated by `NPC.arrivals`:
   they return with memories, off screen, and wait on fixed, evenly spread
   starting-area pins outside Home's ring (`homeWaitBand`). A completed delivery
@@ -914,6 +920,9 @@ domestic panel is followed by that scene without a second memory reward;
 tower gates remain unchanged. Pickup and Home moves never remove earned milestones.
 
 Maud's rescue unlocks at six lifetime memories, then waits for a home visit.
+Cobb the miner is found, not met: the one `LostMiner.seat` on the level-one
+cave tile under the starter anchor, drawn from the generated layer by the
+starter tile's id, waits until the player speaks to him there.
 Her encounter is seated around Home, never around the travelling player; her
 archer still obeys the normal Home ward and spawn gate. Existing remote rescue
 placements move home without resetting rescue progress or granting a second gift.

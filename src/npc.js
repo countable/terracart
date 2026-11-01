@@ -243,7 +243,9 @@ const NPC = (() => {
       const dest = scene.cellAt(x, y);
       if (!dest.loaded || dest.underRoad || Combat.faunaBlocksCell(dest.type) || WorldGen.isRoadTerrain(dest.type)
         || Math.hypot(x - (c.homeX ?? c.x), y - (c.homeY ?? c.y)) > scene.cellM * WANDER_CELLS) return false;
-      const entry = dest.tx != null && WorldGen.tileCacheFor(0).get(WorldGen.tileKey(dest.tx, dest.ty));
+      // The gate of the LEVEL the neighbour stands on: a dwarf's or the
+      // lost miner's shaft, not the surface tile above it.
+      const entry = dest.tx != null && WorldGen.tileCacheFor(scene.depth || 0).get(WorldGen.tileKey(dest.tx, dest.ty));
       return !entry?.grid || WorldGen.isSpawnCell(entry.grid, entry.cellsPerEdge, entry.cellsPerEdge,
         dest.ix, dest.iy, WorldGen.spawnOptsOf(entry), 'npc');
     };
@@ -301,6 +303,10 @@ const NPC = (() => {
   // name given — the lane calls her the white-haired woman — in town from
   // eleven memories. She is `transient`: passing through, so no talk ever
   // assigns her a restored house.
+  //   THE MINER, Cobb, `arrives: 'underground'`: lost in the shafts under
+  // the lane since before the Breaking (LostMiner seats him on the first
+  // level down), due by the trailer only once the player has found him
+  // there (storyNeighbourDue reads LostMiner.found), never by memory count.
   const CHILD_SCALE = 0.77;
   const STORY_ROLES = {
     warden: { label: 'Warden', name: 'Bryn', art: 'npc_bryn', minMemories: 3 },
@@ -309,6 +315,7 @@ const NPC = (() => {
     believer: { label: 'Believer', name: 'Edda', art: 'npc_edda', minMemories: 9 },
     archaeologist: { label: 'Dragon Archaeologist', name: 'Orrin', art: 'npc_orrin', minMemories: 0, radiusM: 250 },
     stranger: { label: 'Newcomer', name: 'White-haired woman', minMemories: 11, transient: true },
+    miner: { label: 'Miner', name: 'Cobb', minMemories: 0, arrives: 'underground' },
   };
   const STORY_NEIGHBOURS = Object.keys(STORY_ROLES);
   function storyNeighbour(id, role) {
@@ -323,7 +330,9 @@ const NPC = (() => {
     return `${n === 1 ? 'One' : n} ${n === 1 ? noun : noun + 's'} ${n === 1 ? verb + 's' : verb}`;
   }
   function storyNeighbourDue(save, role) {
-    return memoriesOf(save) >= (STORY_ROLES[role]?.minMemories ?? 0);
+    const row = STORY_ROLES[role];
+    if (row?.arrives === 'underground') return typeof LostMiner !== 'undefined' && LostMiner.found(save);
+    return memoriesOf(save) >= (row?.minMemories ?? 0);
   }
 
   // Memories bring two ordinary neighbours back per tile. Waiting people
@@ -500,7 +509,7 @@ const NPC = (() => {
     Save.persist(scene.save);
     return true;
   }
-  const HOME_ROLE_PRIORITY = ['wanderer', 'warden', 'witness', 'believer', 'archaeologist'];
+  const HOME_ROLE_PRIORITY = ['wanderer', 'warden', 'witness', 'believer', 'archaeologist', 'miner'];
   function homePriority(c) {
     const rank = HOME_ROLE_PRIORITY.indexOf(c.role);
     return rank < 0 ? HOME_ROLE_PRIORITY.length : rank;
@@ -727,19 +736,46 @@ const NPC = (() => {
     foe: where => `“Something roams ${where}. Keep to the road if it turns on you.”`,
     elite: where => `“Something big roams ${where}. Keep to the road if it turns on you.”`,
   };
+  // What the scout can see from here: unspent shrines, unseen chests and
+  // the foes about, within 250 m, in stable id order.
+  function sightings(scene, c) {
+    const radius = 250, candidates = [];
+    const sets = spentSets(scene, scene.save), caught = setOf(scene.save.caught || []);
+    const add = (o, label) => {
+      const d = Math.hypot(o.x - c.x, o.y - c.y);
+      if (d <= radius) candidates.push({ o, label, d });
+    };
+    for (const entry of WorldGen.tileCache.values()) WorldGen.forEachItemInBox(entry, 'objects', c.x - radius, c.y - radius, c.x + radius, c.y + radius, o => {
+      if (isShrine(o) || (o.kind === 'house' && scene.houseShopRole(o) === 'wizard')) add(o, 'shrine');
+      else if (o.kind === 'chest' && !isSpent(o, sets) && chestLook(o).texKey === 'chest') {
+        const cell = scene.cellAt?.(o.x, o.y);
+        if (!cell?.loaded || cell.tx == null || !Fog.seen(cell.tx, cell.ty, cell.ix, cell.iy)) add(o, 'chest');
+      }
+    });
+    WorldGen.forEachItem('creatures', o => {
+      if (!caught.has(o.id) && Combat.isEnemy(o)) add(o, Combat.isElite(o) ? 'elite' : 'foe');
+    });
+    return candidates.sort((a, b) => String(a.o.id).localeCompare(String(b.o.id)));
+  }
   function dialogue(scene, c, now = Date.now()) {
     const day = utcDayIndex(now), seed = fnv1a(`${c.id}:talk`);
     const title = `${c.name}, ${c.roleLabel || LABELS[c.culture || 'village'][c.role]}`;
     const daily = a => a[((seed + day) >>> 0) % a.length];
-    let body, target = null;
+    let body, targets = [];
     restore(scene, c);
     const firstStrangerMeeting = c.role === 'stranger' && !scene.save.memoryStory?.stranger?.met;
     const story = !isDormant(c, now) && typeof MemoryStory !== 'undefined'
       && MemoryStory.npcDialogue(scene, c);
+    // A HOUSED scout's directions are their help (NPCBenefits.directions):
+    // new ones every day, as many as the home's luxury earns, whatever act
+    // the story is in — the story's line is a page after them, not instead.
+    const housedScout = c.role === 'scout' && !isDormant(c, now) && typeof NPCBenefits !== 'undefined' && NPCBenefits.homed(scene, c);
     if (isDormant(c, now)) {
       body = RESTING_LINE;
-    } else if (story) {
+    } else if (story && !housedScout) {
       body = story;
+    } else if (c.role === 'miner' && typeof LostMiner !== 'undefined') {
+      body = LostMiner.dialogue(scene, c, now);
     } else if (c.role === 'warden') {
       body = WARDEN_LINE;
     } else if (c.role === 'scholar') {
@@ -777,34 +813,20 @@ const NPC = (() => {
         : daily(['<em>Taps a dark lamp post.</em>\n“Dark since the Breaking, every one. The roads were spared, but nobody was left to light them. Walk under one. It remembers you.”',
           '“A lamp only wants company. Pass under one and watch what it does.”']);
     } else {
-      const radius = 250, candidates = [];
-      const sets = spentSets(scene, scene.save), caught = setOf(scene.save.caught || []);
-      const add = (o, label) => {
-        const d = Math.hypot(o.x - c.x, o.y - c.y);
-        if (d <= radius) candidates.push({ o, label, d });
-      };
-      for (const entry of WorldGen.tileCache.values()) WorldGen.forEachItemInBox(entry, 'objects', c.x - radius, c.y - radius, c.x + radius, c.y + radius, o => {
-        if (isShrine(o) || (o.kind === 'house' && scene.houseShopRole(o) === 'wizard')) add(o, 'shrine');
-        else if (o.kind === 'chest' && !isSpent(o, sets) && chestLook(o).texKey === 'chest') {
-          const cell = scene.cellAt?.(o.x, o.y);
-          if (!cell?.loaded || cell.tx == null || !Fog.seen(cell.tx, cell.ty, cell.ix, cell.iy)) add(o, 'chest');
-        }
-      });
-      WorldGen.forEachItem('creatures', o => {
-        if (!caught.has(o.id) && Combat.isEnemy(o)) add(o, Combat.isElite(o) ? 'elite' : 'foe');
-      });
-      candidates.sort((a, b) => String(a.o.id).localeCompare(String(b.o.id)));
-      if (candidates.length) {
-        const { o, label, d } = daily(candidates);
-        target = { targetId: o.id, x: o.x, y: o.y, depth: scene.depth || 0,
-          category: label, type: label === 'foe' || label === 'elite' ? 'creature' : 'object' };
-        body = `${daily(['<em>Points past the wrecks.</em>', '<em>Nods down the lane.</em>', '<em>Lowers their voice.</em>'])}\n${SIGHTINGS[label](whereabouts(c, o, d))}`;
+      const candidates = sightings(scene, c);
+      const picks = (housedScout && NPCBenefits.directions(scene, c, candidates, now))
+        || (candidates.length ? [daily(candidates)] : []);
+      if (picks.length) {
+        targets = picks.map(({ o, label }) => ({ targetId: o.id, x: o.x, y: o.y, depth: scene.depth || 0,
+          category: label, type: label === 'foe' || label === 'elite' ? 'creature' : 'object' }));
+        body = `${daily(['<em>Points past the wrecks.</em>', '<em>Nods down the lane.</em>', '<em>Lowers their voice.</em>'])}\n${picks.map(({ o, label, d }) => SIGHTINGS[label](whereabouts(c, o, d))).join('\n')}`;
       } else body = daily(['“Quiet lanes today. Nothing new to show you. Come back tomorrow.”', '<em>Shrugs.</em>\n“Nothing new on this stretch today. Try me tomorrow.”', '“No fresh sightings today. I will keep looking.”']);
+      if (story) body = [body, ...(Array.isArray(story) ? story : [story])];
     }
     const benefit = !isDormant(c, now) && typeof NPCBenefits !== 'undefined' ? NPCBenefits.dialogue(scene, c, now) : '';
     const talk = talkOf(title, benefit ? [...(Array.isArray(body) ? body : [body]), benefit] : body);
     if (story && firstStrangerMeeting) talk.art = 'story_ayo_arrival';
-    if (target) talk.target = target;
+    if (targets.length) { talk.target = targets[0]; talk.targets = targets; }
     return talk;
   }
   // Portrait identity follows the same role/culture sheet as the map sprite.
@@ -847,12 +869,14 @@ const NPC = (() => {
     if (benefit?.message && !talk.body.includes(benefit.message)) { talk.pages.push(benefit.message); talk.body = talk.pages.join('\n\n'); }
     // All sections share one scrolling conversation and its painting or portrait.
     const say = () => {
-      if (talk.target && !isDormant(c)) {
+      if (talk.targets?.length && !isDormant(c)) {
         // The rim label names who gave the directions (Wayfinder, Fieldwalker…).
         // Each neighbour's directions join the others' (Buffs.withMark).
-        scene.save.wayfarerCompass = Buffs.withMark(scene.save.wayfarerCompass, { ...talk.target,
-          source: c.roleLabel || LABELS[c.culture || 'village'][c.role],
-          until: Date.now() + Scenic.TELESCOPE_DURATION_MS });
+        for (const target of talk.targets) {
+          scene.save.wayfarerCompass = Buffs.withMark(scene.save.wayfarerCompass, { ...target,
+            source: c.roleLabel || LABELS[c.culture || 'village'][c.role],
+            until: Date.now() + Scenic.TELESCOPE_DURATION_MS });
+        }
         persistSave(scene.save);
       }
       MemoryStory.showPages(scene, talk.pages, { ...speech(c),
@@ -899,6 +923,7 @@ const NPC = (() => {
       return;
     }
     if (typeof StoryEncounters !== 'undefined' && StoryEncounters.interact(scene, c)) return;
+    if (typeof LostMiner !== 'undefined' && LostMiner.interact(scene, c)) return;
     if (c.role !== 'merchant' && c.role !== 'trader') { say(); return; }
     // No per-hour deal cap (shops_math.js header), but a peddling trader
     // rests briefly after a closed deal (ShopsMath.DEAL_COOLDOWN_MS — the same
@@ -914,5 +939,5 @@ const NPC = (() => {
     if (c.role === 'trader') scene.presentTraderOffer(sx, sy, c, record);
     else scene.presentThemedShop(sx, sy, c, record);
   }
-  return { REST_MS_AFTER_HIT, RESTING_LINE, restore, isDormant, hit, canTarget, prepareTargets, enemyTarget, COUNT, CULTURES, LABELS, WALK_MPS, WANDER_CELLS, WARDEN_LINE, CHILD_SCALE, STORY_ROLES, STORY_NEIGHBOURS, storyNeighbour, warden, storyNeighbourDue, RETURN_PER_MEMORY, LINGER_CELLS, returnedCount, stayers, anchorsIn, arrivals, spreadSeat, startingSeat, rememberPin, meetHomeNeighbour, markDelivery, residentOf, houseResident, houseFront, MOVE_IN_DELAY_MS, houseNeighbours, offscreenAt, tickArrivals, KEEPER_DEFAULT, nearestWreck, identity, cultureFor, spawn, seatKeepers, shrineResidents, restoreShrine, tick, dialogue, portrait, speech, dialogSource, offerArt, interact };
+  return { REST_MS_AFTER_HIT, RESTING_LINE, restore, isDormant, hit, canTarget, prepareTargets, enemyTarget, COUNT, CULTURES, LABELS, WALK_MPS, WANDER_CELLS, WARDEN_LINE, CHILD_SCALE, STORY_ROLES, STORY_NEIGHBOURS, storyNeighbour, warden, storyNeighbourDue, RETURN_PER_MEMORY, LINGER_CELLS, returnedCount, stayers, anchorsIn, arrivals, spreadSeat, startingSeat, rememberPin, meetHomeNeighbour, markDelivery, residentOf, houseResident, houseFront, MOVE_IN_DELAY_MS, houseNeighbours, offscreenAt, tickArrivals, KEEPER_DEFAULT, nearestWreck, identity, cultureFor, spawn, seatKeepers, shrineResidents, restoreShrine, tick, sightings, dialogue, portrait, speech, dialogSource, offerArt, interact };
 })();

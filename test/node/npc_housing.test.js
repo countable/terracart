@@ -214,4 +214,14 @@
     NPC.meetHomeNeighbour(s, orrin);
     assert.eq(settle(s), 1); assert.eq(s.save.npcHomes.orrin.houseId, next.id);
   }));
+  test('NPC housing: the found miner takes a roof after the other named neighbours', () => withWorld((s, origin, destination) => {
+    const cobb = person('cobb', 'miner'), orrin = person('orrin', 'archaeologist');
+    origin.creatures.push(cobb, orrin);
+    const h = house('first'); restore(s, destination, h); deliver(s, h);
+    s.save.npcMet = { cobb: true, orrin: true };   // LostMiner.interact stamps Cobb met on finding him
+    assert.eq(settle(s), 1); assert.eq(s.save.npcHomes.orrin.houseId, h.id, 'Orrin outranks Cobb');
+    const next = house('second', 1, 30); restore(s, destination, next); deliver(s, next);
+    assert.eq(settle(s), 1); assert.eq(s.save.npcHomes.cobb.houseId, next.id, 'then Cobb');
+    assert.eq(NPC.residentOf(s.save, next).name, 'Cobb');
+  }));
 })();

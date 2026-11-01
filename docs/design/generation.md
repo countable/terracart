@@ -1428,11 +1428,12 @@ in `save.npcMoveInAfter`; old delivered houses start that delay when loaded.
 One live, unhoused, unwounded resident whom the player has spoken to may then
 move in. Conversation records eligibility in `save.npcMet`; delivery still opens
 the roof, and absent pending records cannot create a resident. Eligible neighbours
-take homes in a fixed role order: Tilly, Bryn, Maud, Edda, Orrin, then ordinary
-residents by stable id. Distance and tile loading order do not change that priority.
+take homes in a fixed role order: Tilly, Bryn, Maud, Edda, Orrin, Cobb, then
+ordinary residents by stable id. Distance and tile loading order do not change that priority.
 Unmet residents wait until a conversation; existing saved assignments remain
 valid without a meeting stamp. The transient
-stranger is excluded; Maud is eligible after her rescue reward. The move prefers
+stranger is excluded; Maud is eligible after her rescue reward; Cobb the miner
+is stamped met by the talk that finds him underground. The move prefers
 an unseen moment for at most another 15 seconds. `save.npcHomes` owns the
 one-resident-per-house assignment, identity and safe outside wander centre,
 plus the actual house position. Reloading reconstructs existing assignments

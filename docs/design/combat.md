@@ -495,6 +495,10 @@ mechanics.
   with the normal immediate full heal and lifetime story progression. Pickup
   cannot remove or repeat an earned memory.
 - A housed neighbour's luxury also determines their help (`NPCBenefits`).
+  WHAT they give is their role's; HOW MUCH is the home's luxury through one
+  reward ladder, `NPCBenefits.rewardSize`: nothing from a bare home, one
+  from the first luxury point, one more at each rung of `REWARD_STEPS`
+  (4, 12, 20 and 28), so five at most.
   Tilly waters dry, immature surface crops within 15 cells of her house for
   one minute per luxury point, followed by an hour's rest. She walks to a crop
   or a cardinal neighbour through the NPC spawn gate and shared character
@@ -504,9 +508,15 @@ mechanics.
   creature simulation bubble, so she can reach the full crop radius and return
   while the player stays home; other distant creatures remain frozen.
   Actual watering records today's UTC date so talking to Tilly or visiting her
-  house can report, “Hey, I watered your crops today.” Other housed neighbours
-  offer daily gifts on a visit or conversation: Bryn gives Wood, Maud Apples,
-  Edda Flowers, Orrin Rock, and other residents Berries, one per luxury point.
+  house can report, “Hey, I watered your crops today.” A housed scout
+  (Wayfinder, Fieldwalker…) gives directions instead of a gift
+  (`NPCBenefits.directions`): a ladder-sized set of new sightings every day,
+  never one pointed at before while any remain, pinned for the UTC day on the
+  first talk, each marking the rim; the story's line for a scout is a page
+  after them, never instead. Other housed neighbours offer daily gifts on a
+  visit or conversation: Bryn gives Wood, Maud Apples, Edda Flowers, Orrin
+  Rock, Cobb the miner Torches, and other residents Berries, a ladder-sized
+  count each day.
   Gifts reset by UTC day without accumulating missed days. A partly full bag
   retains today's uncollected portion; successful collection fixes today's
   allowance so furniture changes cannot repeat a gift.
