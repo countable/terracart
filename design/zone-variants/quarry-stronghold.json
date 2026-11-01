@@ -3055,6 +3055,8 @@
       "_standCache": null,
       "_macroCache": null,
       "_chestLook": {
+        "tint": 16777215,
+        "cache": false,
         "stand": null,
         "bike": false,
         "barrel": false,
@@ -3431,6 +3433,8 @@
       "barrel": true,
       "_standCache": null,
       "_chestLook": {
+        "tint": 16777215,
+        "cache": false,
         "stand": null,
         "bike": false,
         "barrel": true,
@@ -3537,6 +3541,8 @@
       "barrel": true,
       "_standCache": null,
       "_chestLook": {
+        "tint": 16777215,
+        "cache": false,
         "stand": null,
         "bike": false,
         "barrel": true,
@@ -3609,6 +3615,8 @@
       "barrel": true,
       "_standCache": null,
       "_chestLook": {
+        "tint": 16777215,
+        "cache": false,
         "stand": null,
         "bike": false,
         "barrel": true,
@@ -3681,6 +3689,8 @@
       "barrel": true,
       "_standCache": null,
       "_chestLook": {
+        "tint": 16777215,
+        "cache": false,
         "stand": null,
         "bike": false,
         "barrel": true,
@@ -4858,6 +4868,8 @@
       "barrel": true,
       "_standCache": null,
       "_chestLook": {
+        "tint": 16777215,
+        "cache": false,
         "stand": null,
         "bike": false,
         "barrel": true,
@@ -5506,7 +5518,7 @@
       "_iy": 111,
       "yieldTier": 1,
       "requiredTier": 1,
-      "rockVariant": 3,
+      "rockVariant": 1,
       "cell": [
         31,
         15
@@ -5953,6 +5965,8 @@
       "barrel": true,
       "_standCache": null,
       "_chestLook": {
+        "tint": 16777215,
+        "cache": false,
         "stand": null,
         "bike": false,
         "barrel": true,
@@ -6059,6 +6073,8 @@
       "barrel": true,
       "_standCache": null,
       "_chestLook": {
+        "tint": 16777215,
+        "cache": false,
         "stand": null,
         "bike": false,
         "barrel": true,
@@ -6165,6 +6181,8 @@
       "barrel": true,
       "_standCache": null,
       "_chestLook": {
+        "tint": 16777215,
+        "cache": false,
         "stand": null,
         "bike": false,
         "barrel": true,
@@ -7223,6 +7241,8 @@
       "barrel": true,
       "_standCache": null,
       "_chestLook": {
+        "tint": 16777215,
+        "cache": false,
         "stand": null,
         "bike": false,
         "barrel": true,
@@ -7295,6 +7315,8 @@
       "barrel": true,
       "_standCache": null,
       "_chestLook": {
+        "tint": 16777215,
+        "cache": false,
         "stand": null,
         "bike": false,
         "barrel": true,
@@ -7435,6 +7457,8 @@
       "barrel": true,
       "_standCache": null,
       "_chestLook": {
+        "tint": 16777215,
+        "cache": false,
         "stand": null,
         "bike": false,
         "barrel": true,
@@ -8493,6 +8517,8 @@
       "barrel": true,
       "_standCache": null,
       "_chestLook": {
+        "tint": 16777215,
+        "cache": false,
         "stand": null,
         "bike": false,
         "barrel": true,
@@ -8565,6 +8591,8 @@
       "barrel": true,
       "_standCache": null,
       "_chestLook": {
+        "tint": 16777215,
+        "cache": false,
         "stand": null,
         "bike": false,
         "barrel": true,
@@ -8637,6 +8665,8 @@
       "barrel": true,
       "_standCache": null,
       "_chestLook": {
+        "tint": 16777215,
+        "cache": false,
         "stand": null,
         "bike": false,
         "barrel": true,
@@ -8709,6 +8739,8 @@
       "barrel": true,
       "_standCache": null,
       "_chestLook": {
+        "tint": 16777215,
+        "cache": false,
         "stand": null,
         "bike": false,
         "barrel": true,
@@ -8781,6 +8813,8 @@
       "barrel": true,
       "_standCache": null,
       "_chestLook": {
+        "tint": 16777215,
+        "cache": false,
         "stand": null,
         "bike": false,
         "barrel": true,

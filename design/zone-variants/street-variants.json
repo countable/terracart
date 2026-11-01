@@ -992,6 +992,7 @@
           "id": "crate_end_2622_5615_129_114",
           "crate": true,
           "tierSeed": 1,
+          "previewContainerKind": "box",
           "previewContainerFrame": 2
         },
         {
@@ -1001,6 +1002,7 @@
           "id": "crate_end_2622_5615_99_114",
           "crate": true,
           "tierSeed": 1,
+          "previewContainerKind": "box",
           "previewContainerFrame": 0
         },
         {
@@ -3039,6 +3041,7 @@
           "cache": true,
           "cacheTheme": "overgrown",
           "concealed": true,
+          "previewContainerKind": "box",
           "previewContainerFrame": 0
         },
         {
@@ -3048,6 +3051,7 @@
           "id": "crate_end_2622_5615_129_114",
           "crate": true,
           "tierSeed": 1,
+          "previewContainerKind": "box",
           "previewContainerFrame": 2
         },
         {
@@ -3057,6 +3061,7 @@
           "id": "crate_end_2622_5615_99_114",
           "crate": true,
           "tierSeed": 1,
+          "previewContainerKind": "box",
           "previewContainerFrame": 0
         }
       ],
@@ -4073,6 +4078,7 @@
           "cache": true,
           "cacheTheme": "orchard",
           "concealed": true,
+          "previewContainerKind": "box",
           "previewContainerFrame": 0
         },
         {
@@ -4082,6 +4088,7 @@
           "id": "crate_end_2622_5615_129_114",
           "crate": true,
           "tierSeed": 1,
+          "previewContainerKind": "box",
           "previewContainerFrame": 2
         },
         {
@@ -4091,6 +4098,7 @@
           "id": "crate_end_2622_5615_99_114",
           "crate": true,
           "tierSeed": 1,
+          "previewContainerKind": "box",
           "previewContainerFrame": 0
         },
         {
@@ -5175,6 +5183,7 @@
           "cache": true,
           "cacheTheme": "pilgrim",
           "concealed": true,
+          "previewContainerKind": "box",
           "previewContainerFrame": 2
         }
       ],
@@ -6796,6 +6805,7 @@
           "id": "crate_end_2622_5615_129_114",
           "crate": true,
           "tierSeed": 1,
+          "previewContainerKind": "box",
           "previewContainerFrame": 2
         },
         {
@@ -6805,6 +6815,7 @@
           "id": "crate_end_2622_5615_99_114",
           "crate": true,
           "tierSeed": 1,
+          "previewContainerKind": "box",
           "previewContainerFrame": 0
         },
         {
@@ -13045,6 +13056,17 @@
     },
     {
       "id": "parkpath",
+      "pathFauna": {
+        "butterfly": {
+          "count": [
+            1,
+            3
+          ],
+          "kinds": "BUTTERFLY_VARIANTS",
+          "perPath": true,
+          "salt": "pathfauna|butterfly"
+        }
+      },
       "materialLooks": {
         "tree": "mossy_tree"
       },
@@ -14667,6 +14689,7 @@
           "id": "chest_snare_2622_5615_114_113",
           "_street": "snare",
           "name": "Snare cache",
+          "previewContainerKind": "chest",
           "previewContainerFrame": 2
         },
         {
@@ -14784,6 +14807,7 @@
           "id": "crate_end_2622_5615_129_114",
           "crate": true,
           "tierSeed": 1,
+          "previewContainerKind": "box",
           "previewContainerFrame": 2
         },
         {
@@ -14793,6 +14817,7 @@
           "id": "crate_end_2622_5615_99_114",
           "crate": true,
           "tierSeed": 1,
+          "previewContainerKind": "box",
           "previewContainerFrame": 0
         },
         {
@@ -16790,6 +16815,7 @@
           "id": "crate_end_2622_5615_130_113",
           "crate": true,
           "tierSeed": 1,
+          "previewContainerKind": "box",
           "previewContainerFrame": 1
         },
         {
@@ -16799,6 +16825,7 @@
           "id": "crate_end_2622_5615_98_113",
           "crate": true,
           "tierSeed": 1,
+          "previewContainerKind": "box",
           "previewContainerFrame": 2
         },
         {
@@ -19050,6 +19077,7 @@
           "_street": "goblin_gang",
           "redBarrel": true,
           "barrelStyle": "barrel",
+          "previewContainerKind": "barrel",
           "previewContainerFrame": 3
         },
         {
@@ -19059,6 +19087,7 @@
           "id": "gang_barrel_2622_5615_102_116",
           "barrel": true,
           "_street": "goblin_gang",
+          "previewContainerKind": "barrel",
           "previewContainerFrame": 3
         },
         {
@@ -19068,6 +19097,7 @@
           "id": "gang_barrel_2622_5615_101_115",
           "barrel": true,
           "_street": "goblin_gang",
+          "previewContainerKind": "barrel",
           "previewContainerFrame": 3
         },
         {
@@ -19077,6 +19107,7 @@
           "id": "gang_barrel_2622_5615_101_116",
           "barrel": true,
           "_street": "goblin_gang",
+          "previewContainerKind": "clay_pot",
           "previewContainerFrame": 1
         },
         {
@@ -19086,6 +19117,7 @@
           "id": "gang_barrel_2622_5615_100_116",
           "barrel": true,
           "_street": "goblin_gang",
+          "previewContainerKind": "barrel",
           "previewContainerFrame": 3
         },
         {
@@ -19097,6 +19129,7 @@
           "_street": "goblin_gang",
           "redBarrel": true,
           "barrelStyle": "barrel",
+          "previewContainerKind": "barrel",
           "previewContainerFrame": 3
         },
         {
@@ -19106,6 +19139,7 @@
           "id": "gang_barrel_2622_5615_107_112",
           "barrel": true,
           "_street": "goblin_gang",
+          "previewContainerKind": "clay_pot",
           "previewContainerFrame": 1
         },
         {
@@ -19115,6 +19149,7 @@
           "id": "gang_barrel_2622_5615_106_113",
           "barrel": true,
           "_street": "goblin_gang",
+          "previewContainerKind": "clay_pot",
           "previewContainerFrame": 1
         },
         {
@@ -19124,6 +19159,7 @@
           "id": "gang_barrel_2622_5615_106_112",
           "barrel": true,
           "_street": "goblin_gang",
+          "previewContainerKind": "barrel",
           "previewContainerFrame": 3
         },
         {
@@ -19133,6 +19169,7 @@
           "id": "gang_barrel_2622_5615_105_113",
           "barrel": true,
           "_street": "goblin_gang",
+          "previewContainerKind": "barrel",
           "previewContainerFrame": 3
         },
         {
@@ -19144,6 +19181,7 @@
           "_street": "goblin_gang",
           "redBarrel": true,
           "barrelStyle": "barrel",
+          "previewContainerKind": "barrel",
           "previewContainerFrame": 3
         },
         {
@@ -19153,6 +19191,7 @@
           "id": "gang_barrel_2622_5615_111_115",
           "barrel": true,
           "_street": "goblin_gang",
+          "previewContainerKind": "clay_pot",
           "previewContainerFrame": 1
         },
         {
@@ -19162,6 +19201,7 @@
           "id": "gang_barrel_2622_5615_111_116",
           "barrel": true,
           "_street": "goblin_gang",
+          "previewContainerKind": "barrel",
           "previewContainerFrame": 3
         },
         {
@@ -19171,6 +19211,7 @@
           "id": "gang_barrel_2622_5615_110_115",
           "barrel": true,
           "_street": "goblin_gang",
+          "previewContainerKind": "barrel",
           "previewContainerFrame": 3
         },
         {
@@ -19180,6 +19221,7 @@
           "id": "gang_barrel_2622_5615_110_116",
           "barrel": true,
           "_street": "goblin_gang",
+          "previewContainerKind": "clay_pot",
           "previewContainerFrame": 1
         },
         {
@@ -19191,6 +19233,7 @@
           "_street": "goblin_gang",
           "redBarrel": true,
           "barrelStyle": "barrel",
+          "previewContainerKind": "barrel",
           "previewContainerFrame": 3
         },
         {
@@ -19200,6 +19243,7 @@
           "id": "gang_barrel_2622_5615_117_113",
           "barrel": true,
           "_street": "goblin_gang",
+          "previewContainerKind": "clay_pot",
           "previewContainerFrame": 1
         },
         {
@@ -19209,6 +19253,7 @@
           "id": "gang_barrel_2622_5615_117_112",
           "barrel": true,
           "_street": "goblin_gang",
+          "previewContainerKind": "barrel",
           "previewContainerFrame": 3
         },
         {
@@ -19218,6 +19263,7 @@
           "id": "gang_barrel_2622_5615_116_112",
           "barrel": true,
           "_street": "goblin_gang",
+          "previewContainerKind": "clay_pot",
           "previewContainerFrame": 1
         },
         {
@@ -19227,6 +19273,7 @@
           "id": "gang_barrel_2622_5615_119_113",
           "barrel": true,
           "_street": "goblin_gang",
+          "previewContainerKind": "clay_pot",
           "previewContainerFrame": 1
         },
         {
@@ -19238,6 +19285,7 @@
           "_street": "goblin_gang",
           "redBarrel": true,
           "barrelStyle": "barrel",
+          "previewContainerKind": "barrel",
           "previewContainerFrame": 3
         },
         {
@@ -19247,6 +19295,7 @@
           "id": "gang_barrel_2622_5615_123_116",
           "barrel": true,
           "_street": "goblin_gang",
+          "previewContainerKind": "clay_pot",
           "previewContainerFrame": 1
         },
         {
@@ -19256,6 +19305,7 @@
           "id": "gang_barrel_2622_5615_122_116",
           "barrel": true,
           "_street": "goblin_gang",
+          "previewContainerKind": "barrel",
           "previewContainerFrame": 3
         },
         {
@@ -19265,6 +19315,7 @@
           "id": "gang_barrel_2622_5615_121_115",
           "barrel": true,
           "_street": "goblin_gang",
+          "previewContainerKind": "barrel",
           "previewContainerFrame": 3
         },
         {
@@ -19274,6 +19325,7 @@
           "id": "gang_barrel_2622_5615_121_116",
           "barrel": true,
           "_street": "goblin_gang",
+          "previewContainerKind": "clay_pot",
           "previewContainerFrame": 1
         },
         {
@@ -19285,6 +19337,7 @@
           "_street": "goblin_gang",
           "redBarrel": true,
           "barrelStyle": "barrel",
+          "previewContainerKind": "barrel",
           "previewContainerFrame": 3
         },
         {
@@ -19294,6 +19347,7 @@
           "id": "gang_barrel_2622_5615_127_113",
           "barrel": true,
           "_street": "goblin_gang",
+          "previewContainerKind": "barrel",
           "previewContainerFrame": 3
         },
         {
@@ -19303,6 +19357,7 @@
           "id": "gang_barrel_2622_5615_127_112",
           "barrel": true,
           "_street": "goblin_gang",
+          "previewContainerKind": "clay_pot",
           "previewContainerFrame": 1
         },
         {
@@ -19312,6 +19367,7 @@
           "id": "gang_barrel_2622_5615_126_113",
           "barrel": true,
           "_street": "goblin_gang",
+          "previewContainerKind": "clay_pot",
           "previewContainerFrame": 1
         },
         {
@@ -19321,6 +19377,7 @@
           "id": "gang_barrel_2622_5615_126_112",
           "barrel": true,
           "_street": "goblin_gang",
+          "previewContainerKind": "barrel",
           "previewContainerFrame": 3
         },
         {
@@ -19338,6 +19395,7 @@
           "id": "crate_end_2622_5615_129_114",
           "crate": true,
           "tierSeed": 1,
+          "previewContainerKind": "box",
           "previewContainerFrame": 2
         },
         {
@@ -19347,6 +19405,7 @@
           "id": "crate_end_2622_5615_99_114",
           "crate": true,
           "tierSeed": 1,
+          "previewContainerKind": "box",
           "previewContainerFrame": 0
         },
         {
@@ -20855,6 +20914,7 @@
           "cache": true,
           "cacheTheme": "spider_path",
           "concealed": true,
+          "previewContainerKind": "box",
           "previewContainerFrame": 3
         },
         {
@@ -23137,6 +23197,7 @@
           "cache": true,
           "cacheTheme": "paralysis_path",
           "concealed": true,
+          "previewContainerKind": "box",
           "previewContainerFrame": 0
         },
         {
@@ -23146,6 +23207,7 @@
           "id": "crate_end_2622_5615_129_114",
           "crate": true,
           "tierSeed": 1,
+          "previewContainerKind": "box",
           "previewContainerFrame": 2
         },
         {
@@ -23155,6 +23217,7 @@
           "id": "crate_end_2622_5615_99_114",
           "crate": true,
           "tierSeed": 1,
+          "previewContainerKind": "box",
           "previewContainerFrame": 0
         },
         {
@@ -23368,6 +23431,7 @@
           "cache": true,
           "cacheTheme": "confusion_path",
           "concealed": true,
+          "previewContainerKind": "box",
           "previewContainerFrame": 1
         },
         {
@@ -24434,6 +24498,7 @@
           "id": "crate_end_2622_5615_129_114",
           "crate": true,
           "tierSeed": 1,
+          "previewContainerKind": "box",
           "previewContainerFrame": 2
         },
         {
@@ -24443,6 +24508,7 @@
           "id": "crate_end_2622_5615_99_114",
           "crate": true,
           "tierSeed": 1,
+          "previewContainerKind": "box",
           "previewContainerFrame": 0
         },
         {
@@ -26759,6 +26825,7 @@
           "barrel": true,
           "barrelStyle": "clay_pot",
           "_street": "pottery",
+          "previewContainerKind": "clay_pot",
           "previewContainerFrame": 1
         },
         {
@@ -26769,6 +26836,7 @@
           "barrel": true,
           "barrelStyle": "clay_pot",
           "_street": "pottery",
+          "previewContainerKind": "clay_pot",
           "previewContainerFrame": 1
         },
         {
@@ -26779,6 +26847,7 @@
           "barrel": true,
           "barrelStyle": "clay_pot",
           "_street": "pottery",
+          "previewContainerKind": "clay_pot",
           "previewContainerFrame": 1
         },
         {
@@ -26789,6 +26858,7 @@
           "barrel": true,
           "barrelStyle": "clay_pot",
           "_street": "pottery",
+          "previewContainerKind": "clay_pot",
           "previewContainerFrame": 1
         },
         {
@@ -26799,6 +26869,7 @@
           "barrel": true,
           "barrelStyle": "clay_pot",
           "_street": "pottery",
+          "previewContainerKind": "clay_pot",
           "previewContainerFrame": 1
         },
         {
@@ -26809,6 +26880,7 @@
           "barrel": true,
           "barrelStyle": "clay_pot",
           "_street": "pottery",
+          "previewContainerKind": "clay_pot",
           "previewContainerFrame": 0
         },
         {
@@ -26819,6 +26891,7 @@
           "barrel": true,
           "barrelStyle": "clay_pot",
           "_street": "pottery",
+          "previewContainerKind": "clay_pot",
           "previewContainerFrame": 0
         },
         {
@@ -26829,6 +26902,7 @@
           "barrel": true,
           "barrelStyle": "clay_pot",
           "_street": "pottery",
+          "previewContainerKind": "clay_pot",
           "previewContainerFrame": 0
         },
         {
@@ -26839,6 +26913,7 @@
           "barrel": true,
           "barrelStyle": "clay_pot",
           "_street": "pottery",
+          "previewContainerKind": "clay_pot",
           "previewContainerFrame": 0
         },
         {
@@ -26849,6 +26924,7 @@
           "barrel": true,
           "barrelStyle": "clay_pot",
           "_street": "pottery",
+          "previewContainerKind": "clay_pot",
           "previewContainerFrame": 0
         },
         {
@@ -26859,6 +26935,7 @@
           "barrel": true,
           "barrelStyle": "clay_pot",
           "_street": "pottery",
+          "previewContainerKind": "clay_pot",
           "previewContainerFrame": 1
         },
         {
@@ -26869,6 +26946,7 @@
           "barrel": true,
           "barrelStyle": "clay_pot",
           "_street": "pottery",
+          "previewContainerKind": "clay_pot",
           "previewContainerFrame": 1
         },
         {
@@ -26879,6 +26957,7 @@
           "barrel": true,
           "barrelStyle": "clay_pot",
           "_street": "pottery",
+          "previewContainerKind": "clay_pot",
           "previewContainerFrame": 1
         },
         {
@@ -26889,6 +26968,7 @@
           "barrel": true,
           "barrelStyle": "clay_pot",
           "_street": "pottery",
+          "previewContainerKind": "clay_pot",
           "previewContainerFrame": 1
         },
         {
@@ -26899,6 +26979,7 @@
           "barrel": true,
           "barrelStyle": "clay_pot",
           "_street": "pottery",
+          "previewContainerKind": "clay_pot",
           "previewContainerFrame": 1
         },
         {
@@ -26909,6 +26990,7 @@
           "barrel": true,
           "barrelStyle": "clay_pot",
           "_street": "pottery",
+          "previewContainerKind": "clay_pot",
           "previewContainerFrame": 1
         },
         {
@@ -26919,6 +27001,7 @@
           "barrel": true,
           "barrelStyle": "clay_pot",
           "_street": "pottery",
+          "previewContainerKind": "clay_pot",
           "previewContainerFrame": 1
         },
         {
@@ -26929,6 +27012,7 @@
           "barrel": true,
           "barrelStyle": "clay_pot",
           "_street": "pottery",
+          "previewContainerKind": "clay_pot",
           "previewContainerFrame": 0
         },
         {
@@ -26939,6 +27023,7 @@
           "barrel": true,
           "barrelStyle": "clay_pot",
           "_street": "pottery",
+          "previewContainerKind": "clay_pot",
           "previewContainerFrame": 0
         },
         {
@@ -26949,6 +27034,7 @@
           "barrel": true,
           "barrelStyle": "clay_pot",
           "_street": "pottery",
+          "previewContainerKind": "clay_pot",
           "previewContainerFrame": 1
         },
         {
@@ -26959,6 +27045,7 @@
           "barrel": true,
           "barrelStyle": "clay_pot",
           "_street": "pottery",
+          "previewContainerKind": "clay_pot",
           "previewContainerFrame": 1
         },
         {
@@ -26969,6 +27056,7 @@
           "barrel": true,
           "barrelStyle": "clay_pot",
           "_street": "pottery",
+          "previewContainerKind": "clay_pot",
           "previewContainerFrame": 0
         },
         {
@@ -26979,6 +27067,7 @@
           "barrel": true,
           "barrelStyle": "clay_pot",
           "_street": "pottery",
+          "previewContainerKind": "clay_pot",
           "previewContainerFrame": 0
         },
         {
@@ -26989,6 +27078,7 @@
           "barrel": true,
           "barrelStyle": "clay_pot",
           "_street": "pottery",
+          "previewContainerKind": "clay_pot",
           "previewContainerFrame": 1
         },
         {
@@ -26999,6 +27089,7 @@
           "barrel": true,
           "barrelStyle": "clay_pot",
           "_street": "pottery",
+          "previewContainerKind": "clay_pot",
           "previewContainerFrame": 1
         },
         {
@@ -27009,6 +27100,7 @@
           "barrel": true,
           "barrelStyle": "clay_pot",
           "_street": "pottery",
+          "previewContainerKind": "clay_pot",
           "previewContainerFrame": 0
         },
         {
@@ -27019,6 +27111,7 @@
           "barrel": true,
           "barrelStyle": "clay_pot",
           "_street": "pottery",
+          "previewContainerKind": "clay_pot",
           "previewContainerFrame": 0
         },
         {
@@ -27029,6 +27122,7 @@
           "barrel": true,
           "barrelStyle": "clay_pot",
           "_street": "pottery",
+          "previewContainerKind": "clay_pot",
           "previewContainerFrame": 1
         },
         {
@@ -27039,6 +27133,7 @@
           "barrel": true,
           "barrelStyle": "clay_pot",
           "_street": "pottery",
+          "previewContainerKind": "clay_pot",
           "previewContainerFrame": 1
         },
         {
@@ -27049,6 +27144,7 @@
           "barrel": true,
           "barrelStyle": "clay_pot",
           "_street": "pottery",
+          "previewContainerKind": "clay_pot",
           "previewContainerFrame": 0
         },
         {
@@ -27059,6 +27155,7 @@
           "barrel": true,
           "barrelStyle": "clay_pot",
           "_street": "pottery",
+          "previewContainerKind": "clay_pot",
           "previewContainerFrame": 0
         },
         {
@@ -27069,6 +27166,7 @@
           "barrel": true,
           "barrelStyle": "clay_pot",
           "_street": "pottery",
+          "previewContainerKind": "clay_pot",
           "previewContainerFrame": 1
         },
         {
@@ -27079,6 +27177,7 @@
           "barrel": true,
           "barrelStyle": "clay_pot",
           "_street": "pottery",
+          "previewContainerKind": "clay_pot",
           "previewContainerFrame": 1
         },
         {
@@ -27089,6 +27188,7 @@
           "barrel": true,
           "barrelStyle": "clay_pot",
           "_street": "pottery",
+          "previewContainerKind": "clay_pot",
           "previewContainerFrame": 0
         },
         {
@@ -27099,6 +27199,7 @@
           "barrel": true,
           "barrelStyle": "clay_pot",
           "_street": "pottery",
+          "previewContainerKind": "clay_pot",
           "previewContainerFrame": 0
         },
         {
@@ -27109,6 +27210,7 @@
           "barrel": true,
           "barrelStyle": "clay_pot",
           "_street": "pottery",
+          "previewContainerKind": "clay_pot",
           "previewContainerFrame": 1
         },
         {
@@ -27119,6 +27221,7 @@
           "barrel": true,
           "barrelStyle": "clay_pot",
           "_street": "pottery",
+          "previewContainerKind": "clay_pot",
           "previewContainerFrame": 1
         },
         {
@@ -27129,6 +27232,7 @@
           "barrel": true,
           "barrelStyle": "clay_pot",
           "_street": "pottery",
+          "previewContainerKind": "clay_pot",
           "previewContainerFrame": 1
         },
         {
@@ -27139,6 +27243,7 @@
           "barrel": true,
           "barrelStyle": "clay_pot",
           "_street": "pottery",
+          "previewContainerKind": "clay_pot",
           "previewContainerFrame": 1
         },
         {
@@ -27149,6 +27254,7 @@
           "barrel": true,
           "barrelStyle": "clay_pot",
           "_street": "pottery",
+          "previewContainerKind": "clay_pot",
           "previewContainerFrame": 0
         },
         {
@@ -27159,6 +27265,7 @@
           "barrel": true,
           "barrelStyle": "clay_pot",
           "_street": "pottery",
+          "previewContainerKind": "clay_pot",
           "previewContainerFrame": 0
         },
         {
@@ -27169,6 +27276,7 @@
           "barrel": true,
           "barrelStyle": "clay_pot",
           "_street": "pottery",
+          "previewContainerKind": "clay_pot",
           "previewContainerFrame": 1
         },
         {
@@ -27179,6 +27287,7 @@
           "barrel": true,
           "barrelStyle": "clay_pot",
           "_street": "pottery",
+          "previewContainerKind": "clay_pot",
           "previewContainerFrame": 1
         },
         {
@@ -27189,6 +27298,7 @@
           "barrel": true,
           "barrelStyle": "clay_pot",
           "_street": "pottery",
+          "previewContainerKind": "clay_pot",
           "previewContainerFrame": 0
         },
         {
@@ -27199,6 +27309,7 @@
           "barrel": true,
           "barrelStyle": "clay_pot",
           "_street": "pottery",
+          "previewContainerKind": "clay_pot",
           "previewContainerFrame": 0
         },
         {
@@ -27209,6 +27320,7 @@
           "barrel": true,
           "barrelStyle": "clay_pot",
           "_street": "pottery",
+          "previewContainerKind": "clay_pot",
           "previewContainerFrame": 1
         },
         {
@@ -27219,6 +27331,7 @@
           "barrel": true,
           "barrelStyle": "clay_pot",
           "_street": "pottery",
+          "previewContainerKind": "clay_pot",
           "previewContainerFrame": 1
         },
         {
@@ -27229,6 +27342,7 @@
           "barrel": true,
           "barrelStyle": "clay_pot",
           "_street": "pottery",
+          "previewContainerKind": "clay_pot",
           "previewContainerFrame": 0
         },
         {
@@ -27239,6 +27353,7 @@
           "barrel": true,
           "barrelStyle": "clay_pot",
           "_street": "pottery",
+          "previewContainerKind": "clay_pot",
           "previewContainerFrame": 0
         },
         {
@@ -27249,6 +27364,7 @@
           "barrel": true,
           "barrelStyle": "clay_pot",
           "_street": "pottery",
+          "previewContainerKind": "clay_pot",
           "previewContainerFrame": 1
         },
         {
@@ -27259,6 +27375,7 @@
           "barrel": true,
           "barrelStyle": "clay_pot",
           "_street": "pottery",
+          "previewContainerKind": "clay_pot",
           "previewContainerFrame": 1
         },
         {
@@ -27269,6 +27386,7 @@
           "barrel": true,
           "barrelStyle": "clay_pot",
           "_street": "pottery",
+          "previewContainerKind": "clay_pot",
           "previewContainerFrame": 0
         },
         {
@@ -27279,6 +27397,7 @@
           "barrel": true,
           "barrelStyle": "clay_pot",
           "_street": "pottery",
+          "previewContainerKind": "clay_pot",
           "previewContainerFrame": 0
         },
         {
@@ -27289,6 +27408,7 @@
           "barrel": true,
           "barrelStyle": "clay_pot",
           "_street": "pottery",
+          "previewContainerKind": "clay_pot",
           "previewContainerFrame": 1
         },
         {
@@ -27299,6 +27419,7 @@
           "barrel": true,
           "barrelStyle": "clay_pot",
           "_street": "pottery",
+          "previewContainerKind": "clay_pot",
           "previewContainerFrame": 1
         },
         {
@@ -27309,6 +27430,7 @@
           "barrel": true,
           "barrelStyle": "clay_pot",
           "_street": "pottery",
+          "previewContainerKind": "clay_pot",
           "previewContainerFrame": 0
         },
         {
@@ -27319,6 +27441,7 @@
           "barrel": true,
           "barrelStyle": "clay_pot",
           "_street": "pottery",
+          "previewContainerKind": "clay_pot",
           "previewContainerFrame": 0
         },
         {
@@ -27329,6 +27452,7 @@
           "barrel": true,
           "barrelStyle": "clay_pot",
           "_street": "pottery",
+          "previewContainerKind": "clay_pot",
           "previewContainerFrame": 0
         },
         {
@@ -27339,6 +27463,7 @@
           "barrel": true,
           "barrelStyle": "clay_pot",
           "_street": "pottery",
+          "previewContainerKind": "clay_pot",
           "previewContainerFrame": 0
         },
         {
@@ -27349,6 +27474,7 @@
           "barrel": true,
           "barrelStyle": "clay_pot",
           "_street": "pottery",
+          "previewContainerKind": "clay_pot",
           "previewContainerFrame": 1
         },
         {
@@ -27359,6 +27485,7 @@
           "barrel": true,
           "barrelStyle": "clay_pot",
           "_street": "pottery",
+          "previewContainerKind": "clay_pot",
           "previewContainerFrame": 1
         },
         {
@@ -27369,6 +27496,7 @@
           "barrel": true,
           "barrelStyle": "clay_pot",
           "_street": "pottery",
+          "previewContainerKind": "clay_pot",
           "previewContainerFrame": 0
         },
         {
@@ -27379,6 +27507,7 @@
           "barrel": true,
           "barrelStyle": "clay_pot",
           "_street": "pottery",
+          "previewContainerKind": "clay_pot",
           "previewContainerFrame": 0
         },
         {
@@ -27389,6 +27518,7 @@
           "barrel": true,
           "barrelStyle": "clay_pot",
           "_street": "pottery",
+          "previewContainerKind": "clay_pot",
           "previewContainerFrame": 1
         },
         {
@@ -27399,6 +27529,7 @@
           "barrel": true,
           "barrelStyle": "clay_pot",
           "_street": "pottery",
+          "previewContainerKind": "clay_pot",
           "previewContainerFrame": 1
         },
         {
@@ -27409,6 +27540,7 @@
           "barrel": true,
           "barrelStyle": "clay_pot",
           "_street": "pottery",
+          "previewContainerKind": "clay_pot",
           "previewContainerFrame": 0
         },
         {
@@ -27419,6 +27551,7 @@
           "barrel": true,
           "barrelStyle": "clay_pot",
           "_street": "pottery",
+          "previewContainerKind": "clay_pot",
           "previewContainerFrame": 0
         },
         {
@@ -27429,6 +27562,7 @@
           "barrel": true,
           "barrelStyle": "clay_pot",
           "_street": "pottery",
+          "previewContainerKind": "clay_pot",
           "previewContainerFrame": 1
         },
         {
@@ -27439,6 +27573,7 @@
           "barrel": true,
           "barrelStyle": "clay_pot",
           "_street": "pottery",
+          "previewContainerKind": "clay_pot",
           "previewContainerFrame": 1
         },
         {
@@ -27449,6 +27584,7 @@
           "barrel": true,
           "barrelStyle": "clay_pot",
           "_street": "pottery",
+          "previewContainerKind": "clay_pot",
           "previewContainerFrame": 0
         },
         {
@@ -27459,6 +27595,7 @@
           "barrel": true,
           "barrelStyle": "clay_pot",
           "_street": "pottery",
+          "previewContainerKind": "clay_pot",
           "previewContainerFrame": 0
         },
         {
@@ -27469,6 +27606,7 @@
           "barrel": true,
           "barrelStyle": "clay_pot",
           "_street": "pottery",
+          "previewContainerKind": "clay_pot",
           "previewContainerFrame": 1
         },
         {
@@ -27479,6 +27617,7 @@
           "barrel": true,
           "barrelStyle": "clay_pot",
           "_street": "pottery",
+          "previewContainerKind": "clay_pot",
           "previewContainerFrame": 1
         },
         {
@@ -27489,6 +27628,7 @@
           "barrel": true,
           "barrelStyle": "clay_pot",
           "_street": "pottery",
+          "previewContainerKind": "clay_pot",
           "previewContainerFrame": 0
         },
         {
@@ -27499,6 +27639,7 @@
           "barrel": true,
           "barrelStyle": "clay_pot",
           "_street": "pottery",
+          "previewContainerKind": "clay_pot",
           "previewContainerFrame": 0
         },
         {
@@ -27509,6 +27650,7 @@
           "barrel": true,
           "barrelStyle": "clay_pot",
           "_street": "pottery",
+          "previewContainerKind": "clay_pot",
           "previewContainerFrame": 1
         },
         {
@@ -27519,6 +27661,7 @@
           "barrel": true,
           "barrelStyle": "clay_pot",
           "_street": "pottery",
+          "previewContainerKind": "clay_pot",
           "previewContainerFrame": 1
         },
         {
@@ -27529,6 +27672,7 @@
           "barrel": true,
           "barrelStyle": "clay_pot",
           "_street": "pottery",
+          "previewContainerKind": "clay_pot",
           "previewContainerFrame": 0
         },
         {
@@ -27539,6 +27683,7 @@
           "barrel": true,
           "barrelStyle": "clay_pot",
           "_street": "pottery",
+          "previewContainerKind": "clay_pot",
           "previewContainerFrame": 0
         },
         {
@@ -27549,6 +27694,7 @@
           "barrel": true,
           "barrelStyle": "clay_pot",
           "_street": "pottery",
+          "previewContainerKind": "clay_pot",
           "previewContainerFrame": 1
         },
         {
@@ -27559,6 +27705,7 @@
           "barrel": true,
           "barrelStyle": "clay_pot",
           "_street": "pottery",
+          "previewContainerKind": "clay_pot",
           "previewContainerFrame": 1
         },
         {
@@ -27569,6 +27716,7 @@
           "barrel": true,
           "barrelStyle": "clay_pot",
           "_street": "pottery",
+          "previewContainerKind": "clay_pot",
           "previewContainerFrame": 0
         },
         {
@@ -27579,6 +27727,7 @@
           "barrel": true,
           "barrelStyle": "clay_pot",
           "_street": "pottery",
+          "previewContainerKind": "clay_pot",
           "previewContainerFrame": 0
         },
         {
@@ -27589,6 +27738,7 @@
           "barrel": true,
           "barrelStyle": "clay_pot",
           "_street": "pottery",
+          "previewContainerKind": "clay_pot",
           "previewContainerFrame": 1
         },
         {
@@ -27599,6 +27749,7 @@
           "barrel": true,
           "barrelStyle": "clay_pot",
           "_street": "pottery",
+          "previewContainerKind": "clay_pot",
           "previewContainerFrame": 1
         },
         {
@@ -27609,6 +27760,7 @@
           "barrel": true,
           "barrelStyle": "clay_pot",
           "_street": "pottery",
+          "previewContainerKind": "clay_pot",
           "previewContainerFrame": 0
         },
         {
@@ -27619,6 +27771,7 @@
           "barrel": true,
           "barrelStyle": "clay_pot",
           "_street": "pottery",
+          "previewContainerKind": "clay_pot",
           "previewContainerFrame": 0
         },
         {
@@ -27629,6 +27782,7 @@
           "barrel": true,
           "barrelStyle": "clay_pot",
           "_street": "pottery",
+          "previewContainerKind": "clay_pot",
           "previewContainerFrame": 1
         },
         {
@@ -27639,6 +27793,7 @@
           "barrel": true,
           "barrelStyle": "clay_pot",
           "_street": "pottery",
+          "previewContainerKind": "clay_pot",
           "previewContainerFrame": 1
         },
         {
@@ -27649,6 +27804,7 @@
           "barrel": true,
           "barrelStyle": "clay_pot",
           "_street": "pottery",
+          "previewContainerKind": "clay_pot",
           "previewContainerFrame": 0
         },
         {
@@ -27659,6 +27815,7 @@
           "barrel": true,
           "barrelStyle": "clay_pot",
           "_street": "pottery",
+          "previewContainerKind": "clay_pot",
           "previewContainerFrame": 0
         },
         {
@@ -27669,6 +27826,7 @@
           "barrel": true,
           "barrelStyle": "clay_pot",
           "_street": "pottery",
+          "previewContainerKind": "clay_pot",
           "previewContainerFrame": 1
         },
         {
@@ -27679,6 +27837,7 @@
           "barrel": true,
           "barrelStyle": "clay_pot",
           "_street": "pottery",
+          "previewContainerKind": "clay_pot",
           "previewContainerFrame": 1
         },
         {
@@ -27689,6 +27848,7 @@
           "barrel": true,
           "barrelStyle": "clay_pot",
           "_street": "pottery",
+          "previewContainerKind": "clay_pot",
           "previewContainerFrame": 0
         },
         {
@@ -27699,6 +27859,7 @@
           "barrel": true,
           "barrelStyle": "clay_pot",
           "_street": "pottery",
+          "previewContainerKind": "clay_pot",
           "previewContainerFrame": 0
         },
         {
@@ -27709,6 +27870,7 @@
           "barrel": true,
           "barrelStyle": "clay_pot",
           "_street": "pottery",
+          "previewContainerKind": "clay_pot",
           "previewContainerFrame": 1
         },
         {
@@ -27719,6 +27881,7 @@
           "barrel": true,
           "barrelStyle": "clay_pot",
           "_street": "pottery",
+          "previewContainerKind": "clay_pot",
           "previewContainerFrame": 1
         },
         {
@@ -27729,6 +27892,7 @@
           "barrel": true,
           "barrelStyle": "clay_pot",
           "_street": "pottery",
+          "previewContainerKind": "clay_pot",
           "previewContainerFrame": 0
         },
         {
@@ -27739,6 +27903,7 @@
           "barrel": true,
           "barrelStyle": "clay_pot",
           "_street": "pottery",
+          "previewContainerKind": "clay_pot",
           "previewContainerFrame": 0
         },
         {
@@ -27749,6 +27914,7 @@
           "barrel": true,
           "barrelStyle": "clay_pot",
           "_street": "pottery",
+          "previewContainerKind": "clay_pot",
           "previewContainerFrame": 0
         },
         {
@@ -27759,6 +27925,7 @@
           "barrel": true,
           "barrelStyle": "clay_pot",
           "_street": "pottery",
+          "previewContainerKind": "clay_pot",
           "previewContainerFrame": 0
         },
         {
@@ -27769,6 +27936,7 @@
           "barrel": true,
           "barrelStyle": "clay_pot",
           "_street": "pottery",
+          "previewContainerKind": "clay_pot",
           "previewContainerFrame": 1
         },
         {
@@ -27779,6 +27947,7 @@
           "barrel": true,
           "barrelStyle": "clay_pot",
           "_street": "pottery",
+          "previewContainerKind": "clay_pot",
           "previewContainerFrame": 1
         },
         {
@@ -27789,6 +27958,7 @@
           "barrel": true,
           "barrelStyle": "clay_pot",
           "_street": "pottery",
+          "previewContainerKind": "clay_pot",
           "previewContainerFrame": 0
         },
         {
@@ -27799,6 +27969,7 @@
           "barrel": true,
           "barrelStyle": "clay_pot",
           "_street": "pottery",
+          "previewContainerKind": "clay_pot",
           "previewContainerFrame": 0
         },
         {
@@ -27809,6 +27980,7 @@
           "barrel": true,
           "barrelStyle": "clay_pot",
           "_street": "pottery",
+          "previewContainerKind": "clay_pot",
           "previewContainerFrame": 1
         },
         {
@@ -27819,6 +27991,7 @@
           "barrel": true,
           "barrelStyle": "clay_pot",
           "_street": "pottery",
+          "previewContainerKind": "clay_pot",
           "previewContainerFrame": 1
         },
         {
@@ -27829,6 +28002,7 @@
           "barrel": true,
           "barrelStyle": "clay_pot",
           "_street": "pottery",
+          "previewContainerKind": "clay_pot",
           "previewContainerFrame": 0
         },
         {
@@ -27839,6 +28013,7 @@
           "barrel": true,
           "barrelStyle": "clay_pot",
           "_street": "pottery",
+          "previewContainerKind": "clay_pot",
           "previewContainerFrame": 0
         },
         {
@@ -27849,6 +28024,7 @@
           "barrel": true,
           "barrelStyle": "clay_pot",
           "_street": "pottery",
+          "previewContainerKind": "clay_pot",
           "previewContainerFrame": 1
         },
         {
@@ -27859,6 +28035,7 @@
           "barrel": true,
           "barrelStyle": "clay_pot",
           "_street": "pottery",
+          "previewContainerKind": "clay_pot",
           "previewContainerFrame": 1
         },
         {
@@ -27869,6 +28046,7 @@
           "barrel": true,
           "barrelStyle": "clay_pot",
           "_street": "pottery",
+          "previewContainerKind": "clay_pot",
           "previewContainerFrame": 0
         },
         {
@@ -27879,6 +28057,7 @@
           "barrel": true,
           "barrelStyle": "clay_pot",
           "_street": "pottery",
+          "previewContainerKind": "clay_pot",
           "previewContainerFrame": 0
         },
         {
@@ -27889,6 +28068,7 @@
           "barrel": true,
           "barrelStyle": "clay_pot",
           "_street": "pottery",
+          "previewContainerKind": "clay_pot",
           "previewContainerFrame": 1
         },
         {
@@ -27899,6 +28079,7 @@
           "barrel": true,
           "barrelStyle": "clay_pot",
           "_street": "pottery",
+          "previewContainerKind": "clay_pot",
           "previewContainerFrame": 1
         },
         {
@@ -27909,6 +28090,7 @@
           "barrel": true,
           "barrelStyle": "clay_pot",
           "_street": "pottery",
+          "previewContainerKind": "clay_pot",
           "previewContainerFrame": 0
         },
         {
@@ -27919,6 +28101,7 @@
           "barrel": true,
           "barrelStyle": "clay_pot",
           "_street": "pottery",
+          "previewContainerKind": "clay_pot",
           "previewContainerFrame": 0
         },
         {
@@ -27929,6 +28112,7 @@
           "barrel": true,
           "barrelStyle": "clay_pot",
           "_street": "pottery",
+          "previewContainerKind": "clay_pot",
           "previewContainerFrame": 1
         },
         {
@@ -27939,6 +28123,7 @@
           "barrel": true,
           "barrelStyle": "clay_pot",
           "_street": "pottery",
+          "previewContainerKind": "clay_pot",
           "previewContainerFrame": 1
         },
         {
@@ -27949,6 +28134,7 @@
           "barrel": true,
           "barrelStyle": "clay_pot",
           "_street": "pottery",
+          "previewContainerKind": "clay_pot",
           "previewContainerFrame": 1
         },
         {
@@ -27959,6 +28145,7 @@
           "barrel": true,
           "barrelStyle": "clay_pot",
           "_street": "pottery",
+          "previewContainerKind": "clay_pot",
           "previewContainerFrame": 1
         },
         {
@@ -27969,6 +28156,7 @@
           "barrel": true,
           "barrelStyle": "clay_pot",
           "_street": "pottery",
+          "previewContainerKind": "clay_pot",
           "previewContainerFrame": 0
         },
         {
@@ -27979,6 +28167,7 @@
           "barrel": true,
           "barrelStyle": "clay_pot",
           "_street": "pottery",
+          "previewContainerKind": "clay_pot",
           "previewContainerFrame": 0
         },
         {
@@ -27989,6 +28178,7 @@
           "barrel": true,
           "barrelStyle": "clay_pot",
           "_street": "pottery",
+          "previewContainerKind": "clay_pot",
           "previewContainerFrame": 1
         },
         {
@@ -27999,6 +28189,7 @@
           "barrel": true,
           "barrelStyle": "clay_pot",
           "_street": "pottery",
+          "previewContainerKind": "clay_pot",
           "previewContainerFrame": 1
         },
         {
@@ -28009,6 +28200,7 @@
           "barrel": true,
           "barrelStyle": "clay_pot",
           "_street": "pottery",
+          "previewContainerKind": "clay_pot",
           "previewContainerFrame": 0
         },
         {
@@ -28019,6 +28211,7 @@
           "barrel": true,
           "barrelStyle": "clay_pot",
           "_street": "pottery",
+          "previewContainerKind": "clay_pot",
           "previewContainerFrame": 0
         },
         {
@@ -28029,6 +28222,7 @@
           "barrel": true,
           "barrelStyle": "clay_pot",
           "_street": "pottery",
+          "previewContainerKind": "clay_pot",
           "previewContainerFrame": 1
         },
         {
@@ -28039,6 +28233,7 @@
           "barrel": true,
           "barrelStyle": "clay_pot",
           "_street": "pottery",
+          "previewContainerKind": "clay_pot",
           "previewContainerFrame": 1
         },
         {
@@ -28049,6 +28244,7 @@
           "barrel": true,
           "barrelStyle": "clay_pot",
           "_street": "pottery",
+          "previewContainerKind": "clay_pot",
           "previewContainerFrame": 0
         },
         {
@@ -28059,6 +28255,7 @@
           "barrel": true,
           "barrelStyle": "clay_pot",
           "_street": "pottery",
+          "previewContainerKind": "clay_pot",
           "previewContainerFrame": 0
         },
         {
@@ -28069,6 +28266,7 @@
           "barrel": true,
           "barrelStyle": "clay_pot",
           "_street": "pottery",
+          "previewContainerKind": "clay_pot",
           "previewContainerFrame": 1
         },
         {
@@ -28079,6 +28277,7 @@
           "barrel": true,
           "barrelStyle": "clay_pot",
           "_street": "pottery",
+          "previewContainerKind": "clay_pot",
           "previewContainerFrame": 1
         },
         {
@@ -28089,6 +28288,7 @@
           "barrel": true,
           "barrelStyle": "clay_pot",
           "_street": "pottery",
+          "previewContainerKind": "clay_pot",
           "previewContainerFrame": 0
         },
         {
@@ -28099,6 +28299,7 @@
           "barrel": true,
           "barrelStyle": "clay_pot",
           "_street": "pottery",
+          "previewContainerKind": "clay_pot",
           "previewContainerFrame": 0
         },
         {
@@ -28109,6 +28310,7 @@
           "barrel": true,
           "barrelStyle": "clay_pot",
           "_street": "pottery",
+          "previewContainerKind": "clay_pot",
           "previewContainerFrame": 1
         },
         {
@@ -28119,6 +28321,7 @@
           "barrel": true,
           "barrelStyle": "clay_pot",
           "_street": "pottery",
+          "previewContainerKind": "clay_pot",
           "previewContainerFrame": 1
         },
         {
@@ -28129,6 +28332,7 @@
           "barrel": true,
           "barrelStyle": "clay_pot",
           "_street": "pottery",
+          "previewContainerKind": "clay_pot",
           "previewContainerFrame": 0
         },
         {
@@ -28139,6 +28343,7 @@
           "barrel": true,
           "barrelStyle": "clay_pot",
           "_street": "pottery",
+          "previewContainerKind": "clay_pot",
           "previewContainerFrame": 0
         },
         {
@@ -28148,6 +28353,7 @@
           "id": "crate_end_2622_5615_129_114",
           "crate": true,
           "tierSeed": 1,
+          "previewContainerKind": "box",
           "previewContainerFrame": 2
         },
         {
@@ -28157,6 +28363,7 @@
           "id": "crate_end_2622_5615_99_114",
           "crate": true,
           "tierSeed": 1,
+          "previewContainerKind": "box",
           "previewContainerFrame": 0
         }
       ],
@@ -29166,6 +29373,7 @@
           "barrel": true,
           "barrelStyle": "barrel",
           "_street": "trade",
+          "previewContainerKind": "barrel",
           "previewContainerFrame": 3
         },
         {
@@ -29176,6 +29384,7 @@
           "barrel": true,
           "barrelStyle": "barrel",
           "_street": "trade",
+          "previewContainerKind": "barrel",
           "previewContainerFrame": 3
         },
         {
@@ -29186,6 +29395,7 @@
           "barrel": true,
           "barrelStyle": "barrel",
           "_street": "trade",
+          "previewContainerKind": "barrel",
           "previewContainerFrame": 3
         },
         {
@@ -29196,6 +29406,7 @@
           "barrel": true,
           "barrelStyle": "barrel",
           "_street": "trade",
+          "previewContainerKind": "barrel",
           "previewContainerFrame": 3
         },
         {
@@ -29206,6 +29417,7 @@
           "barrel": true,
           "barrelStyle": "barrel",
           "_street": "trade",
+          "previewContainerKind": "barrel",
           "previewContainerFrame": 3
         },
         {
@@ -29216,6 +29428,7 @@
           "barrel": true,
           "barrelStyle": "barrel",
           "_street": "trade",
+          "previewContainerKind": "barrel",
           "previewContainerFrame": 3
         },
         {
@@ -29226,6 +29439,7 @@
           "barrel": true,
           "barrelStyle": "barrel",
           "_street": "trade",
+          "previewContainerKind": "barrel",
           "previewContainerFrame": 3
         },
         {
@@ -29236,6 +29450,7 @@
           "barrel": true,
           "barrelStyle": "barrel",
           "_street": "trade",
+          "previewContainerKind": "barrel",
           "previewContainerFrame": 3
         },
         {
@@ -29246,6 +29461,7 @@
           "barrel": true,
           "barrelStyle": "barrel",
           "_street": "trade",
+          "previewContainerKind": "barrel",
           "previewContainerFrame": 3
         },
         {
@@ -29256,6 +29472,7 @@
           "barrel": true,
           "barrelStyle": "barrel",
           "_street": "trade",
+          "previewContainerKind": "barrel",
           "previewContainerFrame": 3
         },
         {
@@ -29266,6 +29483,7 @@
           "barrel": true,
           "barrelStyle": "barrel",
           "_street": "trade",
+          "previewContainerKind": "barrel",
           "previewContainerFrame": 3
         },
         {
@@ -29276,6 +29494,7 @@
           "barrel": true,
           "barrelStyle": "barrel",
           "_street": "trade",
+          "previewContainerKind": "barrel",
           "previewContainerFrame": 3
         },
         {
@@ -29286,6 +29505,7 @@
           "barrel": true,
           "barrelStyle": "barrel",
           "_street": "trade",
+          "previewContainerKind": "barrel",
           "previewContainerFrame": 3
         },
         {
@@ -29296,6 +29516,7 @@
           "barrel": true,
           "barrelStyle": "barrel",
           "_street": "trade",
+          "previewContainerKind": "barrel",
           "previewContainerFrame": 3
         },
         {
@@ -29306,6 +29527,7 @@
           "barrel": true,
           "barrelStyle": "barrel",
           "_street": "trade",
+          "previewContainerKind": "barrel",
           "previewContainerFrame": 3
         },
         {
@@ -29316,6 +29538,7 @@
           "barrel": true,
           "barrelStyle": "barrel",
           "_street": "trade",
+          "previewContainerKind": "barrel",
           "previewContainerFrame": 3
         },
         {
@@ -29326,6 +29549,7 @@
           "barrel": true,
           "barrelStyle": "barrel",
           "_street": "trade",
+          "previewContainerKind": "barrel",
           "previewContainerFrame": 3
         },
         {
@@ -29336,6 +29560,7 @@
           "barrel": true,
           "barrelStyle": "barrel",
           "_street": "trade",
+          "previewContainerKind": "barrel",
           "previewContainerFrame": 3
         },
         {
@@ -29346,6 +29571,7 @@
           "barrel": true,
           "barrelStyle": "barrel",
           "_street": "trade",
+          "previewContainerKind": "barrel",
           "previewContainerFrame": 3
         },
         {
@@ -29356,6 +29582,7 @@
           "barrel": true,
           "barrelStyle": "barrel",
           "_street": "trade",
+          "previewContainerKind": "barrel",
           "previewContainerFrame": 3
         },
         {
@@ -29366,6 +29593,7 @@
           "barrel": true,
           "barrelStyle": "barrel",
           "_street": "trade",
+          "previewContainerKind": "barrel",
           "previewContainerFrame": 3
         },
         {
@@ -29376,6 +29604,7 @@
           "barrel": true,
           "barrelStyle": "barrel",
           "_street": "trade",
+          "previewContainerKind": "barrel",
           "previewContainerFrame": 3
         },
         {
@@ -29386,6 +29615,7 @@
           "barrel": true,
           "barrelStyle": "barrel",
           "_street": "trade",
+          "previewContainerKind": "barrel",
           "previewContainerFrame": 3
         },
         {
@@ -29396,6 +29626,7 @@
           "barrel": true,
           "barrelStyle": "barrel",
           "_street": "trade",
+          "previewContainerKind": "barrel",
           "previewContainerFrame": 3
         },
         {
@@ -29406,6 +29637,7 @@
           "barrel": true,
           "barrelStyle": "barrel",
           "_street": "trade",
+          "previewContainerKind": "barrel",
           "previewContainerFrame": 3
         },
         {
@@ -29416,6 +29648,7 @@
           "barrel": true,
           "barrelStyle": "barrel",
           "_street": "trade",
+          "previewContainerKind": "barrel",
           "previewContainerFrame": 3
         },
         {
@@ -29426,6 +29659,7 @@
           "barrel": true,
           "barrelStyle": "barrel",
           "_street": "trade",
+          "previewContainerKind": "barrel",
           "previewContainerFrame": 3
         },
         {
@@ -29436,6 +29670,7 @@
           "barrel": true,
           "barrelStyle": "barrel",
           "_street": "trade",
+          "previewContainerKind": "barrel",
           "previewContainerFrame": 3
         },
         {
@@ -29446,6 +29681,7 @@
           "barrel": true,
           "barrelStyle": "barrel",
           "_street": "trade",
+          "previewContainerKind": "barrel",
           "previewContainerFrame": 3
         },
         {
@@ -29456,6 +29692,7 @@
           "barrel": true,
           "barrelStyle": "barrel",
           "_street": "trade",
+          "previewContainerKind": "barrel",
           "previewContainerFrame": 3
         },
         {
@@ -29466,6 +29703,7 @@
           "barrel": true,
           "barrelStyle": "barrel",
           "_street": "trade",
+          "previewContainerKind": "barrel",
           "previewContainerFrame": 3
         },
         {
@@ -29476,6 +29714,7 @@
           "barrel": true,
           "barrelStyle": "barrel",
           "_street": "trade",
+          "previewContainerKind": "barrel",
           "previewContainerFrame": 3
         },
         {
@@ -29486,6 +29725,7 @@
           "barrel": true,
           "barrelStyle": "barrel",
           "_street": "trade",
+          "previewContainerKind": "barrel",
           "previewContainerFrame": 3
         },
         {
@@ -29496,6 +29736,7 @@
           "barrel": true,
           "barrelStyle": "barrel",
           "_street": "trade",
+          "previewContainerKind": "barrel",
           "previewContainerFrame": 3
         },
         {
@@ -29506,6 +29747,7 @@
           "barrel": true,
           "barrelStyle": "barrel",
           "_street": "trade",
+          "previewContainerKind": "barrel",
           "previewContainerFrame": 3
         },
         {
@@ -29516,6 +29758,7 @@
           "barrel": true,
           "barrelStyle": "barrel",
           "_street": "trade",
+          "previewContainerKind": "barrel",
           "previewContainerFrame": 3
         },
         {
@@ -29526,6 +29769,7 @@
           "barrel": true,
           "barrelStyle": "barrel",
           "_street": "trade",
+          "previewContainerKind": "barrel",
           "previewContainerFrame": 3
         },
         {
@@ -29536,6 +29780,7 @@
           "barrel": true,
           "barrelStyle": "barrel",
           "_street": "trade",
+          "previewContainerKind": "barrel",
           "previewContainerFrame": 3
         },
         {
@@ -29546,6 +29791,7 @@
           "barrel": true,
           "barrelStyle": "barrel",
           "_street": "trade",
+          "previewContainerKind": "barrel",
           "previewContainerFrame": 3
         },
         {
@@ -29556,6 +29802,7 @@
           "barrel": true,
           "barrelStyle": "barrel",
           "_street": "trade",
+          "previewContainerKind": "barrel",
           "previewContainerFrame": 3
         },
         {
@@ -29566,6 +29813,7 @@
           "barrel": true,
           "barrelStyle": "barrel",
           "_street": "trade",
+          "previewContainerKind": "barrel",
           "previewContainerFrame": 3
         },
         {
@@ -29576,6 +29824,7 @@
           "barrel": true,
           "barrelStyle": "barrel",
           "_street": "trade",
+          "previewContainerKind": "barrel",
           "previewContainerFrame": 3
         },
         {
@@ -29586,6 +29835,7 @@
           "barrel": true,
           "barrelStyle": "barrel",
           "_street": "trade",
+          "previewContainerKind": "barrel",
           "previewContainerFrame": 3
         },
         {
@@ -29596,6 +29846,7 @@
           "barrel": true,
           "barrelStyle": "barrel",
           "_street": "trade",
+          "previewContainerKind": "barrel",
           "previewContainerFrame": 3
         },
         {
@@ -29606,6 +29857,7 @@
           "barrel": true,
           "barrelStyle": "barrel",
           "_street": "trade",
+          "previewContainerKind": "barrel",
           "previewContainerFrame": 3
         },
         {
@@ -29616,6 +29868,7 @@
           "barrel": true,
           "barrelStyle": "barrel",
           "_street": "trade",
+          "previewContainerKind": "barrel",
           "previewContainerFrame": 3
         },
         {
@@ -29627,6 +29880,7 @@
           "_streetArt": "pottery_stack",
           "barrel": true,
           "barrelStyle": "street_decor_pottery_stack",
+          "previewContainerKind": "street_decor_pottery_stack",
           "previewContainerFrame": "__BASE"
         },
         {
@@ -29638,6 +29892,7 @@
           "_streetArt": "pottery_stack",
           "barrel": true,
           "barrelStyle": "street_decor_pottery_stack",
+          "previewContainerKind": "street_decor_pottery_stack",
           "previewContainerFrame": "__BASE"
         },
         {
@@ -29649,6 +29904,7 @@
           "_streetArt": "pottery_stack",
           "barrel": true,
           "barrelStyle": "street_decor_pottery_stack",
+          "previewContainerKind": "street_decor_pottery_stack",
           "previewContainerFrame": "__BASE"
         },
         {
@@ -29660,6 +29916,7 @@
           "_streetArt": "pottery_stack",
           "barrel": true,
           "barrelStyle": "street_decor_pottery_stack",
+          "previewContainerKind": "street_decor_pottery_stack",
           "previewContainerFrame": "__BASE"
         },
         {
@@ -29671,6 +29928,7 @@
           "_streetArt": "pottery_stack",
           "barrel": true,
           "barrelStyle": "street_decor_pottery_stack",
+          "previewContainerKind": "street_decor_pottery_stack",
           "previewContainerFrame": "__BASE"
         },
         {
@@ -29682,6 +29940,7 @@
           "_streetArt": "pottery_stack",
           "barrel": true,
           "barrelStyle": "street_decor_pottery_stack",
+          "previewContainerKind": "street_decor_pottery_stack",
           "previewContainerFrame": "__BASE"
         },
         {
@@ -29693,6 +29952,7 @@
           "_streetArt": "pottery_stack",
           "barrel": true,
           "barrelStyle": "street_decor_pottery_stack",
+          "previewContainerKind": "street_decor_pottery_stack",
           "previewContainerFrame": "__BASE"
         },
         {
@@ -29704,6 +29964,7 @@
           "_streetArt": "pottery_stack",
           "barrel": true,
           "barrelStyle": "street_decor_pottery_stack",
+          "previewContainerKind": "street_decor_pottery_stack",
           "previewContainerFrame": "__BASE"
         },
         {
@@ -29715,6 +29976,7 @@
           "_streetArt": "pottery_stack",
           "barrel": true,
           "barrelStyle": "street_decor_pottery_stack",
+          "previewContainerKind": "street_decor_pottery_stack",
           "previewContainerFrame": "__BASE"
         },
         {
@@ -29726,6 +29988,7 @@
           "_streetArt": "pottery_stack",
           "barrel": true,
           "barrelStyle": "street_decor_pottery_stack",
+          "previewContainerKind": "street_decor_pottery_stack",
           "previewContainerFrame": "__BASE"
         },
         {
@@ -29737,6 +30000,7 @@
           "_streetArt": "pottery_stack",
           "barrel": true,
           "barrelStyle": "street_decor_pottery_stack",
+          "previewContainerKind": "street_decor_pottery_stack",
           "previewContainerFrame": "__BASE"
         },
         {
@@ -29748,6 +30012,7 @@
           "_streetArt": "pottery_stack",
           "barrel": true,
           "barrelStyle": "street_decor_pottery_stack",
+          "previewContainerKind": "street_decor_pottery_stack",
           "previewContainerFrame": "__BASE"
         },
         {
@@ -29759,6 +30024,7 @@
           "_streetArt": "pottery_stack",
           "barrel": true,
           "barrelStyle": "street_decor_pottery_stack",
+          "previewContainerKind": "street_decor_pottery_stack",
           "previewContainerFrame": "__BASE"
         },
         {
@@ -29770,6 +30036,7 @@
           "_streetArt": "pottery_stack",
           "barrel": true,
           "barrelStyle": "street_decor_pottery_stack",
+          "previewContainerKind": "street_decor_pottery_stack",
           "previewContainerFrame": "__BASE"
         },
         {
@@ -29781,6 +30048,7 @@
           "_streetArt": "pottery_stack",
           "barrel": true,
           "barrelStyle": "street_decor_pottery_stack",
+          "previewContainerKind": "street_decor_pottery_stack",
           "previewContainerFrame": "__BASE"
         },
         {
@@ -29792,6 +30060,7 @@
           "_streetArt": "pottery_stack",
           "barrel": true,
           "barrelStyle": "street_decor_pottery_stack",
+          "previewContainerKind": "street_decor_pottery_stack",
           "previewContainerFrame": "__BASE"
         },
         {
@@ -29803,6 +30072,7 @@
           "_streetArt": "pottery_stack",
           "barrel": true,
           "barrelStyle": "street_decor_pottery_stack",
+          "previewContainerKind": "street_decor_pottery_stack",
           "previewContainerFrame": "__BASE"
         },
         {
@@ -29814,6 +30084,7 @@
           "_streetArt": "pottery_stack",
           "barrel": true,
           "barrelStyle": "street_decor_pottery_stack",
+          "previewContainerKind": "street_decor_pottery_stack",
           "previewContainerFrame": "__BASE"
         },
         {
@@ -29825,6 +30096,7 @@
           "_streetArt": "pottery_stack",
           "barrel": true,
           "barrelStyle": "street_decor_pottery_stack",
+          "previewContainerKind": "street_decor_pottery_stack",
           "previewContainerFrame": "__BASE"
         },
         {
@@ -29836,6 +30108,7 @@
           "_streetArt": "pottery_stack",
           "barrel": true,
           "barrelStyle": "street_decor_pottery_stack",
+          "previewContainerKind": "street_decor_pottery_stack",
           "previewContainerFrame": "__BASE"
         },
         {
@@ -29847,6 +30120,7 @@
           "_streetArt": "pottery_stack",
           "barrel": true,
           "barrelStyle": "street_decor_pottery_stack",
+          "previewContainerKind": "street_decor_pottery_stack",
           "previewContainerFrame": "__BASE"
         },
         {
@@ -29858,6 +30132,7 @@
           "_streetArt": "pottery_stack",
           "barrel": true,
           "barrelStyle": "street_decor_pottery_stack",
+          "previewContainerKind": "street_decor_pottery_stack",
           "previewContainerFrame": "__BASE"
         },
         {
@@ -29869,6 +30144,7 @@
           "_streetArt": "pottery_stack",
           "barrel": true,
           "barrelStyle": "street_decor_pottery_stack",
+          "previewContainerKind": "street_decor_pottery_stack",
           "previewContainerFrame": "__BASE"
         },
         {
@@ -29880,6 +30156,7 @@
           "_streetArt": "pottery_stack",
           "barrel": true,
           "barrelStyle": "street_decor_pottery_stack",
+          "previewContainerKind": "street_decor_pottery_stack",
           "previewContainerFrame": "__BASE"
         },
         {
@@ -29889,6 +30166,7 @@
           "id": "crate_end_2622_5615_129_114",
           "crate": true,
           "tierSeed": 1,
+          "previewContainerKind": "box",
           "previewContainerFrame": 2
         },
         {
@@ -29898,6 +30176,7 @@
           "id": "crate_end_2622_5615_99_114",
           "crate": true,
           "tierSeed": 1,
+          "previewContainerKind": "box",
           "previewContainerFrame": 0
         }
       ],
@@ -31129,6 +31408,7 @@
           "id": "crate_end_2622_5615_128_113",
           "crate": true,
           "tierSeed": 1,
+          "previewContainerKind": "box",
           "previewContainerFrame": 0
         },
         {
@@ -31138,6 +31418,7 @@
           "id": "crate_end_2622_5615_98_113",
           "crate": true,
           "tierSeed": 1,
+          "previewContainerKind": "box",
           "previewContainerFrame": 2
         },
         {
@@ -31487,6 +31768,11 @@
       "pathTerrainInfluence": true,
       "affinities": [
         "cultivated"
+      ],
+      "hiddenPets": [
+        "cat",
+        "dog",
+        "chicken"
       ],
       "stone": {
         "weathered": "#83916c",
@@ -32370,6 +32656,7 @@
           "id": "crate_end_2622_5615_130_113",
           "crate": true,
           "tierSeed": 1,
+          "previewContainerKind": "box",
           "previewContainerFrame": 1
         },
         {
@@ -32379,6 +32666,7 @@
           "id": "crate_end_2622_5615_98_113",
           "crate": true,
           "tierSeed": 1,
+          "previewContainerKind": "box",
           "previewContainerFrame": 2
         },
         {
@@ -32403,14 +32691,6 @@
           "x": 696.5,
           "y": 808.5,
           "id": "route_grassy_lane_2622_5615_99_115",
-          "_street": "grassy_lane"
-        },
-        {
-          "kind": "wildplant",
-          "crop": "longgrass",
-          "x": 696.5,
-          "y": 815.5,
-          "id": "route_grassy_lane_2622_5615_99_116",
           "_street": "grassy_lane"
         },
         {
@@ -34711,6 +34991,7 @@
           "cache": true,
           "cacheTheme": "old_growth_path",
           "concealed": true,
+          "previewContainerKind": "box",
           "previewContainerFrame": 1
         },
         {
@@ -34720,6 +35001,7 @@
           "id": "crate_end_2622_5615_129_114",
           "crate": true,
           "tierSeed": 1,
+          "previewContainerKind": "box",
           "previewContainerFrame": 2
         },
         {
@@ -34729,6 +35011,7 @@
           "id": "crate_end_2622_5615_99_114",
           "crate": true,
           "tierSeed": 1,
+          "previewContainerKind": "box",
           "previewContainerFrame": 0
         },
         {
@@ -36325,6 +36608,7 @@
           "cache": true,
           "cacheTheme": "haunted_forest_path",
           "concealed": true,
+          "previewContainerKind": "box",
           "previewContainerFrame": 0
         },
         {
@@ -36334,6 +36618,7 @@
           "id": "crate_end_2622_5615_129_114",
           "crate": true,
           "tierSeed": 1,
+          "previewContainerKind": "box",
           "previewContainerFrame": 2
         },
         {
@@ -36343,6 +36628,7 @@
           "id": "crate_end_2622_5615_99_114",
           "crate": true,
           "tierSeed": 1,
+          "previewContainerKind": "box",
           "previewContainerFrame": 0
         },
         {
@@ -37484,6 +37770,7 @@
           "_street": "way_of_variety",
           "barrel": true,
           "barrelStyle": "clay_pot",
+          "previewContainerKind": "clay_pot",
           "previewContainerFrame": 1
         },
         {
@@ -37503,6 +37790,7 @@
           "_street": "way_of_variety",
           "barrel": true,
           "barrelStyle": "clay_pot",
+          "previewContainerKind": "clay_pot",
           "previewContainerFrame": 1
         },
         {
@@ -37513,6 +37801,7 @@
           "_street": "way_of_variety",
           "barrel": true,
           "barrelStyle": "barrel",
+          "previewContainerKind": "barrel",
           "previewContainerFrame": 3
         },
         {
@@ -37599,6 +37888,7 @@
           "_street": "way_of_variety",
           "barrel": true,
           "barrelStyle": "barrel",
+          "previewContainerKind": "barrel",
           "previewContainerFrame": 3
         },
         {
@@ -37609,6 +37899,7 @@
           "_street": "way_of_variety",
           "barrel": true,
           "barrelStyle": "clay_pot",
+          "previewContainerKind": "clay_pot",
           "previewContainerFrame": 1
         },
         {
@@ -37619,6 +37910,7 @@
           "_street": "way_of_variety",
           "barrel": true,
           "barrelStyle": "clay_pot",
+          "previewContainerKind": "clay_pot",
           "previewContainerFrame": 1
         },
         {
@@ -37629,6 +37921,7 @@
           "_street": "way_of_variety",
           "barrel": true,
           "barrelStyle": "barrel",
+          "previewContainerKind": "barrel",
           "previewContainerFrame": 3
         },
         {
@@ -37648,6 +37941,7 @@
           "_street": "way_of_variety",
           "barrel": true,
           "barrelStyle": "clay_pot",
+          "previewContainerKind": "clay_pot",
           "previewContainerFrame": 1
         },
         {
@@ -37703,6 +37997,7 @@
           "_street": "way_of_variety",
           "barrel": true,
           "barrelStyle": "barrel",
+          "previewContainerKind": "barrel",
           "previewContainerFrame": 3
         },
         {
@@ -37713,6 +38008,7 @@
           "_street": "way_of_variety",
           "barrel": true,
           "barrelStyle": "clay_pot",
+          "previewContainerKind": "clay_pot",
           "previewContainerFrame": 0
         },
         {
@@ -37723,6 +38019,7 @@
           "_street": "way_of_variety",
           "barrel": true,
           "barrelStyle": "barrel",
+          "previewContainerKind": "barrel",
           "previewContainerFrame": 3
         },
         {
@@ -37751,6 +38048,7 @@
           "_street": "way_of_variety",
           "barrel": true,
           "barrelStyle": "barrel",
+          "previewContainerKind": "barrel",
           "previewContainerFrame": 3
         },
         {
@@ -37761,6 +38059,7 @@
           "_street": "way_of_variety",
           "barrel": true,
           "barrelStyle": "clay_pot",
+          "previewContainerKind": "clay_pot",
           "previewContainerFrame": 1
         },
         {
@@ -37771,6 +38070,7 @@
           "_street": "way_of_variety",
           "barrel": true,
           "barrelStyle": "clay_pot",
+          "previewContainerKind": "clay_pot",
           "previewContainerFrame": 1
         },
         {
@@ -37781,6 +38081,7 @@
           "_street": "way_of_variety",
           "barrel": true,
           "barrelStyle": "clay_pot",
+          "previewContainerKind": "clay_pot",
           "previewContainerFrame": 0
         },
         {
@@ -37827,6 +38128,7 @@
           "_street": "way_of_variety",
           "barrel": true,
           "barrelStyle": "clay_pot",
+          "previewContainerKind": "clay_pot",
           "previewContainerFrame": 1
         },
         {
@@ -37846,6 +38148,7 @@
           "_street": "way_of_variety",
           "barrel": true,
           "barrelStyle": "clay_pot",
+          "previewContainerKind": "clay_pot",
           "previewContainerFrame": 0
         },
         {
@@ -37857,6 +38160,7 @@
           "_streetArt": "pottery_stack",
           "barrel": true,
           "barrelStyle": "street_decor_pottery_stack",
+          "previewContainerKind": "street_decor_pottery_stack",
           "previewContainerFrame": "__BASE"
         },
         {
@@ -37868,6 +38172,7 @@
           "_streetArt": "pottery_stack",
           "barrel": true,
           "barrelStyle": "street_decor_pottery_stack",
+          "previewContainerKind": "street_decor_pottery_stack",
           "previewContainerFrame": "__BASE"
         },
         {
@@ -37879,6 +38184,7 @@
           "_streetArt": "pottery_stack",
           "barrel": true,
           "barrelStyle": "street_decor_pottery_stack",
+          "previewContainerKind": "street_decor_pottery_stack",
           "previewContainerFrame": "__BASE"
         },
         {
@@ -37890,6 +38196,7 @@
           "_streetArt": "pottery_stack",
           "barrel": true,
           "barrelStyle": "street_decor_pottery_stack",
+          "previewContainerKind": "street_decor_pottery_stack",
           "previewContainerFrame": "__BASE"
         },
         {
@@ -37901,6 +38208,7 @@
           "_streetArt": "pottery_stack",
           "barrel": true,
           "barrelStyle": "street_decor_pottery_stack",
+          "previewContainerKind": "street_decor_pottery_stack",
           "previewContainerFrame": "__BASE"
         },
         {
@@ -37912,6 +38220,7 @@
           "_streetArt": "pottery_stack",
           "barrel": true,
           "barrelStyle": "street_decor_pottery_stack",
+          "previewContainerKind": "street_decor_pottery_stack",
           "previewContainerFrame": "__BASE"
         },
         {
@@ -37923,6 +38232,7 @@
           "_streetArt": "pottery_stack",
           "barrel": true,
           "barrelStyle": "street_decor_pottery_stack",
+          "previewContainerKind": "street_decor_pottery_stack",
           "previewContainerFrame": "__BASE"
         },
         {
@@ -37934,6 +38244,7 @@
           "_streetArt": "pottery_stack",
           "barrel": true,
           "barrelStyle": "street_decor_pottery_stack",
+          "previewContainerKind": "street_decor_pottery_stack",
           "previewContainerFrame": "__BASE"
         },
         {
@@ -37945,6 +38256,7 @@
           "_streetArt": "pottery_stack",
           "barrel": true,
           "barrelStyle": "street_decor_pottery_stack",
+          "previewContainerKind": "street_decor_pottery_stack",
           "previewContainerFrame": "__BASE"
         },
         {
@@ -37956,6 +38268,7 @@
           "_streetArt": "pottery_stack",
           "barrel": true,
           "barrelStyle": "street_decor_pottery_stack",
+          "previewContainerKind": "street_decor_pottery_stack",
           "previewContainerFrame": "__BASE"
         },
         {
@@ -37967,6 +38280,7 @@
           "_streetArt": "pottery_stack",
           "barrel": true,
           "barrelStyle": "street_decor_pottery_stack",
+          "previewContainerKind": "street_decor_pottery_stack",
           "previewContainerFrame": "__BASE"
         },
         {
@@ -37978,6 +38292,7 @@
           "_streetArt": "pottery_stack",
           "barrel": true,
           "barrelStyle": "street_decor_pottery_stack",
+          "previewContainerKind": "street_decor_pottery_stack",
           "previewContainerFrame": "__BASE"
         },
         {
@@ -37989,6 +38304,7 @@
           "_streetArt": "pottery_stack",
           "barrel": true,
           "barrelStyle": "street_decor_pottery_stack",
+          "previewContainerKind": "street_decor_pottery_stack",
           "previewContainerFrame": "__BASE"
         },
         {
@@ -38000,6 +38316,7 @@
           "_streetArt": "pottery_stack",
           "barrel": true,
           "barrelStyle": "street_decor_pottery_stack",
+          "previewContainerKind": "street_decor_pottery_stack",
           "previewContainerFrame": "__BASE"
         },
         {
@@ -38011,6 +38328,7 @@
           "_streetArt": "pottery_stack",
           "barrel": true,
           "barrelStyle": "street_decor_pottery_stack",
+          "previewContainerKind": "street_decor_pottery_stack",
           "previewContainerFrame": "__BASE"
         },
         {
@@ -38022,6 +38340,7 @@
           "_streetArt": "pottery_stack",
           "barrel": true,
           "barrelStyle": "street_decor_pottery_stack",
+          "previewContainerKind": "street_decor_pottery_stack",
           "previewContainerFrame": "__BASE"
         },
         {
@@ -38033,6 +38352,7 @@
           "_streetArt": "pottery_stack",
           "barrel": true,
           "barrelStyle": "street_decor_pottery_stack",
+          "previewContainerKind": "street_decor_pottery_stack",
           "previewContainerFrame": "__BASE"
         },
         {
@@ -38044,6 +38364,7 @@
           "_streetArt": "pottery_stack",
           "barrel": true,
           "barrelStyle": "street_decor_pottery_stack",
+          "previewContainerKind": "street_decor_pottery_stack",
           "previewContainerFrame": "__BASE"
         },
         {
@@ -38053,6 +38374,7 @@
           "id": "crate_end_2622_5615_130_113",
           "crate": true,
           "tierSeed": 1,
+          "previewContainerKind": "box",
           "previewContainerFrame": 1
         },
         {
@@ -38062,6 +38384,7 @@
           "id": "crate_end_2622_5615_98_113",
           "crate": true,
           "tierSeed": 1,
+          "previewContainerKind": "box",
           "previewContainerFrame": 2
         },
         {
@@ -40253,6 +40576,7 @@
           "id": "crate_end_2622_5615_129_114",
           "crate": true,
           "tierSeed": 1,
+          "previewContainerKind": "box",
           "previewContainerFrame": 2
         },
         {
@@ -40262,6 +40586,7 @@
           "id": "crate_end_2622_5615_99_114",
           "crate": true,
           "tierSeed": 1,
+          "previewContainerKind": "box",
           "previewContainerFrame": 0
         }
       ],
