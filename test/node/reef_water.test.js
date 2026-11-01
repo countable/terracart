@@ -61,14 +61,20 @@
     run(ReefLayout.dressSteps(occupied));
     assert.eq(occupied.zoneDress.objects.filter(o => o.kind === 'grove_shrine').length, 0, 'occupied shore refuses shrine');
   });
-  test('reef water: no spawn class or waterOnly flag can reopen Excluded water',()=>{
+  test('reef water: aquatic edge eligibility preserves class, depth and dry-land exclusions',()=>{
     const ctx=fixture(),opts={...ctx.spawnOpts,waterOnly:true,gameplayTiers:new Uint8Array(N*N).fill(4)};
     for(const cls of WorldGen.SPAWN_CLASSES) {
       assert.falsy(WorldGen.isSpawnCell(ctx.grid,N,N,12,12,ctx.spawnOpts,cls),'water excluded for '+cls);
       assert.falsy(WorldGen.isSpawnCell(ctx.grid,N,N,12,12,opts,cls),'waterOnly cannot override '+cls);
     }
     opts.gameplayTiers.fill(1);
-    assert.falsy(WorldGen.isSpawnCell(ctx.grid,N,N,12,12,opts,'reward'),'live water still rejects an erroneous cached Core tier');
+    assert.truthy(WorldGen.isSpawnCell(ctx.grid,N,N,12,12,opts,'reward'),'explicit aquatic rows can use eligible water edge');
+    assert.truthy(WorldGen.isSpawnCell(ctx.grid,N,N,13,12,opts,'enemy'),'second water cell remains in the rim');
+    assert.falsy(WorldGen.isSpawnCell(ctx.grid,N,N,14,12,opts,'enemy'),'third water cell is deep water despite Core tier');
+    assert.falsy(WorldGen.isSpawnCell(ctx.grid,N,N,12,12,{...opts,waterOnly:false},'reward'),'ordinary dry resources cannot occupy water');
+    assert.falsy(WorldGen.isSpawnCell(ctx.grid,N,N,11,12,opts,'enemy'),'aquatic rows cannot occupy dry sand');
+    opts.gameplayTiers.fill(3);
+    assert.falsy(WorldGen.isSpawnCell(ctx.grid,N,N,12,12,opts,'fastEnemy'),'edge eligibility does not bypass spawn-class tiers');
   });
   test('reef water: tide reservations cannot move dry resources into Excluded water',()=>{
     const ctx=fixture();

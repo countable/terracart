@@ -10,7 +10,9 @@
     assert.eq(SpawnPipeline.ownerAt(entry, 0).key, 'Nexus:unassigned');
     assert.eq(run(entry).length, 0, 'missing zone rows cannot borrow Grass inhabitants');
     entry.zone.anchors.push({ kind: 'grove', variant: 'marine_meadow', key: 'empty' });
-    assert.eq(run(entry).length, 0, 'authored-only zone has no ambient top-up');
+    const marine = run(entry);
+    assert.gt(marine.length, 0, 'Marine Meadow now has its declared rare signature');
+    assert.truthy(marine.every(c => c.kind === HabitatSpawns.SIGNATURE_ENEMIES['Nexus:marine_meadow'].kind), 'signature row does not borrow Grass fauna or enemies');
   });
   test('shared spawn pipeline: area loss removes only those enemy candidates and never refills survivors', () => {
     const complete = fixture(), half = fixture();

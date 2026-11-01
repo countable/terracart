@@ -30,8 +30,9 @@
   }
   // Public pool query delegates to the same habitat selector as generation.
   function surfaceRows(type, context) {
-    const profile = context?.beach ? root.HabitatSpawns.shoreProfile(type) : root.HabitatSpawns.landProfile(type);
-    return root.HabitatSpawns.enemyRows(profile, type, context);
+    const terrain = typeof type === 'string' ? type : Object.keys(root.WorldGen.T).find(key => root.WorldGen.T[key] === type);
+    return root.HabitatSpawns.densityRows('Terrain:' + terrain, null, null, context?.beach)
+      .filter(row => row.category === 'enemy').map(row => root.EnemyRoster.get(row.kind)).filter(Boolean);
   }
   // ── THE SAFE AREA: ONLY WEAK FOES LIVE NEAR HOME ─────────────────────────
   // A surface foe too strong for its distance from Home is simply NOT THERE
@@ -172,6 +173,14 @@
   }
   // Permanent player-geography eligibility, separate from temporary daylight
   // and pest-amnesty visibility. Temple census reads this before activation.
+  function creatureHomeAllows(creature, distance) {
+    const row = root.EnemyRoster.get(creature.kind);
+    const declaration = root.HabitatSpawns?.enemyDeclaration(creature);
+    const lastBand = root.EnemyRoster.SURFACE_TIERS[root.EnemyRoster.SURFACE_TIERS.length - 1];
+    // This exception belongs to a declared signature, not the enemy kind.
+    const distantSignature = declaration?.signature && !row?.retired && distance >= lastBand.minDistance;
+    return distantSignature ? distance >= (row?.surface?.minDistance || 0) : homeAllows(creature.kind, distance);
+  }
   function homeEligible(scene, creature) {
     const at = creature?._surfaceSpawn;
     const guard = !at && creature?.lair ? creature : null;
@@ -186,7 +195,7 @@
     }
     const x = at ? at.x : guard.lairX, y = at ? at.y : guard.lairY;
     return !anchor || !Number.isFinite(x) || !Number.isFinite(y)
-      || homeAllows(creature.kind, Math.hypot(x - anchor.x, y - anchor.y));
+      || creatureHomeAllows(creature, Math.hypot(x - anchor.x, y - anchor.y));
   }
   // Is this SURFACE FOE here for this player? One lane, several reasons, all
   // per-player overlays that HIDE a generated foe and never re-roll it: the
@@ -272,9 +281,10 @@
       return active;
     }
     const row = root.EnemyRoster.get(creature.kind);
-    const habitat = row?.surface;
+    const declaration = root.HabitatSpawns?.enemyDeclaration(creature);
+    const habitat = row?.surface || declaration;
     active = !!habitat;
-    if (active && anchor) active = homeAllows(creature.kind, Math.hypot(at.x - anchor.x, at.y - anchor.y));
+    if (active && anchor) active = creatureHomeAllows(creature, Math.hypot(at.x - anchor.x, at.y - anchor.y));
     if (active && habitat.time === 'night') {
       active = !!root.Lighting && root.Lighting.daylight(scene, Date.now()) < SURFACE_NIGHT_DAYLIGHT;
     }
@@ -285,7 +295,7 @@
   function caveRows(depth, context) {
     const floorHabitat = root.WorldGen.floorProfile(depth).enemyHabitat;
     if (floorHabitat) context = { kinds: root.EnemyHabitats.FAMILIES[floorHabitat] };
-    return rows().filter(row => !row.retired && row.cave && row.attackType !== 'touch'
+    return rows().filter(row => !row.retired && !row.signatureOnly && row.cave && row.attackType !== 'touch'
       && depth >= row.cave.minDepth && (row.cave.maxDepth == null || depth <= row.cave.maxDepth)
       && (row.cave.depthRule !== 'even' || depth % 2 === 0)
       && (!context || context.kinds.includes(row.id))

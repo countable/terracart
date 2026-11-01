@@ -1,17 +1,13 @@
 (() => {
-  test('enemy spawns: retired tints leave ordinary pools and surface candidates cap at T3', () => {
-    for (const biome of ['GRASS', 'FOREST', 'ROCK', 'SAND', 'FARMLAND', 'RESIDENTIAL', 'PARK', 'COMMERCIAL', 'INDUSTRIAL', 'WETLAND', 'ORCHARD']) {
+  test('enemy spawns: surface queries use declared terrain species instead of legacy affinity pools', () => {
+    for (const biome of ['GRASS', 'FOREST', 'ROCK', 'SAND', 'FARMLAND', 'RESIDENTIAL', 'PARK', 'COMMERCIAL', 'INDUSTRIAL', 'WETLAND', 'ORCHARD', 'WATER', 'GOLF', 'PIER', 'ROCKY_GROUND']) {
       const pool = EnemySpawns.surfaceRows(biome);
-      for (const row of pool) {
-        assert.lte(row.tier, 3);
-        assert.truthy(row.surface.biomes.includes(biome));
-        assert.falsy(row.attackType === 'touch', 'ghosts use their separate haunt budget');
-        if (row.variantType === 'Tint' && row.surface.replaceBase !== false) assert.falsy(pool.some(other => other.id === row.variantOf));
-      }
+      const declared = HabitatSpawns.densityRows('Terrain:' + biome).filter(r=>r.category==='enemy');
+      assert.eq(pool.map(r=>r.id).sort().join(','),declared.map(r=>r.kind).sort().join(','),biome);
+      for (const row of pool) assert.falsy(row.retired, biome + ': only active declared species');
     }
     assert.falsy(EnemySpawns.surfaceRows('ORCHARD').some(row => ['copper_plant', 'bat', 'spider'].includes(row.id)));
     assert.eq(EnemySpawns.surfaceRows('ORCHARD').map(row => row.id).join(','), 'farmer_goblin');
-    assert.falsy(EnemySpawns.surfaceRows('WETLAND').some(row => row.id === 'marsh_zombie'));
   });
   test('enemy spawns: ordinary landcover keeps its authored enemy families', () => {
     const pool = biome => EnemySpawns.surfaceRows(biome).map(row => row.id).sort().join(',');
@@ -21,7 +17,7 @@
     assert.eq(pool('COMMERCIAL'), 'club_goblin,goblin,goblin_archer,sword_spirit,thief');
     assert.eq(pool('INDUSTRIAL'), 'ash_zombie,marsh_zombie,zombie');
     assert.eq(pool('FARMLAND'), 'farmer_goblin,snake', 'the snake lurks in the farm\'s long grass');
-    assert.eq(pool('PARK'), '', 'parks receive their enemies from their Nexus variant');
+    assert.eq(pool('PARK'), 'plant', 'residual Park has its own signature while Nexus cells use their winning table');
     assert.eq(pool('RESIDENTIAL'), 'ogre,thief,zombie');
     assert.eq(pool('RESIDENTIAL'), EnemySpawns.surfaceRows('RESIDENTIAL', { nearMinorRoad: true }).map(row => row.id).sort().join(','), 'ordinary road proximity does not choose species');
     for (const kind of ['marsh_zombie', 'ash_zombie']) {

@@ -23,7 +23,7 @@
     return { entry, hoard, scene, N };
   }
 
-  test('variant priority: empty road corridor excludes runtime generic rewards and enemies, retaining its hoard and fauna', () => {
+  test('variant priority: road corridor excludes parent rewards and enemies, retaining its signature, hoard and fauna', () => {
     const { entry, hoard, N } = fixture(true);
     assert.eq(entry._ambientSpawnOpts.occupied.size, N * N);
     assert.eq(entry._spawnOpts.occupied.size, 1 + entry._spawnOpts.creatureCells.size, 'only the hoard and generated creature seats reserve ground');
@@ -33,7 +33,11 @@
     assert.eq(entry.treasure, null);
     assert.eq(entry.extraTreasures.length, 1);
     assert.eq(entry.extraTreasures[0].id, hoard.id);
-    assert.falsy(entry.creatures.some(c => c.id.startsWith('plant_') || c._surfaceSpawn));
+    const enemies=entry.creatures.filter(c => c._surfaceSpawn);
+    assert.gt(enemies.length,0,'the corridor supplies its own signature enemy');
+    assert.truthy(enemies.every(c => c.kind===HabitatSpawns.SIGNATURE_ENEMIES['Roads and paths:pilgrim'].kind
+      && c._spawnOwner==='Roads and paths:pilgrim'),'every enemy comes from this corridor, never the underlying Park');
+    assert.falsy(entry.creatures.some(c => c.id.startsWith('plant_')));
     assert.gt(entry.creatures.filter(c => c.kind === 'crow').length, 0, 'fauna still share the road variant area');
     assert.gt(fixture(false, WorldGen.T.SAND).entry.extraTreasures.length, 1, 'unreserved sand produces its declared density finds');
   });

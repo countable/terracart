@@ -174,12 +174,12 @@
       'duplicate historical candidate seats represent one old enemy');
   });
 
-  test('habitat populations: ordinary beach enemy mix favours jellyfish without adding inland water enemies', () => {
-    const shore = HabitatSpawns.shoreProfile('SAND');
-    const draws = Array.from({ length: 4000 }, (_, i) =>
-      HabitatSpawns.enemyKind(shore, `beach_mix_${i}`, 'SAND', { beach: true }));
-    assert.inRange(draws.filter(kind => kind === 'jellyfish').length / draws.length, .77, .83);
-    assert.truthy(draws.every(kind => kind === 'jellyfish' || kind === 'giant_crab'));
+  test('habitat populations: beach rows assign aquatic rates to water and crab rates to sand', () => {
+    const water = HabitatSpawns.densityRows('Terrain:WATER'), sand = HabitatSpawns.densityRows('Terrain:SAND');
+    assert.eq(water.find(row => row.kind === 'jellyfish').per1000, .5);
+    assert.eq(sand.find(row => row.kind === 'giant_crab').per1000, .5);
+    assert.falsy(sand.some(row => row.kind === 'jellyfish'));
+    assert.falsy(water.some(row => row.kind === 'giant_crab'));
     const inland = HabitatSpawns.landProfile('SAND');
     assert.falsy(HabitatSpawns.enemyRows(inland, 'SAND').some(row => row.id === 'jellyfish'));
   });
@@ -249,7 +249,7 @@
       const creatures = generate(entry);
       assert.gt(creatures.length, 0, 'an inhabited Road Variant cannot declare only incompatible animals');
       assert.truthy(creatures.every(c => c.kind === 'rabbit'));
-      assert.eq(entry.habitatPopulation.totals.fauna.shortfall, 0);
+      assert.eq(entry.habitatPopulation.totals.fauna.requested, entry.habitatPopulation.totals.fauna.placed + entry.habitatPopulation.totals.fauna.shortfall, 'crowded density candidates are accounted for without replacement');
     }
     assert.falsy(HabitatSpawns.allows('deer', WorldGen.T.ORCHARD), 'the Deer terrain restriction remains intact');
   });

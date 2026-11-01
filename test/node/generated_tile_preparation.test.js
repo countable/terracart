@@ -31,6 +31,8 @@
       const cached=await generate();assert.truthy(cached.fromCache);assert.eq(decodes,1,'a hit skips decoding and generation');
       assert.eq(Array.from(cached.result.grid).join(','),Array.from(first.result.grid).join(','));
       assert.eq(WorldGen.gameplayTiersOf(cached.result.grid),cached.result.gameplayTiers,'rehydrated terrain uses its geographic tier field');
+      assert.eq(WorldGen.waterEdgesOf(cached.result.grid),cached.result.waterEdges,'rehydrated source bank proof follows registered tiers');
+      assert.eq(WorldGen.waterEdgesOf(cached.result.zone.caveSource.grid),cached.result.waterEdges,'cave source clone retains bank proof');
       assert.eq(WorldGen.gameplayTiersOf(null,{spawnWhy:cached.result.spawnWhy}),cached.result.gameplayTiers,'mask-only callers retain tier policy');
       assert.eq(WorldGen.gameplayTiersOf(cached.result.zone.caveSource.grid),cached.result.gameplayTiers,'Nexus cave-mouth input restores its own tier registration');
       first.result.grid[0]=WorldGen.T.WATER;

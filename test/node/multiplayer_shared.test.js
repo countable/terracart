@@ -998,12 +998,18 @@ function withPartyTile(entry, fn) {
   try { return fn(scene, at); }
   finally { if (had) WorldGen.tileCache.set(key, had); else WorldGen.tileCache.delete(key); }
 }
-const groupFrame = (entry, p, d = 0) => ({ t: 'group', id: 2, d,
-  groups: EnemyHabitats.groupsOf(entry).map(g => ({ id: g.id, p })) });
+const groupFrames = (entry, p, d = 0) => {
+  const groups = EnemyHabitats.groupsOf(entry).map(g => ({ id: g.id, p })), frames = [];
+  for (let i = 0; i < groups.length; i += Multiplayer.SEEN_MAX_IDS)
+    frames.push({ t: 'group', id: 2, d, groups: groups.slice(i, i + Multiplayer.SEEN_MAX_IDS) });
+  return frames;
+};
 function partyReplica(entry, count, incoming = []) {
   return withPartyTile(entry, (scene, at) => withRelay(scene, ({ recv, of }) => {
     for (const frame of incoming) recv(frame);
-    flush(scene, Multiplayer.GROUP_RETRY_MS + Multiplayer.PARTY_SCAN_MS);
+    // Dense populations announce over several protocol-sized batches.
+    const batches = Math.ceil(EnemyHabitats.groupsOf(entry).length / Multiplayer.SEEN_MAX_IDS);
+    for (let i = 0; i < batches; i++) flush(scene, Multiplayer.GROUP_RETRY_MS + Multiplayer.PARTY_SCAN_MS);
     return of('group').map(frame => ({ ...frame, id: 2 }));
   }, { peers: Array.from({ length: count - 1 }, (_, i) => peer(i + 2, at.x + 20 + i, at.y)) }));
 }
@@ -1028,10 +1034,10 @@ test('party coordination: asymmetric 2 / 3 / 2 clients converge through relayed 
 test('party coordination: duplicate, reordered and lower announcements never shrink or duplicate a group', () => {
   const entry = built(TX, TY);
   withPartyTile(entry, (scene) => withRelay(scene, ({ recv }) => {
-    recv(groupFrame(entry, 4));
+    for (const frame of groupFrames(entry, 4)) recv(frame);
     flush(scene);
     const grown = sig(entry.creatures);
-    for (const p of [2, 4, 3, 2, 4]) { recv(groupFrame(entry, p)); flush(scene); }
+    for (const p of [2, 4, 3, 2, 4]) { for (const frame of groupFrames(entry, p)) recv(frame); flush(scene); }
     assert.eq(sig(entry.creatures), grown);
     assert.truthy(EnemyHabitats.groupsOf(entry).every(g => g.players === 4));
     assert.eq(new Set(entry.creatures.map(c => c.id)).size, entry.creatures.length);
@@ -1060,7 +1066,7 @@ test('party coordination: an announcement before tile load waits for final spawn
   withPartyTile(entry, scene => withRelay(scene, ({ recv, of }) => {
     const key = WorldGen.tileKey(TX, TY);
     WorldGen.tileCache.delete(key);
-    recv(groupFrame(entry, 3));
+    for (const frame of groupFrames(entry, 3)) recv(frame);
     flush(scene);
     entry._spawned = false;
     WorldGen.tileCache.set(key, entry);
@@ -1081,13 +1087,13 @@ test('party coordination: retained deaths and wounds apply when remote count cre
   withPartyTile(entry, scene => withRelay(scene, ({ recv }) => {
     recv({ t: 'dead', id: 2, ids: [extras[0].id], d: 0 });
     recv({ t: 'hit', id: 2, eid: extras[1].id, f: 0.25, d: 0 });
-    recv(groupFrame(entry, 3));
+    for (const frame of groupFrames(entry, 3)) recv(frame);
     flush(scene);
     assert.includes(scene.save.caught, extras[0].id, 'dead extra cannot be resurrected by coordination');
     const wounded = entry.creatures.find(c => c.id === extras[1].id);
     assert.truthy(wounded);
     assert.inRange(Combat.hpFraction(wounded), 0.7499, 0.7501);
-    recv(groupFrame(entry, 3));
+    for (const frame of groupFrames(entry, 3)) recv(frame);
     flush(scene);
     assert.inRange(Combat.hpFraction(wounded), 0.7499, 0.7501, 'duplicate announcements do not replay retained damage');
   }));
@@ -1153,7 +1159,7 @@ test('party coordination: expired unloaded announcements cannot enlarge a newly 
   withPartyTile(entry, scene => withRelay(scene, ({ recv }) => {
     const key = WorldGen.tileKey(TX, TY);
     WorldGen.tileCache.delete(key);
-    recv(groupFrame(entry, 3));
+    for (const frame of groupFrames(entry, 3)) recv(frame);
     flush(scene, 5 * 60 * 1000 + 1);
     WorldGen.tileCache.set(key, entry);
     flush(scene);
