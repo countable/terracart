@@ -27,7 +27,7 @@
 // watchPosition per page; this is the scene's CONSUMER of it), the projection
 // (coords.js), the origin freeze (START_LAT / START_LON / the teleport override
 // stay at the top of app.js — the index.html boot gate depends on it), tile
-// building (WorldGen.loadTile / rasterizeTile / fetchTileResponse; this only
+// building (WorldGen.loadTile / rasterizeTile / fetchTileBuffer; this only
 // asks for the blocks and settles the banner), or spawning (spawnInTile and the
 // starter helpers stay in app.js / starter.js). See CLAUDE.md "The camera is
 // not the player" (tile loading reads the PLAYER, never the camera anchor) and

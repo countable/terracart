@@ -143,7 +143,7 @@ test('tile url: a failure that is not a rotation is rethrown as-is, and the host
 test('tile url: worldgen.js reaches the network only through the resolver', () => {
   const src = WORLDGEN_SRC;
   const direct = src.match(/fetch\(tileUrlFor\(/g) || [];
-  assert.eq(direct.length, 1, 'exactly one raw tile fetch (inside fetchTileResponse), got ' + direct.length);
+  assert.eq(direct.length, 1, 'exactly one raw tile fetch (inside fetchTileBuffer), got ' + direct.length);
   assert.truthy(/await resolveTileUrl\(\);\s*\n\s*const under = _tileUrl;/.test(src), 'and it resolves first');
 });
 

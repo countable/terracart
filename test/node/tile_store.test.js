@@ -19,7 +19,9 @@ const tileJson = () => ({ ok: true, status: 200, json: async () => ({ tiles: [WG
 const okTile = () => ({ ok: true, status: 200, arrayBuffer: async () => new Uint8Array([1, 2, 3]).buffer });
 
 // A fake store. `open`: 'ok' answers next microtask, 'stall' never answers,
-// 'late' answers only when log.release() is called. `request`: 'ok' completes
+// 'late' answers only when log.release() is called — and only the FIRST open,
+// the one that has certainly timed out by then (which open is last depends on
+// how many microtask hops the fetch path takes, not on the store). `request`: 'ok' completes
 // transactions next microtask, 'stall' never completes them.
 function fakeStore({ open = 'ok', request = 'ok' } = {}) {
   const data = new Map();
@@ -48,7 +50,7 @@ function fakeStore({ open = 'ok', request = 'ok' } = {}) {
       log.opens++;
       const req = { result: db, error: null, onsuccess: null, onerror: null, onupgradeneeded: null, onblocked: null };
       if (open === 'ok') later(() => req.onsuccess?.());
-      else if (open === 'late') log.release = () => req.onsuccess?.();
+      else if (open === 'late' && !log.release) log.release = () => req.onsuccess?.();
       return req;
     },
   };
@@ -145,5 +147,93 @@ test('tile store: a healthy store still answers from cache without a fetch', () 
     assert.eq(store.data.has(WG.tileKey(1, 2)), true, 'the fetched tile was written back');
   });
 });
+
+// THE NETWORK NEVER HANGS A TILE EITHER. A fetch that never settles (a radio
+// dropped mid-transfer, a captive portal that accepts and never answers) used
+// to leave the entry 'loading' for the life of the page: nothing rejected, so
+// nothing evicted, retried or raised the banner — bare ground with no roads
+// until the next refresh, from the network side this time. Every network wait
+// now runs under a deadline (WorldGen.TILE_FETCH_TIMEOUT_MS for a tile's
+// headers and body, TILEJSON_FETCH_TIMEOUT_MS for the template) that aborts
+// the request AND rejects the wait.
+//
+// `hang` says which URLs never answer; `fire` is the one delay the fake clock
+// lets run (a few microtask hops later) — the vm's setTimeout is otherwise a
+// no-op, so every other timer stays silent. A fake AbortController records
+// whether the hung request was actually aborted.
+function withNetwork({ hang = () => false, fire } = {}, fn) {
+  const realFetch = globalThis.fetch, realIDB = globalThis.indexedDB;
+  const realSet = globalThis.setTimeout, realClear = globalThis.clearTimeout;
+  const realAbort = globalThis.AbortController;
+  const calls = [], signals = [];
+  globalThis.fetch = (url, init) => {
+    const u = String(url);
+    calls.push(u);
+    if (init && init.signal) signals.push({ url: u, signal: init.signal });
+    if (hang(u)) return new Promise(() => {});
+    return Promise.resolve(u === WG.TILEJSON_URL ? tileJson() : okTile());
+  };
+  globalThis.AbortController = class {
+    constructor() { this.signal = { aborted: false }; }
+    abort() { this.signal.aborted = true; }
+  };
+  globalThis.indexedDB = fakeStore().indexedDB;
+  const hop = (cb) => { Promise.resolve().then(() => Promise.resolve()).then(() => Promise.resolve()).then(cb); };
+  globalThis.setTimeout = (cb, ms) => { if (ms === fire) hop(cb); return 1; };
+  globalThis.clearTimeout = () => {};
+  WG._resetTileUrlForTest();
+  WG._resetTileStoreForTest();
+  return Promise.resolve()
+    .then(() => fn(calls, signals))
+    .finally(() => {
+      globalThis.fetch = realFetch; globalThis.indexedDB = realIDB;
+      globalThis.setTimeout = realSet; globalThis.clearTimeout = realClear;
+      if (realAbort === undefined) delete globalThis.AbortController; else globalThis.AbortController = realAbort;
+      WG._resetTileUrlForTest();
+      WG._resetTileStoreForTest();
+    });
+}
+const isTileJson = (u) => u === WG.TILEJSON_URL;
+const isTile = (u) => !isTileJson(u);
+
+test('tile fetch: a tile request that never answers times out as an ordinary failure, and the next call fetches afresh', () =>
+  withNetwork({ hang: isTile, fire: WG.TILE_FETCH_TIMEOUT_MS }, async (calls, signals) => {
+    let err = null;
+    try { await WG.fetchTileBytes(5, 5); } catch (e) { err = e; }
+    assert.truthy(err && /timed out/.test(err.message), 'the wait rejected at the deadline: ' + (err && err.message));
+    const hung = signals.filter(s => isTile(s.url));
+    assert.truthy(hung.length >= 1 && hung.every(s => s.signal.aborted), 'the hung request itself was aborted');
+    // The scene's one classifier: a timeout is 'failed' — retried, and
+    // bannered when it is the ground under the player — never 'permanent'.
+    const kind = liftSceneMethod('_tileFailureKind');
+    assert.eq(kind.call({}, err, null), 'failed');
+    const before = tileFetches(calls);
+    err = null;
+    try { await WG.fetchTileBytes(5, 5); } catch (e) { err = e; }
+    assert.truthy(err, 'still hanging, still failing');
+    assert.eq(tileFetches(calls) > before, true, 'nothing memoised the hang: the retry asked the network again');
+  }));
+
+test('tile fetch: a TileJSON that never answers keeps the current template and the tile still arrives', () =>
+  withNetwork({ hang: isTileJson, fire: WG.TILEJSON_FETCH_TIMEOUT_MS }, async (calls, signals) => {
+    const got = await WG.fetchTileBytes(3, 4);
+    assert.eq(got.fromCache, false);
+    assert.eq(got.bytes.length, 3, 'fetched under the pinned fallback');
+    assert.eq(WG.tileUrlTemplate(), WG.TILE_URL_FALLBACK, 'the template was left alone');
+    assert.truthy(signals.some(s => isTileJson(s.url) && s.signal.aborted), 'the hung TileJSON request was aborted');
+    assert.eq(tileFetches(calls), 1);
+  }));
+
+test('tile fetch: a healthy transfer is never cut off by its own deadline', () =>
+  withNetwork({ fire: WG.TILE_FETCH_TIMEOUT_MS }, async (calls, signals) => {
+    const got = await WG.fetchTileBytes(8, 8);
+    assert.eq(got.fromCache, false);
+    assert.eq(got.bytes.length, 3, 'the tile arrived whole');
+    assert.eq(tileFetches(calls), 1, 'one fetch, no retry');
+    // The deadline's late firing (the fake clock cannot be cleared) is harmless
+    // to a settled transfer — the result above already stands.
+    await new Promise(r => Promise.resolve().then(() => Promise.resolve()).then(() => Promise.resolve()).then(r));
+    assert.eq(got.bytes.length, 3);
+  }));
 
 })();
