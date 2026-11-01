@@ -165,10 +165,16 @@
       gameplayTiers: Uint8Array.from({length:N*N}, (_, i) => i < N*N*3/4 ? 4 : 1) };
     for (let i = 0; i < N * N / 2; i++) opts.spawnWhy[i] = WorldGen.SPAWN_WHY.ROAD;
     for (let i = N * N / 2; i < N * N * 3 / 4; i++) opts.spawnWhy[i] = WorldGen.SPAWN_WHY.PRIVATE;
-    const out = WorldGen.runSteps(HabitatSpawns.populationSteps({ tileEdgeM: N * 10, cellM: 10 }, e, 0, 0, { spawnOpts: opts }));
+    const run = (entry, spawnOpts) => WorldGen.runSteps(HabitatSpawns.populationSteps(
+      { tileEdgeM: N * 10, cellM: 10 }, entry, 0, 0, { category: 'fauna', spawnOpts }));
+    const out = run(e, opts), clear = { ...e };
+    const withoutObjects = run(clear, { ...opts, occupied: new Set() });
     assert.gt(out.length, 0);
     for (const c of out) assert.eq(opts.spawnWhy[c._habitatSpawn.cy * N + c._habitatSpawn.cx], 0);
-    assert.eq(e.habitatPopulation.totals.fauna.shortfall, 0);
+    const signature = creatures => creatures.map(c => `${c.id}:${c.kind}:${c.x},${c.y}`).join('|');
+    assert.eq(signature(out), signature(withoutObjects), 'static occupancy cannot change fauna identities or seats');
+    assert.eq(JSON.stringify(e.habitatPopulation.totals.fauna), JSON.stringify(clear.habitatPopulation.totals.fauna),
+      'fauna spacing losses are identical with every static cell occupied or none occupied');
   });
 
   test('fauna overlap: live scenery keeps animals; flooded ground and scenery still remove foes and traps', () => {

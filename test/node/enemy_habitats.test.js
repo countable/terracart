@@ -162,7 +162,9 @@ test('enemy habitats: every selected cave theme has an eligible family through d
   test('surface encounters: mushroom groves scatter stable solitary mushrooms across the grove', () => {
     const e = entry('mushroom_grove'), occupied = new Set();
     const cs = EnemyHabitats.surfaceEncounters(e, 0, 0, occupied);
-    assert.inRange(cs.length, 45, 90, 'mushrooms populate the grove beyond a sparse mixed encounter');
+    const rate = HabitatSpawns.DENSITY_ROWS['Nexus:mushroom_grove'].find(r => r.kind === 'mushroom_monster').per1000 / 1000;
+    const mean = N * N * rate, spread = 5 * Math.sqrt(mean * (1 - rate));
+    assert.inRange(cs.length, mean - spread, mean + spread, 'mushroom scatter follows its declared density');
     assert.eq(signature(cs), signature(EnemyHabitats.surfaceEncounters(e, 0, 0, new Set())));
     const patches = new Set(), quadrants = new Set();
     for (const c of cs) {
@@ -309,8 +311,9 @@ test('enemy habitats: every selected cave theme has an eligible family through d
 
 test('new monsters: jellyfish use shoreline candidates and graveyard zombies start buried', () => {
   assert.falsy(EnemySpawns.surfaceRows('SAND').some(r => r.id === 'jellyfish'));
-  assert.truthy(EnemySpawns.surfaceRows('SAND', { beach: true }).some(r => r.id === 'jellyfish'));
-  const kinds = new Set(Array.from({ length: 1000 }, (_, i) => HabitatSpawns.enemyKind(HabitatSpawns.shoreProfile('SAND'), `jellyfish_beach_${i}`, 'SAND', { beach: true })));
+  assert.falsy(EnemySpawns.surfaceRows('SAND', { beach: true }).some(r => r.id === 'jellyfish'));
+  assert.truthy(EnemySpawns.surfaceRows('WATER', { beach: true }).some(r => r.id === 'jellyfish'));
+  const kinds = new Set(Array.from({ length: 1000 }, (_, i) => HabitatSpawns.enemyKind(HabitatSpawns.shoreProfile('WATER'), `jellyfish_beach_${i}`, 'WATER', { beach: true })));
   assert.truthy(kinds.has('jellyfish'));
   for (const variant of ['ordered_graves', 'overgrown_graves']) {
     const N = 64;

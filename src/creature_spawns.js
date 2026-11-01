@@ -41,6 +41,7 @@
       ...(entry.roadClass ? { roadClass: entry.roadClass } : {}),
       ...(entry.spawnWhy ? { spawnWhy: entry.spawnWhy } : {}),
       ...(entry.gameplayTiers ? { gameplayTiers: entry.gameplayTiers } : {}),
+      ...(entry.waterEdges ? { waterEdges: entry.waterEdges } : {}),
       ...(overrides || {}),
     };
     if (grid) return root.WorldGen.isSpawnCell(grid, N, N, cx, cy, opts, creatureSpawnClass(kind));
@@ -60,6 +61,7 @@
       roadClass: one(opts.roadClass, Uint16Array),
       spawnWhy: one(opts.spawnWhy, Uint32Array),
       gameplayTiers: one(opts.gameplayTiers, Uint8Array),
+      waterEdges: one(opts.waterEdges || root.WorldGen.waterEdgesOf(null, opts), Uint8Array),
       occupied,
     };
     return root.WorldGen.isSpawnCell(Uint8Array.of(cell.type), 1, 1, 0, 0,

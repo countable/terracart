@@ -51,12 +51,15 @@
     const sourceStart = WORLDGEN_SRC.indexOf('      entry.baseGrid = grid.slice();');
     const sourceEnd = WORLDGEN_SRC.indexOf('      entry.parkingTreasures', sourceStart);
     assert.gt(sourceStart, 0); assert.gt(sourceEnd, sourceStart);
-    const snapshot = new Function('entry', 'grid', 'spawnWhy', 'gameplayTiers', 'registerGameplayTiers',
+    const snapshot = new Function('entry', 'grid', 'spawnWhy', 'gameplayTiers', 'waterEdges', 'registerGameplayTiers',
       WORLDGEN_SRC.slice(sourceStart, sourceEnd));
     const grid = new Uint8Array(N*N).fill(WorldGen.T.ROCKY_GROUND);
     const plant = {kind:'wildplant',crop:'longgrass',x:-3*edge+40.5*7,y:8*edge+20.5*7};
     const surface = {grid,objects:[],wildplants:[plant]};
-    snapshot(surface,grid,new Uint16Array(N*N),null,()=>{});
+    const gameplayTiers = new Uint8Array(N*N).fill(1), waterEdges = new Uint8Array(N*N);
+    waterEdges[0] = WorldGen.WATER_EDGE_PROOF.SOURCE | WorldGen.WATER_EDGE_PROOF.OUTSIDE_RIM;
+    snapshot(surface,grid,new Uint16Array(N*N),gameplayTiers,waterEdges,WorldGen.registerGameplayTiers);
+    assert.eq(WorldGen.waterEdgesOf(surface.baseGrid),waterEdges,'generated surface clone retains buffered water-bank proof');
     const level = {tx:-3,ty:8,N,tileEdgeM:edge,surface};
     const before = Array.from(row.setup(level));
     assert.eq(before[20*N+40],1);

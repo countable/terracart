@@ -115,10 +115,10 @@
   }
   function shoreProfile(type) {
     const name = nameOf(type), base = landProfile(type);
-    if (!base) return null;
+    if (!base && name !== 'WATER') return null;
     const key = `${name}:shore`;
     if (!landCache.has(key)) landCache.set(key, Object.freeze({ id: key, owner: 'land',
-      fauna: weightedRows({}), haunting: base.haunting,
+      fauna: weightedRows({}), haunting: !!base?.haunting,
       // Ordinary beach enemies favour shoreline jellyfish over sand crabs.
       enemyTierWeights: Object.freeze({ 1: 1, 2: 4 }) }));
     return landCache.get(key);
@@ -221,7 +221,7 @@
     if (!profile || profile.owner === 'road' && !profile.habitatEnemies) return [];
     if (profile.owner === 'road') return root.EnemyRoster.ROWS.filter(row => profile.habitatEnemies.kinds.includes(row.id));
     const family = profile.owner === 'zone' ? root.EnemyHabitats?.SURFACE_FAMILIES[profile.id] : null;
-    let eligible = root.EnemyRoster.ROWS.filter(row => !row.retired && row.surface && row.tier <= 3
+    let eligible = root.EnemyRoster.ROWS.filter(row => !row.retired && !row.signatureOnly && row.surface && row.tier <= 3
       && row.attackType !== 'touch' && (family ? family.includes(row.id)
         : profile.owner === 'land' && row.surface.biomes.includes(nameOf(type))));
     if (!family) {
@@ -476,63 +476,136 @@
   }
   // Candidates per 1,000 eligible cells, one independent row per species.
   // No tile allowance or normalization against other owners.
+  // Approved zone tuning: explicit rates are expected individuals per 1,000
+  // eligible cells. Rare signatures are already final rates, not multipliers.
   const DENSITY_ROWS = Object.freeze({
-    "Terrain:GRASS": Object.freeze([{"kind":"chicken","category":"fauna","per1000":1.065217391304348},{"kind":"cow","category":"fauna","per1000":0.8521739130434784},{"kind":"butterfly","category":"fauna","per1000":0.8521739130434784},{"kind":"rabbit","category":"fauna","per1000":0.6391304347826088},{"kind":"crow","category":"fauna","per1000":0.4260869565217392},{"kind":"horse","category":"fauna","per1000":0.08521739130434784},{"kind":"slime","category":"enemy","per1000":0.4763888888888889},{"kind":"snake","category":"enemy","per1000":0.09527777777777778},{"kind":"plant","category":"enemy","per1000":1.1433333333333333}]),
-    "Terrain:RESIDENTIAL": Object.freeze([{"kind":"cat","category":"fauna","per1000":0.84},{"kind":"dog","category":"fauna","per1000":0.84},{"kind":"chicken","category":"fauna","per1000":0.63},{"kind":"deer","category":"fauna","per1000":0.42},{"kind":"cow","category":"fauna","per1000":0.105},{"kind":"raven","category":"fauna","per1000":0.105},{"kind":"zombie","category":"enemy","per1000":0.30625},{"kind":"thief","category":"enemy","per1000":0.30625},{"kind":"ogre","category":"enemy","per1000":0.6125}]),
-    "Terrain:FOREST": Object.freeze([{"kind":"deer","category":"fauna","per1000":2.3520000000000003},{"kind":"rabbit","category":"fauna","per1000":1.1760000000000002},{"kind":"dog","category":"fauna","per1000":0.392},{"kind":"spider","category":"enemy","per1000":0.294},{"kind":"plant","category":"enemy","per1000":1.176},{"kind":"boar","category":"enemy","per1000":0.294},{"kind":"giant_bear","category":"enemy","per1000":1.176}]),
-    "Terrain:FARMLAND": Object.freeze([{"kind":"chicken","category":"fauna","per1000":2.1},{"kind":"cow","category":"fauna","per1000":1.75},{"kind":"rabbit","category":"fauna","per1000":0.7000000000000001},{"kind":"horse","category":"fauna","per1000":0.35000000000000003},{"kind":"snake","category":"enemy","per1000":0.32666666666666666},{"kind":"farmer_goblin","category":"enemy","per1000":0.6533333333333333}]),
-    "Terrain:WASTELAND": Object.freeze([{"kind":"dog","category":"fauna","per1000":1.225},{"kind":"rabbit","category":"fauna","per1000":0.49000000000000005},{"kind":"chicken","category":"fauna","per1000":0.24500000000000002}]),
-    "Terrain:PARK": Object.freeze([{"kind":"butterfly","category":"fauna","per1000":1.96},{"kind":"rabbit","category":"fauna","per1000":1.568},{"kind":"crow","category":"fauna","per1000":1.176},{"kind":"chicken","category":"fauna","per1000":0.784},{"kind":"cat","category":"fauna","per1000":0.392}]),
-    "Terrain:GROVE": Object.freeze([{"kind":"butterfly","category":"fauna","per1000":1.75},{"kind":"rabbit","category":"fauna","per1000":1.4000000000000001},{"kind":"crow","category":"fauna","per1000":1.05},{"kind":"chicken","category":"fauna","per1000":0.7000000000000001}]),
-    "Terrain:WETLAND": Object.freeze([{"kind":"butterfly","category":"fauna","per1000":1.96},{"kind":"rabbit","category":"fauna","per1000":0.6533333333333333},{"kind":"dog","category":"fauna","per1000":0.32666666666666666},{"kind":"slime","category":"enemy","per1000":0.3675},{"kind":"spider","category":"enemy","per1000":0.147},{"kind":"snake","category":"enemy","per1000":0.0735},{"kind":"zombie","category":"enemy","per1000":1.176},{"kind":"golden_slime","category":"enemy","per1000":1.176}]),
-    "Terrain:ORCHARD": Object.freeze([{"kind":"chicken","category":"fauna","per1000":2.45},{"kind":"rabbit","category":"fauna","per1000":1.8375000000000001},{"kind":"dog","category":"fauna","per1000":0.6125},{"kind":"farmer_goblin","category":"enemy","per1000":1.4699999999999998}]),
-    "Terrain:ROCK": Object.freeze([{"kind":"rabbit","category":"fauna","per1000":0.882},{"kind":"dog","category":"fauna","per1000":0.588},{"kind":"skeleton","category":"enemy","per1000":1.715},{"kind":"skeleton_soldier","category":"enemy","per1000":1.715}]),
-    "Terrain:SAND": Object.freeze([{"kind":"rabbit","category":"fauna","per1000":0.98},{"kind":"dog","category":"fauna","per1000":0.49}]),
-    "Terrain:SCHOOL": Object.freeze([{"kind":"chicken","category":"fauna","per1000":1.1760000000000002},{"kind":"butterfly","category":"fauna","per1000":1.1760000000000002},{"kind":"cat","category":"fauna","per1000":0.784},{"kind":"rabbit","category":"fauna","per1000":0.784}]),
-    "Terrain:COMMERCIAL": Object.freeze([{"kind":"cat","category":"fauna","per1000":1.12},{"kind":"dog","category":"fauna","per1000":0.8400000000000001},{"kind":"goblin","category":"enemy","per1000":0.29400000000000004},{"kind":"goblin_archer","category":"enemy","per1000":0.098},{"kind":"thief","category":"enemy","per1000":0.24500000000000002},{"kind":"club_goblin","category":"enemy","per1000":0.24500000000000002},{"kind":"sword_spirit","category":"enemy","per1000":0.098}]),
-    "Terrain:INDUSTRIAL": Object.freeze([{"kind":"dog","category":"fauna","per1000":1.176},{"kind":"rabbit","category":"fauna","per1000":0.294},{"kind":"zombie","category":"enemy","per1000":1.225},{"kind":"marsh_zombie","category":"enemy","per1000":0.8166666666666668},{"kind":"ash_zombie","category":"enemy","per1000":0.4083333333333334}]),
-    "Terrain:PLAYGROUND": Object.freeze([{"kind":"butterfly","category":"fauna","per1000":2.45},{"kind":"rabbit","category":"fauna","per1000":1.8375000000000001},{"kind":"cat","category":"fauna","per1000":0.6125}]),
-    "Terrain:PITCH": Object.freeze([{"kind":"rabbit","category":"fauna","per1000":1.9600000000000002},{"kind":"butterfly","category":"fauna","per1000":1.4700000000000002},{"kind":"cow","category":"fauna","per1000":0.49000000000000005}]),
-    "Terrain:CHURCHYARD": Object.freeze([{"kind":"rabbit","category":"fauna","per1000":1.4700000000000002},{"kind":"cat","category":"fauna","per1000":0.49000000000000005}]),
-    "Terrain:TAR_YARD": Object.freeze([{"kind":"dog","category":"fauna","per1000":1.1025},{"kind":"rabbit","category":"fauna","per1000":0.3675}]),
-    "Nexus:meadow": Object.freeze([{"kind":"rabbit","category":"fauna","per1000":2.2},{"kind":"butterfly","category":"fauna","per1000":2.2},{"kind":"chicken","category":"fauna","per1000":1.1},{"kind":"slime","category":"enemy","per1000":3.0208333333333335},{"kind":"plant","category":"enemy","per1000":3.0208333333333335}]),
-    "Nexus:mushroom_grove": Object.freeze([{"kind":"rabbit","category":"fauna","per1000":2.4444444444444446},{"kind":"crow","category":"fauna","per1000":1.8333333333333333},{"kind":"butterfly","category":"fauna","per1000":1.2222222222222223},{"kind":"mushroom_monster","category":"enemy","per1000":16.666666666666668}]),
-    "Nexus:orchard": Object.freeze([{"kind":"chicken","category":"fauna","per1000":2.357142857142857},{"kind":"rabbit","category":"fauna","per1000":2.357142857142857},{"kind":"dog","category":"fauna","per1000":0.7857142857142857},{"kind":"farmer_goblin","category":"enemy","per1000":3.0208333333333335},{"kind":"club_goblin","category":"enemy","per1000":3.0208333333333335}]),
-    "Nexus:formal_garden": Object.freeze([{"kind":"butterfly","category":"fauna","per1000":2.2},{"kind":"rabbit","category":"fauna","per1000":1.65},{"kind":"chicken","category":"fauna","per1000":1.1},{"kind":"cat","category":"fauna","per1000":0.55},{"kind":"slime","category":"enemy","per1000":3.0208333333333335},{"kind":"plant","category":"enemy","per1000":3.0208333333333335}]),
-    "Nexus:hedge_garden": Object.freeze([{"kind":"rabbit","category":"fauna","per1000":2.2},{"kind":"butterfly","category":"fauna","per1000":1.65},{"kind":"chicken","category":"fauna","per1000":1.1},{"kind":"cat","category":"fauna","per1000":0.55},{"kind":"plant","category":"enemy","per1000":3.0208333333333335},{"kind":"spider","category":"enemy","per1000":3.0208333333333335}]),
-    "Nexus:ancient_grove": Object.freeze([{"kind":"crow","category":"fauna","per1000":3.142857142857143},{"kind":"rabbit","category":"fauna","per1000":2.357142857142857},{"kind":"treant","category":"enemy","per1000":2.013888888888889},{"kind":"spider","category":"enemy","per1000":2.013888888888889},{"kind":"giant_bear","category":"enemy","per1000":2.013888888888889}]),
-    "Nexus:sacred_grove": Object.freeze([{"kind":"crow","category":"fauna","per1000":2.0625},{"kind":"rabbit","category":"fauna","per1000":2.0625},{"kind":"butterfly","category":"fauna","per1000":1.375}]),
-    "Nexus:stone_garden": Object.freeze([{"kind":"rabbit","category":"fauna","per1000":4.125},{"kind":"cat","category":"fauna","per1000":1.375},{"kind":"slime","category":"enemy","per1000":3.0208333333333335},{"kind":"skeleton","category":"enemy","per1000":3.0208333333333335}]),
-    "Nexus:ordered_graves": Object.freeze([{"kind":"rabbit","category":"fauna","per1000":3.6666666666666665},{"kind":"cat","category":"fauna","per1000":1.8333333333333333},{"kind":"zombie","category":"enemy","per1000":2.013888888888889},{"kind":"skeleton","category":"enemy","per1000":2.013888888888889},{"kind":"skeleton_soldier","category":"enemy","per1000":2.013888888888889}]),
-    "Nexus:overgrown_graves": Object.freeze([{"kind":"rabbit","category":"fauna","per1000":3.3},{"kind":"butterfly","category":"fauna","per1000":2.2},{"kind":"zombie","category":"enemy","per1000":2.013888888888889},{"kind":"spider","category":"enemy","per1000":2.013888888888889},{"kind":"skeleton","category":"enemy","per1000":2.013888888888889}]),
-    "Nexus:broken_masonry": Object.freeze([{"kind":"dog","category":"fauna","per1000":3.3},{"kind":"rabbit","category":"fauna","per1000":2.2},{"kind":"club_goblin","category":"enemy","per1000":6.041666666666667}]),
-    "Nexus:silent_circle": Object.freeze([{"kind":"rabbit","category":"fauna","per1000":4.125},{"kind":"cat","category":"fauna","per1000":1.375},{"kind":"skeleton","category":"enemy","per1000":3.0208333333333335},{"kind":"skeleton_soldier","category":"enemy","per1000":3.0208333333333335}]),
-    "Nexus:flint_field": Object.freeze([{"kind":"dog","category":"fauna","per1000":3.3},{"kind":"rabbit","category":"fauna","per1000":2.2},{"kind":"club_goblin","category":"enemy","per1000":6.041666666666667}]),
-    "Nexus:broken_depot": Object.freeze([{"kind":"dog","category":"fauna","per1000":4.4},{"kind":"rabbit","category":"fauna","per1000":1.1},{"kind":"skeleton","category":"enemy","per1000":3.0208333333333335},{"kind":"club_goblin","category":"enemy","per1000":3.0208333333333335}]),
-    "Nexus:seep": Object.freeze([{"kind":"butterfly","category":"fauna","per1000":3.3},{"kind":"rabbit","category":"fauna","per1000":2.2},{"kind":"slime","category":"enemy","per1000":2.013888888888889},{"kind":"plant","category":"enemy","per1000":2.013888888888889},{"kind":"golden_slime","category":"enemy","per1000":2.013888888888889}]),
-    "Nexus:work_yard": Object.freeze([{"kind":"dog","category":"fauna","per1000":4.125},{"kind":"chicken","category":"fauna","per1000":1.375},{"kind":"club_goblin","category":"enemy","per1000":6.041666666666667}]),
-    "Nexus:black_ring": Object.freeze([{"kind":"dog","category":"fauna","per1000":4.125},{"kind":"rabbit","category":"fauna","per1000":1.375},{"kind":"skeleton","category":"enemy","per1000":3.0208333333333335},{"kind":"skeleton_soldier","category":"enemy","per1000":3.0208333333333335}]),
-    "Nexus:quarry-abandoned": Object.freeze([{"kind":"rabbit","category":"fauna","per1000":2.25},{"kind":"dog","category":"fauna","per1000":0.75}]),
-    "Nexus:quarry-strip-mine": Object.freeze([{"kind":"dog","category":"fauna","per1000":2},{"kind":"rabbit","category":"fauna","per1000":1}]),
-    "Nexus:quarry-stronghold": Object.freeze([{"kind":"dog","category":"fauna","per1000":2.25},{"kind":"rabbit","category":"fauna","per1000":0.75}]),
-    "Nexus:spooky_woods": Object.freeze([{"kind":"crow","category":"fauna","per1000":3.142857142857143},{"kind":"rabbit","category":"fauna","per1000":2.357142857142857}]),
-    "Roads and paths:hedgerow": Object.freeze([{"kind":"rabbit","category":"fauna","per1000":2.5}]),
-    "Roads and paths:overgrown": Object.freeze([{"kind":"rabbit","category":"fauna","per1000":2.5},{"kind":"butterfly","category":"fauna","per1000":2.5}]),
-    "Roads and paths:orchard": Object.freeze([{"kind":"rabbit","category":"fauna","per1000":2.5}]),
-    "Roads and paths:pilgrim": Object.freeze([{"kind":"crow","category":"fauna","per1000":2.5}]),
-    "Roads and paths:toadstool": Object.freeze([{"kind":"butterfly","category":"fauna","per1000":2.5}]),
-    "Roads and paths:berry": Object.freeze([{"kind":"rabbit","category":"fauna","per1000":2.5}]),
-    "Nexus:pirate_cove": Object.freeze([{"kind":"pirate_grunt","category":"enemy","per1000":6.041666666666667}]),
-    "Nexus:mystic_reef": Object.freeze([{"kind":"giant_crab","category":"enemy","per1000":3.0208333333333335},{"kind":"jellyfish","category":"enemy","per1000":3.0208333333333335}]),
-    "Nexus:shellwater_strand": Object.freeze([{"kind":"giant_crab","category":"enemy","per1000":3.0208333333333335},{"kind":"jellyfish","category":"enemy","per1000":3.0208333333333335}]),
+    "Terrain:GRASS": Object.freeze([{"kind":"chicken","category":"fauna","per1000":3.195652173913043},{"kind":"cow","category":"fauna","per1000":2.556521739130435},{"kind":"butterfly","category":"fauna","per1000":2.556521739130435},{"kind":"rabbit","category":"fauna","per1000":1.9173913043478261},{"kind":"crow","category":"fauna","per1000":1.2782608695652176},{"kind":"horse","category":"fauna","per1000":0.2556521739130435},{"kind":"slime","category":"enemy","per1000":0.9527777777777778,"signature":true},{"kind":"snake","category":"enemy","per1000":0.19055555555555556},{"kind":"plant","category":"enemy","per1000":2.2866666666666666}]),
+    "Terrain:RESIDENTIAL": Object.freeze([{"kind":"cat","category":"fauna","per1000":2.52},{"kind":"dog","category":"fauna","per1000":2.52},{"kind":"chicken","category":"fauna","per1000":1.8900000000000001},{"kind":"deer","category":"fauna","per1000":1.26},{"kind":"cow","category":"fauna","per1000":0.315},{"kind":"raven","category":"fauna","per1000":0.315},{"kind":"zombie","category":"enemy","per1000":0.6125},{"kind":"thief","category":"enemy","per1000":0.6125,"signature":true},{"kind":"ogre","category":"enemy","per1000":1.225}]),
+    "Terrain:FOREST": Object.freeze([{"kind":"deer","category":"fauna","per1000":7.056000000000001},{"kind":"rabbit","category":"fauna","per1000":3.5280000000000005},{"kind":"dog","category":"fauna","per1000":1.1760000000000002},{"kind":"spider","category":"enemy","per1000":0.588},{"kind":"plant","category":"enemy","per1000":2.352},{"kind":"boar","category":"enemy","per1000":0.588,"signature":true},{"kind":"giant_bear","category":"enemy","per1000":2.352}]),
+    "Terrain:FARMLAND": Object.freeze([{"kind":"chicken","category":"fauna","per1000":6.300000000000001},{"kind":"cow","category":"fauna","per1000":5.25},{"kind":"rabbit","category":"fauna","per1000":2.1},{"kind":"horse","category":"fauna","per1000":1.05},{"kind":"snake","category":"enemy","per1000":0.6533333333333333,"signature":true},{"kind":"farmer_goblin","category":"enemy","per1000":1.3066666666666666}]),
+    "Terrain:WASTELAND": Object.freeze([{"kind":"dog","category":"fauna","per1000":3.6750000000000003},{"kind":"rabbit","category":"fauna","per1000":1.4700000000000002},{"kind":"chicken","category":"fauna","per1000":0.7350000000000001},{"kind":"ash_zombie","category":"enemy","per1000":0.5,"signature":true,"time":"night"}]),
+    "Terrain:PARK": Object.freeze([{"kind":"butterfly","category":"fauna","per1000":5.88},{"kind":"rabbit","category":"fauna","per1000":4.704000000000001},{"kind":"crow","category":"fauna","per1000":3.5279999999999996},{"kind":"chicken","category":"fauna","per1000":2.3520000000000003},{"kind":"cat","category":"fauna","per1000":1.1760000000000002},{"kind":"plant","category":"enemy","per1000":0.5,"signature":true}]),
+    "Terrain:GROVE": Object.freeze([{"kind":"butterfly","category":"fauna","per1000":5.25},{"kind":"rabbit","category":"fauna","per1000":4.2},{"kind":"crow","category":"fauna","per1000":3.1500000000000004},{"kind":"chicken","category":"fauna","per1000":2.1},{"kind":"treant","category":"enemy","per1000":0.5,"signature":true}]),
+    "Terrain:WETLAND": Object.freeze([{"kind":"butterfly","category":"fauna","per1000":5.88},{"kind":"rabbit","category":"fauna","per1000":1.96},{"kind":"dog","category":"fauna","per1000":0.98},{"kind":"slime","category":"enemy","per1000":0.735},{"kind":"spider","category":"enemy","per1000":0.294},{"kind":"snake","category":"enemy","per1000":0.147},{"kind":"zombie","category":"enemy","per1000":2.352},{"kind":"golden_slime","category":"enemy","per1000":2.352,"signature":true}]),
+    "Terrain:ORCHARD": Object.freeze([{"kind":"chicken","category":"fauna","per1000":7.3500000000000005},{"kind":"rabbit","category":"fauna","per1000":5.5125},{"kind":"dog","category":"fauna","per1000":1.8375000000000001},{"kind":"farmer_goblin","category":"enemy","per1000":2.9399999999999995,"signature":true}]),
+    "Terrain:ROCK": Object.freeze([{"kind":"rabbit","category":"fauna","per1000":2.646},{"kind":"dog","category":"fauna","per1000":1.7639999999999998},{"kind":"skeleton","category":"enemy","per1000":3.43},{"kind":"skeleton_soldier","category":"enemy","per1000":3.43,"signature":true}]),
+    "Terrain:SAND": Object.freeze([{"kind":"rabbit","category":"fauna","per1000":2.94},{"kind":"dog","category":"fauna","per1000":1.47},{"kind":"giant_crab","category":"enemy","per1000":0.5,"signature":true}]),
+    "Terrain:SCHOOL": Object.freeze([{"kind":"chicken","category":"fauna","per1000":3.5280000000000005},{"kind":"butterfly","category":"fauna","per1000":3.5280000000000005},{"kind":"cat","category":"fauna","per1000":2.3520000000000003},{"kind":"rabbit","category":"fauna","per1000":2.3520000000000003},{"kind":"goblin_runt","category":"enemy","per1000":0.5,"signature":true}]),
+    "Terrain:COMMERCIAL": Object.freeze([{"kind":"cat","category":"fauna","per1000":3.3600000000000003},{"kind":"dog","category":"fauna","per1000":2.5200000000000005},{"kind":"goblin","category":"enemy","per1000":0.5880000000000001,"signature":true},{"kind":"goblin_archer","category":"enemy","per1000":0.196},{"kind":"thief","category":"enemy","per1000":0.49000000000000005},{"kind":"club_goblin","category":"enemy","per1000":0.49000000000000005},{"kind":"sword_spirit","category":"enemy","per1000":0.196}]),
+    "Terrain:INDUSTRIAL": Object.freeze([{"kind":"dog","category":"fauna","per1000":3.5279999999999996},{"kind":"rabbit","category":"fauna","per1000":0.8819999999999999},{"kind":"zombie","category":"enemy","per1000":2.45},{"kind":"marsh_zombie","category":"enemy","per1000":1.6333333333333335,"signature":true,"time":"night"},{"kind":"ash_zombie","category":"enemy","per1000":0.8166666666666668}]),
+    "Terrain:PLAYGROUND": Object.freeze([{"kind":"butterfly","category":"fauna","per1000":7.3500000000000005},{"kind":"rabbit","category":"fauna","per1000":5.5125},{"kind":"cat","category":"fauna","per1000":1.8375000000000001},{"kind":"mini_slime","category":"enemy","per1000":0.5,"signature":true}]),
+    "Terrain:PITCH": Object.freeze([{"kind":"rabbit","category":"fauna","per1000":5.880000000000001},{"kind":"butterfly","category":"fauna","per1000":4.41},{"kind":"cow","category":"fauna","per1000":1.4700000000000002},{"kind":"goblin_runt","category":"enemy","per1000":0.5,"signature":true}]),
+    "Terrain:CHURCHYARD": Object.freeze([{"kind":"rabbit","category":"fauna","per1000":4.41},{"kind":"cat","category":"fauna","per1000":1.4700000000000002},{"kind":"ghost","category":"enemy","per1000":0.5,"signature":true,"time":"night"}]),
+    "Terrain:TAR_YARD": Object.freeze([{"kind":"dog","category":"fauna","per1000":3.3075},{"kind":"rabbit","category":"fauna","per1000":1.1025},{"kind":"fire_slime","category":"enemy","per1000":0.5,"signature":true}]),
+    "Nexus:meadow": Object.freeze([{"kind":"rabbit","category":"fauna","per1000":8.25},{"kind":"butterfly","category":"fauna","per1000":8.25},{"kind":"slime","category":"enemy","per1000":6.041666666666667,"signature":true},{"kind":"plant","category":"enemy","per1000":6.041666666666667}]),
+    "Nexus:mushroom_grove": Object.freeze([{"kind":"crow","category":"fauna","per1000":9.9},{"kind":"butterfly","category":"fauna","per1000":6.6000000000000005},{"kind":"mushroom_monster","category":"enemy","per1000":33.333333333333336,"signature":true}]),
+    "Nexus:orchard": Object.freeze([{"kind":"chicken","category":"fauna","per1000":12.375},{"kind":"dog","category":"fauna","per1000":4.125},{"kind":"farmer_goblin","category":"enemy","per1000":6.041666666666667,"signature":true},{"kind":"club_goblin","category":"enemy","per1000":6.041666666666667}]),
+    "Nexus:formal_garden": Object.freeze([{"kind":"butterfly","category":"fauna","per1000":13.200000000000001},{"kind":"cat","category":"fauna","per1000":3.3000000000000003},{"kind":"slime","category":"enemy","per1000":6.041666666666667},{"kind":"plant","category":"enemy","per1000":6.041666666666667,"signature":true}]),
+    "Nexus:hedge_garden": Object.freeze([{"kind":"rabbit","category":"fauna","per1000":13.200000000000001},{"kind":"cat","category":"fauna","per1000":3.3000000000000003},{"kind":"plant","category":"enemy","per1000":6.041666666666667},{"kind":"spider","category":"enemy","per1000":6.041666666666667,"signature":true}]),
+    "Nexus:ancient_grove": Object.freeze([{"kind":"crow","category":"fauna","per1000":16.5},{"kind":"treant","category":"enemy","per1000":4.027777777777778,"signature":true},{"kind":"spider","category":"enemy","per1000":4.027777777777778},{"kind":"giant_bear","category":"enemy","per1000":4.027777777777778}]),
+    "Nexus:sacred_grove": Object.freeze([{"kind":"butterfly","category":"fauna","per1000":16.5},{"kind":"dryad","category":"enemy","per1000":0.5,"signature":true}]),
+    "Nexus:stone_garden": Object.freeze([{"kind":"cat","category":"fauna","per1000":16.5},{"kind":"slime","category":"enemy","per1000":6.041666666666667},{"kind":"skeleton","category":"enemy","per1000":6.041666666666667,"signature":true}]),
+    "Nexus:ordered_graves": Object.freeze([{"kind":"cat","category":"fauna","per1000":16.5},{"kind":"zombie","category":"enemy","per1000":4.027777777777778},{"kind":"skeleton","category":"enemy","per1000":4.027777777777778},{"kind":"skeleton_soldier","category":"enemy","per1000":4.027777777777778,"signature":true}]),
+    "Nexus:overgrown_graves": Object.freeze([{"kind":"butterfly","category":"fauna","per1000":16.5},{"kind":"zombie","category":"enemy","per1000":4.027777777777778,"signature":true,"time":"night"},{"kind":"spider","category":"enemy","per1000":4.027777777777778},{"kind":"skeleton","category":"enemy","per1000":4.027777777777778}]),
+    "Nexus:broken_masonry": Object.freeze([{"kind":"dog","category":"fauna","per1000":16.5},{"kind":"club_goblin","category":"enemy","per1000":12.083333333333334,"signature":true}]),
+    "Nexus:silent_circle": Object.freeze([{"kind":"cat","category":"fauna","per1000":16.5},{"kind":"skeleton","category":"enemy","per1000":6.041666666666667,"signature":true},{"kind":"skeleton_soldier","category":"enemy","per1000":6.041666666666667}]),
+    "Nexus:flint_field": Object.freeze([{"kind":"dog","category":"fauna","per1000":16.5},{"kind":"club_goblin","category":"enemy","per1000":12.083333333333334,"signature":true}]),
+    "Nexus:broken_depot": Object.freeze([{"kind":"dog","category":"fauna","per1000":16.5},{"kind":"skeleton","category":"enemy","per1000":6.041666666666667,"signature":true},{"kind":"club_goblin","category":"enemy","per1000":6.041666666666667}]),
+    "Nexus:seep": Object.freeze([{"kind":"butterfly","category":"fauna","per1000":16.5},{"kind":"slime","category":"enemy","per1000":4.027777777777778},{"kind":"plant","category":"enemy","per1000":4.027777777777778},{"kind":"golden_slime","category":"enemy","per1000":4.027777777777778,"signature":true}]),
+    "Nexus:work_yard": Object.freeze([{"kind":"dog","category":"fauna","per1000":12.375},{"kind":"chicken","category":"fauna","per1000":4.125},{"kind":"club_goblin","category":"enemy","per1000":12.083333333333334,"signature":true}]),
+    "Nexus:black_ring": Object.freeze([{"kind":"dog","category":"fauna","per1000":16.5},{"kind":"skeleton","category":"enemy","per1000":6.041666666666667},{"kind":"skeleton_soldier","category":"enemy","per1000":6.041666666666667,"signature":true}]),
+    "Nexus:quarry-abandoned": Object.freeze([{"kind":"rabbit","category":"fauna","per1000":9.0},{"kind":"cave_slime","category":"enemy","per1000":0.5,"signature":true}]),
+    "Nexus:quarry-strip-mine": Object.freeze([{"kind":"dog","category":"fauna","per1000":9.0},{"kind":"goblin","category":"enemy","per1000":0.5,"signature":true}]),
+    "Nexus:quarry-stronghold": Object.freeze([{"kind":"dog","category":"fauna","per1000":9.0},{"kind":"spear_goblin","category":"enemy","per1000":0.5,"signature":true}]),
+    "Nexus:spooky_woods": Object.freeze([{"kind":"crow","category":"fauna","per1000":16.5}]),
+    "Roads and paths:hedgerow": Object.freeze([{"kind":"rabbit","category":"fauna","per1000":7.5}]),
+    "Roads and paths:overgrown": Object.freeze([{"kind":"rabbit","category":"fauna","per1000":7.5},{"kind":"butterfly","category":"fauna","per1000":7.5}]),
+    "Roads and paths:orchard": Object.freeze([{"kind":"rabbit","category":"fauna","per1000":7.5}]),
+    "Roads and paths:pilgrim": Object.freeze([{"kind":"crow","category":"fauna","per1000":7.5},{"kind":"sword_spirit","category":"enemy","per1000":0.5,"signature":true}]),
+    "Roads and paths:toadstool": Object.freeze([{"kind":"butterfly","category":"fauna","per1000":7.5},{"kind":"mushroom_monster","category":"enemy","per1000":0.5,"signature":true}]),
+    "Roads and paths:berry": Object.freeze([{"kind":"rabbit","category":"fauna","per1000":7.5}]),
+    "Nexus:pirate_cove": Object.freeze([{"kind":"pirate_grunt","category":"enemy","per1000":12.083333333333334,"signature":true}]),
+    "Nexus:mystic_reef": Object.freeze([{"kind":"giant_crab","category":"enemy","per1000":6.041666666666667},{"kind":"jellyfish","category":"enemy","per1000":6.041666666666667,"signature":true}]),
+    "Nexus:shellwater_strand": Object.freeze([{"kind":"giant_crab","category":"enemy","per1000":6.041666666666667,"signature":true},{"kind":"jellyfish","category":"enemy","per1000":6.041666666666667}]),
+    "Terrain:ROCKY_GROUND": Object.freeze([{"kind":"sand_skeleton","category":"enemy","per1000":0.5,"signature":true}]),
+    "Terrain:GOLF": Object.freeze([{"kind":"slime","category":"enemy","per1000":0.5,"signature":true}]),
+    "Terrain:WATER": Object.freeze([{"kind":"jellyfish","category":"enemy","per1000":0.5,"signature":true}]),
+    "Terrain:PIER": Object.freeze([{"kind":"pirate_grunt","category":"enemy","per1000":0.5,"signature":true}]),
+    "Park character:park_character_meadow": Object.freeze([{"kind":"slime","category":"enemy","per1000":0.5,"signature":true}]),
+    "Park character:park_character_wooded": Object.freeze([{"kind":"boar","category":"enemy","per1000":0.5,"signature":true}]),
+    "Park character:park_character_formal": Object.freeze([{"kind":"plant","category":"enemy","per1000":0.5,"signature":true}]),
+    "Park character:park_character_common": Object.freeze([{"kind":"goblin_runt","category":"enemy","per1000":0.5,"signature":true}]),
+    "Nexus:marine_meadow": Object.freeze([{"kind":"crab","category":"enemy","per1000":0.5,"signature":true}]),
+    "Nexus:quarry-crater": Object.freeze([{"kind":"wurm","category":"enemy","per1000":0.5,"signature":true}]),
+    "Roads and paths:lantern": Object.freeze([{"kind":"ghost","category":"enemy","per1000":0.5,"signature":true,"time":"night"}]),
+    "Roads and paths:barricade": Object.freeze([{"kind":"spear_goblin","category":"enemy","per1000":0.5,"signature":true}]),
+    "Roads and paths:greenway": Object.freeze([{"kind":"moss_slime","category":"enemy","per1000":0.5,"signature":true}]),
+    "Roads and paths:parkpath": Object.freeze([{"kind":"plant","category":"enemy","per1000":0.5,"signature":true}]),
+    "Roads and paths:snare": Object.freeze([{"kind":"goblin_trapper","category":"enemy","per1000":0.5,"signature":true}]),
+    "Roads and paths:thorny": Object.freeze([{"kind":"plant","category":"enemy","per1000":0.5,"signature":true}]),
+    "Roads and paths:golden_path": Object.freeze([{"kind":"golden_slime","category":"enemy","per1000":0.5,"signature":true}]),
+    "Roads and paths:slime_trail": Object.freeze([{"kind":"split_slime","category":"enemy","per1000":0.5,"signature":true}]),
+    "Roads and paths:poison_path": Object.freeze([{"kind":"purple_slime","category":"enemy","per1000":0.5,"signature":true}]),
+    "Roads and paths:fire_path": Object.freeze([{"kind":"fire_slime","category":"enemy","per1000":0.5,"signature":true}]),
+    "Roads and paths:paralysis_path": Object.freeze([{"kind":"spider","category":"enemy","per1000":0.5,"signature":true}]),
+    "Roads and paths:confusion_path": Object.freeze([{"kind":"pink_ghost","category":"enemy","per1000":0.5,"signature":true,"time":"night"}]),
+    "Roads and paths:pottery": Object.freeze([{"kind":"snake","category":"enemy","per1000":0.5,"signature":true}]),
+    "Roads and paths:trade": Object.freeze([{"kind":"thief","category":"enemy","per1000":0.5,"signature":true}]),
+    "Roads and paths:rocky_path": Object.freeze([{"kind":"sand_skeleton","category":"enemy","per1000":0.5,"signature":true}]),
+    "Roads and paths:grassy_lane": Object.freeze([{"kind":"snake","category":"enemy","per1000":0.5,"signature":true}]),
+    "Roads and paths:old_growth_path": Object.freeze([{"kind":"treant","category":"enemy","per1000":0.5,"signature":true}]),
+    "Roads and paths:haunted_forest_path": Object.freeze([{"kind":"ghost","category":"enemy","per1000":0.5,"signature":true,"time":"night"}]),
+    "Roads and paths:causeway": Object.freeze([{"kind":"giant_crab","category":"enemy","per1000":0.5,"signature":true}]),
   });
+  const SIGNATURE_ENEMIES = Object.freeze({"Terrain:GRASS":{"kind":"slime","owned":false},"Terrain:RESIDENTIAL":{"kind":"thief","owned":false},"Terrain:FOREST":{"kind":"boar","owned":false},"Terrain:FARMLAND":{"kind":"snake","owned":false},"Terrain:WASTELAND":{"kind":"ash_zombie","owned":false},"Terrain:PARK":{"kind":"plant","owned":false},"Terrain:GROVE":{"kind":"treant","owned":false},"Terrain:WETLAND":{"kind":"golden_slime","owned":false},"Terrain:ORCHARD":{"kind":"farmer_goblin","owned":false},"Terrain:ROCK":{"kind":"skeleton_soldier","owned":false},"Terrain:ROCKY_GROUND":{"kind":"sand_skeleton","owned":false},"Terrain:SAND":{"kind":"giant_crab","owned":false},"Terrain:SCHOOL":{"kind":"goblin_runt","owned":false},"Terrain:COMMERCIAL":{"kind":"goblin","owned":false},"Terrain:INDUSTRIAL":{"kind":"marsh_zombie","owned":false},"Terrain:PLAYGROUND":{"kind":"mini_slime","owned":false},"Terrain:PITCH":{"kind":"goblin_runt","owned":false},"Terrain:CHURCHYARD":{"kind":"ghost","owned":false},"Terrain:TAR_YARD":{"kind":"fire_slime","owned":false},"Terrain:GOLF":{"kind":"slime","owned":false},"Terrain:WATER":{"kind":"jellyfish","owned":false},"Terrain:PIER":{"kind":"pirate_grunt","owned":false},"Park character:park_character_meadow":{"kind":"slime","owned":false},"Park character:park_character_wooded":{"kind":"boar","owned":false},"Park character:park_character_formal":{"kind":"plant","owned":false},"Park character:park_character_common":{"kind":"goblin_runt","owned":false},"Nexus:meadow":{"kind":"slime","owned":false},"Nexus:marine_meadow":{"kind":"crab","owned":false},"Nexus:mushroom_grove":{"kind":"mushroom_monster","owned":false},"Nexus:orchard":{"kind":"farmer_goblin","owned":false},"Nexus:formal_garden":{"kind":"plant","owned":false},"Nexus:hedge_garden":{"kind":"spider","owned":false},"Nexus:ancient_grove":{"kind":"treant","owned":false},"Nexus:sacred_grove":{"kind":"dryad","owned":false},"Nexus:stone_garden":{"kind":"skeleton","owned":false},"Nexus:ordered_graves":{"kind":"skeleton_soldier","owned":false},"Nexus:overgrown_graves":{"kind":"zombie","owned":false},"Nexus:broken_masonry":{"kind":"club_goblin","owned":false},"Nexus:silent_circle":{"kind":"skeleton","owned":false},"Nexus:flint_field":{"kind":"club_goblin","owned":false},"Nexus:broken_depot":{"kind":"skeleton","owned":false},"Nexus:seep":{"kind":"golden_slime","owned":false},"Nexus:work_yard":{"kind":"club_goblin","owned":false},"Nexus:black_ring":{"kind":"skeleton_soldier","owned":false},"Nexus:mystic_reef":{"kind":"jellyfish","owned":false},"Nexus:pirate_cove":{"kind":"pirate_grunt","owned":false},"Nexus:shellwater_strand":{"kind":"giant_crab","owned":false},"Nexus:quarry-crater":{"kind":"wurm","owned":false},"Nexus:quarry-abandoned":{"kind":"cave_slime","owned":false},"Nexus:quarry-strip-mine":{"kind":"goblin","owned":false},"Nexus:quarry-stronghold":{"kind":"spear_goblin","owned":false},"Nexus:spooky_woods":{"kind":"treant","owned":true},"Roads and paths:hedgerow":{"kind":"goblin_runt","owned":true},"Roads and paths:overgrown":{"kind":"boar","owned":true},"Roads and paths:orchard":{"kind":"farmer_goblin","owned":true},"Roads and paths:pilgrim":{"kind":"sword_spirit","owned":false},"Roads and paths:lantern":{"kind":"ghost","owned":false},"Roads and paths:burned":{"kind":"fire_slime","owned":true},"Roads and paths:barricade":{"kind":"spear_goblin","owned":false},"Roads and paths:toadstool":{"kind":"mushroom_monster","owned":false},"Roads and paths:promenade":{"kind":"metal_slime","owned":true},"Roads and paths:greenway":{"kind":"moss_slime","owned":false},"Roads and paths:parkpath":{"kind":"plant","owned":false},"Roads and paths:snare":{"kind":"goblin_trapper","owned":false},"Roads and paths:thorny":{"kind":"plant","owned":false},"Roads and paths:goblin_gang":{"kind":"goblin_runt","owned":true},"Roads and paths:golden_path":{"kind":"golden_slime","owned":false},"Roads and paths:slime_trail":{"kind":"split_slime","owned":false},"Roads and paths:spider_path":{"kind":"spider","owned":true},"Roads and paths:poison_path":{"kind":"purple_slime","owned":false},"Roads and paths:fire_path":{"kind":"fire_slime","owned":false},"Roads and paths:paralysis_path":{"kind":"spider","owned":false},"Roads and paths:confusion_path":{"kind":"pink_ghost","owned":false},"Roads and paths:berry":{"kind":"goblin_runt","owned":true},"Roads and paths:berry_trail":{"kind":"giant_bear","owned":true},"Roads and paths:pottery":{"kind":"snake","owned":false},"Roads and paths:trade":{"kind":"thief","owned":false},"Roads and paths:rocky_path":{"kind":"sand_skeleton","owned":false},"Roads and paths:grassy_lane":{"kind":"snake","owned":false},"Roads and paths:old_growth_path":{"kind":"treant","owned":false},"Roads and paths:haunted_forest_path":{"kind":"ghost","owned":false},"Roads and paths:way_of_variety":{"kind":"snake","owned":true},"Roads and paths:causeway":{"kind":"giant_crab","owned":false}});
   const SHORE_ENEMY_ROWS = Object.freeze([
-    { kind: 'giant_crab', category: 'enemy', per1000: .49, beach: true },
-    { kind: 'jellyfish', category: 'enemy', per1000: 1.96, beach: true },
+    { kind: 'giant_crab', category: 'enemy', per1000: .98, beach: true },
   ]);
-  function densityRows(owner) { const key = typeof owner === 'string' ? owner : owner?.key;
-    const rows = DENSITY_ROWS[key] || [];
-    return key === 'Terrain:SAND' ? rows.concat(SHORE_ENEMY_ROWS) : rows; }
+  function densityRows(owner, entry, index, shore = false) {
+    const key = typeof owner === 'string' ? owner : owner?.key;
+    let rows = DENSITY_ROWS[key] || [];
+    // Park character replaces only the base park signature; it never adds a
+    // second owner allowance, and cannot reach through Nexus/road ownership.
+    if (key === 'Terrain:PARK' && entry && index != null) {
+      const character = root.BiomeProfiles.PARK_CHARACTER_IDS[entry.parkCharacters?.[index] - 1];
+      const replacement = character && DENSITY_ROWS['Park character:park_character_' + character];
+      if (replacement) rows = rows.filter(row => !row.signature).concat(replacement);
+    }
+    if (key !== 'Terrain:SAND') return rows;
+    // The signature applies to sand, while beach geometry adds the shoreline
+    // density. Fold matching species into one roll to keep each ID unique.
+    if (!(entry && index != null ? beachCell(entry, entry.baseGrid || entry.grid, entry.cellsPerEdge, index) : shore)) return rows;
+    return SHORE_ENEMY_ROWS.reduce((out, shore) => {
+      const match = out.findIndex(row => row.kind === shore.kind && row.category === shore.category);
+      if (match < 0) return out.concat(shore);
+      const copy = out.slice(); copy[match] = { ...out[match], per1000: out[match].per1000 + shore.per1000 };
+      return copy;
+    }, rows);
+  }
+  function enemyDeclaration(creature) {
+    const key = creature?._spawnSource === 'zone-density' ? creature._spawnOwner
+      : creature?._spawnSource === 'party-scaling' && creature._densityParent ? creature._densityOwner : null;
+    if (!key) return null;
+    let rows = DENSITY_ROWS[key] || [];
+    if (key === 'Terrain:PARK' && creature._parkCharacter) {
+      const character = root.BiomeProfiles.PARK_CHARACTER_IDS[creature._parkCharacter - 1];
+      const replacement = DENSITY_ROWS['Park character:park_character_' + character];
+      if (replacement) rows = rows.filter(row => !row.signature).concat(replacement);
+    }
+    return rows.find(row => row.category === 'enemy' && row.kind === creature.kind) || null;
+  }
+  // Aquatic beach rows belong to water itself, never borrow a neighbouring
+  // Nexus/road table. Require an actual adjacent residual sand beach.
+  function beachCell(entry, grid, N, index) {
+    if (grid[index] !== root.WorldGen.T.WATER) return !!entry.scenic?.shore?.mask?.[index];
+    const x=index%N,y=Math.floor(index/N);
+    return [[-1,0],[1,0],[0,-1],[0,1]].some(([dx,dy])=>{
+      const nx=x+dx,ny=y+dy;if(nx<0||ny<0||nx>=N||ny>=N)return false;
+      const i=ny*N+nx;
+      return grid[i]===root.WorldGen.T.SAND && entry.scenic?.shore?.mask?.[i]
+        && root.SpawnPipeline.ownerAt(entry,i)?.key==='Terrain:SAND';
+    });
+  }
   function profileKey(profile) {
     if (!profile) return null;
     return profile.owner === 'land' ? 'Terrain:' + profile.id.split(':')[0]
@@ -544,12 +617,45 @@
   }
   function pickFauna(profile, id) { return pick(faunaRows(profile), unit(id + ':fauna'), row => row.weight)?.kind || null; }
   function enemyRows(profile, type, context) {
-    return densityRows(profileKey(profile)).filter(row => row.category === 'enemy' && (!row.beach || context?.beach))
+    return densityRows(profileKey(profile), null, null, context?.beach).filter(row => row.category === 'enemy' && (!row.beach || context?.beach))
       .map(row => root.EnemyRoster.get(row.kind)).filter(Boolean);
   }
   function enemyKind(profile, id, type, context) {
     const rows = densityRows(profileKey(profile)).filter(row => row.category === 'enemy' && (!row.beach || context?.beach));
     return pick(rows, unit(id + ':enemy'), row => row.per1000)?.kind || null;
+  }
+  // Rates describe individuals. Grouping changes their spatial distribution,
+  // not the expected population: roll fewer anchors by the mean group size.
+  const PACK_PROFILE = Object.freeze({ chance: .65, min: 2, max: 4, radiusCells: 3 });
+  const ENEMY_PACKS = Object.freeze(Object.fromEntries([
+    'rat', 'goblin', 'goblin_archer', 'club_goblin', 'spear_goblin',
+    'archer_goblin', 'goblin_trapper', 'farmer_goblin', 'bomb_goblin',
+    'skeleton', 'skeleton_soldier', 'pirate_grunt', 'pirate_gunner',
+  ].map(kind => [kind, PACK_PROFILE])));
+  function packMean(kind) {
+    const rule = ENEMY_PACKS[kind];
+    return rule ? 1 - rule.chance + rule.chance * (rule.min + rule.max) / 2 : 1;
+  }
+  function packSize(kind, key) {
+    const rule = ENEMY_PACKS[kind], roll = unit(key + '|pack-size');
+    if (!rule || roll >= rule.chance) return 1;
+    return rule.min + Math.min(rule.max - rule.min, Math.floor(roll / rule.chance * (rule.max - rule.min + 1)));
+  }
+  function packCells(kind, key, index, N, count = packSize(kind, key)) {
+    if (count <= 1) return [index];
+    const rule = ENEMY_PACKS[kind], cx = index % N, cy = Math.floor(index / N), nearby = [];
+    for (let y = Math.max(0, cy - rule.radiusCells); y <= Math.min(N - 1, cy + rule.radiusCells); y++)
+      for (let x = Math.max(0, cx - rule.radiusCells); x <= Math.min(N - 1, cx + rule.radiusCells); x++) {
+        const i = y * N + x;
+        if (i !== index) nearby.push(i);
+      }
+    nearby.sort((a, b) => unit(`${key}|pack-seat|${a}`) - unit(`${key}|pack-seat|${b}`) || a - b);
+    return [index, ...nearby.slice(0, count - 1)];
+  }
+  function packMemberId(anchorId, ordinal, nexus) {
+    if (!ordinal) return anchorId;
+    // Nexus party encounters reserve their last ordinal for party extras.
+    return nexus ? `${anchorId.slice(0, -2)}p${ordinal}_0` : `${anchorId}_p${ordinal}`;
   }
   // Independent cell/row draws: changing another owner's area cannot top up
   // this owner, and failed eligibility never moves a request to another cell.
@@ -573,12 +679,13 @@
       if ((index & 2047) === 0) yield 'spawn owner coverage';
       const owner = owners[index] = root.SpawnPipeline.ownerAt(entry, index);
       const habitat = habitats[index] = resolve(entry, index);
-      if (!owner || !densityRows(owner).length || opts.ownerType && owner.type !== opts.ownerType) continue;
+      if (!owner || !densityRows(owner, entry, index).length || opts.ownerType && owner.type !== opts.ownerType) continue;
       const key = habitat.key || owner.key;
       if (!regions.has(key)) regions.set(key, { key, profile: owner.id, owner: owner.key, rawCells: 0,
         fauna: counts(), enemies: counts(), reserve: counts() });
       regions.get(key).rawCells++;
     }
+    const sectionAt = entry.streetIndex ? root.StreetVariants.variantOwner(entry.streetIndex, N, Infinity, true) : null;
     const out = [], requests = [], reserves = [];
     for (let index = 0; index < N * N; index++) {
       if ((index & 1023) === 0) yield 'spawn zone rate rows';
@@ -587,12 +694,14 @@
       const region = regions.get(habitat.key || owner.key);
       if (!region) continue;
       const cx = index % N, cy = Math.floor(index / N);
-      for (const row of densityRows(owner)) {
+      for (const row of densityRows(owner, entry, index)) {
         if (opts.category && row.category !== opts.category) continue;
-        if (row.beach && !entry.scenic?.shore?.mask?.[index]) continue;
+        if (row.beach && !beachCell(entry, grid, N, index)) continue;
         const fauna = row.category === 'fauna';
         if (fauna && !allows(row.kind, grid[index], habitat.profile)) continue;
-        const waterOnly = !!root.EnemyRoster.get(row.kind)?.movement?.waterOnly;
+        const movement = root.EnemyRoster.get(row.kind)?.movement;
+        const waterOnly = !!movement?.waterOnly;
+        if (waterOnly && movement.shoreOnly && !WG.isShoreWaterCell(grid, N, N, cx, cy, spawnOpts)) continue;
         const gate = { ...spawnOpts, occupied: fauna ? null : originalOccupied, waterOnly };
         const cls = root.creatureSpawnClass(row.kind);
         if (!WG.isSpawnCell(grid, N, N, cx, cy, gate, cls)) continue;
@@ -601,60 +710,92 @@
         const id = fauna ? `${row.kind}_zone_${tx}_${ty}_${ownerHash}_${index}`
           : owner.type === 'zone' ? `zone_encounter_density_${tx}_${ty}_${ownerHash}_${row.kind}_${index}_0`
             : `enemy_habitat_density_${tx}_${ty}_${ownerHash}_${row.kind}_${index}`;
-        if (root.SpawnPipeline.roll(key, row.per1000 / 1000)) {
-          const field = fauna ? 'fauna' : 'enemies';
-          region[field].requested++;
-          requests.push({ row, owner, habitat, region, field, index, cx, cy, id, key });
-        }
-        // Mode reserve is another row rate, never a fixed per-tile allowance.
+        const mean = fauna ? 1 : packMean(row.kind);
+        const request = (field, requestKey, anchorId, list) => {
+          const size = fauna ? 1 : packSize(row.kind, requestKey);
+          region[field].requested += size;
+          list.push({ row, owner, habitat, region, field, index, cx, cy, id: anchorId, key: requestKey, size });
+        };
+        if (root.SpawnPipeline.roll(key, row.per1000 / 1000 / mean))
+          request(fauna ? 'fauna' : 'enemies', key, id, requests);
+        // Mode reserve is another individual rate; packs do not multiply it.
         if (!fauna && owner.type === 'terrain'
-            && root.SpawnPipeline.roll(key + '|reserve', row.per1000 / 1000 * (maxLandEnemyMul() - 1))) {
-          region.reserve.requested++;
-          reserves.push({ row, owner, habitat, region, field: 'reserve', index, cx, cy, id: id + '_r', key });
-        }
+            && root.SpawnPipeline.roll(key + '|reserve', row.per1000 / 1000 / mean * (maxLandEnemyMul() - 1)))
+          request('reserve', key + '|reserve', id + '_r', reserves);
       }
     }
     // Stable category/identity order; reserve placement cannot displace base.
     requests.sort((a, b) => (a.row.category === 'fauna' ? 0 : 1) - (b.row.category === 'fauna' ? 0 : 1)
       || keyOrder(a.id, b.id));
     for (const request of [...requests, ...reserves]) {
-      const { row, owner, habitat, region, field, index, cx, cy, id } = request;
-      const fauna = row.category === 'fauna';
+      const { row, owner, habitat, region, field, index, cx, cy, id, size, key } = request;
+      const fauna = row.category === 'fauna', pack = !fauna && ENEMY_PACKS[row.kind];
+      const candidates = packCells(row.kind, key, index, N, size);
+      let anchorPlaced = false;
       const records = yield* root.SpawnPipeline.generateSteps(null, {
-        count: 1, member: () => request,
-        seat: () => {
-          if (reserved.has(index) || (!fauna && occupied.has(index))) return null;
-          // Spacing rejects only this candidate; there is no quota refill or
-          // relocation that would move a species into a different owner.
-          if (fauna && spacing.clearance(index) < FAUNA_SPACING_CELLS) return null;
-          return { cx, cy, x: tx * tileM + (cx + .5) * cellM, y: ty * tileM + (cy + .5) * cellM };
+        count: size, member: ordinal => ({ ordinal, id: packMemberId(id, ordinal, owner.type === 'zone') }),
+        seat: member => {
+          if (member.ordinal && !anchorPlaced) return null;
+          const legal = i => {
+            if (reserved.has(i) || (!fauna && occupied.has(i))) return false;
+            if (owners[i]?.key !== owner.key || habitats[i]?.key !== habitat.key) return false;
+            if (owner.type === 'road' && sectionAt && sectionAt(i % N, Math.floor(i / N))?.key !== sectionAt(cx, cy)?.key) return false;
+            if (!densityRows(owners[i], entry, i).some(candidate => candidate.kind === row.kind
+                && candidate.category === row.category)) return false;
+            if (row.beach && !beachCell(entry, grid, N, i)) return false;
+            if (fauna && (!allows(row.kind, grid[i], habitats[i].profile) || spacing.clearance(i) < FAUNA_SPACING_CELLS)) return false;
+            const movement = root.EnemyRoster.get(row.kind)?.movement;
+            const x = i % N, y = Math.floor(i / N);
+            if (movement?.waterOnly && movement.shoreOnly && !WG.isShoreWaterCell(grid, N, N, x, y, spawnOpts)) return false;
+            const cls = root.creatureSpawnClass(row.kind);
+            return WG.isSpawnCell(grid, N, N, x, y,
+              { ...spawnOpts, occupied: fauna ? null : occupied, waterOnly: !!movement?.waterOnly }, cls);
+          };
+          const candidate = candidates[member.ordinal];
+          const seatIndex = candidate != null && legal(candidate) ? candidate : undefined;
+          if (seatIndex == null) return null;
+          const seatX = seatIndex % N, seatY = Math.floor(seatIndex / N);
+          return { index: seatIndex, cx: seatX, cy: seatY,
+            x: tx * tileM + (seatX + .5) * cellM, y: ty * tileM + (seatY + .5) * cellM };
         },
-        create: (_, seat) => {
+        create: (member, seat) => {
           const kind = !fauna && typeof Weather !== 'undefined'
-            ? Weather.enemyBirthKind(row.kind, id, scene) : row.kind;
+            ? Weather.enemyBirthKind(row.kind, member.id, scene) : row.kind;
           const point = { key: habitat.key || owner.key, profile: owner.id, tx, ty, ...seat };
           const hostile = !fauna || !!root.EnemyRoster.get(kind)?.surface && root.Combat?.isEnemyKind(kind);
-          return WG.makeCreature(kind, seat.x, seat.y, id, {
-            shiny: fauna && typeof faunaShiny === 'function' ? faunaShiny(kind, id) : false,
+          return WG.makeCreature(kind, seat.x, seat.y, member.id, {
+            shiny: fauna && typeof faunaShiny === 'function' ? faunaShiny(kind, member.id) : false,
             _spawnOwner: owner.key, _spawnSource: 'zone-density', _habitatSpawn: point,
+            _spawnTime: row.time || 'any', _spawnRowKind: row.kind, _parkCharacter: entry.parkCharacters?.[seat.index],
+            ...(pack ? { _spawnPack: { id, ordinal: member.ordinal, requested: size, cx, cy } } : {}),
+            ...(member.ordinal ? { _legacyDefeatIds: [owner.type === 'zone'
+              ? `zone_encounter_density_${tx}_${ty}_${fnv1a(owner.key).toString(36)}_${row.kind}_${seat.index}_0`
+              : `enemy_habitat_density_${tx}_${ty}_${fnv1a(owner.key).toString(36)}_${row.kind}_${seat.index}${field === 'reserve' ? '_r' : ''}`] } : {}),
             ...(owner.type === 'zone' ? { zoneVariant: owner.id,
               ...(root.EnemyHabitats.emergesFromGround(kind, owner.id) ? { emergeFromGround: true, _burrowed: true } : {}) } : {}),
             ...(hostile ? { _surfaceSpawn: { tx, ty, ...seat },
-              ...root.EnemySpawns.concealment(kind, id, owner.id) } : {}),
+              ...root.EnemySpawns.concealment(kind, member.id, owner.id) } : {}),
             ...(field === 'reserve' ? { _landEnemyReserve: true } : {}),
           });
         },
-        onPlaced: () => { reserved.add(index); occupied.add(index); if (fauna) spacing.add(index); region[field].placed++; },
+        onPlaced: (_, member, seat) => {
+          if (!member.ordinal) anchorPlaced = true;
+          reserved.add(seat.index); occupied.add(seat.index);
+          if (fauna) spacing.add(seat.index);
+          region[field].placed++;
+        },
       });
       for (const c of records) {
         out.push(c);
+        // Each base body receives party scaling exactly once. The pack itself
+        // is not registered again as another population allowance.
         if (!fauna && owner.type === 'zone') root.EnemyHabitats.registerDensityEncounter(entry, c, occupied, owners);
       }
+      if (size > 1) yield 'spawn enemy pack';
     }
     // Finite road populations use explicit section requests, not ambient
     // density or a tile allowance. The current map's section keys are bounded
     // by its canonical geometry (including tile-boundary cuts).
-    const sectionAt = entry.streetIndex ? root.StreetVariants.variantOwner(entry.streetIndex, N, Infinity, true) : null;
     const features = new Map();
     for (let index = 0; index < N * N; index++) {
       const owner = owners[index], row = owner?.type === 'road' && root.StreetVariants.VARIANT_BY_ID[owner.id]?.habitatEnemies;
@@ -755,7 +896,7 @@
     return out;
   }
   const api = { FAUNA_DENSITY, faunaCount, FAUNA_PER_TILE, FAUNA_SPACING_CELLS, faunaSpacing, ENEMIES_PER_TILE, reserveBudget, reserveVisible, LAND_FAUNA, VARIANT_FAUNA, landProfile, shoreProfile, variantProfile, roadProfile, resolve,
-    faunaRows, pickFauna, faunaBudget, allows, enemyRows, enemyKind, surfaceWeight, DENSITY_ROWS, densityRows, populationSteps };
+    faunaRows, pickFauna, faunaBudget, allows, enemyRows, enemyKind, surfaceWeight, DENSITY_ROWS, SIGNATURE_ENEMIES, densityRows, enemyDeclaration, ENEMY_PACKS, packMean, packSize, packCells, packMemberId, populationSteps };
   root.HabitatSpawns = api;
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
 })(typeof window !== 'undefined' ? window : globalThis);

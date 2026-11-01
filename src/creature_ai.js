@@ -1352,7 +1352,10 @@ function creatureStepRefused(scene, c, x, y, { row = null, retreating = false, e
         const neighbour = scene.cellAt(x + cx * scene.cellM, y + cy * scene.cellM);
         return neighbour.loaded ? neighbour.type : null;
       };
-      if (!EnemyHabitats.shoreWater(typeAt, 0, 0)) return true;
+      const entry = Number.isInteger(cell.tx) && Number.isInteger(cell.ty)
+        ? WorldGen.tileCacheFor(scene.depth || 0).get(WorldGen.tileKey(cell.tx, cell.ty)) : null;
+      const proof = entry && WorldGen.waterEdgesOf(entry.grid, WorldGen.spawnOptsOf(entry))?.[cell.iy * entry.cellsPerEdge + cell.ix];
+      if (!EnemyHabitats.shoreWater(typeAt, 0, 0, proof || 0)) return true;
     }
   } else if (cell.loaded && row?.movement.pattern !== 'orbit_swoop' && !ownFloor && Combat.faunaBlocksCell(cell.type)) return true;
   if (!Combat.isAlly(c)) {

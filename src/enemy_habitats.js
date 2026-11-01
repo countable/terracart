@@ -156,10 +156,11 @@
 
   // Aquatic foes stay in the first water cell alongside walkable land. The
   // same geometry owns generated seats and movement along the water's edge.
-  function shoreWater(typeAt, cx, cy) {
+  function shoreWater(typeAt, cx, cy, sourceBankProof = 0) {
     const WG = root.WorldGen;
-    return typeAt(cx, cy) === WG.T.WATER && [[-1, 0], [1, 0], [0, -1], [0, 1]]
-      .some(([dx, dy]) => { const type = typeAt(cx + dx, cy + dy); return type != null && WG.isWalkable(type); });
+    return typeAt(cx, cy) === WG.T.WATER && WG.WATER_BANK_DIRECTIONS
+      .some(([dx,dy,bit]) => { const type=typeAt(cx+dx,cy+dy);
+        return type == null ? !!(sourceBankProof&bit) : WG.isWalkable(type); });
   }
   function surfaceSeat(entry, cx, cy, kind, opts) {
     const WG = root.WorldGen, N = entry.cellsPerEdge, grid = entry.baseGrid || entry.grid;
@@ -172,7 +173,7 @@
     const radius = root.Scenic?.SCENIC_SHORE_CELLS || 3;
     for (let r = 0; r <= radius; r++) for (let y = cy - r; y <= cy + r; y++) for (let x = cx - r; x <= cx + r; x++) {
       if (Math.max(Math.abs(x - cx), Math.abs(y - cy)) !== r) continue;
-      if (movement.shoreOnly && !shoreWater(typeAt, x, y)) continue;
+      if (movement.shoreOnly && !WG.isShoreWaterCell(grid, N, N, x, y, waterOpts)) continue;
       const owner = WG.variantOwnerAt(entry, y * N + x);
       if (owner && !(owner === 'zone' && opts.zoneSlot === entry.zone?.coverage?.[y * N + x])) continue;
       if (root.CreatureSpawns.isSpawnCell(grid, N, N, x, y, waterOpts, kind)) return { cx: x, cy: y };
@@ -217,6 +218,9 @@
         const y = at.ty * entry.tileEdgeM + (seat.cy + .5) * cellM, childId = `${id}_${n}`;
         return root.CreatureSpawns.createOwned('party-scaling', id, creature.kind, x, y, childId, {
           zoneVariant: creature.zoneVariant, shiny: false,
+          _densityParent: creature.id, _densityOwner: ownerKey,
+          _spawnTime: creature._spawnTime, _spawnRowKind: creature._spawnRowKind,
+          _parkCharacter: creature._parkCharacter,
           ...(emergesFromGround(creature.kind, creature.zoneVariant) ? { emergeFromGround: true, _burrowed: true } : {}),
           ...root.EnemySpawns.concealment(creature.kind, childId, creature.zoneVariant),
           _surfaceSpawn: { tx: at.tx, ty: at.ty, cx: seat.cx, cy: seat.cy, x, y },

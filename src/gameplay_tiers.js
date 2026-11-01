@@ -5,7 +5,7 @@
     { id: 1, label: 'Tier 1 · core', color: '#21c8aa', description: 'Daily value, fast/ranged enemies and elites, butterflies, easily extracted resources.' },
     { id: 2, label: 'Tier 2 · calm', color: '#f4bf54', description: 'Resources, slow creatures, NPCs and hazards; fast movers cannot spawn.' },
     { id: 3, label: 'Tier 3 · passing', color: '#e77d76', description: 'Ordinary finds, slow creatures and passive walking; hazards and fast movers cannot spawn.' },
-    { id: 4, label: 'Excluded', color: '#69647c', description: 'Buildings, water, restricted/private ground, other existing access exclusions, or no qualifying mapped evidence.' },
+    { id: 4, label: 'Excluded', color: '#69647c', description: 'Buildings, deep water, restricted/private ground, other existing access exclusions, or no qualifying mapped evidence.' },
   ];
   const REASONS = [
     ['No qualifying mapped geometry', 4], ['Park / garden / beach', 1],
@@ -21,10 +21,11 @@
     ['Major / medium street surface', 4],
     ['Intersection passing buffer', 3],
     ['Grove / beach nexus coverage', 1], ['Tar yard nexus coverage', 2], ['Quarry nexus coverage', 3],
+    ['Water source edge', 1],
   ].map(([label, tier], id) => ({ id, label, tier }));
   const R = { UNKNOWN:0, PARK:1, REC:2, PLAZA:3, PATH:4, NATURAL:5, COMMERCIAL:6,
     CHURCH:7, SMALL:8, SIDEPATH:9, BUFFER:10, PARKING:11, DEADEND:12,
-    MAJOR:13, OTHER:14, SURFACE:15, ACCESS:16, GATE:17, UNCERTAIN_PATH:18, STONES:19, MAJOR_SURFACE:20, JUNCTION:21, NEXUS_CORE:22, NEXUS_TAR:23, NEXUS_QUARRY:24 };
+    MAJOR:13, OTHER:14, SURFACE:15, ACCESS:16, GATE:17, UNCERTAIN_PATH:18, STONES:19, MAJOR_SURFACE:20, JUNCTION:21, NEXUS_CORE:22, NEXUS_TAR:23, NEXUS_QUARRY:24, WATER_EDGE:25 };
   const NEXUS_REASON={grove:R.NEXUS_CORE,beach:R.NEXUS_CORE,stones:R.STONES,tar:R.NEXUS_TAR,quarry:R.NEXUS_QUARRY};
   const CORE_TIER=1, CALM=2, PASSING=3, EXCLUDED=4;
   const ROAD_BUFFER_CELLS=3, PATH_BUFFER_CELLS=1, JUNCTION_BUFFER_CELLS=5;
@@ -99,8 +100,8 @@
   }
   function polygonReason(layer,tags,WG) {
     const c=tags.class,sub=tags.subclass, values=[c,sub,tags.leisure,tags.natural,tags.landuse];
-    if(layer==='water'||layer==='building') return R.SURFACE;
     if(denied(tags)) return R.ACCESS;
+    if(layer==='water'||layer==='building') return R.SURFACE;
     if(['parking','motorcycle_parking'].includes(c)||sub==='parking'||tags.amenity==='parking') return R.PARKING;
     if(layer==='transportation' && (['pedestrian','footway'].includes(c) || c==='path' && ['pedestrian','footway'].includes(sub))) return R.PLAZA;
     // Mirrors WorldGen's unexported PARK_FAMILY_LAYER_CLASS; generic
@@ -205,6 +206,37 @@
     yield 'gameplay source geometry';
     for(const entry of world.tiles||[]) {
       const N=entry.cellsPerEdge,edge=data.edge,cell=edge/N,ox=entry.tx*edge,oy=entry.ty*edge;
+      const rim=WG.FARM_EDGE_CELLS, padded=N+2*rim;
+      const waterSource=new Uint8Array(padded*padded),waterBuildings=new Uint8Array(padded*padded),waterEdge=new Uint8Array(N*N),waterEdges=new Uint8Array(N*N);
+      const waterBounds=[ox-rim*cell,oy-rim*cell,ox+edge+rim*cell,oy+edge+rim*cell];
+      let waterOperations=0;
+      // Union immutable source polygons across the tile buffer. Neither tile
+      // clipping nor a later road/POI/Nexus repaint creates a new shoreline.
+      for(const p of data.polygons) if(['water','building'].includes(p.layer) && overlaps(p.bounds,waterBounds)) {
+        const mask=p.layer==='water'?waterSource:waterBuildings;
+        polygonCells(p.rings,padded,waterBounds[0],waterBounds[1],cell,i=>{mask[i]=1;});
+        if(++waterOperations%20===0) yield 'gameplay water source';
+      }
+      for(let y=0;y<N;y++) {
+        if((y&31)===0) yield 'gameplay water edge';
+        for(let x=0;x<N;x++) {
+          const at=(y+rim)*padded+x+rim;
+          if(!waterSource[at]) continue;
+          const i=y*N+x;waterEdges[i]=WG.WATER_EDGE_PROOF.SOURCE;
+          for(let dy=-rim;dy<=rim;dy++) for(let dx=-rim;dx<=rim;dx++) {
+            if(!waterSource[at+dy*padded+dx]) {
+              waterEdge[i]=1;
+              if(x+dx<0||y+dy<0||x+dx>=N||y+dy>=N) waterEdges[i]|=WG.WATER_EDGE_PROOF.OUTSIDE_RIM;
+            }
+          }
+          // Persist only off-tile bank proof. In-tile live terrain must still
+          // prove its own bank, so later pond paint cannot reuse a vanished one.
+          for(const [dx,dy,bit] of WG.WATER_BANK_DIRECTIONS) {
+            const j=at+dy*padded+dx;
+            if((x+dx<0||y+dy<0||x+dx>=N||y+dy>=N)&&!waterSource[j]&&!waterBuildings[j])waterEdges[i]|=bit;
+          }
+        }
+      }
       const bounds=[ox,oy,ox+edge,oy+edge],reasons=new Uint8Array(N*N), exclusions=new Uint8Array(N*N),buildingCells=new Uint8Array(N*N),publicPierCells=new Uint8Array(N*N);
       // Ground first; road corridors override land destinations, then core
       // path bands take precedence before source/access exclusions.
@@ -213,6 +245,10 @@
       for(const p of data.polygons) if(overlaps(p.bounds,bounds)) {
         polygonCells(p.rings,N,ox,oy,cell,i=>{
           if(p.layer==='building') buildingCells[i]=1;
+          if(p.layer==='water' && p.reason===R.SURFACE && waterEdge[i]) {
+            if(!reasons[i]) reasons[i]=R.WATER_EDGE;
+            return;
+          }
           if(REASONS[p.reason].tier===4) exclusions[i]=Math.max(exclusions[i],p.reason);
           else if((priority[p.reason]||0)>(priority[reasons[i]]||0)) reasons[i]=p.reason;
         });
@@ -269,7 +305,7 @@
       }
       const junctionCells=new Uint8Array(N*N);
       for(const junction of data.junctions) stampSegment(junction.p,junction.p,junction.radius,N,ox,oy,cell,i=>{junctionCells[i]=1;});
-      tiles.push({reasons,exclusions,buildingCells,publicPierCells,pathCells,roadReason,streetSurface,junctionCells});
+      tiles.push({reasons,exclusions,buildingCells,publicPierCells,pathCells,roadReason,streetSurface,junctionCells,waterEdge,waterEdges});
     }
     return tiles;
   }
@@ -309,7 +345,7 @@
       }
       for(let i=0;i<5;i++){stats.cells[i]+=tileStats.cells[i];stats.ha[i]+=tileStats.ha[i];}
       for(let i=0;i<REASONS.length;i++) stats.byReason[i]+=tileStats.byReason[i];
-      tiles.push({entry,tiers,reasons,stats:tileStats});
+      tiles.push({entry,tiers,reasons,waterEdges:source.waterEdges,stats:tileStats});
       yield 'gameplay tier tile';
     }
     return {tiles,stats};

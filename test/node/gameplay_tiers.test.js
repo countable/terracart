@@ -227,6 +227,9 @@
         geom:[[{x:30*64,y:30*64},{x:39*64,y:30*64},{x:39*64,y:39*64},{x:30*64,y:39*64}]]}]});
       const covered=source==='polygon';
       const r=WorldGen.rasterizeTile(layers,n,0,0,edge);
+      assert.eq(WorldGen.gameplayTiersOf(r.grid),r.gameplayTiers,'raster terrain retains the returned authoritative tier array after final Nexus pass');
+      assert.eq(WorldGen.gameplayTiersOf(null,{spawnWhy:r.spawnWhy}),r.gameplayTiers,'mask-only gates read that same mutable tier array');
+      assert.eq(WorldGen.waterEdgesOf(r.grid),r.waterEdges,'source bank proof remains registered on the authoritative array');
       assert.eq(r.gameplayTiers[32*n+35],covered?GameplayTiers.CORE:GameplayTiers.EXCLUDED);
       assert.eq(r.objects.some(o=>o.kind==='chest'&&o.name==='Nearby library'),covered,
         'mapped park coverage permits the POI; an isolated Grove point cannot expand eligibility');

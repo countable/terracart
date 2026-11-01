@@ -1329,26 +1329,45 @@ class SceneCreatures {
         const cls = creatureSpawnClass(row.kind);
         if (!WorldGen.isSpawnCell(genGrid, N, N, cx, cy, eligibleOpts, cls)) continue;
         const id = `enemy_cave_${depth}_${tx}_${ty}_density_${row.kind}_${index}`;
-        if (SpawnPipeline.roll(id, row.per1000 / 1000)) density.push({ id, row, habitat, cx, cy, index });
+        if (SpawnPipeline.roll(id, row.per1000 / 1000 / HabitatSpawns.packMean(row.kind)))
+          density.push({ id, row, habitat, cx, cy, index, size: HabitatSpawns.packSize(row.kind, id) });
       }
     }
-    const generated = yield* SpawnPipeline.generateSteps(null, {
-      count: density.length, member: function* (n) {
-        if ((n & 31) === 0) yield 'cave creature records';
-        return density[n];
-      },
-      seat: member => {
-        if (occupiedIdx.has(member.index)) return null;
-        return tileCellCentre(this.tileEdgeM, tx, ty, cellSizeM, member.cx, member.cy);
-      },
-      create: (member, seat) => WorldGen.makeCreature(member.row.kind, seat.x, seat.y, member.id, {
-        depth, habitat: member.habitat.theme, _spawnSource: 'zone-density',
-        _spawnOwner: `Underground:${depth}:${member.habitat.id}`,
-        _legacyDefeatIds: [EnemySpawns.caveId(depth, tx, ty, member.cx, member.cy)],
-        shiny: EnemySpawns.rollsElite(entry, member.row.kind, member.id, seat.x, seat.y, cellSizeM),
-      }),
-      onPlaced: (_, member) => occupiedIdx.add(member.index),
-    });
+    const generated = [], caveRequested = density.reduce((sum, group) => sum + group.size, 0);
+    for (const group of density) {
+      const cells = HabitatSpawns.packCells(group.row.kind, group.id, group.index, N, group.size);
+      let anchorPlaced = false;
+      generated.push(...yield* SpawnPipeline.generateSteps(null, {
+        count: group.size,
+        member: ordinal => ({ ordinal, index: cells[ordinal], id: HabitatSpawns.packMemberId(group.id, ordinal, false) }),
+        seat: member => {
+          if (member.index == null || member.ordinal && !anchorPlaced || occupiedIdx.has(member.index)) return null;
+          const cx = member.index % N, cy = Math.floor(member.index / N);
+          if (genGrid[member.index] !== WorldGen.T.CAVE_FLOOR || WorldGen.variantOwnerAt(entry, member.index)) return null;
+          const habitat = contexts.get(member.index);
+          if (!habitat || habitat.id !== group.habitat.id) return null;
+          if (!rowsByHabitat.get(habitat.id)?.some(row => row.kind === group.row.kind)) return null;
+          const cls = creatureSpawnClass(group.row.kind);
+          if (!WorldGen.isSpawnCell(genGrid, N, N, cx, cy,
+              { ...entry._spawnOpts, occupied: occupiedIdx }, cls)) return null;
+          return { ...tileCellCentre(this.tileEdgeM, tx, ty, cellSizeM, cx, cy), cx, cy };
+        },
+        create: (member, seat) => WorldGen.makeCreature(group.row.kind, seat.x, seat.y, member.id, {
+          depth, habitat: group.habitat.theme, _spawnSource: 'zone-density',
+          _spawnOwner: `Underground:${depth}:${group.habitat.id}`,
+          ...(HabitatSpawns.ENEMY_PACKS[group.row.kind] ? { _spawnPack: {
+            id: group.id, ordinal: member.ordinal, requested: group.size, cx: group.cx, cy: group.cy } } : {}),
+          _legacyDefeatIds: [EnemySpawns.caveId(depth, tx, ty, seat.cx, seat.cy),
+            ...(member.ordinal ? [`enemy_cave_${depth}_${tx}_${ty}_density_${group.row.kind}_${member.index}`] : [])],
+          shiny: EnemySpawns.rollsElite(entry, group.row.kind, member.id, seat.x, seat.y, cellSizeM),
+        }),
+        onPlaced: (_, member) => {
+          if (!member.ordinal) anchorPlaced = true;
+          occupiedIdx.add(member.index);
+        },
+      }));
+      yield 'cave creature pack';
+    }
     // Migration only: old pack/block IDs are translated to same-kind,
     // same-habitat density candidates. This never creates live inhabitants.
     if ([...caughtSet].some(id => String(id).startsWith(`enemy_cave_${depth}_${tx}_${ty}_`)
@@ -1383,8 +1402,8 @@ class SceneCreatures {
       const cx = Math.floor((c.x - tx * entry.tileEdgeM) / cellSizeM), cy = Math.floor((c.y - ty * entry.tileEdgeM) / cellSizeM);
       if (!caughtSet.has(c.id) && !c._legacyDefeatIds.some(id => caughtSet.has(id)) && !heldByPlayer.has(cy * N + cx)) creatures.push(c);
     }
-    const cavePopulation = { requested: density.length, placed: generated.length,
-      shortfall: density.length - generated.length, ratePer1000: EnemySpawns.caveDensityRate(depth) };
+    const cavePopulation = { requested: caveRequested, placed: generated.length,
+      shortfall: caveRequested - generated.length, ratePer1000: EnemySpawns.caveDensityRate(depth) };
     // Materialize canonical generated coins once. No runtime coin allowance
     // or replacement roll: collected identities stay spent across rebuilds.
     let coinDrops = entry.coinDrops;
