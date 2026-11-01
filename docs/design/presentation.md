@@ -23,6 +23,12 @@ pixels and decorative details do not define additional tap cells.
   wind-up; a short per-edge cooldown prevents jitter from repeatedly stopping
   travel. Existing house-entry text remains unchanged.
 
+- One note follows the player's head: a work wheel's verb (`WORK_ACTION_LABELS`,
+  "chopping...") and, on an empty bar, "fainted" (`PLAYER_DOWNED_LABEL`) for as
+  long as `Combat.playerDowned` holds. The downed note outranks the wheel (which
+  collapse cancels) and clears the frame the player stands up. Test:
+  `work_action_label`.
+
 - Wreck restoration lists building types first. Tapping a type with multiple
   available ranks opens the rank picker immediately; its type card omits cost.
   Each rank shows its own price, and Back returns to the type picker. A type

@@ -1248,6 +1248,11 @@ const BAREHAND_MUTTERS = ['Oof!', 'Ghhhh!', 'Need tools!'];
 const BAREHAND_MUTTER_TOOLS = ['axe', 'pickaxe', 'hoe'];
 const WORK_ACTION_LABELS = { axe: 'chopping...', pickaxe: 'mining...', hoe: 'tilling...',
   fishing_rod: 'fishing...', net: 'catching...', sword: 'hunting...' };
+// The same head note on an empty bar (Combat.playerDowned). A body lying in
+// the road with no caption reads as a glitch, not a collapse: the note names
+// the state for as long as it lasts and outranks any wheel (a downed player
+// has no wheel — _stopDownedActions cancels it).
+const PLAYER_DOWNED_LABEL = 'fainted';
 const HOUSE_RESTORED_MUTTERS = ['Eek!', 'Why hello there.', 'Thanks for fixing my house!',
   'Welcome back!', 'Can I offer some tea?'];
 const FIRE_REST_R = 3;   // cells — must be within this of a fire to warm up
@@ -5496,13 +5501,15 @@ class MapScene extends Phaser.Scene {
     this._workProgress = { worldX, worldY, onComplete, durationMs, energyRefund, toolSlot, startT: performance.now(), track: trackCreature };
     this._syncWorkActionLabel?.();
   }
-  // A single persistent note follows the player's head for the whole job.
-  // It shares normal map-note typography, without toast drift/fade timers.
+  // A single persistent note follows the player's head for the whole job —
+  // and, on an empty bar, reads PLAYER_DOWNED_LABEL until the player is back
+  // on their feet. It shares normal map-note typography, without toast
+  // drift/fade timers.
   _syncWorkActionLabel() {
-    const text = WORK_ACTION_LABELS[this._workProgress?.toolSlot];
+    const text = Combat.playerDowned(this.save?.energy) ? PLAYER_DOWNED_LABEL
+      : WORK_ACTION_LABELS[this._workProgress?.toolSlot];
     const ps = this.playerScreen?.();
-    if (!text || Combat.playerDowned(this.save?.energy)
-        || !ps || !Number.isFinite(ps.x) || !Number.isFinite(ps.y)) {
+    if (!text || !ps || !Number.isFinite(ps.x) || !Number.isFinite(ps.y)) {
       this._workActionLabel?.setVisible(false);
       return;
     }
@@ -5660,10 +5667,13 @@ class MapScene extends Phaser.Scene {
   }
 
   _drawWorkProgress() {
-    if (this._stopDownedActions()) return;
+    // The head note is synced BEFORE the downed bail-out: cancelling the wheel
+    // hides it, and the next frame must bring it back reading "fainted".
+    const downed = this._stopDownedActions();
+    this._syncWorkActionLabel?.();
+    if (downed) return;
     this._drawSwordSwing();
     this._drawWatering?.();
-    this._syncWorkActionLabel?.();
     const wp = this._workProgress;
     if (!wp) return;
     if (wp.flee && Conditions.attacksBlocked(this.save)) return;

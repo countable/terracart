@@ -6,14 +6,16 @@
     return SCENE_SRC.slice(start + 1, SCENE_SRC.indexOf('\n  }\n', start) + 4);
   }
   let now = 1000;
-  const declarations = APP_JS_SRC.match(/const WORK_ACTION_LABELS = [\s\S]*?;/)[0];
-  const methods = new Function('performance', 'WORK_ACTION_LABELS', 'TOAST_TIER', 'phaserFontUI',
+  const declarations = APP_JS_SRC.match(/const WORK_ACTION_LABELS = [\s\S]*?;/)[0]
+    + APP_JS_SRC.match(/const PLAYER_DOWNED_LABEL = [\s\S]*?;/)[0];
+  const methods = new Function('performance', 'WORK_ACTION_LABELS', 'PLAYER_DOWNED_LABEL', 'TOAST_TIER', 'phaserFontUI',
     'UI_INK', 'UI_SHADOW', 'ENERGY_POP_HEAD_PX', 'HeadingUp', 'clampTextX', 'W',
     'return ({' + [
       '_syncWorkActionLabel() {', 'cancelWorkProgress() {', '_stopDownedActions() {', '_drawWorkProgress() {',
       'startWorkProgress(worldX, worldY, onComplete, durationMs = 3000, energyRefund = 0, toolSlot = null, trackCreature = null) {',
     ].map(lift).join(',') + '});')(
       {now:()=>now}, new Function(declarations + 'return WORK_ACTION_LABELS;')(),
+      new Function(declarations + 'return PLAYER_DOWNED_LABEL;')(),
       {note:{font:'12px',stroke:0,pad:6,padY:4,depth:100,shadow:{offsetX:1,offsetY:1,blur:4}}},
       font=>({font}), '#fff', '#000', 30,
       {toOverlayPt:(_s,x,y,lift)=>({x:x+5,y:y+lift})}, x=>x, 352);
@@ -53,8 +55,23 @@
     s.playerScreen=()=>null;s._syncWorkActionLabel();assert.falsy(label.visible);
     s.playerScreen=()=>({x:1,y:2});s._syncWorkActionLabel();assert.truthy(label.visible);
     s.save.energy=0;s._stopDownedActions();assert.falsy(label.visible);
+    s._syncWorkActionLabel();assert.eq(label.text,'fainted');assert.truthy(label.visible);
     s.save.energy=50;s.startWorkProgress(0,0,()=>{},3000,0,'fishing_rod');
     assert.eq(label.text,'fishing...');shutdown();assert.falsy(label.visible);
     assert.eq(s._workActionLabel,null);assert.eq(s._workProgress,null);
+  });
+  test('fainted note: an empty bar keeps "fainted" over the player every frame, standing up clears it',()=>{
+    const {s,label,creates}=scene();
+    s.save.energy=0;s._drawWorkProgress();
+    assert.eq(label.text,'fainted');assert.truthy(label.visible);assert.eq(creates(),1);
+    s.playerScreen=()=>({x:123,y:240});
+    for(let i=0;i<50;i++)s._drawWorkProgress();
+    assert.eq(label.x,128);assert.eq(label.y,188);assert.truthy(label.visible);assert.eq(creates(),1);
+    // Collapsing mid-job: the wheel dies, the note turns to "fainted" in the same frame.
+    s.save.energy=50;s.startWorkProgress(0,0,()=>{},3000,0,'axe');assert.eq(label.text,'chopping...');
+    s.save.energy=0;s._drawWorkProgress();
+    assert.falsy(s._workProgress);assert.eq(label.text,'fainted');assert.truthy(label.visible);
+    // Back on their feet with no job: nothing over the head.
+    s.save.energy=5;s._drawWorkProgress();assert.falsy(label.visible);
   });
 })();
