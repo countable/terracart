@@ -32,6 +32,23 @@
   const partOf = c => EnemyRoster.get(c.kind)?.bossPart;
   const coilsOf = entry => entry.creatures.filter(c => partOf(c) === 'coil');
 
+  test('serpent piece gather stays on its registered host tile', () => {
+    const entry = { creatures: [], objects: [] };
+    withWorld(entry, () => {
+      const s = bossScene(entry), now = Date.now();
+      BossEncounters.start(s.save, 'serpent', KEY, { own: true, depth: 0 }, now);
+      s._spawnSerpent(KEY, { x: 20, y: 0, h: Math.PI });
+      for (let i = 0; i < 100; i++) WorldGen.tileCache.set(`unrelated_${i}`, { creatures: [] });
+      const values = WorldGen.tileCache.values.bind(WorldGen.tileCache);
+      let fullScans = 0;
+      WorldGen.tileCache.values = () => { fullScans++; return values(); };
+      const pieces = s._serpentPieces(KEY);
+      assert.truthy(pieces.head && pieces.tail);
+      assert.eq(pieces.coils.length, BossEncounters.KINDS.serpent.coils);
+      assert.eq(fullScans, 0, 'gather cost follows the chain, not cached world size');
+    });
+  });
+
   test('boss encounters: start, clock, timeout and abandonment are one routine for every kind', () => {
     const save = {}, now = 1000;
     for (const kind of Object.keys(BossEncounters.KINDS)) {

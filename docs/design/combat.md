@@ -657,9 +657,11 @@ Tests: `combat`, `armor`, `energy_int`, `downed_pursuit`, `rest_work`, `home_war
   drives its head and sends the pose as `boss` frames every `feedMs`; a
   nearby player adopts the fight (`_adoptSerpent`: same key, start and piece
   ids, `own: false`) and their copy follows the feed, while its coils, trail
-  and bites run on their device. The coils are shared enemies only while a
-  save holds the fight live (`EnemySpawns.isSharedId`), so hits and kills land
-  on every copy. Every player who sees it die gets their own hoard; only the
+  and bites run on their device. The scene registers each chain's one host tile
+  entry, so frame-time piece gathering follows the bounded chain instead of
+  scanning the tile cache. The coils are shared enemies only while a save holds
+  the fight live (`EnemySpawns.isSharedId`), so hits and kills land on every
+  copy. Every player who sees it die gets their own hoard; only the
   starter's idol is spent. When the feed has been silent for `staleMs` (the
   starter won, reset or walked away) the adopted copy resets.
 

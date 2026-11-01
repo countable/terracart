@@ -84,10 +84,12 @@ class SceneBoss {
     return true;
   }
 
-  // Every live piece of serpent `key`, wherever its tile entry is.
+  // Every live piece of serpent `key`. A fight owns one host tile entry, so
+  // frame-time gathering stays bounded by the chain instead of the tile cache.
   _serpentPieces(key) {
     const prefix = `${key}_`, out = { head: null, tail: null, coils: [] };
-    for (const entry of WorldGen.tileCache.values()) for (const c of entry.creatures || []) {
+    const entry = this._serpentPieceHosts?.get(key);
+    for (const c of entry?.creatures || []) {
       if (!String(c.id).startsWith(prefix)) continue;
       const part = EnemyRoster.get(c.kind)?.bossPart;
       if (part === 'head') out.head = c;
@@ -109,6 +111,7 @@ class SceneBoss {
     const kindOf = part => EnemyRoster.serpentKind(tier, part);
     const p = playerWorldM(this), entry = this._serpentHostEntry(p);
     if (!entry) return false;
+    (this._serpentPieceHosts ||= new Map()).set(key, entry);
     const a = at ? at.h + Math.PI : Math.random() * Math.PI * 2, r = row.spawnCells * cellM;
     const hx = at ? at.x : p.x + Math.cos(a) * r, hy = at ? at.y : p.y + Math.sin(a) * r;
     const heading = a + Math.PI, back = { x: Math.cos(a), y: Math.sin(a) };
@@ -145,6 +148,7 @@ class SceneBoss {
     for (const entry of entries) {
       if (entry.creatures) entry.creatures = entry.creatures.filter(c => !String(c.id).startsWith(prefix));
     }
+    this._serpentPieceHosts?.delete(key);
     this.save.caught = (this.save.caught || []).filter(id => !String(id).startsWith(prefix));
   }
 
@@ -233,11 +237,11 @@ class SceneBoss {
     const head = pieces.head, row = EnemyRoster.get(head.kind);
     const p = playerWorldM(this);
     // Keep every piece in the player's tile entry (see _serpentHostEntry).
-    const host = this._serpentHostEntry(p);
-    if (host) for (const entry of WorldGen.tileCache.values()) {
-      if (entry === host || !entry.creatures?.some(c => c.boss === key)) continue;
-      host.creatures.push(...entry.creatures.filter(c => c.boss === key));
-      entry.creatures = entry.creatures.filter(c => c.boss !== key);
+    const host = this._serpentHostEntry(p), previousHost = this._serpentPieceHosts?.get(key);
+    if (host && previousHost && host !== previousHost) {
+      host.creatures.push(...(previousHost.creatures || []).filter(c => c.boss === key));
+      previousHost.creatures = (previousHost.creatures || []).filter(c => c.boss !== key);
+      this._serpentPieceHosts.set(key, host);
     }
     if (fed) {
       // AN ADOPTED COPY's head goes where the starter's is (a jump past
