@@ -2778,6 +2778,45 @@
   const TILE_RETRY_MS = 3000;
   const _tileFailedAt = new Map();   // "z/x/y" → Date.now() of the last failure
 
+  // ── Bounded network fetches ──────────────────────────────────────────────
+  // A fetch can HANG, not just fail: a mobile radio that drops mid-transfer,
+  // a captive portal or proxy that accepts the connection and never answers,
+  // a cell-to-wifi handoff — the request sits pending for minutes, or for the
+  // life of the page. Nothing rejects, so the tile entry stays 'loading'
+  // forever: it is never evicted, ensureTilesAround keeps handing back the
+  // same unsettled pass, no banner shows and no retry fires. The player stands
+  // on bare ground with no roads or buildings until the next refresh — the
+  // same symptom the stalled tile store had (TILE_IDB_TIMEOUT_MS above), from
+  // the other side of the cache. So every network wait here runs under a
+  // deadline: past it the request is aborted AND the wait rejects, so the tile
+  // fails like any other network failure (evicted, retried on the ordinary
+  // backoff, bannered if it is the ground under the player).
+  //
+  // Generous on purpose. A z14 tile is a few hundred KB at most, so even a
+  // 2G-class link moves one well inside the limit; a healthy slow download
+  // must never be cut off, because the retry would start it again from zero.
+  // The TileJSON is a few hundred bytes and gates EVERY tile on a cold cache,
+  // so it gets a shorter rope; a timeout there keeps the current template.
+  const TILE_FETCH_TIMEOUT_MS = 45 * 1000;
+  const TILEJSON_FETCH_TIMEOUT_MS = 15 * 1000;
+  // Run `work(signal)` under a deadline of `ms`. The returned promise settles
+  // with the work's result, or rejects at the deadline — whichever is first.
+  // The abort signal stops a real fetch and its body read; the rejection is
+  // what frees the caller, even when the fetch does not honour the signal (a
+  // worker's passthrough, an old polyfill, a scripted test fetch).
+  function withDeadline(ms, label, work) {
+    const ctrl = typeof AbortController !== 'undefined' ? new AbortController() : null;
+    let timer = null;
+    const deadline = new Promise((_, reject) => {
+      timer = setTimeout(() => {
+        try { ctrl?.abort(); } catch (_) { /* nothing in flight */ }
+        reject(new Error(`${label} timed out after ${ms} ms`));
+      }, ms);
+    });
+    return Promise.race([work(ctrl ? ctrl.signal : undefined), deadline])
+      .finally(() => clearTimeout(timer));
+  }
+
   // ── The live tile URL template (see the TILE_HOST block at the top) ─────
   let _tileUrl = TILE_URL_FALLBACK;
   let _tileUrlPromise = null;          // the memoised resolve, so N tiles at boot ask once
@@ -2802,12 +2841,14 @@
   }
   async function fetchTileJson() {
     if (typeof fetch !== 'function') throw new Error('no fetch');
-    const resp = await fetch(TILEJSON_URL, { cache: 'no-cache' });
-    if (!resp.ok) throw new Error(`tilejson HTTP ${resp.status}`);
-    const j = await resp.json();
-    const u = j && Array.isArray(j.tiles) ? j.tiles[0] : null;
-    if (!validTileTemplate(u)) throw new Error('tilejson: no usable tiles url');
-    return u;
+    return withDeadline(TILEJSON_FETCH_TIMEOUT_MS, 'tilejson', async (signal) => {
+      const resp = await fetch(TILEJSON_URL, { cache: 'no-cache', signal });
+      if (!resp.ok) throw new Error(`tilejson HTTP ${resp.status}`);
+      const j = await resp.json();
+      const u = j && Array.isArray(j.tiles) ? j.tiles[0] : null;
+      if (!validTileTemplate(u)) throw new Error('tilejson: no usable tiles url');
+      return u;
+    });
   }
   // Resolve the template: IndexedDB first (a day's worth of trust, with a
   // background refresh once it is older), then the TileJSON, then whatever we
@@ -2848,20 +2889,24 @@
     })();
     return _tileUrlPromise;
   }
-  // One tile from the network, under the live template. A failure of ANY
-  // shape (a 4xx, a 5xx, the service worker's synthetic 504, a CORS-shaped
-  // TypeError) re-asks the TileJSON once; if that yields a DIFFERENT template
-  // the tile is fetched again under it, because "the snapshot rotated" is
-  // exactly what a failure looks like and the only failure we can fix from
-  // here. Same template back means the failure is real: rethrow it as-is.
-  async function fetchTileResponse(x, y) {
+  // One tile's bytes from the network, under the live template. The whole
+  // transfer — headers AND body — runs under one TILE_FETCH_TIMEOUT_MS
+  // deadline (withDeadline above): a body that stalls after a 200 is as much
+  // of a hang as a request that never connects. A failure of ANY shape (a
+  // 4xx, a 5xx, the service worker's synthetic 504, a CORS-shaped TypeError,
+  // the deadline) re-asks the TileJSON once; if that yields a DIFFERENT
+  // template the tile is fetched again under it, because "the snapshot
+  // rotated" is exactly what a failure looks like and the only failure we can
+  // fix from here. Same template back means the failure is real: rethrow it
+  // as-is, so the caller's 4xx / failed classification still works.
+  async function fetchTileBuffer(x, y) {
     await resolveTileUrl();
     const under = _tileUrl;
-    const attempt = async () => {
-      const resp = await fetch(tileUrlFor(x, y));
+    const attempt = () => withDeadline(TILE_FETCH_TIMEOUT_MS, `tile ${tileKey(x, y)} fetch`, async (signal) => {
+      const resp = await fetch(tileUrlFor(x, y), { signal });
       if (!resp.ok) throw new Error(`tile ${tileKey(x, y)} HTTP ${resp.status}`);
-      return resp;
-    };
+      return new Uint8Array(await resp.arrayBuffer());
+    });
     try {
       return await attempt();
     } catch (err) {
@@ -2876,9 +2921,8 @@
     const key = tileKey(x, y);
     if (_tileRefreshing.has(key)) return;
     _tileRefreshing.add(key);
-    fetchTileResponse(x, y)
-      .then((resp) => resp.arrayBuffer())
-      .then((buf) => { if (buf) idbPut(key, { bytes: new Uint8Array(buf), fetchedAt: Date.now() }); })
+    fetchTileBuffer(x, y)
+      .then((buf) => { if (buf) idbPut(key, { bytes: buf, fetchedAt: Date.now() }); })
       .catch(() => {})
       .finally(() => _tileRefreshing.delete(key));
   }
@@ -2896,8 +2940,7 @@
       if (Date.now() - (cached.fetchedAt || 0) > TILE_REFRESH_MS) refreshTileBytes(x, y);
       return { bytes: cached.bytes, fromCache: true };
     }
-    const resp = await fetchTileResponse(x, y);
-    const buf = new Uint8Array(await resp.arrayBuffer());
+    const buf = await fetchTileBuffer(x, y);
     idbPut(key, { bytes: buf, fetchedAt: Date.now() });
     return { bytes: buf, fromCache: false };
   }
@@ -10084,6 +10127,7 @@
     // TileJSON.
     TILE_URL_FALLBACK, TILEJSON_URL, tileUrlTemplate, tileUrlFor, resolveTileUrl,
     fetchTileBytes, prefetchTileBytes, _resetTileUrlForTest, _resetTileStoreForTest, TILE_IDB_TIMEOUT_MS,
+    TILE_FETCH_TIMEOUT_MS, TILEJSON_FETCH_TIMEOUT_MS,
     // The step generator itself, so the block audit
     // (test/node/tile_build_blocks.test.js) can time the build one step at
     // a time — the only way to see the thing that actually stutters, which

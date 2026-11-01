@@ -1048,9 +1048,14 @@ access or tile lifecycle mechanics.
 - Tile rebuilds replace the entry. Decide which state survives and which is
   regenerated; gate spawning on `entry._spawned`, not carried `creatures`.
   Do not cache a final answer from a tile still loading (no `layers` yet).
-- Fetch tiles through `fetchTileResponse`, which resolves the live TileJSON
+- Fetch tiles through `fetchTileBuffer`, which resolves the live TileJSON
   template and retries resolution on failure. Bumping a dated fallback URL
-  does not repair live fetching. Every raw tile-store access (`idbGet`,
+  does not repair live fetching. Every network wait runs under `withDeadline`
+  (`TILE_FETCH_TIMEOUT_MS` covers a tile's headers and body,
+  `TILEJSON_FETCH_TIMEOUT_MS` the template): past the deadline the request is
+  aborted and the wait rejects, so a hung transfer fails, evicts and retries
+  like any other network failure instead of leaving the entry loading forever
+  with no banner; a TileJSON timeout keeps the current template. Every raw tile-store access (`idbGet`,
   `idbPut`, `idbMergeGeometry`) is bounded by `TILE_IDB_TIMEOUT_MS`: a
   stalled open or request is a cache miss that falls through to the fetch
   (the worker's tile cache answers it), the stalled connection is forgotten
