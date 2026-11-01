@@ -196,19 +196,19 @@
   test('castle conversation: luxury card rechecks a stale claim and pays 60 coins once', () => {
     const s = scene(), h = house(nextKey('archive', 'luxury'));
     s.save.starterShopId = 'home';
-    s.save.houseLuxury = { home: { score: 16, footprintKey: 'room' } };
+    s.save.houseLuxury = { home: { score: 3, footprintKey: 'room' } };
     s.showQuestBoard(0, 0, h);
     const card = s.offers[0];
     assert.eq(card.get, 'A respectable address');
     assert.truthy(card.blurb.includes("We don't admit rabble here!"));
-    assert.truthy(card.blurb.includes('16 luxury'));
+    assert.truthy(card.blurb.includes('3 luxury'));
     assert.truthy(card.canAfford, 'pre-earned luxury completes the first conversation');
-    s.save.houseLuxury.home.score = 4;
+    s.save.houseLuxury.home.score = 2;
     card.onAccept();
     assert.falsy(s.isCastleClaimed(h)); assert.eq(s.save.money, 0);
     s.showQuestBoard(0, 0, h);
-    assert.falsy(s.offers[1].canAfford); assert.truthy(s.offers[1].blurb.includes('4 / 16'));
-    s.save.houseLuxury.home.score = 16;
+    assert.falsy(s.offers[1].canAfford); assert.truthy(s.offers[1].blurb.includes('2 / 3'));
+    s.save.houseLuxury.home.score = 3;
     s.showQuestBoard(0, 0, h);
     s.offers[2].onAccept(); s.offers[2].onAccept();
     assert.truthy(s.isCastleClaimed(h)); assert.eq(s.save.money, 60);

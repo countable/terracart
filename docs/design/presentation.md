@@ -819,7 +819,8 @@ silhouette's top (`Lighting.indoorTopPx`), in the mask's dark outside.
 Old Archive Court's existing style deterministically selects delivery or luxury
 jobs without changing castle style assignment. The luxury card is titled
 “A respectable address”, with “We don't admit rabble here!” beneath it: reach
-16 luxury in the active Home for 60 coins. Opening, progress events and claiming
+the luxury the `LUXURY_NEED` table in `src/quests.js` asks for at that assignment order (3 for the
+first Archive, 16 after) in the active Home for 60 coins. Opening, progress events and claiming
 reread current luxury; placement does not accumulate quest progress. A decrease
 before claiming blocks completion. Castle ownership stays permanent after claim.
 
