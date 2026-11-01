@@ -51,6 +51,8 @@ def sprite_png(sheet, frame, preserve_frame=False, tint=0xffffff, palette_key=No
     if row.get('whiteKey'):
         image.putdata([(r, g, b, 0 if min(r, g, b) > 240 else a) for r, g, b, a in image.getdata()])
     palette = art_registry().get('enemyPalettes', {}).get(sheet)
+    if palette and not all(stop in palette for stop in ('shadow', 'mid', 'highlight')):
+        palette = None  # non-ramp palette records (e.g. the mimic) render untinted
     if palette_key:
         palette = next(row['palette'] for row in basic_signatures()['acceptedMechanics']['butterflies']['variants'] if row['id'] == palette_key)
     if palette:
