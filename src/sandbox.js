@@ -1334,12 +1334,10 @@
     StreetVariants.markBanditStops(entry.objects, entry.roadClass, c.cellsPerEdge, c.tx, c.ty, c.tileEdgeM, entry);
 
     spawnOpts.occupied = occupiedCells(c);
-    // The shipping density cap (TRAP_GROUND_SHARE_PER_MUL × pool size) governs
-    // the count: this much authored ground honestly yields ~1 trap, exactly as
-    // a real tile of the same size would. No fallback seat — the coverage test
-    // re-runs the placer and pins that it, not a hand row, furnished the traps.
+    // Use the real owner-table probability and hazard selector. Small
+    // authored patches may legitimately roll no trap; there is no refill.
     entry.traps.push(...Traps.spawnSurface(entry.grid, entry.roadClass, c.cellsPerEdge, c.cellsPerEdge,
-      c.tx, c.ty, c.tileEdgeM, spawnOpts, 1, entry.zone && entry.zone.under));
+      c.tx, c.ty, c.tileEdgeM, spawnOpts, 1, entry.zone && entry.zone.under, entry));
 
     // A lair point is an attractor: the real spawn pass keeps a street lair
     // only where attractor ground lies within LAIR_POINT_SLACK_CELLS of its

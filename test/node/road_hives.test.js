@@ -39,6 +39,7 @@
     const dead=e.creatures[0];s.save.caught.push(dead.id);dead._spent=true;
     advance(s,60000);assert.eq(e.creatures.length,5);assert.eq(Hives.living(s,h).length,4);
     assert.truthy(e.creatures.every(c=>c.kind==='mushroom_monster'&&c._hiveId===h.id&&!c._sharedId));
+    assert.truthy(e.creatures.every(c=>c._spawnSource==='mushroom-hive'&&c._spawnOwner===h.id));
     assert.truthy(e.creatures[4].id!==dead.id,'new births never reuse saved defeat IDs');
     Hives.damage(s,h,1000);advance(s,120000);assert.eq(e.creatures.length,5);
   }));

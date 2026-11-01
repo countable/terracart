@@ -14,25 +14,27 @@
 (function () {
 const BODY = SPAWN_CAVE_SRC.replace(/\n\s*\}\s*$/, '');
 const CAVE_FLOOR = 24, CAVE_WALL = 25;
-const run = (entry, tx = 0, ty = 0, depth = 1) => {
-  const scene = { tileEdgeM: entry.tileEdgeM, save: { caught: [] } };
+const run = (entry, tx = 0, ty = 0, depth = 1, found = []) => {
+  const occupied = WorldGen.occupiedIndexSet(WorldGen.tileFrame(entry, tx, ty, entry.tileEdgeM), entry.objects || []);
+  entry.caveCoinSeeds ||= WorldGen.caveCoins(entry.grid, entry.cellsPerEdge, tx, ty, entry.tileEdgeM, depth, occupied);
+  const scene = { tileEdgeM: entry.tileEdgeM, save: { caught: [], foundTreasures: found } };
   new Function('entry', 'tx', 'ty', 'depth', BODY).call(scene, entry, tx, ty, depth);
   return entry;
 };
-const floorTile = (N = 200, objects = []) => ({
+const floorTile = (N = 64, objects = []) => ({
   cellsPerEdge: N, tileEdgeM: 1000,
   grid: new Array(N * N).fill(CAVE_FLOOR),
   objects,
 });
 
-test('cave coins: a handful of coindrops lands on each level tile', () => {
+test('cave coins: the shared generated coin rows materialize without an extra runtime allowance', () => {
   const entry = run(floorTile());
   assert.truthy(Array.isArray(entry.coinDrops), 'the pass creates entry.coinDrops');
-  assert.gte(entry.coinDrops.length, 4, 'at least the minimum handful');
-  assert.lte(entry.coinDrops.length, 8, 'no more than the maximum — a trickle, not a burst');
+  assert.gt(entry.coinDrops.length, 0);
+  assert.eq(entry.coinDrops.map(c => c.id).join(), entry.caveCoinSeeds.map(c => c.id).join(), 'runtime adds only canonical seeded coins');
   for (const c of entry.coinDrops) {
     assert.eq(c.kind, 'coindrop', 'the same record the coin-burst coins use');
-    assert.truthy(typeof c.id === 'string' && c.id.startsWith('cavecoin_'), 'a stable per-tile id');
+    assert.truthy(typeof c.id === 'string' && c.id.startsWith('ccoin_'), 'a stable per-tile id');
     assert.eq(c.expiresAt, undefined, 'a cave coin never expires on its own');
     assert.truthy(c.x >= 0 && c.x < 1000 && c.y >= 0 && c.y < 1000, 'inside the tile');
   }
@@ -41,7 +43,7 @@ test('cave coins: a handful of coindrops lands on each level tile', () => {
 });
 
 test('cave coins: only on floor, never under a staircase or a rock', () => {
-  const N = 200, cellM = 1000 / N;
+  const N = 64, cellM = 1000 / N;
   const entry = floorTile(N);
   // One up-stair in the middle (the spawn anchor) and a ring of rocks round it.
   const mid = N / 2;
@@ -79,9 +81,11 @@ test('cave coins: a rebuilt tile that carried its coins does not get a second ha
   assert.truthy(entry.creatures && entry.creatures.length > 0, 'the fauna pass still ran');
 });
 
-test('cave coins: coin generation follows the enemy placement pass', () => {
-  const enemies = SPAWN_CAVE_SRC.lastIndexOf('addEnemy(');
-  const coins = SPAWN_CAVE_SRC.indexOf("kind: 'coindrop'");
-  assert.truthy(enemies > 0 && coins > enemies, 'coins are rolled after enemies');
+test('cave coins: collected generated coins never refill on a new runtime pass', () => {
+  const a = run(floorTile()), found = a.coinDrops.map(c => c.id);
+  const b = run(floorTile(), 0, 0, 1, found);
+  assert.gt(found.length, 0); assert.eq(b.coinDrops.length, 0);
+  assert.eq(b.caveCoinSeeds.map(c => c.id).join(), found.join(), 'save filtering preserves the generated population');
 });
+
 })();

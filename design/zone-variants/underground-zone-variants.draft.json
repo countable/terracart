@@ -1,28 +1,41 @@
 {
   "status": "nexus_runtime_with_route_design_reference",
-  "revision": 15,
-  "date": "2026-10-05",
-  "purpose": "Project grove nexus variants and quarry Mine Tunnels from their matching surface regions. Apply path themes to all paths on cave levels 1 and 2; medium/large roads and buildings remain cave walls; sm_road receives underground street variants.",
+  "revision": 16,
+  "date": "2026-11-01",
+  "purpose": "Project grove nexus variants and quarry Mine Tunnels from their matching surface regions. Apply path themes to all paths on cave floors 2 and 3; medium/large roads and buildings remain cave walls; sm_road receives underground street variants. Revision 16 adds the four-per-floor grove program (levelProgram): draft variants for floors 1 and 4-8, reusing variants across two or three floors; runtime floors 2-3 keep their implemented variants unchanged.",
   "scope": {
     "surfaceChanges": false,
     "otherPOIRegions": "future explicit mapping rows",
     "activation": "separate implementation after design review",
     "nexusDepths": [
-      1,
-      2
+      2,
+      3
     ],
     "pathDepths": [
-      1,
-      2
+      2,
+      3
     ],
-    "pathCoverage": "All eligible path geometry on levels 1 and 2, independent of park/nexus proximity; including sm_road streets; never medium/large roads or levels 3+.",
+    "pathCoverage": "All eligible path geometry on floors 2 and 3, independent of park/nexus proximity; including sm_road streets; never medium/large roads or floors 4+.",
     "undergroundTemples": false,
-    "buildingAndRoadTerrain": "Houses, temples, md_road and lg_road footprints remain CAVE_WALL. Explicit exception: carve eligible sm_road footprints for underground streets on depths 1 and 2; building, protected water and access exclusions still win.",
+    "buildingAndRoadTerrain": "Houses, temples, md_road and lg_road footprints remain CAVE_WALL. Explicit exception: carve eligible sm_road footprints for underground streets on floors 2 and 3; building, protected water and access exclusions still win.",
     "standaloneShrines": "Retain the explicitly designed Ember altar and Toad idol as freestanding cave interactables, not temple buildings or mirrored houses. Every existing path theme and sm_road street variant also has a 50% shrine roll per canonical route and depth, using existing shrine boons and daily ledgers.",
     "roadDepths": [
-      1,
-      2
-    ]
+      2,
+      3
+    ],
+    "groveProgram": {
+      "floors": [
+        1,
+        4,
+        5,
+        6,
+        7,
+        8
+      ],
+      "activation": "draft only; separate implementation after design review",
+      "reuse": "A variant may serve two or three floors; ember_sanctum spans floors 6-8.",
+      "runtime": "Floors 2-3 keep their runtime weights and variants exactly as implemented."
+    }
   },
   "source": {
     "regions": "Stable generated surface nexus anchors and their original coverage; select by nexus kind rather than any nearby park, seep or rock terrain.",
@@ -269,7 +282,7 @@
           "1": 12,
           "2": 16
         },
-        "countPolicy": "Representative 25-room warren: 12 goblins on level 1 and 16 on level 2. Scale by usable room count, capped once per region and depth; omit blocked seats."
+        "countPolicy": "Representative 25-room warren: 12 goblins on floor 2 and 16 on floor 3. Scale by usable room count, capped once per region and depth; omit blocked seats."
       }
     },
     {
@@ -390,7 +403,7 @@
           "spider"
         ]
       },
-      "depthPolicy": "Levels 1 and 2 only. Filter the shared GEM_DEPOSITS catalog before placement: D1 Quartz; D2 Quartz and Topaz. Rendered and yielded gems cannot exceed the current depth tier.",
+      "depthPolicy": "Floors 2 and 3 only. Filter the shared GEM_DEPOSITS catalog before placement: floor 2 quartz; floor 3 quartz and topaz. Rendered and yielded gems cannot exceed the current depth tier.",
       "surfaceNexusKind": "grove",
       "depths": [
         1,
@@ -478,7 +491,7 @@
       "context": "neutral or mineral",
       "mechanic": "mineable side alcoves; rare existing supply cache allocation",
       "layout": "Dress both cells on each side of the two-cell path: six cells across in total. Keep the path, junctions and stairs clear; carts and mineable rocks occupy reachable side pockets.",
-      "reward": "Bonus metal ore follows the floor level tier; the illustration shows depth 2 copper. Gem pockets obey gemTier <= depth: D1 rose quartz, D2 rose quartz/amethyst; no shallow sapphire. Count finite finds once per canonical route and depth; carts use the existing container budget.",
+      "reward": "Bonus metal ore follows the floor level tier; the illustration shows depth 2 copper. Gem pockets obey gemTier <= depth: floor 2 rose quartz, floor 3 rose quartz/amethyst; no shallow sapphire. Count finite finds once per canonical route and depth; carts use the existing container budget.",
       "depths": [
         1,
         2
@@ -594,7 +607,7 @@
     "gemSpawnBonusMultiplier": 2
   },
   "terrainContract": [
-    "Apply a path theme to every eligible path on cave levels 1 and 2 before generic cave dressing. Use existing cave-floor path geometry; eligible sm_road streets are explicitly selected and carved for these variants. Parks and nexus proximity influence theme choice only.",
+    "Apply a path theme to every eligible path on cave floors 2 and 3 before generic cave dressing. Use existing cave-floor path geometry; eligible sm_road streets are explicitly selected and carved for these variants. Parks and nexus proximity influence theme choice only.",
     "No carve through building or water provenance, md_road and lg_road bands (sm_road is the explicit shallow-depth carve exception), saved structures, or excluded access regions.",
     "Keep a per-depth geology base separate from the projected design overlay, so a shallow corridor does not silently propagate deeper.",
     "Plan original staircase identities from the existing unmodified geology. Preserve actual stairs and reserve clear approaches before adding zone pieces.",
@@ -603,7 +616,7 @@
     "At seams use canonical source geometry and world positions; ambiguous or missing geometry keeps ordinary cave generation.",
     "Seep Passage intentionally replaces eligible underground route floor with WATER. Preserve dry bank connectivity and crossings before decorating; do not paint surface roads or inherited protected water/building provenance.",
     "Only grove surface anchors may select spring cave, goblin warrens, mushroom cavern or gemstone cavern. Seep anchors do not select these variants; quarry anchors select Mine Tunnels.",
-    "Underground nexus areas have no temple buildings. Houses and md_road/lg_road remain CAVE_WALL, including inside nexus coverage; eligible sm_road streets are carved on depths 1 and 2. Standalone Ember and Toad shrines remain small cave interactables."
+    "Underground nexus areas have no temple buildings. Houses and md_road/lg_road remain CAVE_WALL, including inside nexus coverage; eligible sm_road streets are carved on floors 2 and 3. Standalone Ember and Toad shrines remain small cave interactables."
   ],
   "economy": [
     "Anchor regions from surface geography, even when POI mirrors are pruned at an earlier depth.",
@@ -613,22 +626,22 @@
     "Path intersections confer connectivity, not extra rewards or extra daily ledgers.",
     "Use existing picked/opened/caught/treasure persistence with stable depth-qualified IDs.",
     "One shrine per qualifying nexus region and depth, using the existing daily shrine ledger and boon rules. The boon replaces its shrine treasure gift; tile fragments never duplicate it.",
-    "Miners\u2019 Way explicitly adds sparse bonus ore from the floor level tier. Depth 1 uses its existing copper exception; depth 2+ selects that floor tier, capped at the mineral maximum. Bonus totals need tuning before runtime activation.",
+    "Miners\u2019 Way explicitly adds sparse bonus ore from the floor level tier. Floor 2 uses its existing copper exception; floor 3+ selects that floor tier, capped at the mineral maximum. Bonus totals need tuning before runtime activation.",
     "Reuse quarry rock and depth-eligible gem appearances without importing surface quarry first-rock guarantees, buried finds or extra site rewards. Underground placements retain their declared rock/deposit rules and depth-qualified budgets.",
     "Mine Tunnels is a simple finite ore-rich deposit per quarry anchor and depth. It creates no extra cache, shrine, temple or imported surface quarry first-rock guarantee.",
     "Dedicated gemstone art is present for all seven catalogued gems; only depth-eligible gems appear in each preview. Deposits must pay their pictured gem; runtime nexus placement uses the shared deposit and item catalog.",
-    "Ordinary D2 low-tier gems replace existing non-suppressed rock seats; proposed bonus areas increase selection chance, not rock density or reset frequency.",
+    "Ordinary floor 3 low-tier gems replace existing non-suppressed rock seats; proposed bonus areas increase selection chance, not rock density or reset frequency.",
     "All walking-path and sm_road variants roll a shrine at 50% once per canonical route/depth, using existing boon and daily ledger rules.",
     "Gemstone cavern/mine and path, including Miners\u2019 Way pockets, never render or yield gems above the current depth tier."
   ],
   "implementation": [
     {
       "step": 1,
-      "deliverable": "Preview source-kind mapping: grove anchors to the four grove variants, quarry anchors to Mine Tunnels, and no nexus mapping from seep. Independently theme all path geometry on cave levels 1 and 2."
+      "deliverable": "Preview source-kind mapping: grove anchors to the four grove variants, quarry anchors to Mine Tunnels, and no nexus mapping from seep. Independently theme all path geometry on cave floors 2 and 3."
     },
     {
       "step": 2,
-      "deliverable": "Add nexus and path masks with separate depth scopes. Path themes cover every eligible path only on levels 1 and 2; include eligible sm_road streets; exclude md_road and lg_road. Preserve staircase topology and inherited geology."
+      "deliverable": "Add nexus and path masks with separate depth scopes. Path themes cover every eligible path only on floors 2 and 3; include eligible sm_road streets; exclude md_road and lg_road. Preserve staircase topology and inherited geology."
     },
     {
       "step": 3,
@@ -644,7 +657,7 @@
     },
     {
       "step": 6,
-      "deliverable": "Implement depth-filtered gems and non-suppressed D2 rock replacements; sm_road scatter and 50% route shrines; separate inert vents, stakes-equivalent stalagmites, story-driven fall holes and proximity-revealed snare-equivalent pits. These draft fields are not runtime registration."
+      "deliverable": "Implement depth-filtered gems and non-suppressed floor 3 rock replacements; sm_road scatter and 50% route shrines; separate inert vents, stakes-equivalent stalagmites, story-driven fall holes and proximity-revealed snare-equivalent pits. These draft fields are not runtime registration."
     }
   ],
   "checks": [
@@ -653,21 +666,21 @@
     "Every active nexus and stair has a walkable approach; all required through routes remain connected.",
     "No carves under excluded roads, buildings or water; no surface terrain change.",
     "No duplicate finds, guards or caches at seams and junctions.",
-    "Depth 1 never uses deeper goblin roster entries; no empty habitat silently produces illegal enemies.",
+    "Floor 2 never uses deeper goblin roster entries; no empty habitat silently produces illegal enemies.",
     "Compare capped chest totals and expected resource value against baseline cave seeds.",
     "Check inspected art at game scale, transparent margins, frame rectangles, readable interactions and shared footprint reservation.",
-    "Every eligible path receives one theme on cave levels 1 and 2, including paths outside parks and away from nexus regions.",
-    "Underground path/street variants apply to walking paths and sm_road only on depths 1 and 2; exclude md_road, lg_road and depths 3+.",
+    "Every eligible path receives one theme on cave floors 2 and 3, including paths outside parks and away from nexus regions.",
+    "Underground path/street variants apply to walking paths and sm_road only on floors 2 and 3; exclude md_road, lg_road and floors 4+.",
     "Only grove anchors select the four grove nexus variants; quarry anchors select Mine Tunnels and seep anchors select none of them.",
     "No temple or house interiors appear underground; house and md_road/lg_road cells remain cave walls after nexus placement; eligible sm_road cells form streets.",
-    "Neither nexus variants nor path themes apply at cave levels 3 or deeper.",
+    "Neither nexus variants nor path themes apply at cave floors 4 or deeper.",
     "Dense goblin and mushroom counts are owned once per source region/depth; route goblin patrols and seep cubes do not multiply at seams.",
     "Spring skeletons remain invisible and inactive beyond one cell, reveal at the one-cell boundary, remain revealed after retreat, and do not reappear after defeat/reload.",
     "Named-zone skeleton, mushroom and cube exceptions do not change ambient cave enemy eligibility.",
-    "D1 gem previews and drops are quartz only; D2 uses only quartz/topaz, including Miners\u2019 Way.",
-    "D2 ordinary gems never bypass suppression; beaches, commercial landcover and sm_road use the declared bonus without stacking.",
+    "Floor 2 gem previews and drops are quartz only; floor 3 uses only quartz/topaz, including Miners\u2019 Way.",
+    "floor 3 ordinary gems never bypass suppression; beaches, commercial landcover and sm_road use the declared bonus without stacking.",
     "Inactive vents emit no gas; stalagmites match charred-stakes mechanics. Combined vent/stalagmite/hole street coverage targets 10%, keeping safe routes.",
-    "Entering a hole shows exactly one falling panel, applies 25% maximum energy once, and safely descends exactly one floor, including D2 to D3. No valid deeper floor means no hole.",
+    "Entering a hole shows exactly one falling panel, applies 25% maximum energy once, and safely descends exactly one floor, including floor 3 to floor 4. No valid deeper floor means no hole.",
     "Hidden pits have no sprite before adjacency/entry; discovery persists and damage matches surface snares.",
     "All existing paths and sm_road variants use one 50% shrine roll per canonical route/depth; no duplicate shrine at seams or junctions.",
     "High-tier palette motif slots resolve to depth-eligible gems before rendering; no preview exposes locked gem tiers."
@@ -759,7 +772,7 @@
     }
   ],
   "openDecisions": [
-    "Levels 3+ retain ordinary caves; these nexus and path designs apply only at levels 1 and 2.",
+    "The four-per-floor grove program is a draft: floors 1 and 4-8 need runtime cave-area profiles, weights and encounter seats before activation; floors 2-3 stay exactly as implemented.",
     "Point-only POI coverage needs a reviewed influence radius before activation."
   ],
   "previewMaterials": {
@@ -898,6 +911,94 @@
     "bone_cache": {
       "path": "assets/Objects/Approved/bone_pile.png",
       "color": "#d8d2bf"
+    },
+    "glow_bulbs": {
+      "path": "assets/StreetDecorations/luminous_bulbs.png",
+      "color": "#9fe8c9"
+    },
+    "green_slick": {
+      "path": "assets/StreetDecorations/green_slick.png",
+      "color": "#5d7a4e"
+    },
+    "mossy_rock": {
+      "path": "assets/StreetDecorations/mossy_rock.png",
+      "color": "#7a8a6a"
+    },
+    "mossy_tree": {
+      "path": "assets/StreetDecorations/mossy_tree.png",
+      "color": "#6d7f5f"
+    },
+    "flame_pillar": {
+      "path": "assets/StreetDecorations/flame_pillar.png",
+      "color": "#e07038"
+    },
+    "fire_rock": {
+      "path": "assets/StreetDecorations/fire_rock.png",
+      "color": "#d1583a"
+    },
+    "bone_fragments": {
+      "path": "assets/StreetDecorations/bone_fragments.png",
+      "color": "#d8d2bf"
+    },
+    "golden_bowl": {
+      "path": "assets/StreetDecorations/golden_bowl.png",
+      "color": "#e6c779"
+    },
+    "dark_rubble": {
+      "path": "assets/StreetDecorations/dark_rubble.png",
+      "color": "#6a675e"
+    },
+    "dark_urn": {
+      "path": "assets/StreetDecorations/dark_urn.png",
+      "color": "#5d5a52"
+    },
+    "toadstools": {
+      "path": "assets/StreetDecorations/toadstool_cluster.png",
+      "color": "#b06048"
+    },
+    "dusty_stones": {
+      "path": "assets/StreetDecorations/dusty_stones.png",
+      "color": "#a08a6a"
+    },
+    "roots": {
+      "caveArt": "roots",
+      "color": "#7a6a4f"
+    },
+    "gong": {
+      "caveArt": "gong",
+      "color": "#b8a06a"
+    },
+    "cage": {
+      "caveArt": "cage",
+      "color": "#8a8f96"
+    },
+    "rune_violet": {
+      "caveArt": "rune_violet",
+      "color": "#b389d6"
+    },
+    "rune_gold": {
+      "caveArt": "rune_gold",
+      "color": "#e6c779"
+    },
+    "skeletal_hand": {
+      "caveArt": "skeletal_hand",
+      "color": "#d8d2bf"
+    },
+    "fire_vent": {
+      "caveArt": "fire_vent",
+      "color": "#d1583a"
+    },
+    "ember_eggs": {
+      "color": "#c98a4b",
+      "candidateArt": "ember egg clutch; candidate prop art"
+    },
+    "silk_web": {
+      "color": "#cfd8e2",
+      "candidateArt": "sheeted cave silk; candidate prop art"
+    },
+    "fossil_bone": {
+      "color": "#cfc39a",
+      "candidateArt": "fossil seam in rock; candidate prop art"
     }
   },
   "previewRows": [
@@ -937,8 +1038,8 @@
         ]
       },
       "depths": [
-        1,
-        2
+        2,
+        3
       ],
       "encounters": {
         "placement": "spring_offsets",
@@ -993,7 +1094,8 @@
         "countPolicy": "Six fixed, finite skeletons per region and depth.",
         "activation": "Reveal within one cell; remain revealed and preserve defeats.",
         "mechanicStatus": "Shared proximity reveal is implemented in HiddenObjects."
-      }
+      },
+      "status": "runtime"
     },
     {
       "id": "goblin_warrens",
@@ -1022,7 +1124,7 @@
       "atmosphere": "Rooms from 3 \u00d7 3 to 5 \u00d7 5 cells, with corner barrels, open doors and an Ember shrine.",
       "poi": "Ember altar grants fireball instead of a shrine gift. Keep at most one surviving cache.",
       "connection": "Connect varied rooms into loops. Keep entrances, stairs, doors and shrine approaches clear.",
-      "monsters": "Study: 12 club goblins on level 1; 16 club and spear goblins on level 2, spread among rooms.",
+      "monsters": "Study: 12 club goblins on floor 2; 16 club and spear goblins on floor 3, spread among rooms.",
       "source": "Beneath grove nexuses only; exclude surface seep and quarry regions. worked and built-edge affinities.",
       "walls": {
         "sheet": "stronghold_wall",
@@ -1924,8 +2026,7 @@
         1
       ],
       "depths": [
-        1,
-        2
+        3
       ],
       "encounters": {
         "placement": "fixed",
@@ -2023,7 +2124,7 @@
           "1": 12,
           "2": 16
         },
-        "countPolicy": "Study: 12 goblins on level 1; 16 on level 2. Scale by usable rooms, cap per region and omit blocked seats."
+        "countPolicy": "Study: 12 goblins on floor 2; 16 on floor 3. Scale by usable rooms, cap per region and omit blocked seats."
       }
     },
     {
@@ -2079,8 +2180,8 @@
       "source": "Beneath grove nexuses only; exclude surface seep and quarry regions. wooded, shaded and damp affinities.",
       "artNote": "Uses the two cave mushroom frames.",
       "depths": [
-        1,
-        2
+        2,
+        3
       ],
       "encounters": {
         "placement": "fixed",
@@ -2150,12 +2251,13 @@
         "surfaceDensityMultiplier": 2,
         "minimumPerStandardRegion": 8,
         "countPolicy": "Study target: at least eight per 25 \u00d7 25 region, or twice the surface count at equal area. Omit blocked seats."
-      }
+      },
+      "status": "runtime"
     },
     {
       "poi": "One pictured gem per deposit, using shared mining rules.",
-      "monsters": "D1: cave slime / bat; D2: cave slime / bat / spider.",
-      "artNote": "Study gems: rose quartz on D1; rose quartz and amethyst on D2.",
+      "monsters": "floor 2: cave slime / bat; floor 3: cave slime / bat / spider.",
+      "artNote": "Study gems: rose quartz on floor 2; rose quartz and amethyst on floor 3.",
       "id": "gemstone_cavern",
       "kind": "nexus",
       "name": "Gemstone Cavern",
@@ -2231,12 +2333,13 @@
       "source": "Beneath grove nexuses only; exclude surface seep and quarry regions. exposed rock and stony-ground affinities.",
       "atmosphere": "Gem pockets and quarry stone surround an open chamber.",
       "connection": "Four clear approaches, edge deposits and a reachable surviving cache.",
-      "depthNote": "Study: levels 1 and 2, with gem tier capped at depth.",
+      "depthNote": "Study: floors 2 and 3, with gem tier capped at depth.",
       "depths": [
-        1,
-        2
+        2,
+        3
       ],
-      "maxGemTier": "depth"
+      "maxGemTier": "depth",
+      "status": "runtime"
     },
     {
       "id": "mine_tunnels",
@@ -2314,9 +2417,10 @@
       "monsters": "Depth-eligible cave encounters; no extra guards.",
       "artNote": "Game ore and surface quarry stone.",
       "depths": [
-        1,
-        2
-      ]
+        2,
+        3
+      ],
+      "status": "runtime"
     },
     {
       "id": "root_passage",
@@ -2346,11 +2450,11 @@
       "poi": "No extra nexus or cache per route segment.",
       "connection": "One-cell clear centre following path bends and junctions.",
       "monsters": "Study: spring-family enemies from the existing ambient budget.",
-      "source": "All path classes on cave levels 1\u20132; including eligible sm_road streets. Wooded or spring surroundings favor this theme.",
-      "depthNote": "Study: paths and eligible small roads on levels 1 and 2.",
+      "source": "All path classes on cave floors 2\u20133; including eligible sm_road streets. Wooded or spring surroundings favor this theme.",
+      "depthNote": "Study: paths and eligible small roads on floors 2 and 3.",
       "depths": [
-        1,
-        2
+        2,
+        3
       ],
       "shrineChance": 0.5,
       "shrineKind": "wayfarer_post"
@@ -2397,16 +2501,16 @@
       "poi": "Mine water rocks from a dry bank; use existing finite rock allocations. No extra cache.",
       "connection": "One-cell banks and two-cell crossings at junctions, stairs and nexuses. Keep crossings clear.",
       "monsters": "Study: one Gelatinous Cube on a reachable bank per route and depth.",
-      "source": "All path classes on cave levels 1\u20132; including eligible sm_road streets. Wet or spring surroundings favor this theme.",
+      "source": "All path classes on cave floors 2\u20133; including eligible sm_road streets. Wet or spring surroundings favor this theme.",
       "waterChannel": {
         "widthCells": 2,
         "crossingEveryCells": 12,
         "crossingWidthCells": 2
       },
-      "depthNote": "Study: paths and eligible small roads on levels 1 and 2.",
+      "depthNote": "Study: paths and eligible small roads on floors 2 and 3.",
       "depths": [
-        1,
-        2
+        2,
+        3
       ],
       "encounters": {
         "placement": "fixed",
@@ -2505,13 +2609,13 @@
       "poi": "Finite floor-tier ore and gems per route and depth; carts share the container budget. Depth 2 copper shown.",
       "connection": "Two-cell path with two-cell verges. Keep junctions and stairs clear; make deposits reachable.",
       "monsters": "Depth-eligible cave enemies; route length adds no guards.",
-      "source": "All path classes on cave levels 1\u20132; including eligible sm_road streets. Mineral surroundings favor this theme.",
+      "source": "All path classes on cave floors 2\u20133; including eligible sm_road streets. Mineral surroundings favor this theme.",
       "artNote": "Game quarry stone, floor-tier ore and gems; handcart used as a minecart proxy.",
       "vergeWidthCells": 2,
-      "depthNote": "Study: paths and eligible small roads on levels 1 and 2.",
+      "depthNote": "Study: paths and eligible small roads on floors 2 and 3.",
       "depths": [
-        1,
-        2
+        2,
+        3
       ],
       "pathWidthCells": 2,
       "shrineChance": 0.5,
@@ -2552,8 +2656,8 @@
       "atmosphere": "Stone walls and storage alcoves beside a clear two-cell passage.",
       "poi": "Containers share the parent route or region budget.",
       "connection": "Two-cell passage and doorways, with side alcoves.",
-      "monsters": "Study: three goblins per route and depth. Level 1: clubs; level 2: clubs and spears.",
-      "source": "All path classes on cave levels 1\u20132; including eligible sm_road streets. Goblin Warrens proximity favors this theme.",
+      "monsters": "Study: three goblins per route and depth. Floor 2: clubs; floor 3: clubs and spears.",
+      "source": "All path classes on cave floors 2\u20133; including eligible sm_road streets. Goblin Warrens proximity favors this theme.",
       "wallSlots": [
         [
           0,
@@ -2650,10 +2754,10 @@
         "mechanic": "Proposed blocking cave structure; no item drop or extra reward. Reuse the stone wall art, with topology chosen from surviving cardinal neighbors.",
         "placement": "Preserve open doorways, stairs and the through route; walls are structural and counted separately from harvestable objects."
       },
-      "depthNote": "Study: paths and eligible small roads on levels 1 and 2.",
+      "depthNote": "Study: paths and eligible small roads on floors 2 and 3.",
       "depths": [
-        1,
-        2
+        2,
+        3
       ],
       "encounters": {
         "placement": "fixed",
@@ -2691,8 +2795,8 @@
     },
     {
       "poi": "One pictured gem per deposit, using shared mining rules.",
-      "monsters": "D1: cave slime / bat; D2: cave slime / bat / spider.",
-      "artNote": "Study gems: rose quartz on D1; rose quartz and amethyst on D2.",
+      "monsters": "floor 2: cave slime / bat; floor 3: cave slime / bat / spider.",
+      "artNote": "Study gems: rose quartz on floor 2; rose quartz and amethyst on floor 3.",
       "id": "gemstone_path",
       "kind": "path",
       "name": "Gemstone Path",
@@ -2765,13 +2869,13 @@
           "material": "quartz_deposit"
         }
       ],
-      "source": "All path classes on cave levels 1\u20132; including eligible sm_road streets. Stony surroundings favor this theme.",
+      "source": "All path classes on cave floors 2\u20133; including eligible sm_road streets. Stony surroundings favor this theme.",
       "atmosphere": "Gem seams alternate with broken and worked quarry stone.",
       "connection": "Two-cell clear centre with reachable edge deposits. Study: 50% shrine chance per route and depth.",
-      "depthNote": "Study: levels 1 and 2, with gem tier capped at depth.",
+      "depthNote": "Study: floors 2 and 3, with gem tier capped at depth.",
       "depths": [
-        1,
-        2
+        2,
+        3
       ],
       "shrineChance": 0.5,
       "shrineKind": "wayfarer_post",
@@ -2783,8 +2887,8 @@
       "name": "Underground Small Street",
       "sourceTerrain": "sm_road",
       "depths": [
-        1,
-        2
+        2,
+        3
       ],
       "motifCells": [
         8,
@@ -2816,20 +2920,20 @@
       ],
       "shrineChance": 0.5,
       "shrineKind": "wayfarer_post",
-      "source": "Eligible sm_road footprints on cave levels 1 and 2; buildings and md_road/lg_road remain walls.",
+      "source": "Eligible sm_road footprints on cave floors 2 and 3; buildings and md_road/lg_road remain walls.",
       "atmosphere": "Study: vents, stalagmites and holes cover 10% of free floor. Hidden pits reveal adjacent or underfoot.",
       "poi": "Study: 50% shrine chance per route. Holes cost 25% maximum energy and drop one floor; pits use snare damage.",
       "connection": "Keep a clear lane and hazard bypasses; preserve buildings, water and stairs.",
       "monsters": "Existing depth-legal cave encounter budget.",
-      "depthNote": "D1 and D2 street variants; a D2 hole may land on ordinary D3 cave floor.",
+      "depthNote": "Floor 2 and 3 street variants; a floor 3 hole may land on ordinary floor 4 cave floor.",
       "artNote": "Game hole, stalagmite and pit frames; candidate inactive vent."
     },
     {
       "id": "depth2_rock_scatter",
       "kind": "nexus",
-      "name": "Level 2 Rock and Gem Scatter",
+      "name": "Floor 3 Rock and Gem Scatter",
       "depths": [
-        2
+        3
       ],
       "ordinaryScatter": true,
       "maxGemTier": "depth",
@@ -2897,12 +3001,12 @@
           "material": "rock"
         }
       ],
-      "source": "Ordinary non-suppressed D2 rock-scatter areas; beaches, commercial landcover and sm_road receive the proposed 2x gem spawn bonus.",
+      "source": "Ordinary non-suppressed floor 3 rock-scatter areas; beaches, commercial landcover and sm_road receive the proposed 2x gem spawn bonus.",
       "atmosphere": "Study: gems replace 8% of ordinary rocks, or 16% in bonus areas. Both eligible gems are emphasized here.",
       "poi": "Finite gems replace eligible rock seats; keep occupied cells, stairs and routes clear.",
       "connection": "Reachable cave-floor scatter.",
-      "monsters": "Unchanged ordinary D2 cave population.",
-      "depthNote": "Study: level 2, with rose quartz and amethyst."
+      "monsters": "Unchanged ordinary floor 3 cave population.",
+      "depthNote": "Study: floor 3, with rose quartz and amethyst."
     },
     {
       "id": "bone_gallery",
@@ -2910,8 +3014,8 @@
       "name": "Bone Gallery",
       "sourceTerrain": "sm_road",
       "depths": [
-        1,
-        2
+        2,
+        3
       ],
       "motifCells": [
         6,
@@ -2961,7 +3065,7 @@
           "material": "bone_cache"
         }
       ],
-      "source": "25% of eligible small-road cave routes on levels 1 and 2; excluded from ordinary walking paths.",
+      "source": "25% of eligible small-road cave routes on floors 2 and 3; excluded from ordinary walking paths.",
       "atmosphere": "The floor is littered with bones. Perhaps you should go another way...",
       "poi": "Search once: 50% empty, 40% supplies, 10% Scroll of Bones. Independent 25% skeleton chance; opened and defeated states persist.",
       "connection": "One cluster of 3\u20136 passable caches per route; keep stairs and chest approaches clear.",
@@ -2980,7 +3084,7 @@
             "kind": "bat"
           }
         ],
-        "countPolicy": "One elite of the strongest eligible kind per route; bat art represents the level-1 guard."
+        "countPolicy": "One elite of the strongest eligible kind per route; bat art represents the floor-2 guard."
       },
       "shrineChance": 0.5,
       "shrineKind": "wayfarer_post",
@@ -2992,8 +3096,8 @@
       "kind": "nexus",
       "source": "Park / grove nexus beneath the surface POI.",
       "depths": [
-        1,
-        2
+        2,
+        3
       ],
       "layout": {
         "type": "maze_braid",
@@ -3023,21 +3127,1804 @@
         "shrineKind": "ember_altar"
       },
       "encounterByDepth": {
-        "1": [
+        "2": [
           "bat"
         ],
-        "2": [
+        "3": [
           "bat",
           "spider"
         ]
       },
       "status": "runtime",
       "runtimeNote": "In-game maze reference. Live generation fits it to the nexus and preserves access."
+    },
+    {
+      "id": "flooded_cistern",
+      "kind": "nexus",
+      "name": "Flooded Cistern",
+      "depths": [
+        1,
+        5
+      ],
+      "status": "draft",
+      "layout": {
+        "type": "moat_island",
+        "extentCells": [
+          25,
+          25
+        ],
+        "moatTerrain": "WATER",
+        "islandRadiusCells": 3.2,
+        "moatWidthCells": 2.4,
+        "crossings": [
+          [
+            0,
+            -1
+          ],
+          [
+            0,
+            1
+          ]
+        ],
+        "bankRings": [
+          {
+            "radiusCells": 8,
+            "bandHalfWidthCells": 0.5,
+            "material": {
+              "1": "green_slick",
+              "5": "glow_bulbs"
+            }
+          }
+        ],
+        "focusNote": "Focal chest on the island - the grove\u2019s surviving mirror cache"
+      },
+      "source": "Beneath grove nexuses only; exclude surface seep and quarry regions. wet and low-lying affinities.",
+      "atmosphere": "A drowned cistern beneath the park: black water rings a footing of old masonry, and the cache waits on the island.",
+      "poi": "The surviving mirror cache sits on the island. Stepping stones are the only crossing; the water is impassable.",
+      "connection": "Two stepping-stone crossings on the north and south lanes. The moat stays wet all round.",
+      "monsters": "Floor 1 (Sewer): a rat pack and cave slimes hold the bank. Floor 5 (Underdark): vampire bats loop over the water.",
+      "encounters": {
+        "placement": "relative",
+        "seats": [
+          {
+            "at": [
+              -5,
+              -4
+            ],
+            "kind": "rat",
+            "byDepth": {
+              "1": "rat",
+              "5": "vampire_bat"
+            }
+          },
+          {
+            "at": [
+              5,
+              -4
+            ],
+            "kind": "rat",
+            "byDepth": {
+              "1": "rat",
+              "5": "vampire_bat"
+            }
+          },
+          {
+            "at": [
+              -6,
+              3
+            ],
+            "kind": "cave_slime",
+            "byDepth": {
+              "1": "cave_slime",
+              "5": "vampire_bat"
+            }
+          },
+          {
+            "at": [
+              6,
+              4
+            ],
+            "kind": "cave_slime",
+            "byDepth": {
+              "1": "cave_slime",
+              "5": "goblin"
+            }
+          }
+        ]
+      },
+      "water": "Impassable water moat; island and bank stay dry.",
+      "depthNote": "Floors 1 and 5; dressing shifts from sewer slick to underdark glow."
+    },
+    {
+      "id": "magma_atoll",
+      "kind": "nexus",
+      "name": "Magma Atoll",
+      "depths": [
+        6,
+        7
+      ],
+      "status": "draft",
+      "layout": {
+        "type": "moat_island",
+        "extentCells": [
+          25,
+          25
+        ],
+        "moatTerrain": "CAVE_LAVA",
+        "islandRadiusCells": 3.2,
+        "moatWidthCells": 2.4,
+        "crossings": [
+          [
+            0,
+            -1
+          ],
+          [
+            1,
+            0
+          ]
+        ],
+        "bankRings": [
+          {
+            "radiusCells": 8,
+            "bandHalfWidthCells": 0.5,
+            "material": "fire_rock"
+          }
+        ],
+        "focusNote": "Focal chest on the basalt islet - the grove\u2019s surviving mirror cache"
+      },
+      "source": "Beneath grove nexuses only; exclude surface seep and quarry regions. burned and rocky affinities.",
+      "atmosphere": "A ring of live lava around a cooled basalt core. Heat shimmers over the crossing stones.",
+      "poi": "The mirror cache bakes on a basalt islet; the lava ring burns anything that leaves the stones (CAVE_LAVA rules).",
+      "connection": "Two basalt stepping-stone crossings, north and east. Lava-immune foes do not need them.",
+      "monsters": "Fiends wait on the bank (lava-immune); the dragon floor keeps the same atoll with its own roster nearby.",
+      "encounters": {
+        "placement": "relative",
+        "seats": [
+          {
+            "at": [
+              -5,
+              -4
+            ],
+            "kind": "fiend"
+          },
+          {
+            "at": [
+              5,
+              -3
+            ],
+            "kind": "fiend"
+          },
+          {
+            "at": [
+              -4,
+              5
+            ],
+            "kind": "fiend"
+          }
+        ]
+      },
+      "water": "Live lava moat (T.CAVE_LAVA); standing in it burns.",
+      "depthNote": "Floors 6 and 7; the atoll is the lava floor\u2019s signature grove and the dragon floor\u2019s bathing pool."
+    },
+    {
+      "id": "moss_garden",
+      "kind": "nexus",
+      "name": "Moss Garden",
+      "depths": [
+        1,
+        5
+      ],
+      "status": "draft",
+      "motifCells": [
+        6,
+        6
+      ],
+      "shrineKind": "moss_cairn",
+      "source": "Beneath grove nexuses only; exclude surface seep and quarry regions. shaded and damp affinities.",
+      "atmosphere": "The park above, drowned in green. Moss eats the statues; everything is soft and quiet.",
+      "poi": "Moss cairn (Unseen) daily boon; harvests replace ordinary mushroom seats.",
+      "connection": "Four clear approaches through the slick; no walls.",
+      "monsters": "Four purple slimes nest in the slick; the cairn\u2019s Unseen boon slips you past them.",
+      "slots": [
+        {
+          "at": [
+            0,
+            1
+          ],
+          "material": "green_slick"
+        },
+        {
+          "at": [
+            1,
+            1
+          ],
+          "material": "green_slick"
+        },
+        {
+          "at": [
+            1,
+            3
+          ],
+          "material": "game_mushroom"
+        },
+        {
+          "at": [
+            2,
+            5
+          ],
+          "material": "green_slick"
+        },
+        {
+          "at": [
+            4,
+            0
+          ],
+          "material": "mossy_rock"
+        },
+        {
+          "at": [
+            5,
+            2
+          ],
+          "material": "green_slick"
+        },
+        {
+          "at": [
+            3,
+            3
+          ],
+          "material": "green_slick"
+        },
+        {
+          "at": [
+            0,
+            5
+          ],
+          "material": "mossy_rock"
+        },
+        {
+          "at": [
+            5,
+            5
+          ],
+          "material": "game_mushroom"
+        }
+      ],
+      "encounters": {
+        "placement": "fixed",
+        "extentCells": [
+          25,
+          25
+        ],
+        "seats": [
+          {
+            "at": [
+              5,
+              7
+            ],
+            "kind": "purple_slime"
+          },
+          {
+            "at": [
+              18,
+              6
+            ],
+            "kind": "purple_slime"
+          },
+          {
+            "at": [
+              7,
+              18
+            ],
+            "kind": "purple_slime"
+          },
+          {
+            "at": [
+              19,
+              18
+            ],
+            "kind": "purple_slime"
+          }
+        ],
+        "countPolicy": "Four purple slimes per region and depth (legal on floors 1-5)."
+      },
+      "depthNote": "Floors 1 and 5."
+    },
+    {
+      "id": "rat_cache_den",
+      "kind": "nexus",
+      "name": "Rat Cache Den",
+      "depths": [
+        1
+      ],
+      "status": "draft",
+      "motifCells": [
+        6,
+        6
+      ],
+      "centralReserveCells": 1,
+      "source": "Beneath grove nexuses only; exclude surface seep and quarry regions. built-edge affinities.",
+      "atmosphere": "Somebody\u2019s hidey-hole under the park, inherited by teeth.",
+      "poi": "The surviving cache, dropped inside a refuse cage; the rat pack nests around it.",
+      "connection": "Open ground; the pack is the obstacle, not the layout.",
+      "monsters": "Six sewer rats in a scuttling pack; one cave slime oozes at the mouth.",
+      "slots": [
+        {
+          "at": [
+            4,
+            4
+          ],
+          "material": "cage"
+        },
+        {
+          "at": [
+            0,
+            2
+          ],
+          "material": "barrel"
+        },
+        {
+          "at": [
+            2,
+            0
+          ],
+          "material": "barrel"
+        },
+        {
+          "at": [
+            5,
+            1
+          ],
+          "material": "rock"
+        },
+        {
+          "at": [
+            1,
+            5
+          ],
+          "material": "rock"
+        },
+        {
+          "at": [
+            5,
+            4
+          ],
+          "material": "green_slick"
+        }
+      ],
+      "encounters": {
+        "placement": "fixed",
+        "extentCells": [
+          25,
+          25
+        ],
+        "seats": [
+          {
+            "at": [
+              6,
+              8
+            ],
+            "kind": "rat"
+          },
+          {
+            "at": [
+              8,
+              16
+            ],
+            "kind": "rat"
+          },
+          {
+            "at": [
+              15,
+              6
+            ],
+            "kind": "rat"
+          },
+          {
+            "at": [
+              17,
+              15
+            ],
+            "kind": "rat"
+          },
+          {
+            "at": [
+              10,
+              19
+            ],
+            "kind": "rat"
+          },
+          {
+            "at": [
+              19,
+              10
+            ],
+            "kind": "rat"
+          },
+          {
+            "at": [
+              5,
+              12
+            ],
+            "kind": "cave_slime"
+          }
+        ],
+        "countPolicy": "One pack of six rats plus a slime guard per region; finite seats."
+      },
+      "depthNote": "Floor 1 only - the pack is a sewer story."
+    },
+    {
+      "id": "glowworm_grotto",
+      "kind": "nexus",
+      "name": "Glowworm Grotto",
+      "depths": [
+        1,
+        5
+      ],
+      "status": "draft",
+      "motifCells": [
+        6,
+        6
+      ],
+      "shrineKind": "lantern_saint",
+      "source": "Beneath grove nexuses only; exclude surface seep and quarry regions. dark and rocky affinities.",
+      "atmosphere": "Threads of cold light strung across a black vault. The worms glow; everything else waits.",
+      "poi": "Lantern saint shrine (light boon) across the dark stretch; one surviving cache beside it.",
+      "connection": "Four approaches; only the glow clusters light them.",
+      "monsters": "Bats own the dark - vampire bats on floor 5; the saint\u2019s lantern is the only sure light.",
+      "slots": [
+        {
+          "at": [
+            0,
+            0
+          ],
+          "material": "glow_bulbs"
+        },
+        {
+          "at": [
+            1,
+            2
+          ],
+          "material": "glow_bulbs"
+        },
+        {
+          "at": [
+            2,
+            4
+          ],
+          "material": "glow_bulbs"
+        },
+        {
+          "at": [
+            4,
+            1
+          ],
+          "material": "glow_bulbs"
+        },
+        {
+          "at": [
+            5,
+            3
+          ],
+          "material": "glow_bulbs"
+        },
+        {
+          "at": [
+            3,
+            5
+          ],
+          "material": "glow_bulbs"
+        },
+        {
+          "at": [
+            0,
+            3
+          ],
+          "material": "rune_violet"
+        },
+        {
+          "at": [
+            3,
+            0
+          ],
+          "material": "rune_violet"
+        },
+        {
+          "at": [
+            5,
+            5
+          ],
+          "material": "rune_violet"
+        },
+        {
+          "at": [
+            4,
+            4
+          ],
+          "material": "rock"
+        }
+      ],
+      "encounters": {
+        "placement": "fixed",
+        "extentCells": [
+          25,
+          25
+        ],
+        "seats": [
+          {
+            "at": [
+              7,
+              6
+            ],
+            "kind": "bat",
+            "byDepth": {
+              "1": "bat",
+              "5": "vampire_bat"
+            }
+          },
+          {
+            "at": [
+              17,
+              8
+            ],
+            "kind": "bat",
+            "byDepth": {
+              "1": "bat",
+              "5": "vampire_bat"
+            }
+          },
+          {
+            "at": [
+              9,
+              18
+            ],
+            "kind": "bat",
+            "byDepth": {
+              "1": "bat",
+              "5": "vampire_bat"
+            }
+          }
+        ],
+        "countPolicy": "Three bat seats per region; the floor roster picks the species."
+      },
+      "depthNote": "Floors 1 and 5."
+    },
+    {
+      "id": "echo_hollow",
+      "kind": "nexus",
+      "name": "Echo Hollow",
+      "depths": [
+        4,
+        5
+      ],
+      "status": "draft",
+      "motifCells": [
+        6,
+        6
+      ],
+      "shrineKind": "bone_watcher",
+      "source": "Beneath grove nexuses only; exclude surface seep and quarry regions. stony-ground affinities.",
+      "atmosphere": "A vault that answers every footstep. Stone sleepers lean in ring-straight rows.",
+      "poi": "Bone watcher shrine guards the hollow; striking the gong wakes the sleepers.",
+      "connection": "Four approaches between the stalagmite rows.",
+      "monsters": "Six dormant skeletons (hidden until one cell away, like the spring cave\u2019s).",
+      "slots": [
+        {
+          "at": [
+            0,
+            1
+          ],
+          "material": "stalagmites"
+        },
+        {
+          "at": [
+            1,
+            0
+          ],
+          "material": "stalagmites"
+        },
+        {
+          "at": [
+            5,
+            1
+          ],
+          "material": "stalagmites"
+        },
+        {
+          "at": [
+            1,
+            5
+          ],
+          "material": "stalagmites"
+        },
+        {
+          "at": [
+            5,
+            4
+          ],
+          "material": "stalagmites"
+        },
+        {
+          "at": [
+            4,
+            5
+          ],
+          "material": "stalagmites"
+        },
+        {
+          "at": [
+            0,
+            4
+          ],
+          "material": "stalagmites"
+        },
+        {
+          "at": [
+            2,
+            1
+          ],
+          "material": "dusty_stones"
+        },
+        {
+          "at": [
+            3,
+            4
+          ],
+          "material": "dusty_stones"
+        },
+        {
+          "at": [
+            4,
+            2
+          ],
+          "material": "gong"
+        }
+      ],
+      "encounters": {
+        "placement": "fixed",
+        "extentCells": [
+          25,
+          25
+        ],
+        "seats": [
+          {
+            "at": [
+              6,
+              6
+            ],
+            "kind": "skeleton",
+            "hidden": true,
+            "dormant": true,
+            "revealDistanceCells": 1
+          },
+          {
+            "at": [
+              18,
+              5
+            ],
+            "kind": "skeleton",
+            "hidden": true,
+            "dormant": true,
+            "revealDistanceCells": 1
+          },
+          {
+            "at": [
+              5,
+              17
+            ],
+            "kind": "skeleton",
+            "hidden": true,
+            "dormant": true,
+            "revealDistanceCells": 1
+          },
+          {
+            "at": [
+              19,
+              18
+            ],
+            "kind": "skeleton",
+            "hidden": true,
+            "dormant": true,
+            "revealDistanceCells": 1
+          },
+          {
+            "at": [
+              9,
+              9
+            ],
+            "kind": "skeleton",
+            "hidden": true,
+            "dormant": true,
+            "revealDistanceCells": 1
+          },
+          {
+            "at": [
+              15,
+              15
+            ],
+            "kind": "skeleton",
+            "hidden": true,
+            "dormant": true,
+            "revealDistanceCells": 1
+          }
+        ],
+        "hidden": true,
+        "dormant": true,
+        "revealDistanceCells": 1,
+        "countPolicy": "Six dormant skeletons; reveal within one cell (shared hidden mechanic)."
+      },
+      "depthNote": "Floors 4 and 5."
+    },
+    {
+      "id": "obsidian_vault",
+      "kind": "nexus",
+      "name": "Obsidian Vault",
+      "depths": [
+        4,
+        7
+      ],
+      "status": "draft",
+      "layout": {
+        "type": "rooms",
+        "extentCells": [
+          25,
+          25
+        ],
+        "rooms": [
+          {
+            "bounds": [
+              9,
+              9,
+              7,
+              7
+            ],
+            "doors": [
+              [
+                12,
+                15
+              ]
+            ]
+          },
+          {
+            "bounds": [
+              2,
+              18,
+              6,
+              4
+            ],
+            "doors": [
+              [
+                4,
+                18
+              ]
+            ]
+          }
+        ],
+        "props": [
+          {
+            "at": [
+              10,
+              10
+            ],
+            "material": "dark_urn"
+          },
+          {
+            "at": [
+              14,
+              10
+            ],
+            "material": "dark_urn"
+          },
+          {
+            "at": [
+              13,
+              14
+            ],
+            "material": "golden_bowl"
+          },
+          {
+            "at": [
+              4,
+              19
+            ],
+            "material": "dark_rubble"
+          }
+        ]
+      },
+      "patternNote": "One 7\u00d77 vault with a single south door and a collapsed annex; the rest of the nexus stays open cave.",
+      "source": "Beneath grove nexuses only; exclude surface seep and quarry regions. worked and stony affinities.",
+      "atmosphere": "A strong-room of fitted black stone. One door; no windows; patient guards.",
+      "poi": "The vault chest (the surviving mirror cache, higher tier inside walls); urns hold small finds.",
+      "connection": "Single choke door; the annex is a mined shortcut waiting to happen.",
+      "monsters": "Floor 4: a goblin garrison. Floor 7: an orc mage holds what the dragons left.",
+      "walls": {
+        "sheet": "stronghold_wall",
+        "manifest": "assets/Objects/Stronghold/manifest.json",
+        "mechanic": "Structural stone walls (existing stronghold set); no item drop.",
+        "placement": "Preserve the vault door and every approach."
+      },
+      "encounters": {
+        "placement": "fixed",
+        "extentCells": [
+          25,
+          25
+        ],
+        "seats": [
+          {
+            "at": [
+              10,
+              11
+            ],
+            "kind": "goblin",
+            "byDepth": {
+              "4": "goblin",
+              "7": "orc_mage"
+            }
+          },
+          {
+            "at": [
+              14,
+              11
+            ],
+            "kind": "goblin",
+            "byDepth": {
+              "4": "goblin",
+              "7": "orc_mage"
+            }
+          },
+          {
+            "at": [
+              12,
+              19
+            ],
+            "kind": "skeleton",
+            "byDepth": {
+              "4": "skeleton",
+              "7": "fiend"
+            }
+          }
+        ],
+        "countPolicy": "Three garrison seats inside the vault, per region and depth."
+      },
+      "depthNote": "Floors 4 and 7.",
+      "motifCells": [
+        6,
+        6
+      ],
+      "slots": []
+    },
+    {
+      "id": "fossil_ridge",
+      "kind": "nexus",
+      "name": "Fossil Ridge",
+      "depths": [
+        4
+      ],
+      "status": "draft",
+      "motifCells": [
+        8,
+        8
+      ],
+      "maxGemTier": "depth",
+      "source": "Beneath grove nexuses only; exclude surface seep and quarry regions. exposed rock affinities.",
+      "atmosphere": "A spine of ancient bone turned to strata. Everything here was alive once, in rows.",
+      "poi": "Mineable fossil seams and pressed gems (capped at tier 4); the surviving cache sits at the ridge crest.",
+      "connection": "Ridge line runs north-south; approaches from the sides.",
+      "monsters": "Two rooted plants hold the seam ends; they spit, they do not chase.",
+      "slots": [
+        {
+          "at": [
+            1,
+            1
+          ],
+          "material": "fossil_bone"
+        },
+        {
+          "at": [
+            2,
+            0
+          ],
+          "material": "fossil_bone"
+        },
+        {
+          "at": [
+            6,
+            2
+          ],
+          "material": "fossil_bone"
+        },
+        {
+          "at": [
+            5,
+            6
+          ],
+          "material": "fossil_bone"
+        },
+        {
+          "at": [
+            0,
+            4
+          ],
+          "material": "fossil_bone"
+        },
+        {
+          "at": [
+            3,
+            3
+          ],
+          "material": "rock"
+        },
+        {
+          "at": [
+            7,
+            7
+          ],
+          "material": "rock"
+        },
+        {
+          "at": [
+            6,
+            4
+          ],
+          "material": "amethyst_deposit"
+        },
+        {
+          "at": [
+            4,
+            6
+          ],
+          "material": "topaz_deposit"
+        },
+        {
+          "at": [
+            7,
+            1
+          ],
+          "material": "quarry_sapphire"
+        },
+        {
+          "at": [
+            2,
+            5
+          ],
+          "material": "dusty_stones"
+        }
+      ],
+      "encounters": {
+        "placement": "fixed",
+        "extentCells": [
+          25,
+          25
+        ],
+        "seats": [
+          {
+            "at": [
+              8,
+              7
+            ],
+            "kind": "plant"
+          },
+          {
+            "at": [
+              16,
+              17
+            ],
+            "kind": "plant"
+          }
+        ],
+        "countPolicy": "Two rooted plants per region and depth."
+      },
+      "depthNote": "Floor 4."
+    },
+    {
+      "id": "petrified_grove",
+      "kind": "nexus",
+      "name": "Petrified Grove",
+      "depths": [
+        4
+      ],
+      "status": "draft",
+      "motifCells": [
+        6,
+        6
+      ],
+      "shrineKind": "toad_idol",
+      "source": "Beneath grove nexuses only; exclude surface seep and quarry regions. wooded affinities.",
+      "atmosphere": "The grove above, remembered in stone below. The idol is the only soft thing left.",
+      "poi": "Toad idol (Mending) still warm in a ring of stone trunks.",
+      "connection": "Four clear approaches between the trunks.",
+      "monsters": "Two rooted plants grow where the roots still reach.",
+      "slots": [
+        {
+          "at": [
+            0,
+            2
+          ],
+          "material": "mossy_tree"
+        },
+        {
+          "at": [
+            2,
+            0
+          ],
+          "material": "mossy_tree"
+        },
+        {
+          "at": [
+            5,
+            3
+          ],
+          "material": "mossy_tree"
+        },
+        {
+          "at": [
+            3,
+            5
+          ],
+          "material": "mossy_tree"
+        },
+        {
+          "at": [
+            1,
+            4
+          ],
+          "material": "rock"
+        },
+        {
+          "at": [
+            4,
+            1
+          ],
+          "material": "rock"
+        },
+        {
+          "at": [
+            5,
+            0
+          ],
+          "material": "game_mushroom"
+        },
+        {
+          "at": [
+            0,
+            5
+          ],
+          "material": "game_mushroom"
+        }
+      ],
+      "encounters": {
+        "placement": "fixed",
+        "extentCells": [
+          25,
+          25
+        ],
+        "seats": [
+          {
+            "at": [
+              7,
+              16
+            ],
+            "kind": "plant"
+          },
+          {
+            "at": [
+              16,
+              7
+            ],
+            "kind": "plant"
+          }
+        ],
+        "countPolicy": "Two rooted plants per region and depth."
+      },
+      "depthNote": "Floor 4."
+    },
+    {
+      "id": "ember_sanctum",
+      "kind": "nexus",
+      "name": "Ember Sanctum",
+      "depths": [
+        6,
+        7,
+        8
+      ],
+      "status": "draft",
+      "motifCells": [
+        8,
+        8
+      ],
+      "shrineKind": "ember_altar",
+      "source": "Beneath grove nexuses only; exclude surface seep and quarry regions. burned affinities.",
+      "atmosphere": "A shrine the fire keeps for itself. The vents exhale on a clock; the altar never cools.",
+      "poi": "Ember altar (fireball boon) at the sanctum heart - dash between vent breaths to reach it.",
+      "connection": "Four approaches, each crossed by a vent row.",
+      "monsters": "Fire-country guards hold the outer ring (floor roster: fiends; succubi on floor 8).",
+      "slots": [
+        {
+          "at": [
+            1,
+            1
+          ],
+          "material": "fire_vent"
+        },
+        {
+          "at": [
+            6,
+            1
+          ],
+          "material": "fire_vent"
+        },
+        {
+          "at": [
+            1,
+            6
+          ],
+          "material": "fire_vent"
+        },
+        {
+          "at": [
+            6,
+            6
+          ],
+          "material": "fire_vent"
+        },
+        {
+          "at": [
+            3,
+            0
+          ],
+          "material": "fire_vent"
+        },
+        {
+          "at": [
+            0,
+            3
+          ],
+          "material": "fire_vent"
+        },
+        {
+          "at": [
+            7,
+            4
+          ],
+          "material": "fire_vent"
+        },
+        {
+          "at": [
+            4,
+            7
+          ],
+          "material": "fire_vent"
+        },
+        {
+          "at": [
+            2,
+            2
+          ],
+          "material": "flame_pillar"
+        },
+        {
+          "at": [
+            5,
+            5
+          ],
+          "material": "flame_pillar"
+        },
+        {
+          "at": [
+            5,
+            2
+          ],
+          "material": "fire_rock"
+        },
+        {
+          "at": [
+            2,
+            5
+          ],
+          "material": "fire_rock"
+        }
+      ],
+      "encounters": {
+        "placement": "fixed",
+        "extentCells": [
+          25,
+          25
+        ],
+        "seats": [
+          {
+            "at": [
+              8,
+              3
+            ],
+            "kind": "fiend",
+            "byDepth": {
+              "6": "fiend",
+              "7": "fiend",
+              "8": "succubus"
+            }
+          },
+          {
+            "at": [
+              3,
+              8
+            ],
+            "kind": "fiend",
+            "byDepth": {
+              "6": "fiend",
+              "7": "fiend",
+              "8": "succubus"
+            }
+          }
+        ],
+        "countPolicy": "Two outer-ring guards per region and depth."
+      },
+      "depthNote": "Floors 6, 7 and 8 - reused three floors, as the program allows."
+    },
+    {
+      "id": "obsidian_garden",
+      "kind": "nexus",
+      "name": "Obsidian Garden",
+      "depths": [
+        6
+      ],
+      "status": "draft",
+      "motifCells": [
+        8,
+        8
+      ],
+      "maxGemTier": "depth",
+      "source": "Beneath grove nexuses only; exclude surface seep and quarry regions. burned affinities.",
+      "atmosphere": "Blades of black glass where a garden used to be. Rubies read like embers in the panes.",
+      "poi": "Fire-country gems pressed in black glass; two hidden pits guard the best seams.",
+      "connection": "Open glass field; the pits are the trap, the spires the maze.",
+      "monsters": "Two poison spiders keep the seams.",
+      "slots": [
+        {
+          "at": [
+            0,
+            1
+          ],
+          "material": "dark_rubble"
+        },
+        {
+          "at": [
+            1,
+            5
+          ],
+          "material": "dark_rubble"
+        },
+        {
+          "at": [
+            5,
+            0
+          ],
+          "material": "dark_rubble"
+        },
+        {
+          "at": [
+            6,
+            6
+          ],
+          "material": "dark_rubble"
+        },
+        {
+          "at": [
+            4,
+            2
+          ],
+          "material": "dark_urn"
+        },
+        {
+          "at": [
+            2,
+            4
+          ],
+          "material": "dark_urn"
+        },
+        {
+          "at": [
+            6,
+            3
+          ],
+          "material": "ruby_deposit"
+        },
+        {
+          "at": [
+            3,
+            6
+          ],
+          "material": "emerald_deposit"
+        },
+        {
+          "at": [
+            1,
+            2
+          ],
+          "material": "hidden_pit"
+        },
+        {
+          "at": [
+            6,
+            5
+          ],
+          "material": "hidden_pit"
+        }
+      ],
+      "encounters": {
+        "placement": "fixed",
+        "extentCells": [
+          25,
+          25
+        ],
+        "seats": [
+          {
+            "at": [
+              8,
+              8
+            ],
+            "kind": "poison_spider"
+          },
+          {
+            "at": [
+              16,
+              16
+            ],
+            "kind": "poison_spider"
+          }
+        ],
+        "countPolicy": "Two poison spiders per region and depth."
+      },
+      "depthNote": "Floor 6; gems capped at tier 6."
+    },
+    {
+      "id": "salamander_nest",
+      "kind": "nexus",
+      "name": "Salamander Nest",
+      "depths": [
+        6
+      ],
+      "status": "draft",
+      "motifCells": [
+        6,
+        6
+      ],
+      "source": "Beneath grove nexuses only; exclude surface seep and quarry regions. burned affinities.",
+      "atmosphere": "A hollow kept oven-warm. The eggs tick softly when you come near.",
+      "poi": "A clutch of ember eggs (candidate art) over one heat-kept cache; the brood counts as the guard.",
+      "connection": "Open hollow; the heat funnels you past the brood.",
+      "monsters": "Two fiends brood (lava-immune); the eggs are hot to the touch.",
+      "slots": [
+        {
+          "at": [
+            1,
+            1
+          ],
+          "material": "ember_eggs"
+        },
+        {
+          "at": [
+            2,
+            1
+          ],
+          "material": "ember_eggs"
+        },
+        {
+          "at": [
+            1,
+            2
+          ],
+          "material": "ember_eggs"
+        },
+        {
+          "at": [
+            4,
+            4
+          ],
+          "material": "ember_eggs"
+        },
+        {
+          "at": [
+            5,
+            0
+          ],
+          "material": "fire_rock"
+        },
+        {
+          "at": [
+            0,
+            5
+          ],
+          "material": "fire_rock"
+        },
+        {
+          "at": [
+            4,
+            2
+          ],
+          "material": "flame_pillar"
+        }
+      ],
+      "encounters": {
+        "placement": "fixed",
+        "extentCells": [
+          25,
+          25
+        ],
+        "seats": [
+          {
+            "at": [
+              6,
+              17
+            ],
+            "kind": "fiend"
+          },
+          {
+            "at": [
+              17,
+              6
+            ],
+            "kind": "fiend"
+          }
+        ],
+        "countPolicy": "Two brooding fiends per region and depth."
+      },
+      "depthNote": "Floor 6."
+    },
+    {
+      "id": "bone_hoard",
+      "kind": "nexus",
+      "name": "Bone Hoard",
+      "depths": [
+        7,
+        8
+      ],
+      "status": "draft",
+      "motifCells": [
+        6,
+        6
+      ],
+      "source": "Beneath grove nexuses only; exclude surface seep and quarry regions. built-edge and burned affinities.",
+      "atmosphere": "Centuries of leftovers, picked clean and stacked. Something still checks the pile.",
+      "poi": "A dragon\u2019s midden: the surviving cache under the bone fall, coin-flecked through it.",
+      "connection": "Open midden floor; bone rows break line of sight.",
+      "monsters": "Floor 7: dryads pick the pile. Floor 8: bone plants root in it.",
+      "slots": [
+        {
+          "at": [
+            0,
+            0
+          ],
+          "material": "bone_fragments"
+        },
+        {
+          "at": [
+            2,
+            1
+          ],
+          "material": "bone_fragments"
+        },
+        {
+          "at": [
+            4,
+            0
+          ],
+          "material": "bone_fragments"
+        },
+        {
+          "at": [
+            5,
+            2
+          ],
+          "material": "bone_fragments"
+        },
+        {
+          "at": [
+            0,
+            4
+          ],
+          "material": "skeletal_hand"
+        },
+        {
+          "at": [
+            5,
+            5
+          ],
+          "material": "skeletal_hand"
+        },
+        {
+          "at": [
+            4,
+            2
+          ],
+          "material": "golden_bowl"
+        },
+        {
+          "at": [
+            2,
+            5
+          ],
+          "material": "golden_bowl"
+        },
+        {
+          "at": [
+            2,
+            3
+          ],
+          "material": "dark_rubble"
+        }
+      ],
+      "encounters": {
+        "placement": "fixed",
+        "extentCells": [
+          25,
+          25
+        ],
+        "seats": [
+          {
+            "at": [
+              7,
+              5
+            ],
+            "kind": "dryad",
+            "byDepth": {
+              "7": "dryad",
+              "8": "bone_plant"
+            }
+          },
+          {
+            "at": [
+              17,
+              7
+            ],
+            "kind": "dryad",
+            "byDepth": {
+              "7": "dryad",
+              "8": "bone_plant"
+            }
+          },
+          {
+            "at": [
+              6,
+              18
+            ],
+            "kind": "dryad",
+            "byDepth": {
+              "7": "dryad",
+              "8": "bone_plant"
+            }
+          }
+        ],
+        "countPolicy": "Three pile-keepers per region and depth; rooted kinds never chase."
+      },
+      "depthNote": "Floors 7 and 8."
+    },
+    {
+      "id": "web_gallery",
+      "kind": "nexus",
+      "name": "Web Gallery",
+      "depths": [
+        8
+      ],
+      "status": "draft",
+      "motifCells": [
+        6,
+        6
+      ],
+      "source": "Beneath grove nexuses only; exclude surface seep and quarry regions. dark affinities.",
+      "atmosphere": "Old silk sheets the walls. The dust never lands; it hangs.",
+      "poi": "A cocooned cache strung in the silk; the web slows every step into strike range.",
+      "connection": "Silk-choked passages; slow going in, fast going out (for them).",
+      "monsters": "A poison spider brood - a named-zone exception past its floor 6-7 window, per the encounter policy.",
+      "slots": [
+        {
+          "at": [
+            0,
+            1
+          ],
+          "material": "silk_web"
+        },
+        {
+          "at": [
+            1,
+            2
+          ],
+          "material": "silk_web"
+        },
+        {
+          "at": [
+            2,
+            0
+          ],
+          "material": "silk_web"
+        },
+        {
+          "at": [
+            4,
+            5
+          ],
+          "material": "silk_web"
+        },
+        {
+          "at": [
+            5,
+            4
+          ],
+          "material": "silk_web"
+        },
+        {
+          "at": [
+            3,
+            2
+          ],
+          "material": "silk_web"
+        },
+        {
+          "at": [
+            2,
+            4
+          ],
+          "material": "silk_web"
+        },
+        {
+          "at": [
+            5,
+            0
+          ],
+          "material": "bone_fragments"
+        },
+        {
+          "at": [
+            0,
+            5
+          ],
+          "material": "bone_fragments"
+        },
+        {
+          "at": [
+            5,
+            2
+          ],
+          "material": "dark_rubble"
+        }
+      ],
+      "encounters": {
+        "placement": "fixed",
+        "extentCells": [
+          25,
+          25
+        ],
+        "seats": [
+          {
+            "at": [
+              6,
+              7
+            ],
+            "kind": "poison_spider"
+          },
+          {
+            "at": [
+              16,
+              6
+            ],
+            "kind": "poison_spider"
+          },
+          {
+            "at": [
+              10,
+              18
+            ],
+            "kind": "poison_spider"
+          }
+        ],
+        "countPolicy": "Three brood spiders per region; named-zone roster exception."
+      },
+      "depthNote": "Floor 8."
+    },
+    {
+      "id": "egg_nursery",
+      "kind": "nexus",
+      "name": "Egg Nursery",
+      "depths": [
+        8
+      ],
+      "status": "draft",
+      "motifCells": [
+        6,
+        6
+      ],
+      "source": "Beneath grove nexuses only; exclude surface seep and quarry regions. burned and built-edge affinities.",
+      "atmosphere": "Sand hot as a griddle, eggs the size of pumpkins. Do not wake what keeps them.",
+      "poi": "A roost nursery: eggs too big to steal, and one overlooked cache in the warm sand.",
+      "connection": "Open nursery floor; the keeper watches the only wide lane.",
+      "monsters": "An orc shaman keeps the clutch; bone plants fence the warm corners.",
+      "slots": [
+        {
+          "at": [
+            1,
+            1
+          ],
+          "material": "ember_eggs"
+        },
+        {
+          "at": [
+            4,
+            1
+          ],
+          "material": "ember_eggs"
+        },
+        {
+          "at": [
+            1,
+            4
+          ],
+          "material": "ember_eggs"
+        },
+        {
+          "at": [
+            5,
+            5
+          ],
+          "material": "fire_rock"
+        },
+        {
+          "at": [
+            3,
+            0
+          ],
+          "material": "fire_rock"
+        },
+        {
+          "at": [
+            0,
+            3
+          ],
+          "material": "dark_urn"
+        },
+        {
+          "at": [
+            5,
+            2
+          ],
+          "material": "golden_bowl"
+        }
+      ],
+      "encounters": {
+        "placement": "fixed",
+        "extentCells": [
+          25,
+          25
+        ],
+        "seats": [
+          {
+            "at": [
+              8,
+              18
+            ],
+            "kind": "orc_shaman"
+          },
+          {
+            "at": [
+              6,
+              8
+            ],
+            "kind": "bone_plant"
+          },
+          {
+            "at": [
+              17,
+              7
+            ],
+            "kind": "bone_plant"
+          }
+        ],
+        "countPolicy": "One keeper and two rooted fence plants per region and depth."
+      },
+      "depthNote": "Floor 8."
     }
   ],
-  "previewNote": "Design-only layouts. Registered game art supplies rocks, gems, walls, shrines, stalagmites, holes and pit traps. Compact inactive poison vent is a new proposal asset; spring source remains an archived candidate. Minecart uses labeled handcart placeholder. Hidden pits are shown revealed only in annotated design previews.",
+  "previewNote": "Design-only layouts. Registered game art supplies rocks, gems, walls, shrines, stalagmites, holes and pit traps. Compact inactive poison vent is a new proposal asset; spring source remains an archived candidate. Minecart uses labeled handcart placeholder. Hidden pits are shown revealed only in annotated design previews. Moat-island cards (flooded cistern, magma atoll) draw water and lava from the live terrain tiles; ember eggs, sheeted silk and fossil seams are colour-only geometry pending candidate art.",
   "encounterPolicy": {
-    "scope": "Authored underground zone encounters on levels 1 and 2 only. Skeletons and gelatinous cubes ordinarily start at level 3, while Mushroom Monster has no ambient cave pool; explicitly permit them in these named zones without changing global ambient depth rules.",
+    "scope": "Authored underground zone encounters on floors 2 and 3 only. Skeletons and gelatinous cubes ordinarily start at floor 4, while Mushroom Monster has no ambient cave pool; explicitly permit them in these named zones without changing global ambient depth rules.",
     "population": "Warrens and mushroom caverns intentionally have denser authored populations than ordinary cave dressing. Region and route ownership prevents duplication across fragments.",
     "hiddenMechanic": "Reuse the shared hidden enemy state when available on main. Dormancy must also suppress rendering and targeting, not just movement."
   },
@@ -3059,11 +4946,11 @@
       "diamond": 7
     },
     "status": "Runtime uses authoritative GEM_DEPOSITS tier assignments.",
-    "selection": "Filter before weighted selection or rendering; reward matches visible gem. D1 Quartz only; D2 Quartz/Topaz. Authored nexus variants do not activate on depths 3+."
+    "selection": "Filter before weighted selection or rendering; reward matches visible gem. Floor 2 quartz only; floor 3 quartz/topaz. Authored nexus variants do not activate on floors 4+."
   },
   "ordinaryGemScatter": {
     "depths": [
-      2
+      3
     ],
     "replacementChance": 0.08,
     "eligibleGems": [
@@ -3085,8 +4972,8 @@
   },
   "undergroundHazards": {
     "depths": [
-      1,
-      2
+      2,
+      3
     ],
     "terrain": [
       "sm_road"
@@ -3134,7 +5021,7 @@
   },
   "routeShrinePolicy": {
     "chance": 0.5,
-    "scope": "All walking-path and sm_road underground variants, including every existing path theme, on depths 1 and 2.",
+    "scope": "All walking-path and sm_road underground variants, including every existing path theme, on floors 2 and 3.",
     "ownership": "One deterministic roll and at most one shrine per canonical connected route and depth; never per motif, tile fragment or intersection.",
     "mechanic": "Reuse existing shrine kinds, boons and daily ledger. Omit if no reachable reserved side seat exists; prevent duplicates with nexus-owned shrine seats."
   },
@@ -3152,10 +5039,109 @@
       "mine_tunnels",
       "dungeon_maze"
     ],
-    "geometry": "Canonical source anchors and shared surface spawn gates. Layouts fit a radius-8.4-cell region; clipped tile-edge layouts fall back to ordinary caves. D2 chambers need existing floor access; Mine Tunnels only dress existing floor, including eligible projected small streets. Dungeon Maze instead clips a repeating 34x33 wall mask to full eligible coverage, opens boundary lanes and connects floor components; no size or tile-edge rejection.",
+    "geometry": "Canonical source anchors and shared surface spawn gates. Layouts fit a radius-8.4-cell region; clipped tile-edge layouts fall back to ordinary caves. Floor 3 chambers need existing floor access; Mine Tunnels only dress existing floor, including eligible projected small streets. Dungeon Maze instead clips a repeating 34x33 wall mask to full eligible coverage, opens boundary lanes and connects floor components; no size or tile-edge rejection.",
     "encounters": "Finite region/depth-qualified seats; caught IDs remain defeated. Spring skeletons use shared hidden discovery at Euclidean distance <= one cell. Ambient enemy depth rules are unchanged.",
-    "budgets": "Runtime BUDGETS owns counts scaled to usable ground or fitted rooms. Warrens consume the shared seeded 12\u201319-container shallow-floor allocation: L1 ambient barrels use its remainder; L2 has authored stores only. Shrine visits grant existing boons without a treasure gift. Existing mirrored caches retain their identity and tier. Dungeon Maze has one Ember shrine or T3 chest at its owned focus and cell-addressed floor-roster encounters.",
-    "gemCatalog": "Use current GEM_DEPOSITS tiers: Quartz 1, Topaz 2, Amethyst 3. D1 Quartz; D2 Quartz/Topaz. Deposits pay the pictured item using the existing mining ledger.",
+    "budgets": "Runtime BUDGETS owns counts scaled to usable ground or fitted rooms. Warrens consume the shared seeded 12\u201319-container shallow-floor allocation: floor 2 ambient barrels use its remainder; floor 3 has authored stores only. Shrine visits grant existing boons without a treasure gift. Existing mirrored caches retain their identity and tier. Dungeon Maze has one Ember shrine or T3 chest at its owned focus and cell-addressed floor-roster encounters.",
+    "gemCatalog": "Use current GEM_DEPOSITS tiers: Quartz 1, Topaz 2, Amethyst 3. Floor 2 quartz; floor 3 quartz/topaz. Deposits pay the pictured item using the existing mining ledger.",
     "limitations": "Unsafe or undersized layouts decline without partial changes. Preview is a generated placement schematic, not an in-game screenshot."
+  },
+  "levelProgram": {
+    "status": "Floors 2-3 list the runtime variants unchanged. Floors 1 and 4-8 are drafts pending review.",
+    "policy": "Every underground floor offers at least four grove nexus variants beneath park groves. Each variant pairs a challenge - a guarded, caged or hard-to-reach focus - or a novel environment with its bonus: the surviving mirror cache, a daily shrine, or a rich seam. Variants repeat across two or three neighbouring floors where the biome allows.",
+    "levels": [
+      {
+        "floor": 1,
+        "name": "Sewer",
+        "variants": [
+          "flooded_cistern",
+          "moss_garden",
+          "rat_cache_den",
+          "glowworm_grotto"
+        ],
+        "status": "draft"
+      },
+      {
+        "floor": 2,
+        "name": "Caves",
+        "variants": [
+          "spring_cave",
+          "mushroom_cavern",
+          "gemstone_cavern",
+          "dungeon_maze",
+          "quicksand_cavern"
+        ],
+        "status": "runtime"
+      },
+      {
+        "floor": 3,
+        "name": "Goblin city",
+        "variants": [
+          "goblin_warrens",
+          "spring_cave",
+          "mushroom_cavern",
+          "gemstone_cavern",
+          "dungeon_maze",
+          "quicksand_cavern"
+        ],
+        "status": "runtime"
+      },
+      {
+        "floor": 4,
+        "name": "Deep stone",
+        "variants": [
+          "echo_hollow",
+          "obsidian_vault",
+          "fossil_ridge",
+          "petrified_grove"
+        ],
+        "status": "draft"
+      },
+      {
+        "floor": 5,
+        "name": "Underdark",
+        "variants": [
+          "flooded_cistern",
+          "moss_garden",
+          "glowworm_grotto",
+          "echo_hollow"
+        ],
+        "status": "draft"
+      },
+      {
+        "floor": 6,
+        "name": "Lava",
+        "variants": [
+          "magma_atoll",
+          "ember_sanctum",
+          "obsidian_garden",
+          "salamander_nest"
+        ],
+        "status": "draft"
+      },
+      {
+        "floor": 7,
+        "name": "Dragon",
+        "variants": [
+          "magma_atoll",
+          "obsidian_vault",
+          "bone_hoard",
+          "ember_sanctum"
+        ],
+        "status": "draft"
+      },
+      {
+        "floor": 8,
+        "name": "Dragon roost",
+        "variants": [
+          "web_gallery",
+          "bone_hoard",
+          "egg_nursery",
+          "ember_sanctum"
+        ],
+        "status": "draft"
+      }
+    ],
+    "quarry": "Quarry anchors keep Mine Tunnels; extend that mapping with the program when the drafts activate.",
+    "numbering": "Floor numbers are game depths: 1 Sewer, 2 Caves, 3 Goblin city, 4 Deep stone, 5 Underdark, 6 Lava, 7 Dragon, 8 Dragon roost."
   }
 }

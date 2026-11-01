@@ -1,35 +1,35 @@
-// Consolidating generation must preserve defeated identities, member kinds,
-// owned seats, concealed states and clustered placement for existing seeds.
-// Reef water births are removed by Excluded; the remaining dry-shore records
-// retain a deterministic signature.
+// Density migration keeps canonical owner, species, state and save identity
+// guarantees; it intentionally replaces the former per-block count/hash.
 (function () {
-  const expected = {
-    orchard: [38,3262347237], mushroom_grove: [76,1987794954],
-    ordered_graves: [38,1026512128], mystic_reef: [18,3495088911],
-  };
-  test('Nexus rules: use their existing family and frequency owners without duplicate tuning', () => {
-    for (const [variant,rule] of Object.entries(EnemyHabitats.NEXUS_RULES)) {
-      assert.eq(rule.category,'nexus');
-      assert.eq(rule.allowed.kinds,EnemyHabitats.SURFACE_FAMILIES[variant]);
-      assert.eq(rule.frequency,EnemyHabitats.SURFACE_ENCOUNTER_PROFILES[variant] || EnemyHabitats.SURFACE_ENCOUNTERS);
+  test('Nexus rules: explicit species rates are the sole active density owner', () => {
+    for (const [variant, rule] of Object.entries(EnemyHabitats.NEXUS_RULES)) {
+      assert.eq(rule.category, 'nexus');
+      assert.eq(rule.allowed.kinds, EnemyHabitats.SURFACE_FAMILIES[variant]);
+      assert.eq(JSON.stringify(rule.rows), JSON.stringify(HabitatSpawns.densityRows('Nexus:' + variant).filter(row => row.category === 'enemy')));
+      for (const row of rule.rows) assert.gt(row.per1000, 0);
+      assert.eq(rule.frequency, undefined, 'retired block frequency cannot allocate live encounters');
     }
   });
-  test('Nexus engine: existing seeded encounters retain complete creature records across consolidation', () => {
-    for (const [variant,[count,hash]] of Object.entries(expected)) {
-      const N = 64, grid = Array.from({length:N*N},(_,i) => variant === 'mystic_reef'
+  test('Nexus engine: seeded cell encounters retain complete records and forbidden-area exclusions', () => {
+    for (const variant of ['orchard', 'mushroom_grove', 'ordered_graves', 'mystic_reef']) {
+      const N = 64, grid = Array.from({ length: N*N }, (_, i) => variant === 'mystic_reef'
         ? (i%N%4 === 0 ? WorldGen.T.WATER : WorldGen.T.SAND) : WorldGen.T.PARK);
-      const entry = {cellsPerEdge:N,tileEdgeM:N*7,grid,
-        spawnWhy:Uint32Array.from(grid,(t,i) => (t === WorldGen.T.WATER ? WorldGen.SPAWN_WHY.TERRAIN : 0)
+      const make = () => ({ cellsPerEdge: N, tileEdgeM: N*7, grid,
+        spawnWhy: Uint32Array.from(grid, (t, i) => (t === WorldGen.T.WATER ? WorldGen.SPAWN_WHY.TERRAIN : 0)
           | (variant === 'orchard' && i%N < 48 ? WorldGen.SPAWN_WHY.RESTRICTED : 0)),
-        zone:{coverage:new Uint8Array(N*N).fill(1),anchors:[{variant}]}};
-      const occupied = new Set();
-      const creatures = EnemyHabitats.surfaceEncounters(entry,3,5,occupied);
-      assert.eq(creatures.length,count,variant);
-      assert.eq(EnemySpawns.hash(JSON.stringify(creatures)),hash,variant + ' identity, kind, seat and state');
-      assert.eq(occupied.size,count,variant + ' distinct claimed seats');
-      for(const creature of creatures) {
-        const x=Math.floor((creature.x-3*N*7)/7),y=Math.floor((creature.y-5*N*7)/7);
-        assert.truthy(grid[y*N+x]!==WorldGen.T.WATER,variant+' never seats a birth in Excluded water');
+        zone: { coverage: new Uint8Array(N*N).fill(1), anchors: [{ variant }] } });
+      const occupied = new Set(), entry = make();
+      const creatures = EnemyHabitats.surfaceEncounters(entry, 3, 5, occupied);
+      assert.gt(creatures.length, 0, variant + ' has declared inhabitants');
+      assert.eq(JSON.stringify(creatures), JSON.stringify(EnemyHabitats.surfaceEncounters(make(), 3, 5, new Set())), variant + ' complete deterministic records');
+      assert.eq(occupied.size, creatures.length, variant + ' distinct claimed seats');
+      for (const c of creatures) {
+        const index = c._surfaceSpawn.cy * N + c._surfaceSpawn.cx;
+        assert.truthy(WorldGen.isSpawnCell(grid, N, N, c._surfaceSpawn.cx, c._surfaceSpawn.cy,
+          { spawnWhy: entry.spawnWhy }, creatureSpawnClass(c.kind)));
+        assert.eq(c._spawnOwner, 'Nexus:' + variant);
+        assert.eq(c.zoneVariant, variant);
+        assert.truthy(grid[index] !== WorldGen.T.WATER);
       }
     }
   });

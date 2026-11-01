@@ -91,7 +91,7 @@
     for (const r of W.CAVE_PASSES) {
       if (r.run) continue;
       assert.truthy(typeof r.emit === 'function', `${r.id} lays its piece`);
-      assert.truthy(r.pivot ? (r.cluster || r.pick) : (r.count && r.pick), `${r.id} walks the floor one of the two ways`);
+      assert.truthy(r.density || (r.pivot ? (r.cluster || r.pick) : (r.count && r.pick)), `${r.id} declares density or feature geometry`);
       assert.falsy(salts.has(r.salt), `${r.id}: its own salt`);
       salts.add(r.salt);
     }
@@ -103,6 +103,22 @@
     W.runCavePass({ id: 't', salt: 1, count: () => 3, tries: 1, pick: () => ({ lix: 1, liy: 0 }), emit: (L, c) => L.objects.push(c) }, level);
     assert.eq(level.objects.length, 1, 'a free cell takes one, then it is claimed');
     assert.truthy(occupied.has(1));
+  });
+
+  test('cave density: sliced and synchronous evaluation keep identical candidates', () => {
+    const N = 40, grid = new Uint8Array(N * N).fill(T.CAVE_FLOOR);
+    const row = { id: 'sliced-test', density: () => 0.2,
+      emit: (level, cell) => level.objects.push(cell.liy * N + cell.lix) };
+    const level = () => W.cavePassLevel(grid, N, 1, 2, N * W.CELL_M, 1, new Set([3, 4]));
+    const sync = level(), sliced = level();
+    W.runCavePass(row, sync);
+    const steps = W.runCavePassSteps(row, sliced);
+    let yields = 0;
+    for (let step = steps.next(); !step.done; step = steps.next()) yields++;
+    assert.gte(yields, Math.ceil(N * N / 256), 'large density scans yield bounded batches');
+    assert.eq(sliced.objects.join(), sync.objects.join(), 'scheduling preserves cell identities');
+    assert.falsy(sliced.objects.includes(3));
+    assert.falsy(sliced.objects.includes(4));
   });
 
   test('verge rows: every variant walks its verges the one way, the differences as columns', () => {

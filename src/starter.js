@@ -1973,7 +1973,7 @@
       if (!seat) continue;
       occupied.add(seat.cy * N + seat.cx);   // no two seats on the one cell
       const at = f.centre(seat.cx, seat.cy);
-      const bird = WorldGen.makeCreature(kind, at.x, at.y, id, { shiny: faunaShiny(kind, id) });
+      const bird = CreatureSpawns.createOwned('starter', id, kind, at.x, at.y, id, { shiny: faunaShiny(kind, id) });
       if (openingBird) {
         const home = target ? f.centre(target.cx, target.cy) : anchor;
         // Ordinary wild-animal home bias brings the bird into view. No second
@@ -2168,7 +2168,7 @@
       if (!seat) continue;
       const { x, y } = f.centre(seat.ix, seat.iy);
       if (seating.offscreen && !seating.offscreen(x, y)) continue;
-      const neighbour = WorldGen.makeCreature('npc', x, y, id, { ...NPC.storyNeighbour(id, role), homeX: x, homeY: y, _homeAnchor: '' });
+      const neighbour = CreatureSpawns.createOwned('starter', id, 'npc', x, y, id, { ...NPC.storyNeighbour(id, role), homeX: x, homeY: y, _homeAnchor: '' });
       entry.creatures.push(neighbour);
       if (NPC.rememberPin(scene, neighbour)) Save.persist(scene.save);
       occupied.add(seat.iy * N + seat.ix);
@@ -2258,7 +2258,7 @@
       }
       const seat = at(point.x, point.y);
       if (!seat || !free(seat) || (seating.offscreen && !seating.offscreen(point.x, point.y))) continue;
-      const neighbour = WorldGen.makeCreature('npc', point.x, point.y, id,
+      const neighbour = CreatureSpawns.createOwned('starter', id, 'npc', point.x, point.y, id,
         { ...NPC.storyNeighbour(id, role), homeX: point.x, homeY: point.y });
       (seat.entry.creatures ||= []).push(neighbour);
       occupied.get(seat.entry).all.add(seat.key);

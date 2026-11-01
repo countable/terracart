@@ -596,6 +596,11 @@
     const tier = /^\d+$/.test(key) ? Number(key) : key;
     return [key, {
       id: `lair_focus_${key}`, scope: 'focus',
+      source: Object.hasOwn(STARTER_TIER_GUARDS, tier) ? 'starter'
+        : Object.hasOwn(STREET_TIER_GUARDS, tier) ? 'road-lairs'
+        : Object.hasOwn(ZONE_TIER_GUARDS, tier) ? 'tar-guards'
+        : Object.hasOwn(HABITAT_TIER_GUARDS, tier) ? 'habitat-lairs'
+        : DAILY_TIERS.has(tier) ? 'gate-guards' : 'building-garrisons',
       focus: tier === 9 ? 'house' : TIERS.includes(tier) ? 'building'
         : Object.hasOwn(STREET_TIER_GUARDS, tier) ? 'street'
         : Object.hasOwn(ZONE_TIER_GUARDS, tier) ? 'nexus'
@@ -1305,7 +1310,7 @@
       const eligible = !!(C && C.monster(kind)?.eliteEligible);
       const shiny = eligible && (spec.elite === true
         || root.EnemySpawns.rollsElite(entry, kind, id, seat.x, seat.y, cellM));
-      const g = WG.makeCreature(kind, seat.x, seat.y, id, {
+      const g = root.CreatureSpawns.createOwned(FOCUS_RULES[cand.tier].source, cand.sid, kind, seat.x, seat.y, id, {
         _sharedId: true,   // the world's garrison (EnemySpawns.isSharedId)
         ...(cand._street ? { _street: cand._street } : {}),
         shiny,

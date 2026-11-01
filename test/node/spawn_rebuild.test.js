@@ -29,39 +29,40 @@ const gateProps = [...new Set(
 // verbatim and called with a stub `this`, so these tests fail on the behaviour
 // changing and not merely on the spelling. (The trail tests call
 // _placeStarterTrail directly, so they passed while the call to it was wrong.)
-const runGate = (entry, depth = 0) => {
+const runGate = async (entry, depth = 0) => {
   const calls = [];
   const self = {
     depth,
     spawnInTile: (e) => { calls.push('surface'); e._spawned = true; },
-    spawnCaveCreatures: (e) => { calls.push('cave'); e._spawned = true; },
+    _spawnCaveCreaturesSliced: async (e) => { calls.push('cave'); e._spawned = true; return true; },
     _ensureHomeUpStair: () => { calls.push('stair'); },
     _ensureLadderUpStairs: () => { calls.push('ladder'); },
   };
-  new Function('entry', 'tx', 'ty', SPAWN_GATE_SRC).call(self, entry, 0, 0);
+  const AsyncFunction = Object.getPrototypeOf(async function () {}).constructor;
+  await new AsyncFunction('entry', 'tx', 'ty', SPAWN_GATE_SRC).call(self, entry, 0, 0);
   return calls;
 };
 
-test('spawn gate: a freshly built tile is spawned into', () => {
-  assert.eq(runGate({}).join(), 'surface', 'a new surface tile runs the spawn pass');
-  assert.eq(runGate({}, 2).join(), 'stair,ladder,cave',
+test('spawn gate: a freshly built tile is spawned into', async () => {
+  assert.eq((await runGate({})).join(), 'surface', 'a new surface tile runs the spawn pass');
+  assert.eq((await runGate({}, 2)).join(), 'stair,ladder,cave',
     'a new cave tile gets monsters — AFTER the player-owned up-stairs, so none is seated on one');
 });
 
-test('spawn gate: a tile already spawned into is left alone', () => {
+test('spawn gate: a tile already spawned into is left alone', async () => {
   // The pass places treasure and lays the crate trail; running it on every
   // ensureTilesAround (each walk check, each depth change) would re-roll them.
   const done = { _spawned: true, creatures: [{ kind: 'cow' }] };
-  assert.eq(runGate(done).join(), '', 'no second pass over a tile that had one');
+  assert.eq((await runGate(done)).join(), '', 'no second pass over a tile that had one');
 });
 
-test('spawn gate: A REBUILT TILE IS SPAWNED INTO — the crates regression', () => {
+test('spawn gate: A REBUILT TILE IS SPAWNED INTO — the crates regression', async () => {
   // Exactly what rebuildTileWithBin hands over: a brand-new entry carrying the
   // previous one's live creatures and nothing else. It has never been through
   // the spawn pass, so it has no crates, no buried X and no treasure scatter —
   // and it must not be mistaken for a tile that has.
   const rebuilt = { creatures: [{ kind: 'cow', x: 5, y: 5 }], coinDrops: [] };
-  assert.eq(runGate(rebuilt).join(), 'surface',
+  assert.eq((await runGate(rebuilt)).join(), 'surface',
     'a rebuilt tile arrived looking spawned — this is the bug where the starter crates vanished mid-session');
 });
 
@@ -90,7 +91,7 @@ test('spawn pass: both spawners raise the flag the gate reads', () => {
   const gate = gateProps[0];
   const sets = new RegExp(`entry\\.${gate}\\s*=`);
   assert.truthy(sets.test(SPAWN_IN_TILE_SRC), `spawnInTile never sets entry.${gate}`);
-  assert.truthy(sets.test(SPAWN_CAVE_SRC), `spawnCaveCreatures never sets entry.${gate}`);
+  assert.truthy(sets.test(SPAWN_CAVE_STEPS_SRC), `spawnCaveCreatures never sets entry.${gate}`);
 });
 
 test('spawn pass: it keeps creatures the entry already carries', () => {
@@ -100,7 +101,7 @@ test('spawn pass: it keeps creatures the entry already carries', () => {
   // undo the reason they are carried at all.
   assert.truthy(/entry\.creatures = entry\.creatures \|\| creatures/.test(SPAWN_IN_TILE_SRC),
     'spawnInTile clobbers carried-over creatures instead of keeping them');
-  assert.truthy(/entry\.creatures = entry\.creatures \|\| creatures/.test(SPAWN_CAVE_SRC),
+  assert.truthy(/entry\.creatures = entry\.creatures \|\| creatures/.test(SPAWN_CAVE_STEPS_SRC),
     'spawnCaveCreatures clobbers carried-over creatures instead of keeping them');
 });
 

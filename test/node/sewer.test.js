@@ -39,8 +39,9 @@
       for (const o of all) assert.falsy(lane.has(index(o)), `${o.kind || o.crop || 'reward'} ${o.id || ''} stands in the channel`);
       // Barrels: the sewer's own heap, all on dry floor.
       const barrels = entry.objects.filter(o => o.barrel);
-      const budget = W.caveBarrelBudget(1);
-      assert.gte(barrels.length, Math.floor(budget.min / 2), `the sewer heaps barrels (${barrels.length})`);
+      const rate = W.CAVE_PASSES.find(row => row.id === 'barrels').density({ depth: 1 });
+      assert.gt(rate, 0, 'sewer declares an area rate rather than a tile minimum');
+      for (const barrel of barrels) assert.falsy(entry.caveAreas.reserved.has(index(barrel)), 'ordinary barrels yield to authored areas');
       // The natural cave beneath keeps its lanes as plain route floor.
       const below = await W.loadTile.atDepth(2, tx, ty, 49);
       assert.falsy(W.floorProfile(2).channelWater);

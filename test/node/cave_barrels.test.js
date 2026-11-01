@@ -48,7 +48,8 @@ test('level 1: the sewer\'s heap of barrels on free floor cells, off their own s
   assert.gte(sewer.min, 2 * natural.min, 'the sewer holds at least twice the natural cave\'s barrels');
   assert.eq(natural.min, WorldGen.CAVE_BARREL_MIN); assert.eq(natural.span, WorldGen.CAVE_BARREL_SPAN);
   assert.eq(JSON.stringify(WorldGen.caveBarrelBudget(3)), JSON.stringify(natural), 'no row: the natural allocation');
-  assert.inRange(objects.length, sewer.min, sewer.min + sewer.span - 1);
+  assert.gt(objects.length, 0);
+  assert.lt(objects.length, sewer.min, 'small floor no longer receives a full-tile allowance');
   assert.inRange(WorldGen.caveContainerBudget(3, 4, 1), sewer.min, sewer.min + sewer.span - 1, 'the shared container allocation reads the same row');
   const cells = new Set();
   for (const b of objects) {
@@ -72,7 +73,7 @@ test('level 1: the sewer\'s heap of barrels on free floor cells, off their own s
   assert.eq(order.indexOf('barrels'), order.indexOf('floorTorches') + 1, 'after the floor torches');
   assert.eq(order.indexOf('drills'), order.indexOf('barrels') + 1, 'before drill shrines');
   assert.lt(order.indexOf('barrels'), order.indexOf('grass'), 'grass cannot consume barrel seats');
-  assert.truthy(/for \(const row of CAVE_PASSES\) runCavePass\(row, level\);/.test(WORLDGEN_SRC), 'loadCaveTile runs the table');
+  assert.truthy(/for \(const row of CAVE_PASSES\) yield\* runCavePassSteps\(row, level\);/.test(WORLDGEN_SRC), 'loadCaveTile runs the table');
 });
 
 test('quarry: the clipped benches read the whole density table, stone and crystal where they were', () => {
@@ -85,7 +86,7 @@ test('quarry: the clipped benches read the whole density table, stone and crysta
 });
 })();
 
-test('warren stores spend the shared shallow container allocation before ambient barrels', () => {
+test('warren stores keep their feature allocation independently of ambient barrel rows', () => {
   const W = WorldGen, N = 64, grid = new Uint8Array(N * N).fill(W.T.CAVE_FLOOR);
   for (const depth of [2, 3]) {
     const budget = W.caveContainerBudget(3, 4, depth);
@@ -93,8 +94,10 @@ test('warren stores spend the shared shallow container allocation before ambient
     const objects = Array.from({length: 3}, (_, n) => W.makeObject('chest', (3*N+n+.5)*W.CELL_M,
       (4*N+.5)*W.CELL_M, `warren-test-${depth}-${n}`, {barrel:true,caveArea:'warren',depth}));
     W.caveBarrels(objects, grid, N, 3, 4, N * W.CELL_M, depth, new Set([0,1,2]));
-    assert.eq(objects.length, depth === 2 ? budget : 3,
-      'L2 spends the remainder; L3 only has allocated authored stores');
+    const ordinary = [];
+    W.caveBarrels(ordinary, grid, N, 3, 4, N * W.CELL_M, depth, new Set([0,1,2]));
+    assert.eq(objects.slice(3).map(o => o.id).join(), ordinary.map(o => o.id).join(), 'authored counts do not alter ambient row rolls');
+    if (depth === 3) assert.eq(objects.length, 3, 'warren has authored stores only');
   }
   assert.eq(W.caveContainerBudget(3,4,4), 0);
 });

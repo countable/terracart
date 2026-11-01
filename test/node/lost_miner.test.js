@@ -18,6 +18,19 @@
     _dialogOpen: () => false, showMessageModal(p) { this.shown = p; } });
   const cellOf = c => ({ cx: Math.floor(c.x / CELL_M), cy: Math.floor(c.y / CELL_M) });
 
+  test('lost miner: sliced seating yields before committing and preserves the synchronous identity', () => {
+    const creatures = [], occupied = new Set();
+    const steps = LostMiner.seatSteps(scene(), caveEntry(), 0, 0, 1, creatures, occupied);
+    assert.eq(steps.next().done, false);
+    assert.eq(creatures.length, 0);
+    assert.eq(occupied.size, 0);
+    const actual = WorldGen.runSteps(steps);
+    const expected = LostMiner.seat(scene(), caveEntry(), 0, 0, 1, [], new Set());
+    assert.eq(JSON.stringify(actual), JSON.stringify(expected));
+    assert.eq(creatures.length, 1);
+    assert.eq(occupied.size, 1);
+  });
+
   test('lost miner: one deterministic seat on the first level under the trailer, out of sight of the stairs', () => {
     const s = scene(), entry = caveEntry(), creatures = [], occupied = new Set();
     const c = LostMiner.seat(s, entry, 0, 0, 1, creatures, occupied);

@@ -955,7 +955,9 @@ class SceneGeo {
           this._ensureLadderUpStairs(entry, tx, ty);
         }
         if (this.depth === 0 && !entry._spawned) this.spawnInTile(entry, tx, ty);
-        else if (this.depth > 0 && !entry._spawned) this.spawnCaveCreatures(entry, tx, ty, this.depth);
+        else if (this.depth > 0 && !entry._spawned) {
+          if (!(await this._spawnCaveCreaturesSliced(entry, tx, ty, this.depth))) return;
+        }
         // Re-open any walls the player has already mined on this level (the
         // home up-staircase is guaranteed above, before the spawn pass).
         this.ensureHomeElevatorObject();

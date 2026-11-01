@@ -21,15 +21,11 @@
 //     other ground). The shared hazard gate refuses Passing and Excluded
 //     tiers, including road buffers unless a core path interrupts them.
 //     Occupancy and live terrain still apply. See trapGroundKind.
-//   • CAVES — on CAVE_FLOOR, around the level's up-staircases (the same anchors
-//     the monsters and the loose coins use), off any cell an object already
-//     holds so a trap is never hidden under a rock sprite.
+//   • CAVES — a depth-specific density on eligible CAVE_FLOOR outside
+//     authored reservations, off cells held by objects.
 //
-// Each spawner seeds its OWN rng rather than drawing from the caller's. The
-// tile spawners are long chains of draws off one stream (spawnInTile rolls
-// fauna, then treasure, then the path bonus…), so taking numbers out of that
-// stream would re-roll every world seed downstream of it. A separate stream
-// costs nothing and leaves every existing world exactly as it was.
+// Candidate rolls use the shared owner/row/cell hash. Independent rows do not
+// consume each other's random draws, and mode changes retain surviving IDs.
 //
 // Depends on globals: WorldGen (makeRng, isSpawnCell, T) — read at CALL time,
 // so this module can load before worldgen.js.
@@ -49,20 +45,8 @@
     return root.Difficulty?.get?.().trapBleedPerS ?? 1;
   }
 
-  // ── How many, and where ──────────────────────────────────────────────────
-  // A tile is ~236 cells (≈1.65 km) on an edge — about 21 screens across — so
-  // these BASE counts read as "one every dozen-odd screens of footpath", not
-  // a minefield. The mode and the depth scale up from here — see countMul
-  // below.
-  const SURFACE_TRAP_MIN = 10, SURFACE_TRAP_SPAN = 9;    // 10..18 per surface tile, base rate
-  // How many trap-ground cells the one-pass scan below keeps to choose from.
-  // It only needs to exceed the trap count comfortably because it samples the
-  // whole ground uniformly (see sampleTrapCells); more buys nothing but
-  // room for the isSpawnCell rejections. A countMul > 1 asks for more traps
-  // than this reservoir can supply candidates for, so spawnSurface widens it
-  // in that case; left alone at the base rate so every existing seed and test
-  // keeps drawing the exact same rng sequence.
-  const TRAP_GROUND_SAMPLE = 96;
+  // Surface probabilities belong to WorldGen.SURFACE_INTERACTABLE_ROWS;
+  // this module supplies the hazard selector and mode/place modifiers.
   // DANGER: every surface tile rolls how trapped its paths are, a multiplier
   // on the count uniform in [DANGER_MIN, DANGER_MAX] — mean 1, so the mode's
   // average density (trapCountMul) is unchanged; the SPREAD is what it buys:
@@ -77,11 +61,9 @@
     const r = WG.makeRng(((tx * 0x6c8e9cf5) ^ (ty * 0x3c6ef372) ^ 0x7feb352d) >>> 0)();
     return DANGER_MIN + r * (DANGER_MAX - DANGER_MIN);
   }
-  // Caves: fewer, but they climb with depth — and they sit where the player
-  // actually walks (around the entrances), like the monsters and coins.
+  // Cave nominal means become per-cell rates, with a capped depth modifier.
   const CAVE_TRAP_MIN = 5, CAVE_TRAP_SPAN = 5, CAVE_TRAP_PER_DEPTH = 1;
   const CAVE_TRAP_DEPTH_CAP = 8;      // depth past which the bonus stops growing
-  const CAVE_SPAWN_R = 25;            // cells around each anchor — matches the monster/coin spread
   // Dungeons are dangerous on EITHER game mode, so their density multiplier is
   // flat rather than read off Difficulty (which only scales the surface rate —
   // Difficulty.PROFILES[mode].trapCountMul, 10x easy / 25x hard). Named here,
@@ -92,7 +74,6 @@
   // Placement attempts per trap. A rejected attempt drops that trap rather
   // than searching harder; small scatter variance is fine (the X scatter in
   // app.js makes the same trade).
-  const ATTEMPTS = 8;
 
   // ── The sprung set ───────────────────────────────────────────────────────
   // save.sprungTraps is a flat array of ids, like save.picked / save.opened.
@@ -248,116 +229,50 @@
       path: pools[1], park: pools[2] };
   }
 
-  // ── Surface spawn ────────────────────────────────────────────────────────
-  // `spawnOpts` is the caller's shared spawn options — the SAME object every
-  // other spawner in spawnInTile passes to WorldGen.isSpawnCell (roadMask +
-  // occupied + the tile's POI anchors + the no-spawn masks), so a trap obeys
-  // the road rule and the private-yard frontage rule by construction rather
-  // than by a copy of them.
-  // A tile with no footpath and no park edge clear of the roads gets no traps.
-  // `countMul` scales the base 10..18 rate — the caller passes
-  // Difficulty.get().trapCountMul (10x easy / 25x hard) and tileDanger's
-  // per-tile spread — so this module stays free of a Difficulty dependency.
-  //
-  // THE DENSITY CAP. The count is the mode's and the tile's; the ground it
-  // lands on is a fraction of the tile, so the count is capped at a SHARE of
-  // the tile's trap ground, and the share scales with the same multiplier the
-  // count does (TRAP_GROUND_SHARE_PER_MUL × countMul × tileDanger ×
-  // TRAP_GROUND_DENSITY_MUL) — the mode and the place still decide how bad a
-  // path is, and a tile with only a stub of footpath cannot turn it into a
-  // solid minefield. The cap reads the sampled pools' sizes, not a draw, so
-  // no stream moves because of it.
-  const TRAP_GROUND_SHARE_PER_MUL = 0.003;
-  // Path-side and park-edge ground carry this many times the plain share —
-  // easy tops out at 6% of that ground, hard at 15%. MEASURED (Sep 2026, the
-  // 36-tile city census, easy): 257 / 408 / 716 / 281 traps over nine tiles of
-  // Kelowna / Vancouver / Berlin / Seattle — fewer than the old road verges,
-  // on purpose.
-  const TRAP_GROUND_DENSITY_MUL = 2;
-  // `under`: the zone halo's replaced codes (see isTrapGround), or omitted.
-  function spawnSurface(grid, roadClass, w, h, tx, ty, tileEdgeM, spawnOpts, countMul, under) {
-    return drive(spawnSurfaceSteps(grid, roadClass, w, h, tx, ty, tileEdgeM, spawnOpts, countMul, under));
+  // Surface snares use the winning basic-terrain row. Road and Nexus traps
+  // belong to those variants' authored tables; an empty variant never falls
+  // through to a terrain snare. The former density cap is now the per-cell
+  // probability, so blocked ground removes candidates instead of relocating
+  // a fixed tile quota onto the remaining path stub.
+  function spawnSurface(grid, roadClass, w, h, tx, ty, tileEdgeM, spawnOpts, countMul, under, entry) {
+    return drive(spawnSurfaceSteps(grid, roadClass, w, h, tx, ty, tileEdgeM, spawnOpts, countMul, under, entry));
   }
-  // The same draw as a steps generator (spawnInTileSteps rides it sliced).
-  function* spawnSurfaceSteps(grid, roadClass, w, h, tx, ty, tileEdgeM, spawnOpts, countMul, under) {
+  function* spawnSurfaceSteps(grid, roadClass, w, h, tx, ty, tileEdgeM, spawnOpts, countMul, under, entry) {
     if (!grid || !root.WorldGen) return [];
-    const WG = root.WorldGen;
-    // Deliberately NOT WorldGen.tileStreamSeed / HASH_MUL_X/Y: traps seed their
-    // OWN stream, and "unifying" these constants would move every trap in every
-    // existing world. Leave them.
-    const rng = WG.makeRng(((tx * 0x7f4a7c15) ^ (ty * 0x2545f491) ^ 0x51ed270b) >>> 0);
-    const mul = (countMul > 0 ? countMul : 1) * tileDanger(tx, ty);
-    let n = Math.round((SURFACE_TRAP_MIN + Math.floor(rng() * SURFACE_TRAP_SPAN)) * mul);
-    const sampleSize = mul > 1 ? Math.max(TRAP_GROUND_SAMPLE, n * 6) : TRAP_GROUND_SAMPLE;
-    const roadMask = spawnOpts && spawnOpts.roadMask;
-    const { cells: all, path, park } = yield* sampleTrapCellsSteps(grid, roadClass, w, h, rng, sampleSize, under, roadMask);
-    if (!all.length) return [];
-    // The cap per ground, off the pools' sizes (never a draw).
-    const share = TRAP_GROUND_SHARE_PER_MUL * mul * TRAP_GROUND_DENSITY_MUL;
-    const capPath = path.seen * share;
-    const capPark = park.seen * share;
-    n = Math.min(n, Math.max(1, Math.floor(capPath + capPark)));
-    const nPath = path.cells.length
-      ? (park.cells.length ? Math.round(n * capPath / (capPath + capPark)) : n) : 0;
-    const traps = [];
-    const taken = new Set();
-    for (let k = 0; k < n; k++) {
-      const cand = k < nPath ? path.cells : park.cells;
-      for (let attempt = 0; attempt < ATTEMPTS; attempt++) {
-        const idx = cand[Math.floor(rng() * cand.length)];
-        if (taken.has(idx)) continue;
-        const lix = idx % w, liy = (idx / w) | 0;
-        // The shared rule: walkable, off the band, off anything already there,
-        // and out of a private yard.
-        // A trap is a hazard seated for the player. The spawn gate applies
-        // every hard reason plus sensitive ground, the kerb and Small-road
-        // junction suppression through the hazard row.
-        if (!WG.isSpawnCell(grid, w, h, lix, liy, spawnOpts, 'hazard')) continue;
-        taken.add(idx);
-        traps.push(makeTrap(tx, ty, tileEdgeM, w, lix, liy,
-          WG.cellId('trap', tx, ty, lix, liy)));
-        break;
-      }
+    const WG = root.WorldGen, pipeline = root.SpawnPipeline;
+    entry ||= { grid, cellsPerEdge: w };
+    const mul = (countMul > 0 ? countMul : 1) * tileDanger(tx, ty), traps = [];
+    for (let i = 0; i < w * h; i++) {
+      if ((i & 1023) === 0) yield 'surface trap rows';
+      const row = WG.surfaceInteractableRows(entry, i).find(r => r.id === 'snare');
+      if (!row) continue;
+      const cls = row.spawnClass;
+      const cx = i % w, cy = Math.floor(i / w);
+      if (!trapGroundKind(grid, roadClass, w, h, cx, cy, under, spawnOpts?.roadMask)
+        || !WG.isSpawnCell(grid, w, h, cx, cy, spawnOpts, cls)) continue;
+      if (!WG.interactableRoll(entry, i, { ...row, probability: row.probability * mul }, tx, ty, w)) continue;
+      traps.push(...yield* pipeline.generateSteps({}, { count: 1,
+        member: () => ({ kind: 'snare' }), seat: () => ({ cx, cy }),
+        create: () => makeTrap(tx, ty, tileEdgeM, w, cx, cy, WG.cellId('trap', tx, ty, cx, cy)),
+      }));
     }
     return traps;
   }
 
-  // ── Cave spawn ───────────────────────────────────────────────────────────
-  // `anchors` — the level's up-staircase cells ({lix, liy}), the points the
-  // player actually arrives at. Same spread the monster and coin scatters use,
-  // for the same reason: a trap 200 cells away in the dark is a trap nobody
-  // ever meets. `occupiedIdx` is a Set of flat grid indices already claimed by
-  // an object (stairs, chests, torches, rocks) — a trap must never sit under a
-  // sprite, or the only warning the art gives is painted over. `countMul`
-  // scales the base rate the same way spawnSurface's does — the app.js call
-  // site passes DUNGEON_DENSITY_MUL, flat regardless of game mode.
-  // A row of the cave floor's TRIES walk (worldgen.js CAVE_PASSES /
-  // runCavePass): n snares, ATTEMPTS picks each about a random anchor, on a
-  // free floor cell. The level's occupancy is COPIED: a snare claims a cell
-  // against the next snare, never against the caller's set.
-  function spawnCave(grid, N, tx, ty, tileEdgeM, depth, anchors, occupiedIdx, countMul) {
+  // Cave snares share the cave row evaluator. The nominal former count is
+  // expressed per 240×240 cells; only eligible floor contributes. Staircase
+  // proximity no longer squeezes the entire tile's allowance into a pocket.
+  function spawnCave(...args) { return root.WorldGen.runSteps(spawnCaveSteps(...args)); }
+  function* spawnCaveSteps(grid, N, tx, ty, tileEdgeM, depth, anchors, occupiedIdx, countMul, entry) {
     if (!grid || !root.WorldGen) return [];
-    const WG = root.WorldGen;
-    const anch = (anchors && anchors.length)
-      ? anchors : [{ lix: Math.floor(N / 2), liy: Math.floor(N / 2) }];
-    const mul = countMul > 0 ? countMul : 1;
-    const traps = [];
-    WG.runCavePass({
-      id: 'traps',
-      // Own stream on purpose — see spawnSurface; never "unify" with tileStreamSeed.
-      rng: () => WG.makeRng(((tx * 0x7f4a7c15) ^ (ty * 0x2545f491) ^ (depth * 0x9e3779b1) ^ 0x1b873593) >>> 0),
-      count: (rng) => Math.round((CAVE_TRAP_MIN + Math.floor(rng() * CAVE_TRAP_SPAN)
-        + Math.min(depth, CAVE_TRAP_DEPTH_CAP) * CAVE_TRAP_PER_DEPTH) * mul),
-      tries: ATTEMPTS,
-      pick: (rng) => {
-        const a = anch[Math.floor(rng() * anch.length)];
-        return { lix: a.lix + Math.round((rng() - 0.5) * 2 * CAVE_SPAWN_R),
-                 liy: a.liy + Math.round((rng() - 0.5) * 2 * CAVE_SPAWN_R) };
-      },
+    const WG = root.WorldGen, mul = countMul > 0 ? countMul : 1, traps = [];
+    yield* WG.runCavePassSteps({ id: 'traps', spawnClass: 'hazard',
+      density: () => (CAVE_TRAP_MIN + (CAVE_TRAP_SPAN - 1) / 2
+        + Math.min(depth, CAVE_TRAP_DEPTH_CAP) * CAVE_TRAP_PER_DEPTH) * mul / (240 * 240),
       emit: (L, c) => traps.push({ ...makeTrap(tx, ty, tileEdgeM, N, c.lix, c.liy,
-        WG.cellId(`trap_d${depth}`, tx, ty, c.lix, c.liy)),
-        kind: 'pit_trap', hidden: true, depth }),
-    }, WG.cavePassLevel(grid, N, tx, ty, tileEdgeM, depth, new Set(occupiedIdx || [])));
+        WG.cellId(`trap_d${depth}`, tx, ty, c.lix, c.liy)), kind: 'pit_trap', hidden: true, depth }),
+    }, WG.cavePassLevel(grid, N, tx, ty, tileEdgeM, depth, new Set(occupiedIdx || []),
+      { spawnWhy: entry?.spawnWhy, gameplayTiers: entry?.gameplayTiers, caveAreas: entry?.caveAreas }));
     return traps;
   }
 
@@ -568,12 +483,12 @@
 
   root.Traps = {
     STEP_ENERGY, standEnergyPerS,
-    SURFACE_TRAP_MIN, SURFACE_TRAP_SPAN, TRAP_GROUND_SAMPLE, DANGER_MIN, DANGER_MAX, tileDanger,
-    CAVE_TRAP_MIN, CAVE_TRAP_SPAN, CAVE_TRAP_PER_DEPTH, CAVE_TRAP_DEPTH_CAP, CAVE_SPAWN_R,
+    DANGER_MIN, DANGER_MAX, tileDanger,
+    CAVE_TRAP_MIN, CAVE_TRAP_SPAN, CAVE_TRAP_PER_DEPTH, CAVE_TRAP_DEPTH_CAP,
     DUNGEON_DENSITY_MUL,
     isSprung, spring,
     isDisarmed, disarm,
-    isTrapGround, trapGroundKind, sampleTrapCells, TRAP_GROUND_SHARE_PER_MUL, TRAP_GROUND_DENSITY_MUL, spawnSurface, spawnSurfaceSteps, spawnCave, trapAt,
+    isTrapGround, trapGroundKind, sampleTrapCells, spawnSurface, spawnSurfaceSteps, spawnCave, spawnCaveSteps, trapAt,
     LAID_MAX, LAID_LIFE_MS, isLive, isTrapSprung, isTrapDisarmed, springTrap, disarmTrap,
     canLay, layTrap, trapPower, pruneLaid, laidOut, layPoints,
     magicTrapId,

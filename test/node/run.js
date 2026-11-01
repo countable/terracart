@@ -76,6 +76,10 @@ ctx.URLSearchParams = URLSearchParams;
 // save.js debounces with setTimeout; tests don't need the flush to fire, so the
 // timer is a no-op (persistSave just parks _pendingSave in memory).
 ctx.setTimeout = () => 0; ctx.clearTimeout = () => {};
+// Sliced world generation must resume on its next paint checkpoint. Unlike
+// gameplay/debounce timers, these callbacks are driven by the test event loop.
+ctx.requestAnimationFrame = callback => setImmediate(() => callback(performance.now()));
+ctx.cancelAnimationFrame = handle => clearImmediate(handle);
 ctx.performance = { now: () => Date.now() };
 const _ls = new Map();
 ctx.localStorage = {
@@ -95,7 +99,7 @@ vm.createContext(ctx);
 const FILES = [
   // The game-mode table — first, because items.js / combat.js / energy.js
   // read Difficulty.get() at call time and app.js pins it at boot.
-  'enemy_roster.js', 'enemy_spawns.js', 'creature_spawns.js', 'enemy_habitats.js', 'difficulty.js',
+  'enemy_roster.js', 'enemy_spawns.js', 'spawn_pipeline.js', 'creature_spawns.js', 'enemy_habitats.js', 'difficulty.js',
   'sprite_layout.js',
   'mvt.js', 'util.js', 'ground_materials.js', 'floor_wall_materials.js', 'polygon_geometry.js', 'particles.js', 'trail.js',
   // Street restoration's arithmetic (pure); beside trail.js, whose ladder it feeds.
@@ -359,10 +363,6 @@ const starterWrapper = (name) => {
                       // Home's ring: light, warmth AND ward (lighting.test.js,
                       // home_ward.test.js).
                       'HOME_R',
-                      // Buried X mark density on sand (beach_treasure.test.js).
-                      'BEACH_X_PER_CELLS',
-                      // …and on residential front yards (beach_treasure.test.js).
-                      'YARD_X_PER_CELLS', 'YARD_X_MAX',
                       // The campfire's depth cap on its ward — authored in
                       // app.js since it is the FIRE's rule, not the table's.
                       'FIRE_WARD_MAX_DEPTH']) {
@@ -926,7 +926,8 @@ Object.assign(ctx, {
     const steps = new GeneratorFunction('entry', 'tx', 'ty', body);
     return function (entry, tx, ty) { return WorldGen.runSteps(steps.call(this, entry, tx, ty)); };
   };`, ctx, { filename: 'run.js#spawnPassFn' });
-  ctx.SPAWN_CAVE_SRC         = slice(creaturesSrc, '  spawnCaveCreatures(entry, tx, ty, depth) {\n', '\n  // Catch wheel:', 'spawnCaveCreatures');
+  ctx.SPAWN_CAVE_SRC         = slice(creaturesSrc, '  spawnCaveCreatures(entry, tx, ty, depth) {\n', '\n  _spawnCaveCreaturesSliced(', 'spawnCaveCreatures');
+  ctx.SPAWN_CAVE_STEPS_SRC   = slice(creaturesSrc, '  *spawnCaveCreaturesSteps(entry, tx, ty, depth) {\n', '\n  // Catch wheel:', 'spawnCaveCreaturesSteps');
   ctx.REBUILD_WITH_BIN_SRC   = slice(wgSrc,  '  async function rebuildTileWithBinNow(x, y, lat) {\n', '\n  }\n', 'rebuildTileWithBinNow');
   // The trail placer (scene methods read `scene.`, not `this.`); the slice runs to the reveal.
   ctx.STARTER_TRAIL_SRC      = slice(ctx.STARTER_JS_SRC, '  function placeStarterTrail(scene, entry, tx, ty) {\n',
@@ -987,34 +988,6 @@ Object.assign(ctx, {
     '    // Prune save.caught of pest-deer markers whose tile has since fallen out\n',
     '\n    const caughtSet = setOf(this.save.caught);',
     'the save.caught pest-deer prune block');
-}
-
-// ── The bonus buried-X streams (spawnInTile) ──────────────────────────────
-// The path-side, beach and front-yard streams, and the single grid pass that feeds them,
-// lifted as ONE runnable block for beach_treasure.test.js: the cap, the cell
-// packing (wrong above 256 cells per edge) and the "on the sand, beside the
-// path" difference are decided in here. It closes over entry / tx / ty / N /
-// rng / ambientSpawnOpts and `this` (tileEdgeM), all cheap to stub.
-{
-  const appSrc = SCENE_SRC;
-  // The grid pass runs AHEAD of the pass's flag (it may still yield); the
-  // streams read it further down. Both pieces are lifted and driven as a generator.
-  const scanFrom = appSrc.indexOf('    const shoreMask = entry.scenic && entry.scenic.shore ? entry.scenic.shore.mask : null;');
-  const scanTo = appSrc.indexOf('    // DERELICT LAIRS need', scanFrom);
-  const from = appSrc.indexOf('    // ONE pass over the grid for both bonus streams below');
-  const to = appSrc.indexOf('    // Player-planted saplings (save.fruittrees)');
-  if (scanFrom < 0 || scanTo < 0 || from < 0 || to < 0 || to < from || scanTo > from) {
-    console.error('Could not lift the bonus-X streams from spawnInTile — update run.js');
-    process.exit(2);
-  }
-  vm.runInContext(
-    'globalThis.__bonusXMarks = function (entry, tx, ty, N, rng, ambientSpawnOpts) {\n'
-    + 'return WorldGen.runSteps((function* () {\n'
-    // Locals spawnInTile declares up top: the tile's cell size and generated grid.
-    + 'const cellM = this.tileEdgeM / N;\n'
-    + 'const genGrid = entry.baseGrid || entry.grid;\n'
-    + appSrc.slice(scanFrom, scanTo) + '\n'
-    + appSrc.slice(from, to) + '\n}).call(this));\n};', ctx, { filename: 'scene_creatures.js#bonusXMarks' });
 }
 
 // The road overlay must stroke with the same width function worldgen stamps its

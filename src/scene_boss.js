@@ -118,7 +118,7 @@ class SceneBoss {
     const caught = setOf(this.save.caught || []);
     const piece = (kind, id, i, d, extra = {}) => {
       if (caught.has(id)) return;
-      entry.creatures.push(WorldGen.makeCreature(kind, hx + back.x * d, hy + back.y * d, id,
+      entry.creatures.push(CreatureSpawns.createOwned('serpent', key, kind, hx + back.x * d, hy + back.y * d, id,
         { shiny: false, boss: key, segIndex: i, _heading: heading, _sharedId: true, ...extra }));
     };
     piece(kindOf('head'), `${key}_head`, -1, 0, { _trail: [{ x: hx, y: hy }, { x: hx, y: hy }, {

@@ -78,7 +78,7 @@ const StoryEncounters = (() => {
     const fields = kind === 'npc'
       ? { ...NPC.storyNeighbour(id, 'witness'), storyEncounter: KEY, homeX: p.x, homeY: p.y }
       : { shiny: false, storyEncounter: KEY };
-    const c = WorldGen.makeCreature(kind, p.x, p.y, id, fields);
+    const c = CreatureSpawns.createOwned('story-witness', q.key || KEY, kind, p.x, p.y, id, fields);
     if (kind === 'npc') NPC.restore?.(scene, c);
     (entry.creatures || (entry.creatures = [])).push(c);
     return c;

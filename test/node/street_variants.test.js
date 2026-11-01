@@ -531,10 +531,20 @@ test('Road Variant fauna: declared residents have valid species and local count 
 test('sports pitches keep generated Deer on their Forest habitat', () => {
   const N = 32, grid = new Uint8Array(N * N).fill(T.FOREST);
   for (let i = 0; i < N * N; i++) if (i % N < N / 2) grid[i] = T.PITCH;
-  const e = { cellsPerEdge: N, tileEdgeM: N * 7, grid, spawnWhy: new Uint16Array(N * N) };
-  const out = WorldGen.runSteps(HabitatSpawns.populationSteps({ tileEdgeM: N * 7, cellM: 7 }, e, 0, 0, { spawnOpts: { spawnWhy: e.spawnWhy, occupied: new Set() } }));
-  assert.truthy(out.some(c => c.kind === 'deer'));
-  for (const c of out.filter(c => c.kind === 'deer')) assert.eq(grid[c._habitatSpawn.cy * N + c._habitatSpawn.cx], T.FOREST);
+  let deerCount = 0;
+  // Density rolls can leave a small forest empty. Exercise several independent
+  // deterministic tiles without turning a species rate back into a tile quota.
+  for (let tx = 0; tx < 12; tx++) {
+    const e = { cellsPerEdge: N, tileEdgeM: N * 7, grid, spawnWhy: new Uint16Array(N * N) };
+    const out = WorldGen.runSteps(HabitatSpawns.populationSteps({ tileEdgeM: N * 7, cellM: 7 }, e, tx, 0,
+      { category: 'fauna', spawnOpts: { spawnWhy: e.spawnWhy, occupied: new Set() } }));
+    for (const c of out.filter(c => c.kind === 'deer')) {
+      deerCount++;
+      assert.eq(grid[c._habitatSpawn.cy * N + c._habitatSpawn.cx], T.FOREST,
+        `tile ${tx}: deer must never occupy the neighbouring pitch`);
+    }
+  }
+  assert.gt(deerCount, 0, 'the sample must exercise actual forest deer');
 });
 
 // ── Toadstool Lane, the barricade's goblins, the burned row's fire slimes ──

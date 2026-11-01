@@ -15,37 +15,38 @@
     } finally { Difficulty.setMode(previous); }
   };
   const signature = creatures => creatures.map(c => `${c.id}:${c.kind}@${c.x},${c.y}`).sort().join('|');
-  test('habitat populations: ordinary animals are reduced by thirty percent without reducing enemies', () => {
-    const entry = fixture();
-    generate(entry);
-    assert.eq(entry.habitatPopulation.totals.fauna.requested, 112);
-    assert.eq(entry.habitatPopulation.totals.fauna.placed, 112);
-    assert.eq(entry.habitatPopulation.totals.enemies.requested, 50);
-    assert.eq(entry.habitatPopulation.totals.enemies.placed, 50);
+  test('habitat populations: eligible area drives declared species rates rather than a tile quota', () => {
+    const entry = fixture(); generate(entry);
+    const expected = HabitatSpawns.densityRows('Terrain:GRASS').filter(r => r.category === 'fauna')
+      .reduce((sum, r) => sum + r.per1000 * 4096 / 1000, 0);
+    assert.inRange(entry.habitatPopulation.totals.fauna.requested, expected / 2, expected * 2);
+    assert.lt(entry.habitatPopulation.totals.fauna.requested, 112, 'retired tile budget is not topped up');
+    assert.eq(entry.habitatPopulation.totals.fauna.requested,
+      entry.habitatPopulation.totals.fauna.placed + entry.habitatPopulation.totals.fauna.shortfall);
   });
+
   test('habitat populations: different animal species share a three-cell spacing preference', () => {
     const entry = fixture();
     const animals = generate(entry, [], 'hard').filter(c => c._habitatSpawn && !c.id.startsWith('enemy_habitat_'));
     assert.gt(new Set(animals.map(c => c.kind)).size, 1, 'the fixture exercises multiple species');
-    assert.eq(animals.length, HabitatSpawns.FAUNA_PER_TILE, 'spacing retains the animal budget');
+    assert.gt(animals.length, 0);
+    assert.lte(animals.length, entry.habitatPopulation.totals.fauna.requested, 'spacing may reject candidates without refill');
     for (let i = 0; i < animals.length; i++) for (let j = i + 1; j < animals.length; j++) {
       const a = animals[i]._habitatSpawn, b = animals[j]._habitatSpawn;
       assert.gte(Math.max(Math.abs(a.cx - b.cx), Math.abs(a.cy - b.cy)), 3,
         `${animals[i].kind} and ${animals[j].kind} should spread apart on ample land`);
     }
   });
-  test('habitat populations: spacing relaxes on constrained ground without losing identities or budget', () => {
+  test('habitat populations: a small eligible remnant does not refill the old tile allowance', () => {
     const entry = fixture();
     entry.spawnWhy = new Uint16Array(4096).fill(WorldGen.SPAWN_WHY.RESTRICTED);
     for (let y = 20; y < 25; y++) for (let x = 20; x < 25; x++) entry.spawnWhy[y * 64 + x] = 0;
-    const animals = generate(entry, [], 'hard').filter(c => c._habitatSpawn && !c.id.startsWith('enemy_habitat_'));
-    assert.eq(animals.length, 25, 'all legal cells remain available after spacing alternatives run out');
-    assert.eq(entry.habitatPopulation.totals.fauna.requested, HabitatSpawns.FAUNA_PER_TILE);
-    assert.eq(entry.habitatPopulation.totals.fauna.shortfall, HabitatSpawns.FAUNA_PER_TILE - 25);
-    assert.eq(new Set(animals.map(c => `${c.x},${c.y}`)).size, 25);
-    assert.eq(signature(generate(entry, [], 'hard').filter(c => c._habitatSpawn && !c.id.startsWith('enemy_habitat_'))),
-      signature(animals), 'constrained placement remains deterministic');
+    const animals = generate(entry, [], 'hard').filter(c => c._habitatSpawn && !c._surfaceSpawn);
+    assert.lte(animals.length, 25);
+    assert.lt(entry.habitatPopulation.totals.fauna.requested, 5, 'only the tiny eligible area rolls its rates');
+    assert.eq(signature(generate(entry, [], 'hard').filter(c => c._habitatSpawn && !c._surfaceSpawn)), signature(animals));
   });
+
   test('habitat populations: shared spacing includes authored seats without wrapping tile edges', () => {
     const spacing = HabitatSpawns.faunaSpacing(8, [7]);
     assert.eq(spacing.clearance(7), 0);
@@ -56,43 +57,14 @@
     assert.eq(spacing.clearance(8), 0);
     assert.eq(spacing.clearance(0), 1);
   });
-  test('habitat populations: preview area scales tile budgets without thinning feature populations', () => {
-    const make = () => {
-      const entry = fixture();
-      entry.zone = { coverage: new Uint16Array(4096), anchors: [
-        { kind: 'grove', variant: 'meadow', key: 'preview_grove', gx: 0, gy: 0 }] };
-      entry.zone.coverage.fill(1, 0, 512);
-      entry.streetArea = new Uint8Array(4096);
-      entry.streetArea.fill(1, 512, 1024);
-      entry.streetAreaVariants = new Uint8Array(4096);
-      entry.streetAreaVariants.fill(StreetVariants.VARIANT_BY_ID.orchard.code, 512, 1024);
-      return entry;
-    };
-    const baseline = make(), live = generate(baseline);
-    assert.eq(signature(generate(make(), [], 'easy', null, { habitatTileAreaScale: 1 })), signature(live));
-    const R = FloorViewerRegion, scale = (R.EDGE / WorldGen.tileEdgeMeters(R.lat)) ** 2;
-    for (const habitatTileAreaScale of [scale, 0]) {
-      const entry = make(), options = { habitatTileAreaScale };
-      const population = generate(entry, [], 'easy', null, options);
-      const regions = entry.habitatPopulation.regions;
-      const land = regions.filter(r => r.key.startsWith('land:'));
-      for (const [kind, budget] of [['fauna', HabitatSpawns.FAUNA_PER_TILE],
-        ['enemies', HabitatSpawns.ENEMIES_PER_TILE], ['reserve', HabitatSpawns.reserveBudget()]]) {
-        const expected = Math.round(budget * habitatTileAreaScale);
-        assert.eq(land.reduce((sum, r) => sum + r[kind].requested, 0), expected, kind + ' budget');
-        assert.eq(land.reduce((sum, r) => sum + r[kind].placed, 0), expected, kind + ' placements');
-      }
-      const features = regions.filter(r => !r.key.startsWith('land:'));
-      assert.eq(features.length, 2, 'Nexus and road populations both present');
-      for (const feature of features) {
-        const original = baseline.habitatPopulation.regions.find(r => r.key === feature.key);
-        assert.gt(feature.fauna.requested, 0);
-        assert.eq(feature.fauna.requested, original.fauna.requested, 'feature budget is unchanged');
-        assert.eq(feature.fauna.placed, original.fauna.placed, 'feature inhabitants still placed');
-      }
-      assert.eq(signature(generate(make(), [], 'easy', null, options)), signature(population), 'preview is deterministic');
-    }
+  test('habitat populations: previews use their actual cells without a second tile-budget scale', () => {
+    const make = () => { const e = fixture(); e.zone = { coverage: new Uint16Array(4096).fill(1),
+      anchors: [{ kind: 'grove', variant: 'meadow', key: 'preview_grove' }] }; return e; };
+    const baseline = generate(make());
+    for (const habitatTileAreaScale of [0, .1, 1]) assert.eq(signature(generate(make(), [], 'easy', null,
+      { habitatTileAreaScale })), signature(baseline), 'obsolete budget scale cannot thin or top up cell rows');
   });
+
   test('habitat populations: common landcovers collectively supply the core companions', () => {
     const grass = kinds(HabitatSpawns.landProfile('GRASS'));
     const residential = kinds(HabitatSpawns.landProfile('RESIDENTIAL'));
@@ -143,28 +115,29 @@
     const landEnemies = cs => cs.filter(c => c.id.startsWith('enemy_habitat_'));
     const easyEntry = fixture(), hardEntry = fixture();
     const easy = landEnemies(generate(easyEntry)), hard = landEnemies(generate(hardEntry, [], 'hard'));
-    assert.eq(easyEntry.habitatPopulation.totals.reserve.requested, HabitatSpawns.ENEMIES_PER_TILE / 2);
+    assert.gt(easyEntry.habitatPopulation.totals.reserve.requested, 0);
+    assert.lt(easyEntry.habitatPopulation.totals.reserve.requested, 25, 'reserve derives from cell rates');
     assert.eq(hardEntry.habitatPopulation.totals.reserve.placed, easyEntry.habitatPopulation.totals.reserve.placed,
       'both modes generate the same reserve');
     assert.falsy(easy.some(c => c._landEnemyReserve), 'easy hides the reserve');
-    assert.eq(hard.length, Math.round(easy.length * Difficulty.PROFILES.hard.landEnemyCountMul), 'hard shows 1.5x');
+    assert.eq(hard.length - easy.length, hardEntry.habitatPopulation.totals.reserve.placed, 'hard shows the same generated reserve');
     assert.eq(signature(hard.filter(c => !c._landEnemyReserve)), signature(easy), 'the base population is untouched');
   });
-  test('habitat populations: safety holes relocate seats without thinning habitat quotas', () => {
+  test('habitat populations: safety holes remove candidate cells without relocating or refilling quotas', () => {
     const plain = fixture(), holes = fixture();
     holes.spawnWhy = new Uint16Array(4096);
     for (let i = 0; i < 4096; i++) if (i % 4 === 0) holes.spawnWhy[i] = WorldGen.SPAWN_WHY.RESTRICTED;
     const baseline = generate(plain), relocated = generate(holes);
-    assert.eq(relocated.length, baseline.length, 'ample remaining ground carries the full population');
-    assert.eq(holes.habitatPopulation.totals.fauna.requested, plain.habitatPopulation.totals.fauna.requested);
-    assert.eq(holes.habitatPopulation.totals.enemies.requested, plain.habitatPopulation.totals.enemies.requested);
+    assert.lt(relocated.length, baseline.length, 'excluded candidate cells reduce the population');
+    assert.lt(holes.habitatPopulation.totals.fauna.requested, plain.habitatPopulation.totals.fauna.requested);
+    assert.lte(holes.habitatPopulation.totals.enemies.requested, plain.habitatPopulation.totals.enemies.requested);
     for (const c of relocated) {
       const index = Math.floor(c.y / 10) * 64 + Math.floor(c.x / 10);
       assert.eq(holes.spawnWhy[index], 0, 'no creature stands in a forbidden hole');
     }
     assert.eq(new Set(relocated.map(c => `${c.x},${c.y}`)).size, relocated.length, 'habitat allocation shares occupancy');
   });
-  test('habitat populations: fully blocked ground records shortfalls rather than borrowing another habitat', () => {
+  test('habitat populations: fully blocked ground has zero candidates and cannot borrow another habitat', () => {
     const entry = fixture();
     entry.zone = { coverage: new Uint16Array(4096), anchors: [
       { kind: 'grove', variant: 'mushroom_grove', key: 'blocked_grove', gx: 10, gy: 10 }] };
@@ -176,21 +149,20 @@
     const creatures = generate(entry);
     const region = entry.habitatPopulation.regions.find(r => /blocked_grove/.test(r.key));
     assert.truthy(region, 'the authored owner retains its population budget');
-    assert.gt(region.fauna.requested + region.enemies.requested, 0);
+    assert.eq(region.fauna.requested + region.enemies.requested, 0);
     assert.eq(region.fauna.placed + region.enemies.placed, 0);
     assert.eq(region.fauna.shortfall, region.fauna.requested);
     assert.eq(region.enemies.shortfall, region.enemies.requested);
     assert.truthy(creatures.every(c => c.x >= 320), 'blocked Nexus inhabitants never spill into ordinary Grass');
     assert.falsy(creatures.some(c => c.kind === 'mushroom_monster'));
   });
-  test('habitat populations: crowded ground keeps its raw budget and reports bounded placement', () => {
+  test('habitat populations: four eligible cells cannot create a full tile population', () => {
     const entry = fixture(); entry.spawnWhy = new Uint16Array(4096).fill(WorldGen.SPAWN_WHY.RESTRICTED);
     for (let i = 0; i < 4; i++) entry.spawnWhy[i] = 0;
     const creatures = generate(entry);
     assert.lte(creatures.length, 4, 'four legal cells cannot seat more than four inhabitants');
-    assert.gt(entry.habitatPopulation.totals.fauna.requested + entry.habitatPopulation.totals.enemies.requested, 4,
-      'eligibility never changes the raw habitat budget');
-    assert.truthy(entry.habitatPopulation.regions.some(r => r.fauna.shortfall + r.enemies.shortfall > 0));
+    assert.lte(entry.habitatPopulation.totals.fauna.requested + entry.habitatPopulation.totals.enemies.requested, 4,
+      'eligibility is applied before rate rolls');
   });
 
   test('habitat populations: one legacy cell defeat suppresses only one migrated habitat identity', () => {
@@ -220,12 +192,14 @@
       else mask[i] = 1;
     }
     entry.scenic = { shore: { mask } };
-    const enemies = generate(entry).filter(c => c._surfaceSpawn);
+    const enemies = [];
+    for (let tx = 0; tx < 8; tx++) enemies.push(...WorldGen.runSteps(HabitatSpawns.populationSteps(
+      { tileEdgeM: 640, save: {} }, { ...entry }, tx, 0, { spawnOpts: {}, category: 'enemy' })));
     assert.truthy(enemies.some(c => c.kind === 'giant_crab'));
     assert.falsy(enemies.some(c => c.kind === 'jellyfish'));
     for (const c of enemies) {
       assert.includes(['giant_crab', 'jellyfish'], c.kind);
-      const index = Math.floor(c.y / 10) * 64 + Math.floor(c.x / 10);
+      const index = c._surfaceSpawn.cy * 64 + c._surfaceSpawn.cx;
       if (c.kind === 'jellyfish') assert.eq(entry.grid[index], WorldGen.T.WATER);
       else assert.eq(mask[index], 1);
     }
@@ -242,7 +216,7 @@
     road.streetMarks = new Uint8Array(4096).fill(StreetVariants.VARIANT_BY_ID.toadstool.code);
     assert.eq(HabitatSpawns.resolve(road, 0).profile.id, 'pilgrim', 'winning corridor ownership precedes crossing furniture marks');
   });
-  test('habitat populations: authored fauna satisfy matching Nexus slots without changing other identities', () => {
+  test('habitat populations: authored inhabitants reserve their own seats without granting another ambient allowance', () => {
     const make = () => {
       const entry = fixture(WorldGen.T.PARK);
       entry.zone = { coverage: new Uint16Array(4096).fill(1), anchors: [
@@ -257,11 +231,11 @@
     const entry = make(), after = run(entry, [{ ...chosen, id: 'authored_animal' }]);
     const identity = c => `${c.id}:${c.kind}`;
     assert.eq(after.map(identity).sort().join('|'), baseline.filter(c => c.id !== chosen.id).map(identity).sort().join('|'));
-    assert.eq(entry.habitatPopulation.totals.fauna.authored, 1);
-    assert.eq(entry.habitatPopulation.totals.fauna.shortfall, 0);
+    assert.eq(entry.habitatPopulation.totals.fauna.authored || 0, 0, 'authored features are separate requests, not budget credit');
+    assert.gte(entry.habitatPopulation.totals.fauna.shortfall, 1);
     for (const authored of [{ ...chosen, kind: 'horse' }, { ...chosen, x: -10, y: -10 }]) {
       const other = make(), all = run(other, [authored]);
-      assert.eq(all.length, baseline.length, 'unlisted species and foreign seats do not consume this owner budget');
+      assert.eq(all.length, authored.x < 0 ? baseline.length : baseline.length - 1, 'any authored occupant reserves its own seat; foreign seats do not');
       assert.eq(other.habitatPopulation.totals.fauna.authored || 0, 0);
     }
   });
@@ -290,7 +264,7 @@
     };
     const varietySnake=c=>c.kind==='snake'&&c._habitatSpawn?.key==='street:way_of_variety';
     const a=make(), first=generate(a).filter(varietySnake), second=generate(make()).filter(varietySnake);
-    assert.eq(first.length,3,'three safe corridor slots per tile');
+    assert.eq(first.length,3,'three safe slots for the existing section owner');
     assert.eq(signature(first),signature(second),'stable snake identities and positions');
     for(const c of first){const i=Math.floor(c.y/10)*64+Math.floor(c.x/10);assert.eq(a.streetArea[i],1,'inside winning corridor');}
     const row=EnemyRoster.ROWS.find(r=>r.id==='snake');
