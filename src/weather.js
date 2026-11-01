@@ -11,9 +11,13 @@ const Weather = (() => {
     // Between hourly measurements the readout follows a daily curve through the
     // forecast low (at dawn) and high (mid-afternoon), local solar-clock hours.
     diurnal: Object.freeze({ lowHour: 6, highHour: 15 }),
-    // The readout says windy from a fresh breeze up (Beaufort 5, about 29 km/h):
-    // below that, players outdoors do not notice the wind.
-    windyKph: 28,
+    // The readout says windy from a strong breeze up (Beaufort 6, 39 km/h:
+    // large branches move, umbrellas fight back), the floor of a forecaster's
+    // "windy" (sustained 32 km/h and up; below that is "breezy"). The reading
+    // is WeatherAPI's modelled 10 m sustained wind, up to two cache hours
+    // old; at head height between houses a player feels roughly half of it,
+    // so the fresh-breeze bar (28) still called calm afternoons windy.
+    windyKph: 38,
     maxForegroundStepMs: 1000,
     // Screen-space fall. Each kind bakes its own art (`shape` + colours) so the
     // overlay never depends on a tinted sheet; streaks lean along their mean

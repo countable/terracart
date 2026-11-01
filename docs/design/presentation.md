@@ -848,7 +848,11 @@ half-cosine daily curve through the forecast low (dawn) and high
 (mid-afternoon), `Weather.EFFECTS.diurnal`; gameplay bands use the same value.
 The readout beside the map has no background and shows only the temperature,
 `windy` above `Weather.EFFECTS.windyKph`, and one condition word
-(`WeatherCodes.labelFor`: drizzle, rain, sleet, snow, fog or mist).
+(`WeatherCodes.labelFor`: drizzle, rain, sleet, snow, fog or mist). The wind
+reading is a modelled 10 m sustained speed that can be two cache hours old,
+and a player between houses feels about half of it, so the windy bar sits at
+a strong breeze (Beaufort 6), not the fresh breeze that twice drew "it says
+windy on a calm day"; whirlwind gates derive from the same table row.
 
 Falling precipitation uses the native turquoise water-drop phases from Rogue
 Adventure's `RA_Atlantis_Animated01.png`. `Weather.EFFECTS` is the single owner

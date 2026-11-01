@@ -50,10 +50,13 @@
     assert.eq(Weather.currentTemp(day0 + 22 * hour), 9, 'without a forecast the measurement stands');
   });
 
-  test('weather: readout words are windy above 28 km/h and one condition word', () => {
-    Weather.accept({ temp: 5, windKph: 28, kind: 'none', precip: false, condition: 1000 });
+  test('weather: readout words are windy only from a strong breeze (38 km/h) up, plus one condition word', () => {
+    assert.eq(Weather.EFFECTS.windyKph, 38, 'Beaufort 6 at 10 m; a fresh breeze (28) read as calm on the ground');
+    Weather.accept({ temp: 5, windKph: 38, kind: 'none', precip: false, condition: 1000 });
     assert.falsy(Weather.windy()); assert.eq(Weather.conditionLabel(), '');
-    Weather.accept({ temp: 5, windKph: 28.1, kind: 'none', precip: false, condition: 1135 });
+    Weather.accept({ temp: 5, windKph: 30, kind: 'none', precip: false, condition: 1000 });
+    assert.falsy(Weather.windy(), 'a breezy reading is not windy');
+    Weather.accept({ temp: 5, windKph: 38.1, kind: 'none', precip: false, condition: 1135 });
     assert.truthy(Weather.windy()); assert.eq(Weather.conditionLabel(), 'fog');
     Weather.accept({ temp: -1, windKph: 3, kind: 'snow', precip: true, condition: 1225 });
     assert.eq(Weather.conditionLabel(), 'snow');
