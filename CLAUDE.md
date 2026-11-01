@@ -122,7 +122,9 @@ One line each; the linked purpose doc owns the detail.
   through `Combat.playerDamage` and armour ([combat](docs/design/combat.md)).
 - A timed effect is a row of `Conditions.DEFINITIONS` or `Buffs.KINDS`, shown
   only as a chip in the status row; a timed consumable is a `CONSUMABLE_SPEC`
-  row ([combat](docs/design/combat.md), [presentation](docs/design/presentation.md)).
+  row. What a repeat dose does is the row's `repeat` column, applied by
+  `Conditions.repeatDose` for player and foe alike, never a branch at a
+  call site ([combat](docs/design/combat.md), [presentation](docs/design/presentation.md)).
 - Luxury is derived from saved furniture records through `Furniture.luxuryOf`, never summed from rendered sprites ([generation](docs/design/generation.md)).
 - Surface ground looks are `GroundMaterials` families drawn by
   `TerrainTransitions`, never a per-cell wash or square fallback; reuse a

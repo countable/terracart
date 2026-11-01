@@ -121,7 +121,10 @@
     assert.eq(creature._paralysisUntil, NOW + 6200, 'creature timer is not refreshed while stationary');
     creature.x = 44; SpiderWebs.tick(s, 0.01, NOW + 7000);
     creature.x = 28; SpiderWebs.tick(s, 0.01, NOW + 8000);
-    assert.eq(creature._paralysisUntil, NOW + 14000, 'creature re-entry applies a fresh six seconds');
+    assert.eq(creature._paralysisUntil, NOW + 6200, 'creature re-entry within the three seconds of recovery (the paralysis row\'s hold) takes no hold');
+    creature.x = 44; SpiderWebs.tick(s, 0.01, NOW + 9000);
+    creature.x = 28; SpiderWebs.tick(s, 0.01, NOW + 9300);
+    assert.eq(creature._paralysisUntil, NOW + 15300, 'creature re-entry once recovered applies a fresh six seconds');
   });
 
   test('spider webs: rendering uses the offset viewport and reuses layers cleared on depth changes', () => {

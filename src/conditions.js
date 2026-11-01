@@ -32,17 +32,30 @@
   //             plateau (coords.js reachRadiusM), the light ramp and a carried
   //             torch (lighting.js playerLightMul) — read live by lightMul().
   const DEFINITIONS = Object.freeze({
+    // `repeat` is THE REPEAT RULE (repeatDose below — one helper for the
+    // player's row and a foe's status alike): what a dose does to a body
+    // already carrying the row. Absent: TOP UP (the greater of what is left
+    // and the dose). burning STACKS — a HIT of fire (a torch blow, an
+    // elemental's touch, a blast) banks on top, to maxDurationMs; CONTACT
+    // (standing in fire: apply's `stack: false`, the scene's _ignitePlayer)
+    // only lights it, and exposure grows it. poison STACKS to twice the
+    // dose just given. paralysis HOLDS: nothing lands while it runs, nor
+    // within `recoverMs` of it ending — the body gets its breath back.
+    // frozen tops up like the rest (owner, Nov 2026: an aura refills it).
     burning: Object.freeze({ icon: 'burning', durationMs: 5000, maxDurationMs: 60000, exposureRate: 5, intervalMs: 1000, energyLoss: 1,
+      repeat: Object.freeze({ mode: 'stack' }),
       label: 'Burning', tint: 0xff8c42, flicker: true, ink: '#ffb36b', bg: '#2e1a0ee8' }),
     poison: Object.freeze({ icon: 'poison', durationMs: 60000, intervalMs: 2000, energyLoss: 1,
+      repeat: Object.freeze({ mode: 'stack', capMul: 2 }),
       label: 'Poison', tint: 0x9fdc8c, flicker: false, ink: '#d9b1ff', bg: '#22132ee8' }),
     confused: Object.freeze({ icon: 'confused', durationMs: 10000, maxDurationMs: 60000, steeringTakeoverMs: 20000, turnRadS: 0.3,
       label: 'Confused', tint: 0xc68ee8, flicker: false, ink: '#e8c2ff', bg: '#321b40e8' }),
     jellyfish_stun: Object.freeze({ icon: 'jellyfish_stun', durationMs: 5000, attackSpeedMul: 0.5, blocksMovement: true,
       label: 'Stunned', tint: 0x89d9ff, flicker: false, ink: '#b9eaff', bg: '#102a3ae8' }),
-    frozen: Object.freeze({ icon: 'frozen', durationMs: 10000, moveSpeedMul: 0.5, attackSpeedMul: 0.5, refresh: false,
+    frozen: Object.freeze({ icon: 'frozen', durationMs: 10000, moveSpeedMul: 0.5, attackSpeedMul: 0.5,
       label: 'Frozen', tint: FROZEN_TINT, flicker: false, ink: '#' + FROZEN_TINT.toString(16).padStart(6, '0'), bg: '#102a3ae8' }),
     paralysis: Object.freeze({ icon: 'paralysis', durationMs: 5000, maxDurationMs: 6000, blocksMovement: true, blocksAttacks: true,
+      repeat: Object.freeze({ mode: 'hold', recoverMs: 3000 }),
       label: 'Paralysed', tint: 0x4f9fff, flicker: false, ink: '#b4d8ff', bg: '#0e1f3ae8' }),
     petrified: Object.freeze({ icon: 'stoneskin', durationMs: 5000, maxDurationMs: 5000, blocksMovement: true, blocksAttacks: true,
       label: 'Petrified', tint: 0x8f8f8f, flicker: false, ink: '#dadada', bg: '#262626e8' }),
@@ -151,10 +164,41 @@
   // constant (temple_puzzles.js).
   const APPLY_DEBOUNCE_MS = 1000;
   const doseClocks = new WeakMap();
+  // `ended[id]` is when the row last ran out or was cured, on the same clock:
+  // a `hold` row's recovery (repeatDose) is measured from it.
   function doseClock(save) {
     let clock = doseClocks.get(save);
-    if (!clock) doseClocks.set(save, clock = { playedMs: 0, landed: {} });
+    if (!clock) doseClocks.set(save, clock = { playedMs: 0, landed: {}, ended: {} });
     return clock;
+  }
+  // THE REPEAT RULE, in one place (owner, Nov 2026): what a dose of `doseMs`
+  // does to a body with `remainingMs` of the row left (0: not carrying it),
+  // by the row's `repeat` column. Returns the time the row should now hold,
+  // or null when the dose is refused. Read by apply() for the player and by
+  // combat.js (landStatus, poison, ignite) for a foe, so the two never drift.
+  //   (none)   TOP UP: the greater of what is left and the dose — a weak hit
+  //            never shortens a strong one, a hit on a fading one refills it.
+  //   stack    BANK: what is left plus the dose, capped at maxDurationMs and,
+  //            with `capMul`, at capMul × this dose (never below what is
+  //            already left). `opts.stack === false` (contact) tops up instead.
+  //   hold     REFUSE while the row runs, and for `recoverMs` after it ended
+  //            (`opts.sinceEndedMs`, Infinity when it never has).
+  function repeatDose(def, remainingMs, doseMs, opts = {}) {
+    const r = def?.repeat || {};
+    const left = Math.max(0, Number(remainingMs) || 0);
+    if (r.mode === 'hold') {
+      if (left > 0) return null;
+      const since = opts.sinceEndedMs == null ? Infinity : opts.sinceEndedMs;
+      if (since < (r.recoverMs || 0)) return null;
+      return doseMs;
+    }
+    if (left <= 0) return doseMs;
+    if (r.mode === 'stack' && opts.stack !== false) {
+      let cap = def.maxDurationMs || Infinity;
+      if (r.capMul > 0) cap = Math.min(cap, Math.max(left, doseMs * r.capMul));
+      return Math.min(left + doseMs, cap);
+    }
+    return Math.max(left, doseMs);
   }
   function debounced(save, id) {
     const clock = doseClock(save), last = clock.landed[id];
@@ -174,22 +218,26 @@
     if (id === 'burning' && fireImmune(save, now)) return false;
     // A Toad Shrine's boon (src/shrines.js 'antidote'): poison cannot take hold.
     if (id === 'poison' && root.Shrines && root.Shrines.leverActive(save, 'antidote')) return false;
+    // The row's repeat rule (repeatDose) decides what the dose does — a held
+    // row refuses and leaves no stamp; then the one-dose-a-second window.
+    const clock = doseClock(save), fresh = !active(save, id);
+    const ended = clock.ended[id];
+    const next = repeatDose(def, fresh ? 0 : save.conditions[id].remainingMs, duration,
+      { stack: options.stack, sinceEndedMs: Number.isFinite(ended) ? clock.playedMs - ended : Infinity });
+    if (next == null) return false;
     if (debounced(save, id)) return false;
-    const fresh = !active(save, id);
     save.conditions ||= {};
+    // The damage-tick phase is kept across repeats.
     if (fresh) save.conditions[id] = def.intervalMs
-      ? { remainingMs: duration, nextTickMs: def.intervalMs } : { remainingMs: duration };
-    // An additional hit leaves the greater of what remains and what it
-    // inflicts: a short exposure never shortens a longer effect, and a hit
-    // on a fading one tops it back up. The damage-tick phase is kept. A
-    // `refresh: false` row (frozen) keeps its first clock; burning also grows
-    // with exposure through advanceBurn.
-    else if (def.refresh !== false) save.conditions[id].remainingMs = Math.max(save.conditions[id].remainingMs, duration);
+      ? { remainingMs: next, nextTickMs: def.intervalMs } : { remainingMs: next };
+    else save.conditions[id].remainingMs = next;
     return fresh;
   }
   function cure(save, id) {
     if (!active(save, id)) return false;
-    delete doseClock(save).landed[id];
+    const clock = doseClock(save);
+    delete clock.landed[id];
+    clock.ended[id] = clock.playedMs;
     delete save.conditions[id];
     return true;
   }
@@ -244,6 +292,7 @@
         ticks += result.ticks;
         if (state.remainingMs <= 0) {
           delete save.conditions[id];
+          doseClock(save).ended[id] = doseClock(save).playedMs;
           expired = true;
         }
         continue;
@@ -258,6 +307,7 @@
       }
       if (state.remainingMs <= 0) {
         delete save.conditions[id];
+        doseClock(save).ended[id] = doseClock(save).playedMs;
         expired = true;
       }
     }
@@ -304,5 +354,5 @@
     clearDebuffs(save);
     return true;
   }
-  root.Conditions = { DEFINITIONS, FLICKER_MS, APPLY_DEBOUNCE_MS, conditionTintOn, normalize, active, confusionSteering, movementBlocked, attacksBlocked, attackIntervalMul, movementMul, lightMul, apply, cure, advanceBurn, burnTickLoss, damageImmune, setDialogShield, flying, fireImmune, fireDamage, tick, hasDebuffs, clearDebuffs, describe, useAntidote, useElixir };
+  root.Conditions = { DEFINITIONS, FLICKER_MS, APPLY_DEBOUNCE_MS, conditionTintOn, normalize, active, confusionSteering, movementBlocked, attacksBlocked, attackIntervalMul, movementMul, lightMul, repeatDose, apply, cure, advanceBurn, burnTickLoss, damageImmune, setDialogShield, flying, fireImmune, fireDamage, tick, hasDebuffs, clearDebuffs, describe, useAntidote, useElixir };
 })(typeof globalThis !== 'undefined' ? globalThis : this);

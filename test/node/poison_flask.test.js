@@ -52,13 +52,14 @@ test('poison flask: Combat.poison is the player\'s row on a creature — the sam
   assert.falsy(Combat.poisoned(c, 1000 + def.durationMs), 'and it is over');
   assert.eq(c._poisonState, undefined); assert.eq(c._poisonBy, null);
   assert.eq(Combat.poisonTick(c, 2000 + def.durationMs), 0, 'nothing after');
-  // A refresh runs the minute again without postponing the bite already due.
+  // A repeat banks the minute on what is left without postponing the bite already due.
   Combat.poison(c, 5000, 'player');
   c._statusPop = null;
   Combat.poisonTick(c, 6500);
   assert.falsy(Combat.poison(c, 6500, 'player'), 'not fresh');
+  // The repeat rule (condition_repeat.test.js): a repeat banks, never past twice the dose.
   assert.eq(c._statusPop, null, 'no second word while it runs');
-  assert.eq(c._poisonState.remainingMs, def.durationMs);
+  assert.eq(c._poisonState.remainingMs, def.durationMs + 58500, 'the minute banked on the 58.5 s left (under twice the dose)');
   assert.eq(Combat.poisonTick(c, 7000), def.energyLoss, 'the bite lands on its old boundary');
   // No wound can reach an immortal body: the clock runs, the bite costs nothing.
   const i = { id: 'i', kind: 'goblin', immortalPotionUntil: Date.now() + 100000 };
@@ -131,7 +132,7 @@ test('poison flask: drunk, it is the player\'s own poison, and the flask is spen
   assert.eq(s.save.conditions.poison.remainingMs, def.durationMs);
   Conditions.tick(s.save, 30_000);
   assert.truthy(call(), 'already poisoned: still drunk');
-  assert.eq(s.save.conditions.poison.remainingMs, def.durationMs, 'refreshed to the full minute');
+  assert.eq(s.save.conditions.poison.remainingMs, def.durationMs + 30_000, 'banked on the half minute left');
   assert.eq(s.consumed, 2);
   s.save.inv[0].count = 0;
   assert.falsy(call()); assert.eq(s.consumed, 2);

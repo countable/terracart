@@ -8,7 +8,8 @@ const UNIT_CONDITIONS = {
   burning: { carries: c => Combat.canBurn(c), tickedAt: '_fireTickT', by: '_burnBy', source: 'burn',
     tick(scene, c, now) {
       const exposure = !Conditions.flying(c) && scene._fireExposureAtWorld(c.x, c.y);
-      if (exposure) Combat.ignite(c, now, exposure);
+      // Contact lights it and takes the credit; the clock grows by exposure.
+      if (exposure) Combat.ignite(c, now, exposure, { stack: false });
       return Combat.burnTick(c, now, !!exposure);
     } },
   poison: { carries: c => !!c._poisonState, tickedAt: '_poisonTickT', by: '_poisonBy', source: 'poison',

@@ -49,8 +49,8 @@
       seen.add(creature.id);
       const damage = root.Conditions.fireDamage(creature, CONFIG.damage, now);
       if (damage > 0) scene._damageBurningUnit?.(creature, damage, 'player', combatNow);
-      if (!creature._spent && root.Combat.ignite(creature, combatNow, 'player') && creature._burnState)
-        creature._burnState.remainingMs = CONFIG.burningMs;
+      // A blast's burn is its own length — banked on top of a burn already going.
+      if (!creature._spent) root.Combat.ignite(creature, combatNow, 'player', { durationMs: CONFIG.burningMs });
     });
     const centre = worldMetersToAbsCell(scene, active.x, active.y);
     for (let dy = -CONFIG.radiusCells; dy <= CONFIG.radiusCells; dy++) {

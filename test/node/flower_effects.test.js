@@ -41,7 +41,7 @@
     assert.eq(hits[0].c, target);
     assert.eq(hits[0].damage, CONSUMABLE_SPEC.fireball_scroll.damage);
   });
-  test('iceflower: radius reaches all bodies and overlapping blooms do not stack', () => {
+  test('iceflower: radius reaches all bodies and overlapping blooms refill without banking', () => {
     const p = plant('iceflower'), r = auraRadiusCells(Crops.EFFECTS.iceflower.aura) * CELL;
     const units = [foe(r), foe(2, { kind: 'npc' }), foe(3, { kind: 'cow', pet: true, id: 'released_cow' }), foe(r + 0.01)];
     const save = {}, player = { x: r, y: 0 }, clocks = new WeakMap();
@@ -51,8 +51,8 @@
     assert.eq(save.conditions.frozen.remainingMs, 10000);
     Conditions.tick(save, 4000);
     Crops.tickPlantEffect(plant('iceflower'), units, save, player, CELL, 5000, clocks);
-    assert.eq(units[0]._frozenUntil, 11000);
-    assert.eq(save.conditions.frozen.remainingMs, 6000);
+    assert.eq(units[0]._frozenUntil, 15000, 'a second bloom refills the chill (the frozen row tops up)');
+    assert.eq(save.conditions.frozen.remainingMs, 10000, 'and the player\'s, never banked');
   });
   test('flower scene scan: depth, picked/burned plants, removal and caught creatures', () => {
     const oldCache = new Map(WorldGen.tileCache);

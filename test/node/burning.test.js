@@ -31,12 +31,36 @@ test('burning foe: repeat contact preserves duration and cadence, updates the so
   const c = { kind: 'skeleton' };
   Combat.ignite(c, 0, 'player');
   Combat.burnTick(c, 1000, true);
-  assert.falsy(Combat.ignite(c, 1500, 'fire'));
+  assert.falsy(Combat.ignite(c, 1500, 'fire', { stack: false }));
   assert.eq(c._burnState.remainingMs, 10000);
   assert.eq(c._burnAtT + c._burnState.nextTickMs, 2000, 'the next tick keeps its cadence');
   assert.eq(c._burnBy, 'fire');
   assert.eq(Combat.burnTick(c, 2000, true), 1);
   assert.eq(c._burnState.remainingMs, 15000);
+});
+
+test('burning foe: a hit of fire banks on top of the burn it carries, up to the cap', () => {
+  const def = Conditions.DEFINITIONS.burning;
+  const c = { kind: 'skeleton' };
+  assert.truthy(Combat.ignite(c, 0, 'player'));
+  assert.eq(c._burnState.remainingMs, def.durationMs);
+  assert.truthy(Combat.ignite(c, 500, 'player'), 'a second torch blow');
+  assert.eq(c._burnState.remainingMs, def.durationMs * 2, 'banked, not refreshed');
+  assert.truthy(Combat.ignite(c, 600, 'player', { durationMs: 6000 }), 'a blast');
+  assert.eq(c._burnState.remainingMs, def.durationMs * 2 + 6000);
+  assert.truthy(Combat.ignite(c, 700, 'player', { durationMul: 1 / 3 }), 'a Meteor dose');
+  assert.eq(c._burnState.remainingMs, def.durationMs * 2 + 6000 + Math.round(def.durationMs / 3));
+  c._burnState.remainingMs = def.maxDurationMs - 1000;
+  Combat.ignite(c, 800, 'player');
+  assert.eq(c._burnState.remainingMs, def.maxDurationMs, 'capped');
+  assert.eq(c._burnAtT, 0, 'banking does not move the clock: the pending second is still paid');
+  assert.eq(Combat.burnTick(c, 1000), 5, 'one tick, at the banked depth (59 s left after it)');
+  const fresh = { kind: 'skeleton' };
+  assert.truthy(Combat.ignite(fresh, 0, 'player', { durationMs: 6000 }));
+  assert.eq(fresh._burnState.remainingMs, 6000, 'a blast lights an unlit body for its own length');
+  // The scene's contact paths never bank: standing in fire is exposure.
+  assert.truthy(/Combat\.ignite\(c, now, exposure, \{ stack: false \}\)/.test(SCENE_SRC), 'the foe tick');
+  assert.truthy(/this\._applyCondition\('burning', \{ stack: false \}\)/.test(SCENE_SRC), 'the player\'s _ignitePlayer');
 });
 
 test('burning foe: the demons\' lava immunity covers fire too — one flag', () => {

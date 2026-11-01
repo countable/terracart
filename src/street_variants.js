@@ -315,6 +315,7 @@
       stone: { weathered: '#8a756a', restored: '#9b857b', pattern: 'spots', accent: '#f0dfb4' }, lampDensity: 1,
       words: /(mushroom|toadstool|fung|pilz|fairy|\bring|moss|damp|mycel|spore|schwamm|elfen|feen)/i,
       lampGlow: '#ff8c2a', fauna: { butterfly: [2, 5] },
+      hives: { kind: 'mushroom', count: 1, wreckReachCells: 3 },
       story: 'street_toadstool', title: 'Toadstool Lane',
       body: 'Red toadstools crowd the verge, and the air smells of damp earth. You step around their spotted caps.',
       flash: 'Toadstools. They glow at dusk.' },
@@ -2628,6 +2629,67 @@
   // marks is a Uint8Array (N*N) of variant codes on each dressed line's band
   // and verge (the story trigger reads it), or null when nothing is dressed.
   function dress(ctx) { return root.WorldGen.runSteps(dressSteps(ctx)); }
+
+  // A road's fragments share one hive budget per tile. First reclaim nearby
+  // ordinary buildings; only a road with no suitable wreck raises a new one.
+  // Existing buildings retain their ids and footprints, so saved restoration
+  // and hive defeats can resolve against the same identity after a rebuild.
+  function dressHives(ctx, out) {
+    const WG = root.WorldGen, S = root.Streets;
+    const { index, N, tx, ty, grid } = ctx;
+    if (!index) return;
+    const frame = WG.dressFrame(ctx), scale = N * WG.CELL_M / (index.extent || 4096);
+    const owner = variantOwner(index, N, VERGE_MAX_CELLS), groups = new Map();
+    for (const rec of index.dressingLines || index.lines || []) {
+      const policy = VARIANT_BY_ID[rec.variant]?.hives;
+      if (!policy) continue;
+      const key = `${rec.key}|${rec.variant}`;
+      if (!groups.has(key)) groups.set(key, { policy, variant: rec.variant, seats: new Map() });
+      const group = groups.get(key), spans = S.tileSpans(rec.line, scale, index.extent || 4096);
+      sampleLine(rec.line, scale, WG.CELL_M, WG.CELL_M / 2, (s, x, y, nx, ny) => {
+        if (!S.covers(spans, s)) return;
+        for (const side of [1, -1]) for (let k = 1; k <= VERGE_MAX_CELLS; k++) {
+          const c = vergeCellAt(rec, x, y, nx, ny, side, k, WG.CELL_M);
+          if (owner(c.ix, c.iy) !== rec.variant
+            || !WG.isSpawnCell(grid, N, N, c.ix, c.iy, ctx.spawnOpts, 'enemy')) continue;
+          if (WG.isRoadTerrain(grid[c.iy * N + c.ix])) continue;
+          group.seats.set(c.iy * N + c.ix, c);
+        }
+      });
+    }
+    for (const [key, group] of [...groups].sort(([a], [b]) => a.localeCompare(b))) {
+      const { policy, variant } = group;
+      const seats = [...group.seats.values()].sort((a, b) =>
+        hash01(`hive|${key}|${tx}|${ty}|${a.ix}|${a.iy}`) - hash01(`hive|${key}|${tx}|${ty}|${b.ix}|${b.iy}`));
+      if (!seats.length) continue;
+      const candidates = [];
+      for (const o of ctx.objects || []) {
+        if (o.kind !== 'house' || o.tier !== WG.T.BUILDING || o.hive || o.templeZone) continue;
+        const ix = Math.floor((o.x - frame.ox) / frame.cellM), iy = Math.floor((o.y - frame.oy) / frame.cellM);
+        if (owner(ix, iy) !== variant || ctx.zone?.coverage?.[iy * N + ix]) continue;
+        const distance = Math.min(...seats.map(c => Math.max(Math.abs(c.ix - ix), Math.abs(c.iy - iy))));
+        if (distance <= policy.wreckReachCells) candidates.push({ o, distance });
+      }
+      candidates.sort((a, b) => a.distance - b.distance || String(a.o.id).localeCompare(String(b.o.id)));
+      if (candidates.length) {
+        for (const { o } of candidates.slice(0, policy.count)) {
+          const at = ctx.objects.indexOf(o);
+          // Cave substrate snapshots share the original records: replace,
+          // rather than mutating, so surface hives cannot leak underground.
+          ctx.objects[at] = { ...o, hive: policy.kind, hiveStreet: key };
+        }
+        continue;
+      }
+      for (const c of seats.slice(0, policy.count)) {
+        if (!WG.isSpawnCell(grid, N, N, c.ix, c.iy, ctx.spawnOpts, 'enemy')) continue;
+        frame.claim(c.ix, c.iy);
+        out.push(WG.makeObject('house', frame.cx(c.ix), frame.cy(c.iy),
+          WG.cellId('street_hive', tx, ty, c.ix, c.iy),
+          { tier: WG.T.BUILDING, area: frame.cellM * frame.cellM, hive: policy.kind,
+            hiveStreet: key, _street: variant, _hiveSynthetic: true }));
+      }
+    }
+  }
   // The same, as a generator — rasterizeTileSteps drives it (one yield per
   // dressed line), so the dressing is paid inside the sliced tile build and
   // never in the unsliced spawn pass (CLAUDE.md, the worst-block rule).
@@ -2643,6 +2705,7 @@
     // The dressing frame (WorldGen.dressFrame): the tile's cells in frame
     // metres and the occupancy this pass claims into.
     const { cellM: frameCellM, cx, cy, claim } = WG.dressFrame(ctx);
+    dressHives(ctx, res.objects);
     const owner = variantOwner(idx, N, VERGE_MAX_CELLS);
     // Each phase sets its source theme before searching. Relocation predicates
     // apply ownership and the three-cell edge limit while searching, so blocked
@@ -3854,6 +3917,6 @@
     normName, streetKey, anonKey, parishOf, sizeOfTags, isVehicleTags, variantFor, rocksFor,
     boundSectionsSteps, PATH_SECTION_MIN_M, PATH_SECTION_TARGET_M, PATH_SECTION_MAX_M, PATH_FRAGMENT_MIN_M, buildPathSectionsSteps, applyPathScenicSteps, syncPathVariants, selectionWeights, applyAffinitiesSteps, nexusExitAffinitySteps, NEXUS_EXIT_AFFINITY_M, AFFINITY_SAMPLE_M, terrainFor, paintTerrainSteps,
     homeIndexSteps, indexFor, nameVote, lineName, sampleLine, canonicalPaths, variantAt, lineParts, displayLines, buildIndexSteps, buildIndex, areaSteps, area, suppressNexusRoadThemesSteps,
-    markBanditStops, streetShrineChosen, dress, dressSteps, lampSpacingFor, lampGlowFor, stoneColorFor, lineStyles, hotRoadAt, isSlowKind,
+    markBanditStops, streetShrineChosen, dress, dressSteps, dressHives, lampSpacingFor, lampGlowFor, stoneColorFor, lineStyles, hotRoadAt, isSlowKind,
   };
 })(typeof globalThis !== 'undefined' ? globalThis : this);

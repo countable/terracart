@@ -55,12 +55,15 @@ test('status looks: every creature applier flags its look', () => {
   assert.eq(c._statusPop?.label, 'Charm');
   c = foe(); Combat.applyPsychosis(c, 5000, 1000);
   assert.eq(c._statusPop?.label, 'Psychosis');
-  // A FRESH burn says so; being re-stoked by exposure does not say it again.
+  // A FRESH burn says so; being re-stoked by exposure does not say it
+  // again, and neither does a hit that banks on a burn already going.
   c = foe(); assert.truthy(Combat.ignite(c, 1000, 'fire'));
   assert.eq(c._statusPop?.label, Conditions.DEFINITIONS.burning.label);
   c._statusPop = null;
-  assert.falsy(Combat.ignite(c, 1500, 'fire'));
+  assert.falsy(Combat.ignite(c, 1500, 'fire', { stack: false }));
   assert.eq(c._statusPop, null, 'already alight: no second word');
+  assert.truthy(Combat.ignite(c, 1600, 'player'), 'a hit banks');
+  assert.eq(c._statusPop, null, 'and still says nothing new');
   // A thrown potion's buff wears the Buffs row that reads the same field.
   const scene = { save: { energy: 100, caught: [] }, cellM: 10, startWorldM: { x: 0, y: 0 }, playerM: { x: 0, y: 0 } };
   c = foe(); assert.truthy(PotionEffects.apply(scene, c, 'speed_potion', T0));

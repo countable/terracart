@@ -6,6 +6,19 @@ mechanics.
 
 ## Combat, energy and Home
 
+- Roadside hives are wrecks occupied by a hostile building. `Hives.KINDS`
+  owns their HP, sprite and spawning rules. The Mushroom House has 120 HP
+  and births one Mushroom Monster per foreground minute, up to four living
+  children per house. Births obey the ordinary enemy spawn gate and live
+  collision checks, including clearance from the player. Only nearby, loaded
+  surface hives advance; leaving the area restarts the minute, and background time never produces catch-up waves.
+  Player swings use their ordinary weapon damage and cooldown. Damage and
+  destruction persist in `save.hives`; zero HP reveals the original repairable
+  wreck permanently. Existing children remain after the house falls. Claimed,
+  restored and player-owned houses cannot activate. Birth serials are saved so
+  a replacement never reuses a defeated creature's ID; these locally timed
+  children are not multiplayer-shared world creatures.
+
 - Creeping vines use the shared thorn contact rule: five energy on entry and
   one per second while touching, with flight immunity. They can be chopped
   with the normal axe/wood harvest interaction; clearing a cell is permanent.
@@ -99,7 +112,8 @@ mechanics.
   contact and rendering rules, but never expire or enter the shot-web save list.
   Entering a web paralyzes any body (player, enemy, pet or neighbour) for six
   seconds through the shared paralysis status. Standing there does not refresh
-  the hold; leaving and entering again does. Webs are not consumed by contact.
+  the hold, and the paralysis row's `hold` rule gives three seconds' recovery
+  before another web can take hold. Webs are not consumed by contact.
 
 - Timed followers use `Companions.KINDS` and its shared lifecycle; register
   movement/targeting in `SpriteLayout.CREATURE_BEHAVIOUR` and reuse the pet
@@ -192,8 +206,9 @@ mechanics.
   radius and intensity, an ember at a standstill and a comet's tail at
   `maxMps`. `_tickCometAura` (scene_consumables.js) sets
   every enemy inside alight as the player's kill (`Combat.ignite`, the lit
-  torch's call, for the row's `burnDurationMul` of the burning row's
-  duration: the Meteor's third, the Comet's whole) and burns the aura's
+  torch's call, once a burn interval while the foe stays inside, each dose
+  the row's `burnDurationMul` of the burning row's duration banked on the
+  burn it carries: the Meteor's third, the Comet's whole) and burns the aura's
   `dps × dt` through `_damageEnemy`; worn together, the Comet's longer burn
   is the one fire (`jewelryCometAura`); the
   wearer and their allies are never targets. Faster than `maxMps` for
@@ -282,9 +297,28 @@ mechanics.
 - A status effect is a row of `Conditions.DEFINITIONS` (poison, burning, a trap's pin): the
   player's condition, a foe's (`Combat.ignite` / `burnTick` read the same row),
   the HUD chip and the body tint all derive from it. Conditions count foreground
-  play; an additional hit leaves the greater of the time remaining and the time
-  it inflicts (a `refresh: false` row such as frozen keeps its first clock, and
-  burning also grows with exposure). They do not bank like a repeated timed
+  play. THE REPEAT RULE is the row's `repeat` column, applied by ONE helper,
+  `Conditions.repeatDose`, for the player (`Conditions.apply`, within its
+  one-dose-a-second window) and a foe (`Combat.landStatus`, `poison`,
+  `ignite`) alike — never a branch at a call site:
+  - no `repeat` (confusion, stun, pin, blind, petrify, frozen and every
+    creature-only status): TOP UP — the greater of the time remaining and
+    the dose, so a weak hit never shortens a strong one and a repeat refills
+    a fading one. A frost aura therefore keeps a body chilled while it
+    stands inside and thaws it ten seconds after it leaves.
+  - BURNING `{ mode: 'stack' }`: a HIT of fire (a torch blow, an elemental's
+    touch, a blast, a Meteor or Comet Ring's dose once a burn interval) banks
+    its duration on top of what is left, to the row's 60 s cap; CONTACT with
+    fire (lava, a hearth, burning ground, a vent: `stack: false`, the scene's
+    `_ignitePlayer` and the foe tick) only lights it, and exposure grows it
+    through `advanceBurn`.
+  - POISON `{ mode: 'stack', capMul: 2 }`: a repeat banks its dose, never
+    past twice the dose just given (and never below what was already left).
+  - PARALYSIS `{ mode: 'hold', recoverMs: 3000 }`: nothing lands while it
+    runs, nor for three seconds after it ends or is cured — the body gets its
+    breath back. The session dose clock records when a row ended; a foe's is
+    read off its expired field.
+  They do not bank like a repeated timed
   consumable, whose epoch writer is `Buffs.extend` / `extendField`. A new status is a row there, never a timer,
   colour or label of its own. ONE DOSE A SECOND: a status landing again within
   `Conditions.APPLY_DEBOUNCE_MS` of its last landing on the same body is

@@ -1765,6 +1765,15 @@ Geometry hit testing includes projecting outdoor tower faces.
 
 ## Building sprite artwork
 
+Active road hives use their `Hives.KINDS` sprite and frame in every building
+mode. The mushroom house is frame 0 (96×96) of the existing Fae Mushroom Grove
+`tile-B-01.png`, copied unchanged to `assets/Objects/Hives/mushroom-grove.png`.
+It stands upright at the ordinary house size and counterrotates with the
+standing sprite layer, so camera heading needs no additional building views.
+The building overlay omits its procedural wreck geometry while active; its
+sign names the hive and current HP. At zero HP the same house immediately
+returns to ordinary wreck art and geometry, with no hive sign.
+
 Restoration choices, Home's icon and map sprite fallbacks use the original
 role textures through `Render.houseTextureKey` and `Render.houseTextureFrame`.
 Plain houses use the `house` front frame; shops and other roles use their

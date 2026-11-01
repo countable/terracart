@@ -40,7 +40,7 @@
       assert.eq(s.saved, 1);
     } finally { Date.now = old; }
   });
-  test('frost aura: radius includes its boundary, excludes caster, and never refreshes active frost', () => {
+  test('frost aura: radius includes its boundary, excludes caster, and refills active frost', () => {
     const source = { id: 'caster', kind: 'npc', x: 100, y: 200 };
     const friend = { id: 'released_cow', kind: 'cow', x: 106, y: 208 };
     const npc = { id: 'npc', kind: 'npc', x: 100, y: 201 };
@@ -52,9 +52,14 @@
     assert.truthy(Combat.isChilled(npc, T0 + 9999));
     assert.falsy(Combat.isChilled(far, T0));
     Combat.applyFrostAura(source, targets, 10, {}, T0 + 9000);
-    assert.falsy(Combat.isChilled(friend, T0 + 10000));
-    Combat.applyFrostAura(source, targets, 10, { radiusCells: 2 }, T0 + 10000);
-    assert.truthy(Combat.isChilled(far, T0 + 10000));
+    assert.truthy(Combat.isChilled(friend, T0 + 10000), 'a repeat refills the chill');
+    assert.truthy(Combat.isChilled(friend, T0 + 18999));
+    assert.falsy(Combat.isChilled(friend, T0 + 19000), 'ten seconds from the last dose');
+    Combat.applyFrost(far, 30000, T0 + 19500);   // frost powder on the hostile slime
+    Combat.applyFrostAura(source, targets, 10, { radiusCells: 2 }, T0 + 20000);
+    assert.eq(far._frozenUntil, T0 + 49500, 'a longer chill from frost powder is never shortened');
+    Combat.applyFrostAura(source, targets, 10, { radiusCells: 2 }, T0 + 50000);
+    assert.eq(far._frozenUntil, T0 + 60000, 'and refilled once it had run out');
   });
   test('frost tome: aura follows player feet, skips caught creatures, and expires', () => {
     const old = Date.now; let now = T0; Date.now = () => now;

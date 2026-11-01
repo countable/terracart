@@ -2638,56 +2638,122 @@
     return { plain: false, yieldTier, requiredTier: Math.max(1, yieldTier - 1) };
   }
 
+  // --- The raw tile store ---------------------------------------------------
+  // IndexedDB can STALL: an open or a request that never settles, most often
+  // on the page load right after a reload, while the browser is still tearing
+  // down the previous page's writes (the ring's byte puts, an Overpass bin).
+  // The open promise used to be memoised for the life of the page, with no
+  // bound on it or on any request, so one stalled open hung every tile fetch
+  // after it: no tile ever failed, so nothing retried and no banner showed —
+  // the player simply stood on bare ground with no roads or buildings until
+  // the next refresh. Every call is now bounded by TILE_IDB_TIMEOUT_MS:
+  //   - a stalled or failed OPEN rejects and is forgotten, so the next caller
+  //     opens again rather than inheriting the hang;
+  //   - a stalled READ counts as a miss, and the caller falls through to the
+  //     ordinary fetch, which the service worker answers from its own tile
+  //     cache (sw.js TILE_CACHE) — the same bytes, a few milliseconds later;
+  //   - a stalled WRITE is dropped (the bytes are re-cached by a later visit);
+  //   - a connection whose request stalled is closed and forgotten, since a
+  //     wedged connection would otherwise time out every call after it.
+  // A connection that answers after its open timed out is closed, never kept.
+  const TILE_IDB_TIMEOUT_MS = 3000;
   const idbName = 'mapgame-tiles';
   let idb;
+  function forgetIDB(opening, db) {
+    if (idb === opening) idb = null;
+    try { db?.close(); } catch (_) { /* already closed */ }
+  }
   function openIDB() {
     if (idb) return idb;
-    idb = new Promise((resolve, reject) => {
-      const req = indexedDB.open(idbName, 1);
+    const opening = new Promise((resolve, reject) => {
+      let settled = false;
+      const finish = (ok, value) => {
+        if (settled) return;
+        settled = true;
+        clearTimeout(timer);
+        (ok ? resolve : reject)(value);
+      };
+      const timer = setTimeout(() => finish(false, new Error('tile store open timed out')), TILE_IDB_TIMEOUT_MS);
+      let req;
+      try { req = indexedDB.open(idbName, 1); } catch (e) { finish(false, e); return; }
       req.onupgradeneeded = () => req.result.createObjectStore('tiles');
-      req.onsuccess = () => resolve(req.result);
-      req.onerror = () => reject(req.error);
+      req.onsuccess = () => {
+        const db = req.result;
+        // The late answer of an open that already timed out: not ours any more.
+        if (settled) { try { db.close(); } catch (_) { /* already closed */ } return; }
+        // Another tab upgrading or deleting the store (the reset path) closes
+        // this connection; forget it so the next call opens afresh.
+        db.onversionchange = () => forgetIDB(opening, db);
+        db.onclose = () => forgetIDB(opening, null);
+        finish(true, db);
+      };
+      req.onerror = () => finish(false, req.error);
+      // `blocked` only says another connection is in the way; the timer bounds
+      // how long that may hold the open.
+      req.onblocked = () => {};
     });
-    return idb;
+    idb = opening;
+    opening.catch(() => forgetIDB(opening, null));
+    return opening;
+  }
+  // One bounded transaction on the tile store. `run(store)` issues the
+  // requests and returns a getter for the result, read once the transaction
+  // completes. Past the timeout the transaction is aborted, the call rejects,
+  // and the connection is forgotten.
+  function idbTransact(mode, run) {
+    const opening = openIDB();
+    return opening.then((db) => new Promise((resolve, reject) => {
+      let settled = false, tx = null;
+      const finish = (ok, value) => {
+        if (settled) return;
+        settled = true;
+        clearTimeout(timer);
+        (ok ? resolve : reject)(value);
+      };
+      const timer = setTimeout(() => {
+        if (settled) return;
+        try { tx?.abort(); } catch (_) { /* inactive transaction */ }
+        forgetIDB(opening, db);
+        finish(false, new Error('tile store request timed out'));
+      }, TILE_IDB_TIMEOUT_MS);
+      try {
+        tx = db.transaction('tiles', mode);
+        const result = run(tx.objectStore('tiles'));
+        tx.oncomplete = () => finish(true, result());
+        tx.onerror = () => finish(false, tx.error);
+        tx.onabort = () => finish(false, tx.error || new Error('tile store transaction aborted'));
+      } catch (e) {
+        finish(false, e);
+      }
+    }));
   }
   async function idbGet(key) {
     try {
-      const db = await openIDB();
-      return await new Promise((res, rej) => {
-        const tx = db.transaction('tiles', 'readonly');
-        const req = tx.objectStore('tiles').get(key);
-        req.onsuccess = () => res(req.result || null);
-        req.onerror = () => rej(req.error);
+      return await idbTransact('readonly', (store) => {
+        const req = store.get(key);
+        return () => req.result || null;
       });
     } catch { return null; }
   }
   async function idbPut(key, val) {
     try {
-      const db = await openIDB();
-      await new Promise((res, rej) => {
-        const tx = db.transaction('tiles', 'readwrite');
-        tx.objectStore('tiles').put(val, key);
-        tx.oncomplete = res;
-        tx.onerror = () => rej(tx.error);
-      });
+      await idbTransact('readwrite', (store) => { store.put(val, key); return () => undefined; });
     } catch {}
   }
+  // Test seam: forget the connection (the fake store of the last test).
+  function _resetTileStoreForTest() { idb = null; }
 
   // Read-modify-write within one transaction so concurrent tabs cannot lose
   // each other's geometry children in a shared z14 aggregate.
   async function idbMergeGeometry(parentKey, childKey, fc) {
     try {
-      const db = await openIDB();
-      return await new Promise((resolve, reject) => {
-        const tx = db.transaction('tiles', 'readwrite'), store = tx.objectStore('tiles');
+      return await idbTransact('readwrite', (store) => {
         const read = store.get(parentKey); let value;
         read.onsuccess = () => {
           value = { ...(read.result || {}), [childKey]: fc };
           store.put(value, parentKey);
         };
-        tx.oncomplete = () => resolve(value);
-        tx.onerror = () => reject(tx.error);
-        tx.onabort = () => reject(tx.error);
+        return () => value;
       });
     } catch (_) { return null; }
   }
@@ -6761,7 +6827,7 @@
       // Zone painting runs earlier for scenic measurements, but the street's
       // own hard gates still read the original ground and spawn reasons.
       streetDress = yield* StreetVariants.dressSteps({ index: streetIndex, tx, ty, N: w, tileEdgeM,
-        grid: caveSource.grid,
+        grid: caveSource.grid, objects: deduped, zone,
         spawnOpts: dressOpts({ spawnWhy: caveSource.spawnWhy }) });
     }
     if (zone) {
@@ -10017,7 +10083,7 @@
     // tiles are actually fetched under right now; resolveTileUrl asks the
     // TileJSON.
     TILE_URL_FALLBACK, TILEJSON_URL, tileUrlTemplate, tileUrlFor, resolveTileUrl,
-    fetchTileBytes, prefetchTileBytes, _resetTileUrlForTest,
+    fetchTileBytes, prefetchTileBytes, _resetTileUrlForTest, _resetTileStoreForTest, TILE_IDB_TIMEOUT_MS,
     // The step generator itself, so the block audit
     // (test/node/tile_build_blocks.test.js) can time the build one step at
     // a time — the only way to see the thing that actually stutters, which

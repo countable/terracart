@@ -1050,7 +1050,14 @@ access or tile lifecycle mechanics.
   Do not cache a final answer from a tile still loading (no `layers` yet).
 - Fetch tiles through `fetchTileResponse`, which resolves the live TileJSON
   template and retries resolution on failure. Bumping a dated fallback URL
-  does not repair live fetching. After the centre is playable, surface rings
+  does not repair live fetching. Every raw tile-store access (`idbGet`,
+  `idbPut`, `idbMergeGeometry`) is bounded by `TILE_IDB_TIMEOUT_MS`: a
+  stalled open or request is a cache miss that falls through to the fetch
+  (the worker's tile cache answers it), the stalled connection is forgotten
+  so the next call opens afresh, and a late connection is closed. IndexedDB
+  does stall on the load right after a reload; an unbounded, memoised open
+  once left every tile loading forever with no failure to retry
+  (`test/node/tile_store.test.js`). After the centre is playable, surface rings
   prefetch at most three raw tile payloads ahead through `prefetchTileBytes`;
   decode, generation and spawning remain serial and sliced. Cache hits and
   retry backoff skip lookahead; a newer centre stops the older ring. Repeated
@@ -1247,7 +1254,18 @@ Higher-priority placements and their access space take precedence in this order:
    remains available for stable cave entrances. Buildings,
    piers and other land-access exclusions keep their paint. Nexus variants
    override road variants where they overlap; the physical road and its
-   safety restrictions remain intact. Goblin Gang Street is a Small-road
+   safety restrictions remain intact.
+   Road rows can declare `hives` (kind, count and nearby wreck reach).
+   Toadstool Lane requests one mushroom house per street key and tile;
+   fragments share that budget. Before ordinary verge dressing, legal
+   off-road enemy seats identify nearby ordinary tier-9 wrecks in the same
+   corridor. Selected wrecks retain their identity and footprint; when none
+   is suitable, a legal empty verge cell receives a sprite-based house with
+   a tile/cell identity. Specialty buildings and Nexus-owned buildings are
+   excluded. Generation preserves the original cave substrate records, and
+   runtime hive eligibility preserves restored houses, Home and starter
+   buildings. The hive defeat ledger leaves the building as a regular wreck.
+   Goblin Gang Street is a Small-road
    variant with compact sections up to 250 m. Per street key in a tile, six
    paired clusters target 30 breakable barrels and 30 goblin grunts (five
    per gang, in either difficulty). Fragments share that budget; blocked
