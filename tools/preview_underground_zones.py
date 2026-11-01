@@ -15,6 +15,18 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 SOURCE = ROOT / 'docs/data/underground-zone-variants.draft.json'
 
+# Game floor numbering (WorldGen.FLOOR_PROFILES): 1 Sewer ... 8 Dragon roost.
+FLOOR_NAMES = {1: 'Sewer', 2: 'Caves', 3: 'Goblin city', 4: 'Deep stone',
+               5: 'Underdark', 6: 'Lava', 7: 'Dragon', 8: 'Dragon roost'}
+
+
+def _floors_label(depths):
+    return ' & '.join(str(n) for n in depths)
+
+
+def _floors_note(depths):
+    return '; '.join(f'floor {n} · {FLOOR_NAMES.get(n, "deep cave")}' for n in depths)
+
 
 @functools.lru_cache(maxsize=None)
 def _quarry_material(variant_id, material):
@@ -38,9 +50,13 @@ def _image(material, x, y, unit, materials, helpers):
             definition['previewArt'] = {'sheet':mushroom['sheet'], 'frames':[frames[(int(x/unit)+int(y/unit)) % len(frames)]]}
         uri = helpers['art_image'](helpers['material_art'](definition), f'class="sprite-cell" x="{x}" y="{y}" width="{unit}" height="{unit}"')
     else:
-        source = 'data:image/png;base64,' + base64.b64encode((ROOT / row['path']).read_bytes()).decode()
-        uri = f'<image class="sprite-cell" href="{source}" x="{x}" y="{y}" width="{unit}" height="{unit}"/>'
+        uri = ''
+        if 'path' in row:
+            source = 'data:image/png;base64,' + base64.b64encode((ROOT / row['path']).read_bytes()).decode()
+            uri = f'<image class="sprite-cell" href="{source}" x="{x}" y="{y}" width="{unit}" height="{unit}"/>'
     label = html.escape(material.replace('_', ' '))
+    if row.get('candidateArt'):
+        label += ' · ' + html.escape(row['candidateArt'])
     conceal = f' data-hidden-pit data-cell-x="{int(x/unit)}" data-cell-y="{int(y/unit)}" style="visibility:hidden"' if material == 'hidden_pit' else ''
     return (f'<g class="proposal-prop" data-material="{material}"{conceal}><title>{label} · proposed mechanic</title>'
             f'<rect class="geometry-cell" x="{x+1}" y="{y+1}" width="{unit-2}" height="{unit-2}" fill="{row["color"]}"/>'
@@ -66,9 +82,18 @@ def _at_depth(row, data, depth):
     materials = data['previewMaterials']
     eligible = sorted((m for m,r in materials.items() if 0 < r.get('gemTier',0) <= depth),
                       key=lambda m: materials[m]['gemTier'])
-    for i,slot in enumerate(row['slots']):
+    for i,slot in enumerate(row.get('slots', [])):
         if materials[slot['material']].get('gemTier',0) > depth:
             slot['material'] = eligible[i % len(eligible)] if eligible else 'rock'
+    # Encounter seats may swap species by floor (legal rosters change every
+    # two floors); moat-island bank dressing follows the floor's biome.
+    for seat in row.get('encounters',{}).get('seats',[]):
+        by = seat.get('byDepth')
+        if by and str(depth) in by:
+            seat['kind'] = by[str(depth)]
+    for ring in (row.get('layout') or {}).get('bankRings',[]):
+        if isinstance(ring.get('material'), dict):
+            ring['material'] = ring['material'].get(str(depth), next(iter(ring['material'].values())))
     return row
 
 
@@ -178,7 +203,7 @@ def _spring_card(row,data,helpers):
     mix=collections.Counter(s['material'] for s in _spring_slots(row))
     counts=', '.join(f'{n} {m.replace("_"," ")}' for m,n in mix.items())
     layout=row['layout']
-    detail_rows=[('Source region',row['source']),('Depth','Cave levels 1 and 2.'),
+    detail_rows=[('Source region',row['source']),('Depth',_floors_note(row.get('depths',[2,3]))+'.'),
         ('Pattern','Pool radius: 3 cells. Mushroom ring: 5 cells. Rock ring: 8 cells.'),
         ('POI / rewards',row['poi']),('Connection',row['connection']),('Monsters',row['monsters']),
         ('Hidden encounters',row['encounters']['activation']),
@@ -193,6 +218,91 @@ def _spring_card(row,data,helpers):
         f'<div class="visual"><figure>{_spring_sample(row,data,helpers)}<figcaption>Concentric spring chamber · four open approaches</figcaption></figure>'
         f'<figure class="detail">{_spring_sample(row,data,helpers,True)}<figcaption>Spring, pool and bank close-up<br>1 cell = 7 m</figcaption></figure></div>'
         f'<p>Click dry ground to move the marker and reveal adjacent skeletons. <button type="button" data-reset-spring>Reset hidden skeletons</button></p><p>{html.escape(row["atmosphere"])}</p><dl>{dl}</dl></article>')
+
+
+def _island_sample(row, data, helpers, detail=False):
+    """One moat-island study: focal chest on the island, stepping-stone
+    crossings, bank props in rings outside the moat."""
+    layout = row['layout']
+    water = layout['moatTerrain'] == 'WATER'
+    side, unit = (13 if detail else layout['extentCells'][0]), 10
+    centre = side / 2
+    c = centre * unit
+    depth = row.get('previewDepth', row.get('depths', [1])[0])
+    prefix = f'island-{row["id"]}-d{depth}-' + ('detail' if detail else 'wide')
+    r_island = layout['islandRadiusCells'] * unit
+    r_moat = (layout['islandRadiusCells'] + layout['moatWidthCells']) * unit
+    parts = [f'<svg role="img" aria-label="{html.escape(row["name"])}: focal chest on an island ringed by {"water" if water else "lava"}" viewBox="0 0 {side*unit} {side*unit}">',
+             helpers['ground_pattern']('CAVE_FLOOR', prefix, unit),
+             helpers['ground_pattern'](layout['moatTerrain'], prefix + '-moat', unit),
+             f'<rect width="100%" height="100%" fill="url(#{prefix})"/>', '<g class="background">']
+    stroke = '#669a9d' if water else '#c96b3a'
+    moat_label = 'Impassable water moat' if water else 'Live lava moat (T.CAVE_LAVA): standing in it burns'
+    parts.append(f'<path d="M {c-r_moat:g} {c:g} a {r_moat:g} {r_moat:g} 0 1 0 {2*r_moat:g} 0 a {r_moat:g} {r_moat:g} 0 1 0 {-2*r_moat:g} 0 '
+                 f'M {c-r_island:g} {c:g} a {r_island:g} {r_island:g} 0 1 1 {2*r_island:g} 0 a {r_island:g} {r_island:g} 0 1 1 {-2*r_island:g} 0" '
+                 f'fill="url(#{prefix}-moat)" fill-rule="evenodd" stroke="{stroke}" stroke-width="1"><title>{moat_label}</title></path>')
+    parts.append(f'<circle cx="{c:g}" cy="{c:g}" r="{r_island:g}" fill="#77786b" stroke="#a5a78f" stroke-width=".8"><title>Island of solid ground: the focal point sits here</title></circle>')
+    stone_title = 'Stepping stone - the only safe crossing' if water else 'Basalt stepping stone - lava burns a cell off it'
+    inner, outer = layout['islandRadiusCells'], layout['islandRadiusCells'] + layout['moatWidthCells']
+    for du, dv in layout['crossings']:
+        at = inner + 0.7
+        while at < outer - 0.2:
+            x, y = c + du * at * unit, c + dv * at * unit
+            parts.append(f'<rect class="stepping-stone" x="{x-3.6:g}" y="{y-3.6:g}" width="7.2" height="7.2" rx="2.4" fill="#8e8770" stroke="#a5a78f" stroke-width=".7"><title>{stone_title}</title></rect>')
+            at += 1.2
+    for ring in layout.get('bankRings', []):
+        radius, band = ring['radiusCells'], ring.get('bandHalfWidthCells', 0.5)
+        bound = math.ceil(radius + band)
+        for dy in range(-bound, bound + 1):
+            for dx in range(-bound, bound + 1):
+                if abs(dx) <= 1 or abs(dy) <= 1:
+                    continue  # keep every cardinal lane, crossings included
+                if abs(math.hypot(dx, dy) - radius) > band:
+                    continue
+                x, y = (centre + dx) * unit, (centre + dy) * unit
+                if 0 <= x < side * unit and 0 <= y < side * unit:
+                    parts.append(_image(ring['material'], x, y, unit, data['previewMaterials'], helpers))
+    parts.append('</g><g class="poi-layer">')
+    parts.append(helpers['art_image']({'sheet': 'chest', 'frames': [0]}, f'class="sprite-cell" x="{c-5:g}" y="{c-5:g}" width="10" height="10"'))
+    parts.append(f'<rect class="geometry-cell" x="{c-3:g}" y="{c-3:g}" width="6" height="6" fill="#e6c779"><title>{html.escape(layout.get("focusNote", "Focal chest on the island"))}</title></rect>')
+    parts.append('</g>')
+    for seat in row.get('encounters', {}).get('seats', []):
+        x, y = (centre + seat['at'][0] + 0.5) * unit, (centre + seat['at'][1] + 0.5) * unit
+        if 0 <= x < side * unit and 0 <= y < side * unit:
+            parts.append(helpers['creature_at'](seat['kind'], x, y, unit, html.escape(row.get('monsters', 'Proposed encounter seat'))))
+    parts.append(f'<path d="M 6 {side*unit-6} h 50" stroke="#e5ecdf"/><text x="6" y="{side*unit-10}" fill="#e5ecdf" font-size="5">35 m · 5 cells</text></svg>')
+    return ''.join(parts)
+
+
+def _island_card(row, data, helpers):
+    layout = row['layout']
+    water = layout['moatTerrain'] == 'WATER'
+    adjusted = [(depth, _at_depth(row, data, depth)) for depth in row.get('depths', [1])]
+    views = [(depth, _island_sample(arow, data, helpers)) for depth, arow in adjusted]
+    detail = _island_sample(_at_depth(row, data, row['depths'][0]), data, helpers, True)
+    figures = ''.join(f'<figure>{svg}<figcaption>Floor {depth} · {FLOOR_NAMES.get(depth, "")} · {_floors_bank(arow)}</figcaption></figure>' for (depth, arow), svg in zip(adjusted, views))
+    figures += f'<figure class="detail">{detail}<figcaption>Island close-up<br>1 cell = 7 m</figcaption></figure>'
+    detail_rows = [('Source region', row['source']), ('Depth', row.get('depthNote', _floors_note(row.get('depths', [1])) + '.')),
+        ('Pattern', f'Island radius {layout["islandRadiusCells"]:g} cells; moat width {layout["moatWidthCells"]:g} cells; {len(layout["crossings"])} stepping-stone crossings; bank props on a ring.'),
+        ('POI / rewards', row['poi']), ('Connection', row['connection']), ('Monsters', row['monsters']),
+        ('Water' if water else 'Lava', row.get('water', 'Impassable moat.')),
+        ('Encounter population', row['encounters'].get('countPolicy', 'Finite seats per region and depth.')),
+        ('Lighting', 'Cave torches and player light.'),
+        ('Art', 'Live water/lava terrain tiles; game chest and bank props; schematic stones and islands.')]
+    dl = ''.join(f'<dt>{html.escape(k)}</dt><dd>{html.escape(v)}</dd>' for k, v in detail_rows)
+    status = 'in game' if row.get('status') == 'runtime' else 'draft'
+    return (f'<article id="underground-{row["id"]}"><header><small>Underground nexus · {status} · floors {_floors_label(row.get("depths", [1]))} · moat island</small><h2>{html.escape(row["name"])}</h2></header>'
+        f'<p class="mix"><b>Moat → stepping stones → island → focal chest</b><br>The chest only crosses by stone; the bank guard never leaves dry land.</p>'
+        f'<div class="visual underground-depths" style="grid-template-columns:1fr 1fr">{figures}</div>'
+        f'<p>{html.escape(row["atmosphere"])}</p><dl>{dl}</dl></article>')
+
+
+def _floors_bank(row):
+    ring = (row.get('layout') or {}).get('bankRings', [{}])[0]
+    material = ring.get('material', 'rock')
+    if isinstance(material, dict):
+        material = next(iter(material.values()))
+    return f'bank dressed with {material.replace("_", " ")}'
 
 
 def _sample(row, data, helpers, detail=False):
@@ -383,7 +493,7 @@ def _maze_card(row, data, helpers):
         seat = min((p for p in available if p not in seats),key=lambda p:(abs(p[0]-target[0])+abs(p[1]-target[1]),p[1],p[0]))
         seats.append(seat)
     views = []
-    for depth, reward in [(1,'shrine'),(2,'treasure')]:
+    for depth, reward in zip(row.get('depths',[2,3]), ('shrine','treasure')):
         prefix = f'underground-dungeon-maze-ground-{depth}'
         svg = (f'<svg role="img" aria-label="Dungeon Maze floor {depth}: mineable cave walls, monsters and {reward}" viewBox="0 0 {width*10} {height*10}">'
                + helpers['ground_pattern']('CAVE_FLOOR',prefix,10)
@@ -403,7 +513,7 @@ def _maze_card(row, data, helpers):
         svg += f'<rect class="geometry-cell" x="{fx*10+1}" y="{fy*10+1}" width="8" height="8" fill="#e6c779"/></g></svg>'
         views.append('<figure>'+svg+f'<figcaption>Floor {depth} · '+('shrine example' if reward=='shrine' else 'T3 treasure example')+'</figcaption></figure>')
     settings = 'types=configured&gx=34&gy=33&count=429&structure=100&distortion=0&variation=34&grouping=100&a=tree&b=none&c=none&d=none&e=none&points=false&guides=false&selection=density&inverted=false&clusterSize=true&decimation=0&mazeStep=3&loops=77&seed=2718&layouts=maze_braid&focus=maze_braid'
-    details = [('Source region',row['source']),('Depth','Cave levels 1 and 2.'),
+    details = [('Source region',row['source']),('Depth',_floors_note(row.get('depths',[2,3]))+'.'),
                ('Pattern',f'34 × 33 cells · spacing 3 · loops 77% · seed 2718. {len(rocks)} mineable wall cells; 3 × 3 reward clearing. Mining opens enclosed spaces.'),
                ('POI / rewards',row['poi']),('Connection',row['connection']),('Monsters',row['monsters'])]
     dl = ''.join(f'<dt>{html.escape(k)}</dt><dd>{html.escape(v)}</dd>' for k,v in details)
@@ -437,69 +547,126 @@ def _quicksand_card(helpers, out):
             '<a href="quicksand-cavern.json">Sample data</a></p></article>')
 
 
+def _generic_card(row, data, helpers):
+    """The motif / rooms study card every nexus and path row shares."""
+    mw,mh = row['motifCells']
+    assert 0 < mw <= 8 and 0 < mh <= 8
+    assert len({tuple(s['at']) for s in row['slots']}) == len(row['slots'])
+    for slot in row['slots']:
+        assert 0 <= slot['at'][0] < mw and 0 <= slot['at'][1] < mh
+        assert slot['material'] in data['previewMaterials']
+    mix = collections.Counter(s['material'] for s in _at_depth(row,data,row.get('depths',[2])[0])['slots'])
+    coverage = len(row['slots']) / (mw*mh) * 100
+    wall_text = f'; {len(_wall_cells(row,25,25))/625*100:.2f}% structural stone-wall footprint in overview' if row.get('walls') and row['kind']=='nexus' else f'; {len(row.get("wallSlots", []))/(mw*mh)*100:.2f}% structural stone-wall footprint' if row.get('walls') else ''
+    mix_text = ', '.join(f'{count} {key.replace("_", " ")}' for key,count in mix.items())
+    status = 'in game' if row.get('status') == 'runtime' else 'draft'
+    details = [('Source region / route',row['source']),('Depth',row.get('depthNote',_floors_note(row.get('depths',[2,3]))+'.')),
+               ('Pattern',row.get('patternNote', f'{mw} × {mh} cells; {mix_text}. Before clipping and clear approaches.')),
+               ('POI / rewards',row['poi']),('Connection',row['connection']),('Monsters',row['monsters']),
+               ('Lighting','Cave torches and player light.'),
+               ('Art',('Existing Stronghold stone wall set; ' if row.get('walls') else '') + 'game sprites in proposed layouts.')]
+    candidates = sorted({data['previewMaterials'][s['material']]['candidateArt']
+                         for s in row['slots'] if data['previewMaterials'][s['material']].get('candidateArt')})
+    if candidates:
+        details.append(('Candidate art', '; '.join(candidates) + '.'))
+    if row.get('walls'):
+        details.append(('Stone walls', 'Connected Stronghold walls with open doors and passages.'))
+    if row.get('encounters'):
+        details.append(('Encounter population',row['encounters'].get('countPolicy','Finite seats per region and depth.')))
+    if row.get('shrineKind'):
+        shrine=helpers['art_registry']()['shrineKinds'][row['shrineKind']]
+        details.append(('Shrine', f'{shrine["name"]} · {shrine.get("boon", shrine.get("lever", "Blessing"))}; daily boon, one shrine per region and depth.'))
+    if row.get('shrineChance'):
+        details.append(('Route shrine chance', 'Draft: 50% per route and depth. Shown here with a shrine.'))
+    if any(slot['material'] == 'hidden_pit' for slot in row['slots']):
+        details.append(('Hidden pit preview', 'Click beside or on a pit to reveal it until reload.'))
+    if row.get('scatterCoverage'):
+        details.append(('Hazard scatter', 'Draft: 10% of free floor for poison vents, stalagmites and holes.'))
+    if row.get('artNote'):
+        details.append(('Art note', row['artNote']))
+    dl=''.join(f'<dt>{html.escape(k)}</dt><dd>{html.escape(v)}</dd>' for k,v in details)
+    views = [(depth,_sample(_at_depth(row,data,depth),data,helpers)) for depth in row.get('depths',[2,3])]
+    overview = views[0][1]
+    depth_views = ''.join(f'<figure>{svg}<figcaption>Floor {depth} · {FLOOR_NAMES.get(depth,"")} · gems capped at tier {depth}</figcaption></figure>' for depth,svg in views)
+    if row.get('layout',{}).get('type') == 'rooms':
+        coverage = overview.count('class="proposal-prop"') / 625 * 100
+        mix_text = ', '.join(f'{overview.count(chr(34)+key+chr(34))} {key.replace(chr(95), chr(32))}' for key in mix)
+    cap='Connected rooms' if row.get('layout',{}).get('type') == 'rooms' else 'Background + nexus arrangement' if row['kind']=='nexus' else 'Representative straight passage · not a live carved route'
+    motif_label = 'generated rooms' if row.get('layout',{}).get('type') == 'rooms' else f'{mw} × {mh} motif'
+    coverage_label = '10% hazard scatter + ' + f'{coverage:.2f}% motif objects' if row.get('scatterCoverage') else f'{coverage:.2f}% object occupancy{wall_text}'
+    floors = _floors_label(row.get('depths',[2,3]))
+    return (f'<article id="underground-{row["id"]}"><header><small>Underground {row["kind"]} · {status} · floors {floors} · {motif_label}</small><h2>{html.escape(row["name"])}</h2></header>{story_panel(row, helpers)}<p class="mix"><b>{cap}: {coverage_label}</b><br>{html.escape(mix_text)}; excludes nexus and encounter seats.</p><div class="visual underground-depths" style="grid-template-columns:1fr 1fr">{depth_views}</div><p>{html.escape(row["atmosphere"])}</p><dl>{dl}</dl></article>')
+
+
+# One line per floor for the floor sections: what the floor's grove set is about.
+FLOOR_BLURBS = {
+    1: 'The town\u2019s bin cellar takes its first authored groves: a drowned cistern, a moss garden, a rat-held cache and a glowworm vault.',
+    2: 'Runtime today: five grove variants beneath park groves, quicksand included.',
+    3: 'Runtime today: all six grove variants, led by the goblin warrens.',
+    4: 'Draft: an echo hollow, a garrisoned vault, a fossil ridge and a petrified grove.',
+    5: 'Draft: the cistern, garden and grotto return from the sewer, plus the echo hollow.',
+    6: 'Draft: the magma atoll and ember sanctum headline the fire floor.',
+    7: 'Draft: the atoll and sanctum return alongside a bone hoard and the obsidian vault.',
+    8: 'Draft: a silk gallery, the bone hoard again, an egg nursery and the ember sanctum.',
+}
+
+
 def underground_section(helpers, out):
     data = json.loads(SOURCE.read_text())
-    cards = {'nexus': [_quicksand_card(helpers, out)], 'path': []}
-    for row in data['previewRows']:
-        if row.get('layout', {}).get('type') == 'maze_braid':
-            cards[row['kind']].append(_maze_card(row,data,helpers))
-            continue
-        if row.get('layout',{}).get('type') == 'concentric_rings':
-            cards[row['kind']].append(_spring_card(row,data,helpers).replace('</header>', '</header>' + story_panel(row, helpers), 1))
-            continue
-        mw,mh = row['motifCells']
-        assert 0 < mw <= 8 and 0 < mh <= 8
-        assert len({tuple(s['at']) for s in row['slots']}) == len(row['slots'])
-        for slot in row['slots']:
-            assert 0 <= slot['at'][0] < mw and 0 <= slot['at'][1] < mh
-            assert slot['material'] in data['previewMaterials']
-        mix = collections.Counter(s['material'] for s in _at_depth(row,data,row.get('depths',[1])[0])['slots'])
-        coverage = len(row['slots']) / (mw*mh) * 100
-        wall_text = f'; {len(_wall_cells(row,25,25))/625*100:.2f}% structural stone-wall footprint in overview' if row.get('walls') and row['kind']=='nexus' else f'; {len(row.get("wallSlots", []))/(mw*mh)*100:.2f}% structural stone-wall footprint' if row.get('walls') else ''
-        mix_text = ', '.join(f'{count} {key.replace("_", " ")}' for key,count in mix.items())
-        details = [('Source region / route',row['source']),('Depth',row.get('depthNote','Cave levels 1 and 2.')),
-                   ('Pattern',f'{mw} × {mh} cells; {mix_text}. Before clipping and clear approaches.'),
-                   ('POI / rewards',row['poi']),('Connection',row['connection']),('Monsters',row['monsters']),
-                   ('Lighting','Cave torches and player light.'),
-                   ('Art',('Existing Stronghold stone wall set; ' if row.get('walls') else '') + 'game sprites in proposed layouts.')]
-        if row.get('walls'):
-            details.append(('Stone walls', 'Connected Stronghold walls with open doors and passages.'))
-        if row.get('encounters'):
-            details.append(('Encounter population',row['encounters']['countPolicy']))
-        if row.get('shrineKind'):
-            shrine=helpers['art_registry']()['shrineKinds'][row['shrineKind']]
-            details.append(('Shrine', f'{shrine["name"]} · {shrine.get("boon", shrine.get("lever", "Blessing"))}; daily boon, one shrine per region and depth.'))
-        if row.get('shrineChance'):
-            details.append(('Route shrine chance', 'Draft: 50% per route and depth. Shown here with a shrine.'))
-        if any(slot['material'] == 'hidden_pit' for slot in row['slots']):
-            details.append(('Hidden pit preview', 'Click beside or on a pit to reveal it until reload.'))
-        if row.get('scatterCoverage'):
-            details.append(('Hazard scatter', 'Draft: 10% of free floor for poison vents, stalagmites and holes.'))
-        if row.get('artNote'):
-            details.append(('Art note', row['artNote']))
-        if row.get('layout',{}).get('type') == 'rooms':
-            details[2] = ('Pattern','25 rooms in 25 × 25 cells; interiors 3 × 3 to 5 × 5. Open doorways, corner barrels and an inner Ember shrine.')
-        dl=''.join(f'<dt>{html.escape(k)}</dt><dd>{html.escape(v)}</dd>' for k,v in details)
-        views = [(depth,_sample(_at_depth(row,data,depth),data,helpers)) for depth in row.get('depths',[1,2])]
-        overview = views[0][1]
-        depth_views = ''.join(f'<figure>{svg}<figcaption>Cave level {depth} · gems capped at tier {depth}</figcaption></figure>' for depth,svg in views)
-        if row.get('layout',{}).get('type') == 'rooms':
-            coverage = overview.count('class="proposal-prop"') / 625 * 100
-            mix_text = ', '.join(f'{overview.count(chr(34)+key+chr(34))} {key.replace(chr(95), chr(32))}' for key in mix)
-        cap='Connected rooms · 3×3 to 5×5 interiors' if row.get('layout',{}).get('type') == 'rooms' else 'Background + nexus arrangement' if row['kind']=='nexus' else 'Representative straight passage · not a live carved route'
-        close='Nexus close-up' if row['kind']=='nexus' else 'Passage close-up'
-        motif_label = 'generated rooms' if row.get('layout',{}).get('type') == 'rooms' else f'{mw} × {mh} motif'
-        coverage_label = '10% hazard scatter + ' + f'{coverage:.2f}% motif objects' if row.get('scatterCoverage') else f'{coverage:.2f}% object occupancy{wall_text}'
-        cards[row['kind']].append(f'<article id="underground-{row["id"]}"><header><small>Underground {row["kind"]} · draft · {motif_label}</small><h2>{html.escape(row["name"])}</h2></header>{story_panel(row, helpers)}<p class="mix"><b>{coverage_label}</b><br>{html.escape(mix_text)}; excludes nexus and encounter seats.</p><div class="visual underground-depths" style="grid-template-columns:1fr 1fr">{depth_views}</div><p>{html.escape(row["atmosphere"])}</p><dl>{dl}</dl></article>')
+    rows = {row['id']: row for row in data['previewRows']}
+    def card_for(vid):
+        if vid == 'quicksand_cavern':
+            return _quicksand_card(helpers, out)
+        row = rows[vid]
+        kind = (row.get('layout') or {}).get('type')
+        if kind == 'maze_braid':
+            return _maze_card(row,data,helpers)
+        if kind == 'concentric_rings':
+            return _spring_card(row,data,helpers).replace('</header>', '</header>' + story_panel(row, helpers), 1)
+        if kind == 'moat_island':
+            return _island_card(row,data,helpers)
+        return _generic_card(row,data,helpers)
+    def name_of(vid):
+        return rows[vid]['name'] if vid in rows else 'Quicksand Cavern'
+    # Per-floor sections from the level program; a variant's full card lives on
+    # its first floor, later floors link back to it.
+    program = data.get('levelProgram', {'levels': []})
+    placed, sections, matrix_rows = {}, [], []
+    for level in program['levels']:
+        floor, vids = level['floor'], level['variants']
+        cards = ''.join(card_for(v) for v in vids if v not in placed and v != 'quicksand_cavern')
+        if floor == 2 and 'quicksand_cavern' in vids:
+            cards += _quicksand_card(helpers, out)
+        reused = {v: placed[v] for v in vids if v in placed}
+        for v in vids:
+            placed.setdefault(v, floor)
+        chips = ''
+        if reused:
+            chips = ('<p class="mix"><b>Reused from earlier floors:</b> '
+                     + ', '.join(f'<a href="#underground-{v}">{html.escape(name_of(v))}</a> (card on floor {f})'
+                                 for v, f in reused.items()) + '.</p>')
+        matrix_rows.append(f'<tr><td>Floor {floor} · {level["name"]}</td><td>' + ' · '.join(
+            f'<a href="#underground-{v}">{html.escape(name_of(v))}</a>' for v in vids)
+            + f'</td><td>{level["status"]}</td></tr>')
+        sections.append(f'<section id="underground-floor-{floor}"><h2>Floor {floor} · {level["name"]} groves</h2>'
+                        f'<p>{FLOOR_BLURBS.get(floor, "")}</p>{chips}<div class="cards">{cards}</div></section>')
+    nav = ''.join(f'<a href="#underground-floor-{l["floor"]}">F{l["floor"]} {l["name"]}</a>' for l in program['levels'])
+    matrix = ('<table class="floor-menus"><thead><tr><th>Floor</th><th>Grove variants (at least four per floor)</th><th>Status</th></tr></thead><tbody>'
+              + ''.join(matrix_rows) + '</tbody></table>')
+    # Path rows keep their own section; they are route themes, not groves.
+    path_cards = ''.join(card_for(row['id']) for row in data['previewRows'] if row['kind'] == 'path')
     # Keep the reviewed design alongside the preview without enabling it in runtime data.
     (out/'underground-zone-variants.draft.json').write_text(json.dumps(data,indent=2)+'\n')
     (out/'underground-art-license.txt').write_text((ROOT/'docs/art/underground-proposals/LICENSE.txt').read_text())
-    return ('<section id="underground" data-view-panel hidden><h2>Cave variants and studies</h2>'
-            '<nav class="page-nav" aria-label="Underground categories"><a href="#underground-nexus">Nexus and floor scatter</a><a href="#underground-paths">Paths and small roads</a></nav>'
-            '<p>Quicksand uses the current cave generator. Other cards show saved layout studies; in-game variants are labelled.</p>'
+    return ('<section id="underground" data-view-panel hidden><h2>Cave groves and studies</h2>'
+            '<nav class="page-nav" aria-label="Underground floors">' + nav + '<a href="#underground-paths">Paths and small roads</a></nav>'
+            f'<p>{html.escape(program.get("policy", ""))}</p>'
+            + matrix +
+            '<p>Quicksand uses the current cave generator. Other cards show saved layout studies; in-game variants are labelled. '
+            'Every floor number is a game depth (1 Sewer \u2026 8 Dragon roost).</p>'
             '<p><a href="underground-zone-variants.draft.json">Study data and rules</a> · <a href="underground-art-license.txt">Candidate art license</a></p>'
-            '<section id="underground-nexus"><h2>Underground nexus</h2><div class="cards">'+''.join(cards['nexus'])+'</div></section>'
-            '<section id="underground-paths"><h2>Underground paths and small roads</h2><div class="cards">'+''.join(cards['path'])+'</div></section></section>' + _ambush_script() + _pit_script())
+            + ''.join(sections)
+            + '<section id="underground-paths"><h2>Underground paths and small roads</h2><div class="cards">' + path_cards + '</div></section></section>' + _ambush_script() + _pit_script())
 
 
 def _ambush_script():
