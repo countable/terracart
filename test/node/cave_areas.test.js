@@ -233,9 +233,9 @@
     }
   });
 
-  test('cave areas: generation is stable on reload and limited to shallow levels', () => {
+  test('cave areas: generation is stable on reload and empty outside the world', () => {
     assert.eq(snapshot(CaveAreas.plan(fixture())), snapshot(CaveAreas.plan(fixture())));
-    for (const depth of [0, 1, 4, 10]) {
+    for (const depth of [0, 10]) {
       const f = fixture(); f.depth = depth;
       const p = CaveAreas.plan(f);
       assert.eq(p.areas.length, 0); assert.eq(p.reserved.size, 0); assert.eq(p.terrain.size, 0);

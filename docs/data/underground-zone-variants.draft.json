@@ -1,6 +1,6 @@
 {
   "status": "nexus_runtime_with_route_design_reference",
-  "revision": 17,
+  "revision": 18,
   "date": "2026-11-01",
   "purpose": "Project grove nexus variants and quarry Mine Tunnels from their matching surface regions. Apply path themes to all paths on cave floors 2 and 3; medium/large roads and buildings remain cave walls; sm_road receives underground street variants. Revision 16 adds the four-per-floor grove program (levelProgram): draft variants for floors 1 and 4-8, reusing variants across two or three floors; runtime floors 2-3 keep their implemented variants unchanged.",
   "scope": {
@@ -32,7 +32,7 @@
         7,
         8
       ],
-      "activation": "draft only; separate implementation after design review",
+      "activation": "implemented (cave_areas.js GROVE_MENUS)",
       "reuse": "A variant may serve two or three floors; ember_sanctum spans floors 6-8.",
       "runtime": "Floors 2-3 keep their runtime weights and variants exactly as implemented."
     }
@@ -772,7 +772,7 @@
     }
   ],
   "openDecisions": [
-    "The four-per-floor grove program is a draft: floors 1 and 4-8 need runtime cave-area profiles, weights and encounter seats before activation; floors 2-3 stay exactly as implemented.",
+    "Implemented. Remaining art debts: ember eggs read as clay pots, silk as stakes and creeping vines, fossils as mineable rock; the gong, cage and skeletal-hand props and the chest-mimic signatures stay drafted.",
     "Point-only POI coverage needs a reviewed influence radius before activation."
   ],
   "previewMaterials": {
@@ -2145,7 +2145,8 @@
           "chance": 1.0,
           "note": "The room garrison already authored, scaled to fitted rooms."
         }
-      ]
+      ],
+      "status": "runtime"
     },
     {
       "id": "mushroom_cavern",
@@ -3270,7 +3271,7 @@
         1,
         5
       ],
-      "status": "draft",
+      "status": "runtime",
       "layout": {
         "type": "moat_island",
         "extentCells": [
@@ -3384,7 +3385,7 @@
         6,
         7
       ],
-      "status": "draft",
+      "status": "runtime",
       "layout": {
         "type": "moat_island",
         "extentCells": [
@@ -3467,7 +3468,7 @@
         1,
         5
       ],
-      "status": "draft",
+      "status": "runtime",
       "shrineKind": "moss_cairn",
       "source": "Beneath grove nexuses only; exclude surface seep and quarry regions. shaded and damp affinities.",
       "atmosphere": "The park above, drowned in green. Moss eats the statues; everything is soft and quiet.",
@@ -3856,7 +3857,7 @@
       "depths": [
         1
       ],
-      "status": "draft",
+      "status": "runtime",
       "centralReserveCells": 1,
       "source": "Beneath grove nexuses only; exclude surface seep and quarry regions. built-edge affinities.",
       "atmosphere": "Somebody’s hidey-hole under the park, inherited by teeth.",
@@ -4142,7 +4143,7 @@
         1,
         5
       ],
-      "status": "draft",
+      "status": "runtime",
       "shrineKind": "lantern_saint",
       "source": "Beneath grove nexuses only; exclude surface seep and quarry regions. dark and rocky affinities.",
       "atmosphere": "Threads of cold light strung across a black vault. The worms glow; everything else waits.",
@@ -4584,7 +4585,7 @@
         4,
         5
       ],
-      "status": "draft",
+      "status": "runtime",
       "shrineKind": "bone_watcher",
       "source": "Beneath grove nexuses only; exclude surface seep and quarry regions. stony-ground affinities.",
       "atmosphere": "A vault that answers every footstep. Stone sleepers lean in ring-straight rows.",
@@ -5128,7 +5129,7 @@
         4,
         7
       ],
-      "status": "draft",
+      "status": "runtime",
       "layout": {
         "type": "rooms",
         "extentCells": [
@@ -5290,7 +5291,7 @@
       "depths": [
         4
       ],
-      "status": "draft",
+      "status": "runtime",
       "maxGemTier": "depth",
       "source": "Beneath grove nexuses only; exclude surface seep and quarry regions. exposed rock affinities.",
       "atmosphere": "A spine of ancient bone turned to strata. Everything here was alive once, in rows.",
@@ -6015,7 +6016,7 @@
       "depths": [
         4
       ],
-      "status": "draft",
+      "status": "runtime",
       "shrineKind": "toad_idol",
       "source": "Beneath grove nexuses only; exclude surface seep and quarry regions. wooded affinities.",
       "atmosphere": "The grove above, remembered in stone below. The idol is the only soft thing left.",
@@ -6609,7 +6610,7 @@
         7,
         8
       ],
-      "status": "draft",
+      "status": "runtime",
       "shrineKind": "ember_altar",
       "source": "Beneath grove nexuses only; exclude surface seep and quarry regions. burned affinities.",
       "atmosphere": "A shrine the fire keeps for itself. The vents exhale on a clock; the altar never cools.",
@@ -6827,7 +6828,7 @@
       "depths": [
         6
       ],
-      "status": "draft",
+      "status": "runtime",
       "maxGemTier": "depth",
       "source": "Beneath grove nexuses only; exclude surface seep and quarry regions. burned affinities.",
       "atmosphere": "Blades of black glass where a garden used to be. Rubies read like embers in the panes.",
@@ -7316,7 +7317,7 @@
       "depths": [
         6
       ],
-      "status": "draft",
+      "status": "runtime",
       "source": "Beneath grove nexuses only; exclude surface seep and quarry regions. burned affinities.",
       "atmosphere": "A hollow kept oven-warm. The eggs tick softly when you come near.",
       "poi": "A clutch of ember eggs (candidate art) over one heat-kept cache; the brood counts as the guard.",
@@ -7481,7 +7482,7 @@
         7,
         8
       ],
-      "status": "draft",
+      "status": "runtime",
       "source": "Beneath grove nexuses only; exclude surface seep and quarry regions. built-edge and burned affinities.",
       "atmosphere": "Centuries of leftovers, picked clean and stacked. Something still checks the pile.",
       "poi": "A dragon’s midden: the surviving cache under the bone fall, coin-flecked through it.",
@@ -7837,7 +7838,7 @@
       "depths": [
         8
       ],
-      "status": "draft",
+      "status": "runtime",
       "source": "Beneath grove nexuses only; exclude surface seep and quarry regions. dark affinities.",
       "atmosphere": "Old silk sheets the walls. The dust never lands; it hangs.",
       "poi": "A cocooned cache strung in the silk; the web slows every step into strike range.",
@@ -8883,7 +8884,7 @@
       "depths": [
         8
       ],
-      "status": "draft",
+      "status": "runtime",
       "source": "Beneath grove nexuses only; exclude surface seep and quarry regions. burned and built-edge affinities.",
       "atmosphere": "Sand hot as a griddle, eggs the size of pumpkins. Do not wake what keeps them.",
       "poi": "A roost nursery: eggs too big to steal, and one overlooked cache in the warm sand.",
@@ -9222,25 +9223,47 @@
   "nexusRuntime": {
     "depths": [
       1,
-      2
+      2,
+      3,
+      4,
+      5,
+      6,
+      7,
+      8
     ],
     "owner": "src/cave_areas.js",
     "implemented": [
-      "spring_cave",
-      "goblin_warrens",
-      "mushroom_cavern",
+      "bone_hoard",
+      "dungeon_maze",
+      "echo_hollow",
+      "egg_nursery",
+      "ember_sanctum",
+      "flooded_cistern",
+      "fossil_ridge",
       "gemstone_cavern",
+      "glowworm_grotto",
+      "goblin_warrens",
+      "magma_atoll",
       "mine_tunnels",
-      "dungeon_maze"
+      "moss_garden",
+      "mushroom_cavern",
+      "obsidian_garden",
+      "obsidian_vault",
+      "petrified_grove",
+      "rat_cache_den",
+      "salamander_nest",
+      "spring_cave",
+      "web_gallery"
     ],
     "geometry": "Canonical source anchors and shared surface spawn gates. Layouts fit a radius-8.4-cell region; clipped tile-edge layouts fall back to ordinary caves. Floor 3 chambers need existing floor access; Mine Tunnels only dress existing floor, including eligible projected small streets. Dungeon Maze instead clips a repeating 34x33 wall mask to full eligible coverage, opens boundary lanes and connects floor components; no size or tile-edge rejection.",
     "encounters": "Finite region/depth-qualified seats; caught IDs remain defeated. Spring skeletons use shared hidden discovery at Euclidean distance <= one cell. Ambient enemy depth rules are unchanged.",
     "budgets": "Runtime BUDGETS owns counts scaled to usable ground or fitted rooms. Warrens consume the shared seeded 12–19-container shallow-floor allocation: floor 2 ambient barrels use its remainder; floor 3 has authored stores only. Shrine visits grant existing boons without a treasure gift. Existing mirrored caches retain their identity and tier. Dungeon Maze has one Ember shrine or T3 chest at its owned focus and cell-addressed floor-roster encounters.",
     "gemCatalog": "Use current GEM_DEPOSITS tiers: Quartz 1, Topaz 2, Amethyst 3. Floor 2 quartz; floor 3 quartz/topaz. Deposits pay the pictured item using the existing mining ledger.",
-    "limitations": "Unsafe or undersized layouts decline without partial changes. Preview is a generated placement schematic, not an in-game screenshot."
+    "limitations": "Unsafe or undersized layouts decline without partial changes. Preview is a generated placement schematic, not an in-game screenshot.",
+    "signatures": "Every grove and road variant rolls CaveAreas.SIGNATURES on its own seed stream: often one kind, chance-gated per region or route. Kinds follow roster cave windows except the noted named-zone exceptions; the chest-mimic signatures stay drafted (surface chests only, interactables.chestHidesMimic)."
   },
   "levelProgram": {
-    "status": "Floors 2-3 list the runtime variants unchanged. Floors 1 and 4-8 are drafts pending review.",
+    "status": "Runtime (cave_areas.js): every floor selects its menu. Quarry anchors map to Mine Tunnels wherever a profile exists; deep floors draw no shared container budget.",
     "policy": "Every underground floor offers at least four grove nexus variants beneath park groves. Each variant pairs a challenge - a guarded, caged or hard-to-reach focus - or a novel environment with its bonus: the surviving mirror cache, a daily shrine, or a rich seam. Variants repeat across two or three neighbouring floors where the biome allows. Every grove and road variant also names a signature enemy set - often one kind - rolled per region or route with a chance, so it need not always spawn.",
     "levels": [
       {
@@ -9252,7 +9275,7 @@
           "rat_cache_den",
           "glowworm_grotto"
         ],
-        "status": "draft"
+        "status": "runtime"
       },
       {
         "floor": 2,
@@ -9288,7 +9311,7 @@
           "fossil_ridge",
           "petrified_grove"
         ],
-        "status": "draft"
+        "status": "runtime"
       },
       {
         "floor": 5,
@@ -9299,7 +9322,7 @@
           "glowworm_grotto",
           "echo_hollow"
         ],
-        "status": "draft"
+        "status": "runtime"
       },
       {
         "floor": 6,
@@ -9310,7 +9333,7 @@
           "obsidian_garden",
           "salamander_nest"
         ],
-        "status": "draft"
+        "status": "runtime"
       },
       {
         "floor": 7,
@@ -9321,7 +9344,7 @@
           "bone_hoard",
           "ember_sanctum"
         ],
-        "status": "draft"
+        "status": "runtime"
       },
       {
         "floor": 8,
@@ -9332,7 +9355,7 @@
           "egg_nursery",
           "ember_sanctum"
         ],
-        "status": "draft"
+        "status": "runtime"
       }
     ],
     "quarry": "Quarry anchors keep Mine Tunnels; extend that mapping with the program when the drafts activate.",

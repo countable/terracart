@@ -9324,10 +9324,12 @@
     return floorProfile(depth).barrels || { min: CAVE_BARREL_MIN, span: CAVE_BARREL_SPAN };
   }
   // Shallow floors share one finite container allocation. Sewer and natural
-  // caves fill the remainder ordinarily; the warren spends it on authored stores.
+  // caves fill the remainder ordinarily; the warren spends it on authored
+  // stores. The grove program's deeper floors (4-8) dress through their
+  // variants only, never the shared container allocation.
   function caveContainerBudget(tx, ty, depth) {
     const profile = floorProfile(depth);
-    if (depth < 1 || (!profile.caveAreas && !profile.barrels)) return 0;
+    if (depth < 1 || depth > 3 || (!profile.caveAreas && !profile.barrels)) return 0;
     const { min, span } = caveBarrelBudget(depth);
     const rng = makeRng(tileStreamSeed(tx, ty, 0x7FEB352D, depth));
     return min + Math.floor(rng() * span);
@@ -9680,16 +9682,28 @@
   //   flintRockP   share of ordinary cave rocks with a guaranteed flint seam
   //   streetGems   gemstone region and ordinary deposit probabilities
   const caveAreaProfile = (weights, carveWalls, goblins, spearGoblins) => Object.freeze({
-    weights: Object.freeze(['spring_cave', 'goblin_warrens', 'mushroom_cavern', 'gemstone_cavern', 'dungeon_maze', 'quicksand_cavern']
-      .map((id, i) => Object.freeze({ id, weight: weights[i] }))),
+    weights: Object.freeze(Array.isArray(weights)
+      ? ['spring_cave', 'goblin_warrens', 'mushroom_cavern', 'gemstone_cavern', 'dungeon_maze', 'quicksand_cavern']
+        .map((id, i) => Object.freeze({ id, weight: weights[i] }))
+      : Object.entries(weights).map(([id, weight]) => Object.freeze({ id, weight }))),
     carveWalls, goblins, spearGoblins
   });
+  // The four-per-floor grove program (cave_areas.js owns the shapes): floors
+  // 1 and 4-8 pick from their own menus, reusing variants across two or three
+  // floors; quarry anchors still map to Mine Tunnels wherever a profile exists.
+  const GROVE_MENUS = Object.freeze({
+    1: Object.freeze({ flooded_cistern: 30, moss_garden: 30, rat_cache_den: 20, glowworm_grotto: 20 }),
+    4: Object.freeze({ echo_hollow: 30, obsidian_vault: 20, fossil_ridge: 25, petrified_grove: 25 }),
+    5: Object.freeze({ flooded_cistern: 25, moss_garden: 25, glowworm_grotto: 25, echo_hollow: 25 }),
+    6: Object.freeze({ magma_atoll: 30, ember_sanctum: 25, obsidian_garden: 25, salamander_nest: 20 }),
+    7: Object.freeze({ magma_atoll: 25, obsidian_vault: 25, bone_hoard: 30, ember_sanctum: 20 }),
+    8: Object.freeze({ web_gallery: 30, bone_hoard: 25, egg_nursery: 25, ember_sanctum: 20 }) });
   const FLOOR_PROFILES = Object.freeze([
     // Sewer channels are a visual treatment of open routes, not new hazards:
     // still walkable, but nothing is born or strewn in the water. Barrels
     // heap up here (the sewer is the town's bin cellar).
     Object.freeze({ depth: 1, trapDensityMul: 1, arrivalStory: 'cave', entryKey: null, vents: Object.freeze(['confusion']),
-      pressureTraps: false, caveAreas: null, streetGems: null, biome: 'sewer', terrain: 'city', streetMirror: true,
+      pressureTraps: false, caveAreas: caveAreaProfile(GROVE_MENUS[1], false), streetGems: null, biome: 'sewer', terrain: 'city', streetMirror: true,
       channelWater: true, fishPool: 'sewer', barrels: Object.freeze({ min: 30, span: 12 }),
       fallLandings: false, chestSource: 'above', quarryProvenance: false, lava: false }),
     // The original natural cave geology reads the surface directly, so adding
@@ -9706,20 +9720,20 @@
       fallLandings: true, chestSource: 'above', quarryProvenance: false, lava: false }),
     Object.freeze({ depth: 4, arrivalStory: 'dungeon_stone', entryKey: null,
       vents: Object.freeze(['poison', 'fire', 'paralysis']),
-      pressureTraps: false, caveAreas: null, streetGems: null, biome: 'deep_stone', terrain: 'clearings', roadTunnelBufferCells: 1, streetMirror: false,
+      pressureTraps: false, caveAreas: caveAreaProfile(GROVE_MENUS[4], true), streetGems: null, biome: 'deep_stone', terrain: 'clearings', roadTunnelBufferCells: 1, streetMirror: false,
       fallLandings: false, chestSource: 'above', quarryProvenance: false, lava: false }),
     Object.freeze({ depth: 5, arrivalStory: 'dungeon_underdark', entryKey: 'level4Key',
       vents: Object.freeze(['poison', 'fire', 'paralysis']),
-      pressureTraps: false, caveAreas: null, streetGems: null, biome: 'underdark', terrain: 'open', streetMirror: false, grass: true,
+      pressureTraps: false, caveAreas: caveAreaProfile(GROVE_MENUS[5], false), streetGems: null, biome: 'underdark', terrain: 'open', streetMirror: false, grass: true,
       fallLandings: false, chestSource: 'surface', quarryProvenance: false, lava: false }),
     Object.freeze({ depth: 6, arrivalStory: 'dungeon_lava', entryKey: 'level4Key',
       vents: Object.freeze(['poison', 'fire', 'paralysis']),
-      pressureTraps: false, caveAreas: null, streetGems: null, biome: 'lava', terrain: 'surfacePaint', streetMirror: false,
+      pressureTraps: false, caveAreas: caveAreaProfile(GROVE_MENUS[6], false), streetGems: null, biome: 'lava', terrain: 'surfacePaint', streetMirror: false,
       fallLandings: false, chestSource: 'above', quarryProvenance: false, lava: true }),
     ...[7, 8].map(depth => Object.freeze({ depth, arrivalStory: 'dungeon_dragon', entryKey: 'level4Key',
       enemyHabitat: depth === 7 ? 'dragon' : null,
       vents: Object.freeze(['poison', 'fire', 'paralysis']),
-      pressureTraps: false, caveAreas: null, streetGems: null, biome: depth === 7 ? 'dragon' : 'dragon_roost', terrain: 'surfacePaint', streetMirror: false,
+      pressureTraps: false, caveAreas: caveAreaProfile(GROVE_MENUS[depth], false), streetGems: null, biome: depth === 7 ? 'dragon' : 'dragon_roost', terrain: 'surfacePaint', streetMirror: false,
       fallLandings: false, chestSource: 'above', quarryProvenance: false, lava: false })),
   ]);
   const DEFAULT_FLOOR_PROFILE = Object.freeze({ arrivalStory: 'cave', entryKey: 'level4Key',

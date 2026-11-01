@@ -8,6 +8,72 @@
   });
   const BUDGETS = Object.freeze({ referenceCells: 625, referenceRooms: 25,
     mushrooms: 8, harvest: 32, gems: 16, ore: 24 });
+  // THE FOUR-PER-FLOOR GROVE PROGRAM (implemented from the reviewed draft,
+  // docs/data/underground-zone-variants.draft.json levelProgram): floors 1
+  // and 4-8 select their own grove variants beside the floor-2/3 classics.
+  // Each variant pairs a challenge or novel environment with its bonus, and
+  // every grove rolls a SIGNATURE enemy set - often one kind - so it need not
+  // always spawn (kinds follow the roster's cave windows; authored seats may
+  // take named-zone exceptions, like the spring's skeletons). Pure-visual
+  // props ride the street-decoration art table (`_streetArt`), so no new art
+  // ships with the program; ember eggs read as clay pots, silk as stakes and
+  // creeping vines, fossils as mineable rock, pending the draft's candidates.
+  const SHRINES = Object.freeze({ goblin_warrens: 'ember_altar', mushroom_cavern: 'toad_idol',
+    moss_garden: 'moss_cairn', glowworm_grotto: 'lantern_saint', echo_hollow: 'bone_watcher',
+    petrified_grove: 'toad_idol', ember_sanctum: 'ember_altar' });
+  const SIGNATURES = Object.freeze({
+    gemstone_cavern: [{ kinds: ['thief'], chance: .4 }],
+    dungeon_maze: [{ kinds: ['goblin_trapper'], chance: .5 }],
+    quicksand_cavern: [{ kinds: ['cave_slime'], count: 2, chance: .5 }],
+    mine_tunnels: [{ kinds: ['club_goblin'], count: 2, chance: .5 }],
+    flooded_cistern: [{ byDepth: { 1: ['cave_slime'], 5: ['gelatinous_cube'] }, chance: .5 }],
+    magma_atoll: [{ kinds: ['red_demon'], chance: .35 }],
+    moss_garden: [{ kinds: ['purple_slime'], count: 4, chance: .75 }],
+    rat_cache_den: [{ kinds: ['rat'], count: 6, chance: .8 }, { kinds: ['thief'], chance: .35 }],
+    glowworm_grotto: [{ byDepth: { 1: ['bat'], 5: ['vampire_bat'] }, count: 3, chance: .6 }],
+    echo_hollow: [{ kinds: ['skeleton'], count: 6, chance: 1 }],
+    obsidian_vault: [{ byDepth: { 4: ['goblin'], 7: ['orc_mage'] }, count: 3, chance: .7 }],
+    fossil_ridge: [{ kinds: ['plant'], count: 2, chance: .5 }],
+    petrified_grove: [{ kinds: ['plant'], count: 2, chance: .5 }],
+    ember_sanctum: [{ byDepth: { 6: ['fiend'], 7: ['fiend'], 8: ['succubus'] }, count: 2, chance: .6 }],
+    obsidian_garden: [{ kinds: ['poison_spider'], count: 2, chance: .5 }],
+    salamander_nest: [{ kinds: ['fiend'], count: 2, chance: .85 }],
+    bone_hoard: [{ byDepth: { 7: ['dryad'], 8: ['bone_plant'] }, count: 3, chance: .6 }],
+    web_gallery: [{ kinds: ['poison_spider'], count: 3, chance: 1 }],
+    egg_nursery: [{ kinds: ['orc_shaman'], chance: .8 }, { kinds: ['red_dragon'], chance: .1 }]
+  });
+  // Variant seats beyond the dressing: fixed offsets in anchor cells, with
+  // per-floor kinds where the roster changes (authored seats, spring-style).
+  const SEATS = Object.freeze({
+    flooded_cistern: { offsets: [[-5, -4], [5, -4], [-6, 3], [6, 4]],
+      kinds: { 1: ['cave_slime', 'cave_slime', 'rat', 'rat'], 5: ['vampire_bat', 'vampire_bat', 'goblin', 'goblin'] } },
+    magma_atoll: { offsets: [[-5, -4], [5, -3], [-4, 5]], kinds: { 6: ['fiend', 'fiend', 'fiend'], 7: ['fiend', 'fiend', 'fiend'] } },
+    moss_garden: { offsets: [[-5, -4], [5, -4], [-4, 5], [5, 5]], kinds: { 1: ['purple_slime'], 5: ['purple_slime'] } },
+    rat_cache_den: { offsets: [[-6, -4], [6, -4], [-4, 4], [4, 5], [-6, 7], [7, -2], [-5, 0]],
+      kinds: { 1: ['rat', 'rat', 'rat', 'rat', 'rat', 'rat', 'cave_slime'] } },
+    glowworm_grotto: { offsets: [[-5, -6], [5, -4], [-3, 6]], kinds: { 1: ['bat'], 5: ['vampire_bat'] } },
+    echo_hollow: { offsets: [[-6, -6], [6, -6], [-6, 5], [6, 6], [-3, -3], [3, 3]],
+      kinds: { 4: ['skeleton'], 5: ['skeleton'] }, hidden: true },
+    obsidian_vault: { offsets: [[-1, -1], [1, -1], [0, 5]], kinds: { 4: ['goblin', 'skeleton', 'goblin'], 7: ['orc_mage', 'fiend', 'orc_mage'] } },
+    fossil_ridge: { offsets: [[-5, 3], [4, -5]], kinds: { 4: ['plant'] } },
+    petrified_grove: { offsets: [[-4, 4], [5, -4]], kinds: { 4: ['plant'] } },
+    ember_sanctum: { offsets: [[-6, 3], [3, -6]], kinds: { 6: ['fiend'], 7: ['fiend'], 8: ['succubus'] } },
+    obsidian_garden: { offsets: [[-5, -5], [5, 5]], kinds: { 6: ['poison_spider'] } },
+    salamander_nest: { offsets: [[-5, 5], [5, -5]], kinds: { 6: ['fiend'] } },
+    bone_hoard: { offsets: [[-5, -4], [5, -5], [-4, 6]], kinds: { 7: ['dryad'], 8: ['bone_plant'] } },
+    web_gallery: { offsets: [[-6, -5], [6, -4], [-4, 6]], kinds: { 8: ['poison_spider'] } },
+    egg_nursery: { offsets: [[0, 7], [-6, -5], [6, -5]], kinds: { 8: ['orc_shaman', 'bone_plant', 'bone_plant'] } }
+  });
+  // Moat islands: the focal chest waits on an island ringed by water or
+  // lava, crossed only by stepping-stone lanes (draft `moat_island` rows).
+  const ISLANDS = Object.freeze({
+    flooded_cistern: Object.freeze({ terrain: 'WATER', islandRadius: 3.2, moatWidth: 2.4, jitter: .7,
+      crossings: [[0, -1], [0, 1]], bankJitter: .8, bankRadius: 8,
+      bankArt: { 1: 'green_slick', 5: 'luminous_bulbs' }, bankCrop: { 1: 'slime_slick', 5: 'mushroom_bush' } }),
+    magma_atoll: Object.freeze({ terrain: 'CAVE_LAVA', islandRadius: 3.2, moatWidth: 2.4, jitter: 1.2,
+      crossings: [[0, -1], [1, 0]], bankJitter: 1, bankRadius: 8,
+      bankArt: { 6: 'fire_rock', 7: 'fire_rock' }, bankRock: true })
+  });
   function select(anchor, depth) {
     const profile = root.WorldGen.floorProfile(depth).caveAreas;
     if (!profile) return null;
@@ -64,6 +130,7 @@
       const a = V.anchorFrame(s.anchor, { N, tx, ty });
       const variant = select(s.anchor, depth);
       if (variant === 'dungeon_maze') { planMaze(ctx, out, s, a, frame, sourceGrid, sourceOpts); continue; }
+      if (ISLANDS[variant]) { planIsland(ctx, out, s, a, frame, sourceGrid, sourceOpts); continue; }
       if (variant !== SPRING.id) { planNexus(ctx, out, s, a, frame, sourceGrid, sourceOpts); continue; }
       const radius = SPRING.stoneRadius + SPRING.ringHalfWidth;
       const half = Math.ceil(radius);
@@ -154,15 +221,148 @@
     return out;
   }
   function addEncounters(ctx, out, area, cells, dry, seats) {
-    const used = new Set([...out.objects, ...out.wildplants].map(o => o._iy * ctx.N + o._ix));
+    const used = new Set([...out.objects, ...out.wildplants, ...out.encounters]
+      .map(o => o._iy * ctx.N + o._ix));
     for (const [slot, seat] of seats.entries()) {
       const c = cells.find(c => Math.abs(c.u - seat.u) < .51 && Math.abs(c.v - seat.v) < .51);
       if (!c || dry.has(c.i) || used.has(c.i) ||
           (out.terrain.get(c.i) ?? ctx.grid[c.i]) !== root.WorldGen.T.CAVE_FLOOR) continue;
       const frame = root.WorldGen.tileFrame({ cellsPerEdge: ctx.N }, ctx.tx, ctx.ty, ctx.tileEdgeM);
-      out.encounters.push({ ...seat, ...frame.centre(c.ix, c.iy), id: `${area.id}|enemy|${slot}`,
+      out.encounters.push({ ...seat, ...frame.centre(c.ix, c.iy),
+        id: `${area.id}|${seat.salt || 'enemy'}|${slot}`,
         _ix: c.ix, _iy: c.iy, caveArea: area.id, depth: ctx.depth });
       used.add(c.i);
+    }
+  }
+  // A moat island (draft `moat_island`): the whole moat disc must be eligible
+  // floor - a wall stabbing the ring breaks it, so the plan declines instead
+  // of carving. Cells classify from seeded per-angle bands exactly the way
+  // the preview paints them: island inside, water/lava ring, stone lanes.
+  function planIsland(ctx, out, state, anchor, frame, sourceGrid, sourceOpts) {
+    const W = root.WorldGen, { N, tx, ty, depth, grid, surface } = ctx;
+    const kind = select(state.anchor, depth), spec = ISLANDS[kind];
+    const coverage = surface.zone.coverage || surface.zone.idx;
+    const id = `cave_area|${state.key}|${depth}`;
+    const seedId = `cave_area|${state.key}|${W.floorProfile(depth).generationDepth ?? depth}`;
+    const roll = (salt, key) => avalanche32(fnv1a(`${seedId}|${salt}|${key}`)) / 4294967296;
+    const diagnostic = { anchorKey: state.key, variant: kind, status: 'declined', reason: null };
+    out.diagnostics.push(diagnostic);
+    const radius = spec.islandRadius + spec.moatWidth + spec.jitter + .5;
+    const half = Math.ceil(radius);
+    const [left, top] = anchor.local(anchor.originX - half * anchor.unit, anchor.originY - half * anchor.unit);
+    const [right, bottom] = anchor.local(anchor.originX + half * anchor.unit, anchor.originY + half * anchor.unit);
+    const source = root.Underground?.surfaceData(surface);
+    const cells = [];
+    let reason = null;
+    for (let iy = top; iy <= bottom && !reason; iy++) for (let ix = left; ix <= right; ix++) {
+      const u = ((tx * 4096 + (ix + .5) * 4096 / N) - anchor.originX) / anchor.unit;
+      const v = ((ty * 4096 + (iy + .5) * 4096 / N) - anchor.originY) / anchor.unit;
+      if (Math.hypot(u, v) > radius) continue;
+      if (!frame.inTile(ix, iy)) { reason = 'tile_boundary'; break; }
+      const i = iy * N + ix;
+      if (coverage[i] !== state.index + 1 || out.reserved.has(i)) { reason = 'ownership'; break; }
+      if (grid[i] !== W.T.CAVE_FLOOR ||
+          !W.isSpawnCell(sourceGrid, N, N, ix, iy, sourceOpts, 'minor') ||
+          !W.isSpawnCell(sourceGrid, N, N, ix, iy, { spawnWhy: ctx.spawnWhy }, 'minor') ||
+          (source && !root.Underground.allowed(source, i))) { reason = 'blocked_ground'; break; }
+      cells.push({ i, ix, iy, u: Math.round(u), v: Math.round(v), fu: u, fv: v });
+    }
+    if (reason) { diagnostic.reason = reason; return; }
+    const band = c => {
+      const th = Math.round(Math.atan2(c.fv, c.fu) * 100) / 100;
+      const inner = spec.islandRadius + (roll('in', th) * 2 - 1) * spec.jitter;
+      const outer = inner + spec.moatWidth + (roll('out', th) * 2 - 1) * spec.jitter * .5;
+      return Math.hypot(c.fu, c.fv) <= inner ? 'island'
+        : Math.hypot(c.fu, c.fv) <= outer ? 'moat' : null;
+    };
+    const byCell = new Map(cells.map(c => [c.i, c]));
+    const kindOf = new Map();
+    for (const c of cells) {
+      const b = band(c);
+      if (b === 'moat' && spec.crossings.some(([du, dv]) =>
+        Math.abs(c.fu * dv - c.fv * du) <= .5 && c.fu * du + c.fv * dv > 0)) {
+        kindOf.set(c.i, 'stone'); // the only crossing: whole lane cells
+      } else if (b) kindOf.set(c.i, b);
+    }
+    const wet = i => kindOf.get(i) === 'moat';
+    // Landmark halos (stairs, caches, routes) must never land in the moat.
+    const dry = new Set([...(ctx.occupied || []), ...(ctx.routeLane || [])]);
+    for (const object of ctx.objects || []) {
+      const p = frame.cellOf(object.x, object.y);
+      for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++)
+        if (frame.inTile(p.ix + dx, p.iy + dy)) dry.add((p.iy + dy) * N + p.ix + dx);
+    }
+    if (cells.some(c => wet(c.i) && dry.has(c.i))) { diagnostic.reason = 'landmark_pool'; return; }
+    // The grove's mirrored cache becomes the island's focal chest when one
+    // survives; no mirror means the island stands without one (never minted).
+    const sourceChest = state.anchor.owned && (surface.genObjects || surface.objects || []).find(o =>
+      o.kind === 'chest' && o._poiAt === `${state.anchor.lx},${state.anchor.ly}`);
+    const mirror = sourceChest && (ctx.objects || []).find(o => o.kind === 'chest' && o.caveOf === sourceChest.id);
+    const old = mirror && frame.cellOf(mirror.x, mirror.y);
+    const focus = cells.find(c => c.u === 0 && c.v === 0) ||
+      cells.filter(c => kindOf.get(c.i) === 'island').sort((a, b) => Math.hypot(a.fu, a.fv) - Math.hypot(b.fu, b.fv))[0];
+    if (!focus || kindOf.get(focus.i) !== 'island') { diagnostic.reason = 'no_island_focus'; return; }
+    if (mirror && old) out.moves.push({ object: mirror, from: old.iy * N + old.ix, to: focus.i,
+      ...frame.centre(focus.ix, focus.iy), ix: focus.ix, iy: focus.iy });
+    const reserved = new Set(cells.map(c => c.i));
+    const [cx, cy] = anchor.local(anchor.originX, anchor.originY);
+    const area = { id, kind, anchorKey: state.key, depth, ix: cx, iy: cy,
+      ...frame.centre(cx, cy), reserved, moat: new Set([...kindOf].filter(([, k]) => k === 'moat').map(([i]) => i)) };
+    out.areas.push(area);
+    for (const c of cells) {
+      out.reserved.add(c.i);
+      if (kindOf.get(c.i) === 'moat') out.terrain.set(c.i, W.T[spec.terrain]);
+    }
+    // Bank props ring the moat on unclaimed floor; lanes stay clear.
+    const used = new Set(dry);
+    for (let iy = top - 2; iy <= bottom + 2; iy++) for (let ix = left - 2; ix <= right + 2; ix++) {
+      if (!frame.inTile(ix, iy)) continue;
+      const u = ((tx * 4096 + (ix + .5) * 4096 / N) - anchor.originX) / anchor.unit;
+      const v = ((ty * 4096 + (iy + .5) * 4096 / N) - anchor.originY) / anchor.unit;
+      const r = Math.hypot(u, v), th = Math.round(Math.atan2(v, u) * 100) / 100;
+      if (Math.abs(u) <= 1 || Math.abs(v) <= 1) continue;
+      const eff = spec.bankRadius + (roll('bank', th) * 2 - 1) * spec.bankJitter;
+      if (Math.abs(r - eff) > .5) continue;
+      const i = iy * N + ix;
+      if (reserved.has(i) || used.has(i) || coverage[i] !== state.index + 1 ||
+          grid[i] !== W.T.CAVE_FLOOR) continue;
+      used.add(i);
+      const p = frame.centre(ix, iy);
+      if (spec.bankRock) out.objects.push(W.makeObject('mineralrock', p.x, p.y,
+        `${id}|${Math.round(u)},${Math.round(v)}|bank`, { _ix: ix, _iy: iy, _cave: true, caveArea: id, depth,
+          requiredTier: 1, yieldTier: 1, _streetArt: spec.bankArt[depth] }));
+      else out.wildplants.push(W.makeWildplant(spec.bankCrop[depth], p.x, p.y,
+        `${id}|${Math.round(u)},${Math.round(v)}|bank`, { _ix: ix, _iy: iy, _cave: true, caveArea: id, depth,
+          _streetArt: spec.bankArt[depth] }));
+    }
+    seatEncounters(ctx, out, area, cells, dry, kind, seedId, depth);
+    diagnostic.status = 'placed';
+  }
+  function landmarksOf(ctx) { return ctx.objects || []; }
+  // Fixed authored seats plus the signature roll share one matcher; `salt`
+  // keeps signature ids distinct from fixed seats across reloads.
+  function seatEncounters(ctx, out, area, cells, dry, kind, seedId, depth) {
+    const seats = [];
+    const plan = SEATS[kind];
+    if (plan) for (const [n, [u, v]] of plan.offsets.entries()) {
+      const kinds = plan.kinds[depth] || plan.kinds[Math.min(...Object.keys(plan.kinds))];
+      seats.push({ u, v, kind: kinds[Math.min(n, kinds.length - 1)], salt: 'enemy',
+        ...(plan.hidden ? { hidden: true, dormant: true, revealDistanceCells: 1 } : {}) });
+    }
+    addEncounters(ctx, out, area, cells, dry, seats);
+    rollSignatures(ctx, out, area, cells, dry, kind, seedId, depth);
+  }
+  // The signature roll: per set, once per area, on its own stable stream.
+  function rollSignatures(ctx, out, area, cells, dry, kind, seedId, depth) {
+    const spread = [[-7, -3], [7, -3], [-7, 4], [7, 4], [0, -7], [0, 7], [-3, -7], [3, 7]];
+    for (const [n, set] of (SIGNATURES[kind] || []).entries()) {
+      if (avalanche32(fnv1a(`${seedId}|signature|${n}`)) / 4294967296 >= (set.chance ?? 1)) continue;
+      const kinds = set.byDepth?.[depth] || set.byDepth?.[Math.min(...Object.keys(set.byDepth))] || set.kinds;
+      const seats = [];
+      for (let k = 0; k < (set.count || 1); k++) seats.push({
+        u: spread[(k + n * 2) % spread.length][0], v: spread[(k + n * 2) % spread.length][1],
+        kind: kinds[k % kinds.length], salt: `sig${n}` });
+      addEncounters(ctx, out, area, cells, dry, seats);
     }
   }
   // All room plans share canonical cell coordinates and the same gates. A
@@ -251,10 +451,11 @@
         out.terrain.set(c.i, W.T.SAND);
         out.quicksand.add(c.i); area.quicksand.add(c.i);
       }
+      rollSignatures(ctx, out, area, usable, dry, kind, seedId, depth);
       diagnostic.status = 'placed';
       return;
     }
-    const shrine = kind === 'goblin_warrens' ? 'ember_altar' : kind === 'mushroom_cavern' ? 'toad_idol' : null;
+    const shrine = SHRINES[kind] || null;
     if (shrine) {
       const seat = usable.filter(free).sort((a,b) => Math.hypot(a.u,a.v)-Math.hypot(b.u,b.v) || a.i-b.i)
         .find(c => [-1,0,1].every(dy => [-1,0,1].every(dx => {
@@ -310,6 +511,141 @@
       }
       const count=Math.max(1,Math.round(usable.length*BUDGETS.harvest/BUDGETS.referenceCells));
       for(const c of order(usable.filter(c=>free(c)&&!court(c)), 'beds').slice(0,count)) put(c,'mushroom');
+    } else if (SEATS[kind]) {
+      // The four-per-floor grove program: seeded theme patterns (the same
+      // shapes the preview bakes) seated through the street art table, so no
+      // new art ships. Court and approach lanes stay clear by the shared
+      // free()/cross() contract above.
+      const roll = (salt, u, v) => avalanche32(fnv1a(`${seedId}|${salt}|${u},${v}`)) / 4294967296;
+      const angDist = (a, b) => { const d = Math.abs(a - b) % (2 * Math.PI); return Math.min(d, 2 * Math.PI - d); };
+      const plant = (c, crop, art) => { if (!c || used.has(c.i)) return;
+        const p = frame.centre(c.ix, c.iy);
+        out.wildplants.push(W.makeWildplant(crop, p.x, p.y, `${id}|${c.u},${c.v}|${crop}`,
+          { _ix: c.ix, _iy: c.iy, _cave: true, caveArea: id, depth, ...(art ? { _streetArt: art } : {}) }));
+        used.add(c.i); };
+      const mineral = (c, art, extra = {}) =>
+        put(c, 'mineralrock', { requiredTier: 1, caveVariant: 0, ...(art ? { _streetArt: art, yieldTier: 1 } : {}), ...extra });
+      const pot = (c, style) => put(c, 'chest', { barrel: true, ...(style ? { barrelStyle: style } : {}) });
+      const gem = c => { const g = root.Underground.gem(depth, `${id}|${c.u},${c.v}`); if (g) put(c, 'mineralrock', g); };
+      const at = (u, v) => open.find(c => Math.abs(c.u - u) < .51 && Math.abs(c.v - v) < .51);
+      const open = usable.filter(c => free(c) && !court(c));
+      if (kind === 'moss_garden') {
+        const centres = order(open, 'mossC').slice(0, 5).map(c => ({ c, s: 1.4 + roll('spread', c.u, c.v) * 1.3 }));
+        for (const c of open) {
+          let best = null;
+          for (const k of centres) { const d = Math.hypot(c.u - k.c.u, c.v - k.c.v); if (d <= k.s && (!best || d < best.d)) best = { d: d, s: k.s }; }
+          if (!best || roll('moss', c.u, c.v) < .25) continue;
+          if (best.d > best.s * .72 && roll('edge', c.u, c.v) < .4)
+            roll('mr', c.u, c.v) < .3 ? mineral(c, 'mossy_rock') : put(c, 'mushroom');
+          else plant(c, 'slime_slick', 'green_slick');
+        }
+      } else if (kind === 'rat_cache_den') {
+        const base = roll('rot', 0, 0) * Math.PI * 2;
+        let barrels = 0;
+        for (const c of open) {
+          const r = Math.hypot(c.u, c.v), th = Math.atan2(c.v, c.u);
+          if (r >= 3.6 && r <= 5 && angDist(th, base) < 1.35 && roll('rat', c.u, c.v) < .8)
+            barrels < 5 && roll('barrel', c.u, c.v) < .45 ? (pot(c), barrels++) : mineral(c);
+        }
+        for (const k of order(open, 'slickC').slice(0, 2))
+          for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++)
+            if (roll('slick', k.u + dx, k.v + dy) < .7) plant(at(k.u + dx, k.v + dy), 'slime_slick', 'green_slick');
+      } else if (kind === 'glowworm_grotto') {
+        for (let k = 0; k < 3; k++) {
+          const a = roll('chord', k, 0) * Math.PI * 2;
+          for (const c of open) {
+            const r = Math.hypot(c.u, c.v);
+            if (r > 9 || Math.abs(c.u * Math.sin(a) - c.v * Math.cos(a)) > .6 || roll('glow', c.u, c.v) < .18) continue;
+            plant(c, 'mushroom_bush', (c.u + c.v) % 7 === 3 && roll('orb', c.u, c.v) < .5 ? 'green_orb' : 'luminous_bulbs');
+          }
+        }
+        for (const c of order(open, 'rockC').slice(0, 5)) mineral(c);
+      } else if (kind === 'echo_hollow') {
+        for (const R of [4, 6, 8]) for (const c of open)
+          if (Math.abs(Math.hypot(c.u, c.v) - R) <= .45 && roll('echo', c.u, c.v) > .35) put(c, 'stakes');
+        for (const c of order(open, 'dustC').slice(0, 7)) mineral(c, 'dusty_stones');
+        plant(at(-3, -3), 'mushroom_bush', 'green_orb'); // the gong seat's glow
+      } else if (kind === 'fossil_ridge') {
+        for (const c of open) {
+          const band = Math.floor((c.u + c.v + Math.round((roll('fj', c.u, c.v) - .5) * 3)) / 6);
+          if (band !== 1 && band !== 4) { if (roll('fr', c.u, c.v) < .05) mineral(c); continue; }
+          if (roll('ff', c.u, c.v) < .35) mineral(c); // fossil seam: mineable rock, art pending
+          else if (roll('fg', c.u, c.v) > .93) gem(c);
+        }
+      } else if (kind === 'petrified_grove') {
+        for (const c of open) {
+          const r = Math.hypot(c.u, c.v);
+          if (Math.abs(r - 5.5) <= .55 && roll('pg', c.u, c.v) > .25)
+            roll('pt', c.u, c.v) < .7 ? plant(c, 'shrub', 'mossy_tree') : mineral(c);
+          else if (Math.abs(r - 8) <= .45 && roll('pm', c.u, c.v) < .35) put(c, 'mushroom');
+          else if (roll('ps', c.u, c.v) < .05) mineral(c);
+        }
+      } else if (kind === 'ember_sanctum') {
+        for (let k = 0; k < 6; k++) {
+          const a = k * Math.PI / 3 + Math.PI / 6;
+          for (const R of [3.2, 5.2, 7.2]) {
+            if (roll('es', k, R) < .15) continue;
+            plant(at(Math.round(Math.cos(a) * R), Math.round(Math.sin(a) * R)), 'torch', 'flame_pillar');
+          }
+          const b = k * Math.PI / 3 + Math.PI / 3 + Math.PI / 6;
+          plant(at(Math.round(Math.cos(b) * 4.2), Math.round(Math.sin(b) * 4.2)), 'torch', 'upright_flame');
+        }
+        for (const c of open) if (Math.hypot(c.u, c.v) > 7 && roll('er', c.u, c.v) < .3) mineral(c, 'fire_rock');
+      } else if (kind === 'obsidian_garden') {
+        for (const c of open) {
+          const bed = ((c.u - c.v) % 7 + 7) % 7;
+          if (bed > 1) continue;
+          if (Math.abs(c.u) > 8 && roll('ou', c.u, c.v) > .7) pot(c, 'street_decor_dark_urn');
+          else if (roll('og', c.u, c.v) < .33) plant(c, 'rubble', 'dark_rubble');
+        }
+        // Hidden pits stay with the floor's own trap pass; the garden only
+        // leans on it by never seating over it (used cells block trap picks).
+        for (const c of order(open.filter(c => ((c.u - c.v) % 7 + 7) % 7 <= 1), 'crest').slice(0, 2)) gem(c);
+      } else if (kind === 'salamander_nest') {
+        for (const c of open) {
+          const r = Math.hypot(c.u, c.v);
+          if (r < 3.4 || r > 6.6) continue;
+          const phase = ((r - 3.4) / .3) * .5;
+          if (angDist(Math.atan2(c.v, c.u), phase) < .35) pot(c, 'clay_pot'); // ember eggs, art pending
+        }
+        for (const c of order(open.filter(c => Math.hypot(c.u, c.v) > 7), 'rockC').slice(0, 7)) mineral(c, 'fire_rock');
+        plant(at(0, -8), 'torch', 'flame_pillar');
+      } else if (kind === 'bone_hoard') {
+        for (const [k, R, span] of [[0, 5, 3.4], [1, 7, 2.6]]) {
+          const base = roll('brot', k, 0) * Math.PI * 2;
+          for (const c of open)
+            if (Math.abs(Math.hypot(c.u, c.v) - R) <= .6 && angDist(Math.atan2(c.v, c.u), base) < span / 2
+              && roll('bone', c.u, c.v) < .8) plant(c, 'bone_fragments', 'bone_fragments');
+        }
+        for (const c of order(open, 'bowlC').slice(0, 3)) plant(c, 'golden_bowl', 'golden_bowl');
+        for (const c of order(open.filter(c => Math.hypot(c.u, c.v) > 7), 'rubC').slice(0, 5)) plant(c, 'rubble', 'dark_rubble');
+      } else if (kind === 'web_gallery') {
+        // The braid's wall lines sheeted in silk: creeping vines harvest as
+        // threads, stakes carry the slow; husks cocoon at seeded junctions.
+        const off = fnv1a(`${seedId}|silk`) % 17;
+        for (const c of open) if (mazeWallAt(c.u + off, c.v + off))
+          roll('silk', c.u, c.v) < .35 ? put(c, 'stakes') : plant(c, 'creeping_vine');
+        for (const c of order(open, 'huskC').slice(0, 4)) plant(c, 'bone_fragments', 'bone_fragments');
+      } else if (kind === 'egg_nursery') {
+        for (const c of open) {
+          const r = Math.hypot(c.u, c.v);
+          if (angDist(Math.atan2(c.v, c.u), Math.PI / 2) < .45) continue; // the keeper's lane
+          if ((Math.abs(r - 3.4) <= .5 && roll('en1', c.u, c.v) < .55) ||
+              (Math.abs(r - 5.4) <= .5 && roll('en2', c.u, c.v) < .3)) pot(c, 'clay_pot');
+          else if (r > 7 && roll('er', c.u, c.v) < .2) mineral(c, 'fire_rock');
+        }
+        plant(at(-7, 3), 'rubble', 'dark_rubble'); plant(at(7, -3), 'golden_bowl', 'golden_bowl');
+      } else if (kind === 'obsidian_vault') {
+        // One strong-room: wall ring with a lane door each side (approaches
+        // stay open by contract), urns and a bowl inside, the garrison seated.
+        for (const c of usable) {
+          const box = Math.max(Math.abs(c.u), Math.abs(c.v));
+          if (box === 3 && !(Math.abs(c.u) <= 1 || Math.abs(c.v) <= 1)) mineral(c);
+        }
+        const inside = order(open.filter(c => Math.max(Math.abs(c.u), Math.abs(c.v)) < 3), 'vaultC').slice(0, 3);
+        pot(inside[0], 'street_decor_dark_urn'); pot(inside[1], 'street_decor_dark_urn');
+        plant(inside[2], 'golden_bowl', 'golden_bowl');
+      }
     } else {
       const pockets=order(usable.filter(c=>free(c)&&!court(c)&&
         (mine || Math.hypot(c.u,c.v)>5)), 'pockets');
@@ -322,7 +658,9 @@
       if(!mine) for(const c of order(usable.filter(c=>free(c)&&!court(c)), 'enemies').slice(0,depth+1))
         seats.push({...c,kind:['cave_slime','bat','spider'][seats.length]});
     }
-    addEncounters(ctx,out,area,usable,dry,seats);
+    if (SEATS[kind]) seatEncounters(ctx, out, area, usable, dry, kind, seedId, depth);
+    else { addEncounters(ctx, out, area, usable, dry, seats);
+      rollSignatures(ctx, out, area, usable, dry, kind, seedId, depth); }
     diagnostic.status='placed';
   }
   const MAZE = Object.freeze({ width: 34, height: 33, step: 3, loops: .77, seed: 2718,
@@ -500,6 +838,7 @@
       out.encounters.push({kind,...frame.centre(c.ix,c.iy),
         id:`${id}|enemy|${c.u},${c.v}`,_ix:c.ix,_iy:c.iy,caveArea:id,depth});
     }
+    rollSignatures(ctx, out, area, [...reserved].map(i => cells.get(i)).filter(Boolean), dry, 'dungeon_maze', seedId, depth);
     diagnostic.status='placed';
   }
 
