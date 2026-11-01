@@ -63,6 +63,20 @@ all three elite ranks. `combat-swoop`, `combat-traps`, `combat-lunge`,
 `combat-blast`, `combat-elite`, `combat-possessed` and `combat-ascendant` jump to
 labelled approach points. Enemies use their normal AI and can leave their stations.
 
+`whirlwind` starts a normal warning, followed by damage and knockback on contact.
+Use the hazard reset label to repeat its warning and lifetime. The fixture uses
+the live whirlwind movement and contact handlers and is removed underground.
+`python3 tools/probe_sandbox_hazards.py --case whirlwind` checks it on desktop
+and mobile, including expiry and reset.
+
+`bee-hive` supplies the daily syrup harvest and its hostile bee defenders.
+`mushroom-hive` supplies an active Mushroom House: stay nearby for its normal
+one-minute births, destroy it with combat, then restore the wreck. Reloading
+fixtures resets these two hives, their daily harvest and defeated offspring;
+other-world hive progress and service cooldowns remain intact.
+Run `python3 tools/probe_sandbox_hazards.py --case bee-hive --case mushroom-hive`
+to exercise harvest, defenders, spawning, melee, restoration and reset in Chromium.
+
 `flint-field` uses the live Flint Field zone dresser. The rock display compares
 small and large flint-bearing rocks against ordinary rock. `cave-rock` repeats
 the mining display on L1 for underground visibility and interaction checks.
@@ -175,9 +189,10 @@ Band 5  RECREATION       PARK/PARK PATH · PLAYGROUND · PITCH · CASTLE/FORT ·
 Band 6  NEW MECHANICS    STREETS · ZONES/MEADOW/CRATER · RESTORATION/ENCOUNTERS · QUARRY/RUINS
 Band 7  COMBAT           SWOOP · TRAPS · LUNGE · THEFT · FLEE · ENGULF
                         SPLIT · BREATH · BLAST · ELITE · POSSESSED · ASCENDANT
+                        HIVES: DAILY HONEY · MUSHROOM HOUSE
 ```
 
-The footprint is 70 x 126 cells, about 490 m x 882 m at 7 m per cell.
+The footprint is 91 x 126 cells, about 637 m x 882 m at 7 m per cell.
 `buildLayout` centres it in the start tile. The player teleports to PLAYER
 SPAWN, where a synthetic Home trailer keeps the nearby wizard tower in its
 wizard role.

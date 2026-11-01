@@ -34,6 +34,67 @@ SETUP = r"""() => {
 }"""
 
 CASES = {
+ 'whirlwind': ('whirlwind', r"""() => {
+   const {s,check,move,clean,draw}=hazardProbe;
+   const h=s._whirlwinds.find(h=>h._sandboxProbe==='whirlwind');
+   check(h,'authored whirlwind exists');
+   check(Whirlwinds.ground(s,h.x,h.y),'fixture passes the live hazard ground gate');
+   move(h);clean();
+   const energy=s.save.energy, now=h.born+Whirlwinds.CONFIG.warningMs;
+   Whirlwinds.tick(s,0,now-1);check(s.save.energy===energy,'warning is harmless');
+   Whirlwinds.tick(s,0,now);check(s.save.energy<energy,'active contact damages');
+   const after=s.save.energy, before={...s.playerM}, gps={...s.gpsM};
+   Whirlwinds.tick(s,0,now+1);check(s.save.energy===after,'contact cooldown prevents repeated damage');
+   Whirlwinds.pushStep(s,s,.1,now+100,true);
+   check(Math.hypot(s.playerM.x-before.x,s.playerM.y-before.y)>0,'active contact pushes player');
+   check(s.gpsM.x===gps.x&&s.gpsM.y===gps.y,'push preserves GPS fix');
+   Whirlwinds.tick(s,0,h.born+Whirlwinds.CONFIG.warningMs+Whirlwinds.CONFIG.activeMs);
+   check(!s._whirlwinds.includes(h),'expired whirlwind disappears');
+   Sandbox.seedHazardState(s,s._sandboxHazardOrigin);
+   check(s._whirlwinds.filter(h=>h._sandboxProbe==='whirlwind').length===1,'reset restores one warning');
+   draw();return {warning:true,damage:energy-after,cooldown:true,knockback:true,expiry:true,reset:true};
+ }"""),
+ 'bee-hive': ('bee-hive', r"""() => {
+   const {s,check,move,draw,fixtures}=hazardProbe;
+   const hive=fixtures().find(o=>o._sandboxProbe==='bee-hive');check(hive,'authored bee hive exists');
+   move({x:hive.x,y:hive.y+s.cellM});s.save.selSlot=-1;
+   const tap=()=>runInteractable({scene:s,save:s.save,wm:{x:hive.x,y:hive.y},sx:s.viewCenterX,sy:s.viewCenterY,dirty:false},hive);
+   const bees=()=>fixtures().filter(o=>o.id.startsWith(`hivebee_${hive.id}_`));
+   const before=Inventory.count(s.save,'syrup');check(!Macros.usedToday(s.save,hive.id),'fresh daily harvest');
+   tap();check(Inventory.count(s.save,'syrup')===before+WorldGen.HIVE_SPEC.syrup,'harvest awards syrup');
+   check(bees().length===WorldGen.HIVE_SPEC.bees,'whole hostile swarm spawned');
+   check(bees().every(Combat.isEnemy),'defenders use hostile combat');
+   document.getElementById('message-modal')?.closeModal?.();
+   check(Macros.usedToday(s.save,hive.id),'daily cooldown recorded');tap();
+   check(Inventory.count(s.save,'syrup')===before+WorldGen.HIVE_SPEC.syrup&&bees().length===WorldGen.HIVE_SPEC.bees,'same-day repeat grants nothing');
+   const entry=[...WorldGen.tileCache.values()].find(e=>e.objects?.includes(hive));
+   s.save.caught.push(bees()[0].id);Sandbox.resetFixtureProgress(s,entry);
+   check(!Macros.usedToday(s.save,hive.id)&&bees().length===0,'fixture reload clears harvest and offspring');
+   document.getElementById('message-modal')?.closeModal?.();tap();
+   check(bees().length===WorldGen.HIVE_SPEC.bees,'reset permits another complete swarm');
+   check(bees().every(c=>!s.save.caught.includes(c.id)),'reset defenders are alive');
+   document.getElementById('message-modal')?.closeModal?.();draw();
+   return {syrupPerHarvest:WorldGen.HIVE_SPEC.syrup,defenders:bees().length,dailyCooldown:true,reset:true};
+ }"""),
+ 'mushroom-hive': ('mushroom-hive', r"""() => {
+   const {s,check,move,draw,fixtures}=hazardProbe;
+   const hive=fixtures().find(o=>o._sandboxProbe==='mushroom-hive');check(hive,'authored mushroom house exists');
+   const entry=[...WorldGen.tileCache.values()].find(e=>e.objects?.includes(hive));
+   move({x:hive.x,y:hive.y+4*s.cellM});check(Hives.active(s.save,hive),'starts active');
+   s._hives=null;Hives.tick(s,.1);
+   for(let t=0;t<Hives.KINDS.mushroom.intervalMs;t+=100)Hives.tick(s,.1);
+   check(Hives.living(s,hive).length===1,'normal minute clock births a mushroom');
+   const child=Hives.living(s,hive)[0];check(child.kind==='mushroom_monster','normal hostile offspring');
+   move({x:hive.x,y:hive.y+Combat.meleeReachM(s.cellM,'sword')*.8});s.save.activeWeapon='sword';s.save.selSlot=-1;
+   let blows=0;while(Hives.active(s.save,hive)&&blows<30){s._nextBlowT=0;check(s.startCombat(hive),'live melee hits hive');blows++;}
+   check(!Hives.active(s.save,hive)&&Hives.health(s.save,hive)===0,'combat clears hive');
+   check(Houses.isHouseWreck(s.save,hive)&&!Hives.spawn(s,hive),'cleared wreck stops births');
+   check(Houses.restoreAs(s.save,hive,'plain'),'wreck can be restored');
+   s.save.caught.push(child.id);Sandbox.resetFixtureProgress(s,entry);Sandbox.seedHouseState(s.save,entry);
+   check(Hives.active(s.save,hive)&&Hives.health(s.save,hive)===Hives.KINDS.mushroom.hp,'reload restores full hive health');
+   const again=Hives.spawn(s,hive);check(again&&!s.save.caught.includes(again.id),'reload births live offspring');draw();
+   return {spawnIntervalMs:Hives.KINDS.mushroom.intervalMs,meleeBlows:blows,cleared:true,restored:true,reset:true};
+ }"""),
  'web-contact': ('hazards', r"""() => {
    const {s,check,move,draw,fixtures}=hazardProbe;
    const spider=fixtures().find(o=>o._sandboxProbe==='web-spider');check(spider,'authored web spider exists');

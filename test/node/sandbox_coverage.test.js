@@ -218,7 +218,7 @@ test('sandbox coverage: current restoration choices and repeatable wrecks use re
   Sandbox.seedHouseState(save, entry);
   const houses = entry.objects.filter(o => o.kind === 'house');
   const wrecks = houses.filter(o => o._sandboxWreck);
-  assert.eq(wrecks.length, 2);
+  assert.eq(wrecks.length, 3, 'two restoration controls and the mushroom hive wreck');
   for (const house of houses.filter(o => !o._sandboxWreck)) {
     assert.eq(typeof save.restoredHouses[house.id], 'string');
     if (house._sandboxBuild?.includes(':')) {
@@ -299,8 +299,14 @@ test('sandbox coverage: hazard yard uses live web, vent, plate and fall records'
     assert.truthy(entry.creatures.some(c => c._sandboxProbe === 'web-spider'));
     assert.eq(surface.find(h => h._sandboxProbe === 'sinkhole').phase, 'warning');
     assert.eq(surface.find(h => h._sandboxProbe === 'ground-web').depth, 0);
+    const wind = surface.find(h => h._sandboxProbe === 'whirlwind');
+    assert.eq(wind.phase, 'warning');
+    assert.truthy(scene._whirlwinds.includes(wind));
+    assert.eq(SandboxDestinations.find('whirlwind').scene, 'HAZARDS');
     Sandbox.seedHazardState(scene, origin);
     assert.eq(SpiderWebs.lists(scene).webs.length, 1, 'reset replaces the authored web');
+    assert.eq(scene._whirlwinds.length, 1, 'reset replaces the authored whirlwind');
+    assert.falsy(scene._whirlwinds.includes(wind), 'reset gives a fresh warning and contact ledger');
     scene.depth = 1;
     entry.grid.fill(WorldGen.T.CAVE_FLOOR);
     const litAt = Date.now();
@@ -326,6 +332,7 @@ test('sandbox coverage: hazard yard uses live web, vent, plate and fall records'
         'pressure lanes reach their plates through the shared ground gate');
     }
     assert.eq(SpiderWebs.lists(scene).webs.length, 0, 'surface silk does not follow into cave');
+    assert.eq(scene._whirlwinds.length, 0, 'surface whirlwind does not follow into cave');
   } finally {
     if (previous) WorldGen.tileCache.set(key, previous); else WorldGen.tileCache.delete(key);
   }

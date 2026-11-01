@@ -6,6 +6,9 @@
   const entries = [
     { id: 'cave-rock', label: 'L2 mining and flint', scene: 'ROCK', depth: 2 },
     { id: 'flint-field', label: 'Flint Field', scene: 'FLINT_FIELD' },
+    { id: 'hives', label: 'Bee hive and mushroom house', scene: 'HIVES' },
+    { id: 'bee-hive', label: 'Daily honey and defenders', scene: 'HIVES', sub: 'DAILY HONEY' },
+    { id: 'mushroom-hive', label: 'Mushroom house spawning and clearing', scene: 'HIVES', sub: 'MUSHROOM HOUSE' },
     { id: 'services', label: 'Service counters', scene: 'SERVICES' },
     ...[['inn', 'INN'], ['chapel', 'CHAPEL'], ['training', 'TRAINING'], ['sports-service', 'SPORTS'],
       ['guild', 'GUILD'], ['curio', 'CURIO'], ['general-store', 'GENERAL STORE'],
@@ -20,6 +23,7 @@
     { id: 'restoration', label: 'Restoration and recent enemies', scene: 'RESTORATION' },
     { id: 'meadow', label: 'Meadow', scene: 'ZONES', sub: 'MEADOW' },
     { id: 'crater', label: 'Destroyed crater', scene: 'ZONES', sub: 'CRATER', aliases: ['quarry-crater'] },
+    { id: 'whirlwind', label: 'Whirlwind warning and knockback', scene: 'HAZARDS', sub: 'WHIRLWIND' },
     { id: 'hazards', label: 'Webs and sinkhole', scene: 'HAZARDS' },
     { id: 'cave-entrance', label: 'Cave entrance and return stairs', scene: 'HAZARDS', sub: 'CAVE ENTRANCE' },
     { id: 'cavein', label: 'Cave-in warning', scene: 'HAZARDS', sub: 'CAVE-IN ARRIVAL', depth: 1 },
