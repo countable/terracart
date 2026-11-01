@@ -196,6 +196,10 @@
       {
         "text": "Spider guards make dense fungal patches worth checking before entering.",
         "status": "existing"
+      },
+      {
+        "text": "A mushroom-house hive occupies a nearby wreck, or a free verge cell where placement permits. While you stay nearby, it attempts to spawn one mushroom monster each minute, up to four living offspring. Attack the 120-HP hive to stop the spawns; defeating it leaves an ordinary wreck to restore.",
+        "status": "existing"
       }
     ],
     "adjectives": [
@@ -270,6 +274,10 @@
       },
       {
         "text": "Eligible scenic stretches can place a one-time vista chest.",
+        "status": "existing"
+      },
+      {
+        "text": "Each park-path section chooses one butterfly type and requests 1\u20133 of that type per map tile, where safe placement permits. The choice stays consistent across visits.",
         "status": "existing"
       }
     ],

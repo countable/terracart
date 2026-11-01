@@ -8101,6 +8101,11 @@
           5
         ]
       },
+      "hives": {
+        "kind": "mushroom",
+        "count": 1,
+        "wreckReachCells": 3
+      },
       "story": "street_toadstool",
       "title": "Toadstool Lane",
       "body": "Red toadstools crowd the verge, and the air smells of damp earth. You step around their spotted caps.",
@@ -8970,6 +8975,18 @@
       "lampSpacingM": 33.333333333333336,
       "objects": [
         {
+          "kind": "house",
+          "x": 906.5,
+          "y": 815.5,
+          "id": "street_hive_2622_5615_129_116",
+          "tier": 9,
+          "area": 49,
+          "hive": "mushroom",
+          "hiveStreet": "preview 15|163,350|toadstool",
+          "_street": "toadstool",
+          "_hiveSynthetic": true
+        },
+        {
           "kind": "chest",
           "x": 906.5,
           "y": 801.5,
@@ -9762,15 +9779,6 @@
           "id": "wp_ts_2622_5615_129_115",
           "_street": "toadstool",
           "_plantArt": "ordinary"
-        },
-        {
-          "kind": "wildplant",
-          "crop": "mushroom_bush",
-          "x": 906.5,
-          "y": 815.5,
-          "id": "wp_ts_2622_5615_129_116",
-          "_street": "toadstool",
-          "_streetArt": "red_mushroom"
         }
       ],
       "lamps": [

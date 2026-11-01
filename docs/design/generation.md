@@ -859,7 +859,11 @@ access or tile lifecycle mechanics.
   its metal slimes in `pathFauna`, seated on its adjacent legal ground: one per 300 m of path cells, at most two
   per tile, with stable path-cell defeat identities. Ordinary beach and pier
   populations and other path variants contain no metal slimes. Road Variant `fauna`
-  declarations supply local inhabitants.
+  declarations supply local inhabitants. Each Park Path section chooses one of the
+  registered butterfly types from its stable section key, and requests 1–3 of
+  that type per tile through `pathFauna`. Fragments share the section budget;
+  butterflies use legal adjacent verge seats and retain catch identities when
+  safety moves their seats.
   Where a species prefers to stand is an `attracts` column (road variant rows,
   `Zones.ZONE_KINDS`, `BIOME_ATTRACTS`, scenic themes and
   `Streets.PATH_LAMP_ATTRACTS`) read by `_seatFaunaOnFavouriteGround`. Each
