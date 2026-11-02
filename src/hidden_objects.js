@@ -84,17 +84,26 @@
   function tick(scene) {
     if (!scene.startWorldM || !scene.playerM) return;
     const pc = scene.playerToWorldCell();
-    const key = `${scene.depth || 0}:${pc.tx}:${pc.ty}:${Math.floor(pc.cx)}:${Math.floor(pc.cy)}:${scene.save.hiddenObjects?.length || 0}:${root.Gear.hasPerception(scene.save)}`;
+    const key = `${scene.depth || 0}:${pc.tx}:${pc.ty}:${Math.floor(pc.cx)}:${Math.floor(pc.cy)}:${scene.save.hiddenObjects?.length || 0}:${root.Gear.hasPerception(scene.save)}:${scene.save.brokenRocks?.length || 0}`;
     const entries = [];
     for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) {
       const entry = root.WorldGen.tileCache.get(root.WorldGen.tileKey(pc.tx + dx, pc.ty + dy));
       entries.push(entry?.status === 'ready' ? entry : null);
     }
     const last = scene._hiddenDiscoveryTick;
-    const traps = entries.map(e => e?.traps);
-    if (last?.key === key && entries.every((e, i) => e === last.entries[i]
-        && traps[i] === last.traps?.[i])) return;
-    scene._hiddenDiscoveryTick = { key, entries, traps };
+    // Match the chunk index's mutation signals: runtime spawns can append or
+    // replace lists without replacing the ready tile or moving the player.
+    const sources = [scene.save.hiddenObjects];
+    for (const entry of entries) {
+      sources.push(entry?.treasure);
+      for (const prop of ['objects', 'wildplants', 'traps', 'parkingTreasures', 'extraTreasures']) {
+        const list = entry?.[prop];
+        sources.push(list, list?.length, list?.[list.length - 1]);
+      }
+    }
+    if (last?.key === key && entries.every((e, i) => e === last.entries[i])
+        && sources.every((source, i) => source === last.sources[i])) return;
+    scene._hiddenDiscoveryTick = { key, entries, sources };
     // Saved discoveries are few; generated objects use the existing chunk index.
     for (const o of saved(scene)) if (reveal(scene, o)) return;
     const x = scene.startWorldM.x + scene.playerM.x, y = scene.startWorldM.y + scene.playerM.y;

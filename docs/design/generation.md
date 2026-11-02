@@ -497,7 +497,8 @@ access or tile lifecycle mechanics.
   on a neighbouring cell (`HiddenObjects.tick` records it in
   `save.hiddenDiscoveries`), or within the vision disc with Perception; until
   then it is neither drawn nor diggable. A covering rock adds no rule of its
-  own. The Treasure Map's dot is apart.
+  own. Discovery rechecks nearby lists after runtime spawns and after breaking
+  cover, even if the player stays in the same cell. The Treasure Map's dot is apart.
 - Concealed caches are a distinct `cache:true` container family with stable
   cell-derived T1–T3 tiers and their own variant-themed reward tables: seed
   (Gone to Seed), fruit (Orchard), forage (Old Growth), occult (Haunt), sacred
