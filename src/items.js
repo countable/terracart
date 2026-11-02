@@ -928,7 +928,7 @@ const BASE_TIER = {
   forgetmenot: 2, marigold: 3, wildrose: 3, starflower: 5,
   poisonberry: 2,
   goldenberry: 5,
-  egg: 2, milk: 3,
+  egg: 2, milk: 3, wool: 2,
   // Fish span the loot ladder, with gaps of at most two tiers.
   minnow: 1, bass: 2, trout: 4, salmon: 5, goldenfish: 7,
   // The sewer's own two (FISH_POOLS.sewer): a pale cave fish and the eel.
@@ -944,7 +944,7 @@ const BASE_TIER = {
   // Animals balance basic catches, specialised fauna and lasting utility.
   // Combat HP stays in Combat; tier no longer follows HP alone.
   crow: 1, rabbit: 1,
-  chicken: 2, crab: 2,
+  chicken: 2, crab: 2, sheep: 2, pig: 2,
   deer: 3, butterfly: 3, sea_turtle: 3,
   cat: 4, cow: 4, horse: 4,
   dog: 5,
@@ -1091,6 +1091,8 @@ const ITEMS = [
   ...['slime', 'cave_slime', 'purple_slime', 'fire_slime'].map(kind => ({ id: kind, name: kind.split('_').map(s => s[0].toUpperCase() + s.slice(1)).join(' '), kind: 'animal', baseTier: 1 })),
   { id: 'chicken',   name: 'Chicken',   kind: 'animal' },
   { id: 'cow',       name: 'Cow',       kind: 'animal' },
+  { id: 'pig',       name: 'Pig',       kind: 'animal' },
+  { id: 'sheep',     name: 'Sheep',     kind: 'animal' },
   { id: 'cat',       name: 'Cat',       kind: 'animal' },
   { id: 'dog',       name: 'Dog',       kind: 'animal' },
   { id: 'deer',      name: 'Deer',      kind: 'animal' },
@@ -1104,7 +1106,7 @@ const ITEMS = [
   // The sea turtle — the rabbit of the beach (CREATURE_BEHAVIOUR.turtle).
   { id: 'sea_turtle',    name: 'Sea Turtle', kind: 'animal' },
   // Variant catalog rows supply names and icons; owned animals live in Pets.
-  ...['chicken', 'cow', 'cat', 'dog', 'rabbit', 'butterfly', 'crab', 'horse', 'sea_turtle'].map(k => ({
+  ...['chicken', 'cow', 'pig', 'sheep', 'cat', 'dog', 'rabbit', 'butterfly', 'crab', 'horse', 'sea_turtle'].map(k => ({
     id: `shiny_${k}`,
     name: `Shiny ${k.charAt(0).toUpperCase() + k.slice(1)}`,
     kind: 'animal', base: k, shiny: true, baseTier: Math.min(7, (BASE_TIER[k] || 1) + SHINY_TIER_UP),
@@ -1121,6 +1123,7 @@ const ITEMS = [
   { id: 'green_dragon', name: 'Green Dragon', kind: 'animal', baseTier: 7 },
   { id: 'baby_green_dragon', name: 'Baby Green Dragon', kind: 'animal', base: 'green_dragon', baby: true, baseTier: 7 },
   { id: 'milk', name: 'Milk', kind: 'produce' },
+  { id: 'wool', name: 'Wool', kind: 'supply', dropWeight: 0 },
   // Wild-only produce — grows in grasslands, picked as debris. Not plantable.
   // Display name 'Long grass'; id stays 'longgrass' for save / loot-table
   // back-compat. The sprite is Props.png's frond frame; in-world + inventory
@@ -1967,6 +1970,8 @@ const PRICES = {
   chicken: 4,      // 150–250/tile
   crab: 6,         // shore only — a handful per beach (SHORE_FAUNA)
   cow: 40,         // premium over chicken/crab without a late-game sale payout
+  pig: 18,
+  sheep: 18,
   horse: 200,      // five a tile, and a mount while kept
   cat: 35,         // companion animal (wants milk/fish) — modest sale, never eaten
   dog: 35,         // companion animal (wants meat) — modest sale, never eaten
@@ -1990,6 +1995,7 @@ const PRICES = {
   baby_green_dragon: 360,
   green_dragon: 120,
   milk: 28,
+  wool: 18,
   // ── Consumables ──────────────────────────────────────────
   // Bought from shops occasionally; small sell value if you hoard them.
   syrup: 7,
@@ -2112,7 +2118,7 @@ function itemValues() {
 }
 // Shiny animals sell at 10× their plain counterpart's value — a real prize in
 // the bag, on top of the catch-time money + memory.
-for (const k of ['chicken', 'cow', 'cat', 'dog', 'rabbit', 'butterfly', 'crab', 'horse', 'sea_turtle']) {
+for (const k of ['chicken', 'cow', 'pig', 'sheep', 'cat', 'dog', 'rabbit', 'butterfly', 'crab', 'horse', 'sea_turtle']) {
   PRICES[`shiny_${k}`] = itemValue(k) * 10;
 }
 // A baby sells for three of its kind: a promise of a shiny, not yet one.
@@ -2244,6 +2250,8 @@ const ITEM_EFFECTS = {
   goldenberry: 'Gold and sweet. A foe that eats one fights beside you for a while, and will not run from your net.',
   miracle_lettuce: 'Its crisp leaves leave you feeling unusually lucky.',
   horse: 'It stamps and tosses its head, impatient for the open road.',
+  pig: 'It noses through wet ground and finds mushrooms after a meal.',
+  sheep: 'A grassland grazer whose fleece yields wool after a meal.',
   coffee: 'A roasted warmth sets your feet itching for the road.',
   starfruit: 'A golden sweetness lingers, warming the hands that helped it grow.',
   mango: 'Even wary animals lean toward its golden scent.',
@@ -2263,6 +2271,7 @@ const ITEM_EFFECTS = {
   emerald: 'A green light waits for a staff to carry it.',
   ruby: 'A small red fortune warms your palm.',
   milk: 'A cat follows the scent of the fresh cream.',
+  wool: 'Soft fleece from a contented sheep, ready for market.',
   old_boot: 'Water seeps from the split sole of someone else’s journey.',
   shell: 'The sea has polished a little treasure for your pocket.',
   rabbit_pelt: 'A soft scrap of the forest, still warm in memory.',
@@ -2448,6 +2457,8 @@ const ANIMAL_FOOD = {
   butterfly: ['flowers'],
   sea_turtle: ['cress'],
   cow:     ['pairy'],      // pears to munch
+  pig:     ['potato'],
+  sheep:   ['cress'],
   horse:   ['pairy'],      // the cow's favourite
   // Cats love milk AND any kind of fish.
   cat:     ['milk', 'minnow', 'bass', 'trout', 'salmon', 'goldenfish', 'blind_cavefish', 'sewer_eel'],

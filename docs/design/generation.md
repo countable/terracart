@@ -32,6 +32,13 @@ access or tile lifecycle mechanics.
   exhaust that pool within the same habitat. Forbidden ground is missing map
   area, not a roll that thins the population. A species with no sufficient
   legal space reports a placement shortfall without switching habitat/species.
+- Old Growth Paths request one Owlbear on a deterministic 10% of tiles
+  containing their corridor. The encounter roll belongs to the tile and
+  variant, before legal-seat checks; revisits, difficulty and restricted
+  ground cannot reroll it. Owlbears have no ordinary landcover or cave pool.
+- Strip Mine Nexus areas use Horned Sheep as their resident enemy family,
+  with the shared Nexus encounter frequency and group sizes. They do not
+  enter other quarry variants, ordinary landcover or caves.
 - Synthetic floor previews set `scene.habitatTileAreaScale` to their tile area
   divided by a real map tile's area at the preview latitude. This scales only
   ordinary fauna, enemy and mode-reserve budgets before placement. Live scenes
@@ -60,6 +67,9 @@ access or tile lifecycle mechanics.
   Rabbits have ordinary surface populations. Cat exclusion from Wasteland, Deer restriction
   to Forest/Residential, and Butterfly exclusion from Forest/Orchard remain
   species placement limits.
+- Sheep join ordinary Grass fauna and pigs join ordinary Wetland fauna. Their
+  weights share the existing fauna budget; neither creates extra population
+  or enters other landcover or Nexus mixtures.
 - Shore length is a specialized ambient budget outside Nexus coverage. Every
   Nexus keeps its own declared inhabitants and excludes generic shoreline
   top-ups, including after captures. Safety only removes destinations;

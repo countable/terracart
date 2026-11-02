@@ -579,6 +579,18 @@
         16,
         16
       ]
+    },
+    {
+      "frame": 52,
+      "id": "NATIVE-wool",
+      "source": "tools/build_selected_items.py",
+      "nativeIcon": "wool",
+      "crop": [
+        0,
+        0,
+        16,
+        16
+      ]
     }
   ],
   "selections": [
@@ -898,6 +910,12 @@
       "target": "relic:lance:1",
       "alternativeId": "ALT-0640",
       "frame": 51,
+      "default": true
+    },
+    {
+      "target": "wool",
+      "alternativeId": "NATIVE-wool",
+      "frame": 52,
       "default": true
     }
   ]

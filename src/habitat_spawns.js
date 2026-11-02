@@ -37,14 +37,14 @@
     return root.EnemySpawns.roll(creature.id + ':mode') < share;
   }
   const LAND_FAUNA = {
-    GRASS: { chicken: 5, cow: 4, butterfly: 4, rabbit: 3, crow: 2, horse: .4 },
+    GRASS: { chicken: 5, cow: 4, sheep: 3, butterfly: 4, rabbit: 3, crow: 2, horse: .4 },
     RESIDENTIAL: { cat: 4, dog: 4, chicken: 3, deer: 2, cow: .5, raven: .5 },
     FOREST: { deer: 6, rabbit: 3, dog: 1 },
     FARMLAND: { chicken: 6, cow: 5, rabbit: 2, horse: 1 },
     WASTELAND: { dog: 5, rabbit: 2, chicken: 1 },
     PARK: { butterfly: 5, rabbit: 4, crow: 3, chicken: 2, cat: 1 },
     GROVE: { butterfly: 5, rabbit: 4, crow: 3, chicken: 2 },
-    WETLAND: { butterfly: 6, rabbit: 2, dog: 1 },
+    WETLAND: { butterfly: 6, pig: 3, rabbit: 2, dog: 1 },
     ORCHARD: { chicken: 4, rabbit: 3, dog: 1 },
     ROCK: { rabbit: 3, dog: 2 },
     SAND: { rabbit: 2, dog: 1 },
@@ -293,7 +293,13 @@
     for (const group of groups) group.enemyReserve = 0;
     allocate(armed, budget(reserveBudget()), 'enemyReserve');
     for (const group of groups) {
-      if (group.profile.owner === 'road') group.enemyRequested = group.profile.habitatEnemies?.count || 0;
+      if (group.profile.owner === 'road') {
+        const enemies = group.profile.habitatEnemies;
+        // Rare authored encounters roll once per tile/corridor, before seat
+        // restrictions; revisits and difficulty changes cannot reroll them.
+        group.enemyRequested = enemies && unit(`${tx}|${ty}|${group.key}:encounter`) < (enemies.chance ?? 1)
+          ? enemies.count || 0 : 0;
+      }
       if (group.profile.owner !== 'land') group.faunaRequested = faunaBudget(group.profile, `${tx}|${ty}|${group.key}`);
       group.diagnostic = { key: group.key, profile: group.profile.id, rawCells: group.cells.length,
         fauna: counts(group.faunaRequested), enemies: counts(group.enemyRequested), reserve: counts(group.enemyReserve) };

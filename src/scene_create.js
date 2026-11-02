@@ -320,6 +320,8 @@ class SceneCreate {
     }
     window.ITEM_DATA_URLS.chicken   = bakeSheetFrame('chicken', 0, 16, 16);
     window.ITEM_DATA_URLS.cow       = bakeSheetFrame('cow',     0, 32, 32);
+    window.ITEM_DATA_URLS.pig       = bakeSheetFrame('pig',     0, 16, 16);
+    window.ITEM_DATA_URLS.sheep     = bakeSheetFrame('sheep',   0, 16, 16);
     // Cat + dog use the 32×32 RPG-style sheets (the older 16×16 Icons/Pets
     // file is gone). Frame 0 is the down-facing standing pose.
     window.ITEM_DATA_URLS.cat       = bakeSheetFrame('cat',     0, 32, 32);

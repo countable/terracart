@@ -718,6 +718,21 @@
   const CREATURE_ART = {
     npc:           { sheet: 'npc_0_idle', frames: 6, fw: 48, fh: 48, scale: 0.98, foot: 32 / 48, float: 0, minY: 12, maxY: 32 },
     chicken:       { sheet: 'chicken',   anim: 'chicken-idle', fw: 16, fh: 16, scale: 1.20, foot: 16 / 16, float: 0,  minY: 0,  maxY: 16 },
+    // Alternate hatchling body: the six-pixel crown is scaled to the same
+    // 19.2px unshrunk height as chicken, so its shared baby wheel/tap geometry
+    // stays aligned. The ordinary baby instance multiplier still applies.
+    chick:         { sheet: 'chick', frameMs: 200, fw: 16, fh: 16, scale: 3.2, foot: 13 / 16, float: 0, minY: 7, maxY: 13,
+                     directions: {
+                       down: { idle: [0], move: [0, 1, 2, 3] }, up: { idle: [4], move: [4, 5, 6, 7] },
+                       right: { idle: [8], move: [8, 9, 10, 11] }, left: { idle: [12], move: [12, 13, 14, 15] } } },
+    pig:           { sheet: 'pig', frameMs: 200, fw: 16, fh: 16, scale: 2, foot: 14 / 16, float: 0, minY: 2, maxY: 14,
+                     directions: {
+                       down: { idle: [0, 1, 2, 3], move: [16, 17, 18] }, up: { idle: [4, 5, 6, 7], move: [20, 21, 22] },
+                       right: { idle: [8, 9, 10, 11], move: [24, 25, 26] }, left: { idle: [12, 13, 14, 15], move: [28, 29, 30] } } },
+    sheep:         { sheet: 'sheep', frameMs: 200, fw: 16, fh: 16, scale: 2, foot: 14 / 16, float: 0, minY: 2, maxY: 14,
+                     directions: {
+                       down: { idle: [0], move: [0, 1, 2, 3] }, up: { idle: [4], move: [4, 5, 6, 7] },
+                       right: { idle: [8], move: [8, 9, 10, 11] }, left: { idle: [12], move: [12, 13, 14, 15] } } },
     cow:           { sheet: 'cow',       anim: 'cow-idle',     fw: 32, fh: 32, scale: 1.30, foot: 32 / 32, float: 0,  minY: 13, maxY: 32 },
     cat:           { sheet: 'cat',       anim: 'cat-idle',     fw: 32, fh: 32, scale: 1.30, foot: 29 / 32, float: 0,  minY: 18, maxY: 29 },
     dog:           { sheet: 'dog',       anim: 'dog-idle',     fw: 32, fh: 32, scale: 1.30, foot: 29 / 32, float: 0,  minY: 15, maxY: 29 },
@@ -938,9 +953,12 @@
     // taken on the hunt wheel — not fed its favourite and caught — drops
     // meat, as the deer does.
     chicken:       { wanders: true, stepMs: 6000, drop: 'meat', produce: { item: 'egg', shinyItem: 'shiny_egg', verb: 'laid' } },
+    chick:         { wanders: true, game: false }, // visual alias only; hatchlings retain kind chicken
     // A cow takes twice the netting — through its HP (combat.js FAUNA_HP: a
     // catch's difficulty is current HP, Pets.catchMs).
     cow:           { wanders: true, drop: 'meat', produce: { item: 'milk', verb: 'milked' } },
+    pig:           { wanders: true, drop: 'meat', produce: { item: 'mushroom', verb: 'found' } },
+    sheep:         { wanders: true, drop: 'meat', produce: { item: 'wool', verb: 'shed' } },
     // The shore crab is the chicken's row on the beach: tamed with its
     // favourite (items.js ANIMAL_FOOD.crab) or netted; a fed one gives a SHELL.
     // Seated only on shore sand (scene_creatures.js, biome_profiles.js SHORE_FAUNA).
@@ -1126,6 +1144,16 @@
   function isBabyPet(c, now = Date.now()) {
     return !!(c && c.raised && Number.isFinite(c.born)) && ((now - c.born) < PET_BABY.growMs || (c.favouriteFeeds || 0) < PET_BABY.feeds);
   }
+  // A hatchling's appearance survives capture (which prefixes its id) and
+  // reload through its original source identity. It is still a chicken for
+  // ownership, feeding and growth, and returns to adult art when grown.
+  function creatureVisualKind(c, wall = Date.now()) {
+    if (c?.kind !== 'chicken' || !isBabyPet(c, wall)) return c?.kind;
+    const id = String(c.sourceId || c.id || '').replace(/^pet_/, '');
+    let hash = 0;
+    for (let i = 0; i < id.length; i++) hash = ((hash * 31) + id.charCodeAt(i)) >>> 0;
+    return hash % 2 === 0 ? 'chick' : c.kind;
+  }
   // One creature's own size multiplier (its instance art scale), or 1; a baby
   // pet's is halved. Every reader of a creature's drawn size comes through
   // here, so the whole body shrinks together.
@@ -1204,7 +1232,7 @@
     if (faceCreature(c, dx, dy, now)) c._moveUntil = now + CREATURE_MOVE_GRACE_MS;
   }
   function creatureAppearance(c, now) {
-    const art = creatureArt(c.kind);
+    const art = creatureArt(creatureVisualKind(c));
     // Columns E, SE, S, SW, W, NW, N, NE off `_heading` (radians, world
     // metres, y to the south); a tail tip is drawn pointing back (octantFlip).
     if (art?.octantRow != null) {
@@ -1367,7 +1395,7 @@
     CREATURE_ART, CREATURE_GROUND_DY, CREATURE_WHEEL_R,
     CREATURE_BEHAVIOUR, ANIMAL_INTERACTION, creatureBehaviour, creatureWanders, creatureHaunts, isPet, isGame, isUntameable,
     creaturePrey, creatureDrop, creatureProduce, creatureFollows, creatureAvoids, isSummoned, preysOnFoes,
-    creatureAppearance, faceCreature, CREATURE_FACE_HOLD_MS, CREATURE_MOVE_GRACE_MS, updateCreatureFacing, CREATURE_DIRECTION_LAYOUTS,
+    creatureAppearance, creatureVisualKind, faceCreature, CREATURE_FACE_HOLD_MS, CREATURE_MOVE_GRACE_MS, updateCreatureFacing, CREATURE_DIRECTION_LAYOUTS,
     creatureAnim, creatureFrameMs, creatureCycleFrame, creatureHop, creatureHopRow, hopRowFrame, creatureAirborne,
     HOP_MS, HOP_PX, SLIME_HOP_ROW, SLIME_HOP_FRAME_MS, SLIME_HOP_REST_MS,
     HEALTH_BAR_W, HEALTH_BAR_H, HEALTH_BAR_GAP,

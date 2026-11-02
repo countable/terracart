@@ -97,7 +97,7 @@ test('creature table: what a kill drops is the kind\'s own row', () => {
   // a drop too — the goblin trapper's Magic Trap and the tar yard's fire
   // slime's flint (src/zones.js) — paid ON TOP of the bounty (app.js
   // resolveDefeat asks Combat for the wage, this table for the drop).
-  assert.eq(ctKinds((k) => CT_BEH[k].drop), 'chicken,cow,crow,deer,fire_slime,goblin_trapper,horse,rabbit');
+  assert.eq(ctKinds((k) => CT_BEH[k].drop), 'chicken,cow,crow,deer,fire_slime,goblin_trapper,horse,pig,rabbit,sheep');
   assert.eq(CT_SL.creatureDrop('fire_slime'), 'flint_shard', 'a fire slime drops a flint');
   assert.eq(CT_SL.creatureDrop('goblin_trapper'), 'magic_trap', 'a trapper drops its trap');
   assert.eq(CT_SL.creatureDrop('giant_goblin_trapper'), 'magic_trap', 'and so does its giant');
@@ -111,8 +111,8 @@ test('creature table: what a kill drops is the kind\'s own row', () => {
     assert.truthy(ITEM_BY_ID[CT_SL.creatureDrop(k)], `${k}'s drop is a real item`);
 });
 
-test('creature table: PRODUCE is the chicken, the cow and the crab, item and verb together', () => {
-  assert.eq(ctKinds((k) => CT_BEH[k].produce), 'chicken,cow,crab');
+test('creature table: PRODUCE names every producer, item and verb together', () => {
+  assert.eq(ctKinds((k) => CT_BEH[k].produce), 'chicken,cow,crab,pig,sheep');
   assert.eq(CT_SL.creatureProduce('crab').item, 'shell', 'a fed crab gives the beach pickup');
   assert.eq(CT_SL.creatureProduce('crab').verb, 'shed');
   assert.eq(CT_SL.creatureProduce('chicken').item, 'egg');
@@ -120,7 +120,9 @@ test('creature table: PRODUCE is the chicken, the cow and the crab, item and ver
   assert.eq(CT_SL.creatureProduce('cow').item, 'milk');
   assert.eq(CT_SL.creatureProduce('cow').verb, 'milked');
   assert.eq(CT_SL.creatureProduce('deer'), null, 'nothing milks a deer');
-  for (const k of ['chicken', 'cow', 'crab'])
+  assert.eq(CT_SL.creatureProduce('pig').item, 'mushroom');
+  assert.eq(CT_SL.creatureProduce('sheep').item, 'wool');
+  for (const k of ['chicken', 'cow', 'crab', 'pig', 'sheep'])
     assert.truthy(ITEM_BY_ID[CT_SL.creatureProduce(k).item], `${k}'s yield is a real item`);
 });
 

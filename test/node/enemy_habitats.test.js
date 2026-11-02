@@ -157,6 +157,32 @@ test('enemy habitats: every selected cave theme has an eligible family through d
     grid: new Array(N * N).fill(WorldGen.T.PARK), objects: [],
     zone: { coverage: new Uint8Array(N * N).fill(1), anchors: [{ variant: theme }] } });
   const signature = cs => cs.map(c => `${c.id}:${c.kind}:${c.x},${c.y}`).join('|');
+  test('surface encounters: Horned Sheep inhabit Strip Mines without leaking into other quarries', () => {
+    const e = entry('quarry-strip-mine');
+    e.grid.fill(WorldGen.T.ROCK);
+    const creatures = EnemyHabitats.surfaceEncounters(e, 0, 0, new Set());
+    assert.inRange(creatures.length, 15, 50, 'shared Nexus frequency populates the quarry');
+    assert.truthy(creatures.every(c => c.kind === 'horned_sheep'));
+    assert.eq(signature(creatures), signature(EnemyHabitats.surfaceEncounters(e, 0, 0, new Set())));
+    assert.eq(EnemyRoster.get('horned_sheep').cave, null);
+    for (const name of Object.keys(HabitatSpawns.LAND_FAUNA)) {
+      assert.falsy(HabitatSpawns.enemyRows(HabitatSpawns.landProfile(name), WorldGen.T[name])
+        .some(row => row.id === 'horned_sheep'), 'no ordinary ' + name + ' spawn');
+    }
+    const mixed = entry('quarry-strip-mine');
+    mixed.grid.fill(WorldGen.T.ROCK);
+    mixed.zone.anchors.push({ variant: 'quarry-abandoned' });
+    for (let y = 0; y < N; y++) for (let x = N / 2; x < N; x++) mixed.zone.coverage[y * N + x] = 2;
+    for (const c of EnemyHabitats.surfaceEncounters(mixed, 0, 0, new Set())) {
+      assert.eq(c.kind, 'horned_sheep');
+      assert.lt(c._surfaceSpawn.cx, N / 2, 'resident stays in Strip Mine coverage');
+    }
+    for (const theme of ['quarry-abandoned', 'quarry-crater', 'quarry-stronghold']) {
+      assert.falsy(EnemyHabitats.surfaceEncounters(entry(theme), 0, 0, new Set()).some(c => c.kind === 'horned_sheep'));
+    }
+    e.spawnWhy = new Uint16Array(N * N).fill(WorldGen.SPAWN_WHY.RESTRICTED);
+    assert.eq(EnemyHabitats.surfaceEncounters(e, 0, 0, new Set()).length, 0, 'shared placement exclusions still apply');
+  });
   test('surface encounters: mushroom groves scatter stable solitary mushrooms across the grove', () => {
     const e = entry('mushroom_grove'), occupied = new Set();
     const cs = EnemyHabitats.surfaceEncounters(e, 0, 0, occupied);

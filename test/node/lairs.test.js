@@ -274,7 +274,9 @@
     // flicks over all of them for the instant: it is the event, not a state.)
     assert.truthy(/s\.setTint\(flick != null \? flick : chilled \? FROZEN_TINT : afire \? Conditions\.DEFINITIONS\.burning\.tint : poisoned \? Conditions\.DEFINITIONS\.poison\.tint : pet && Number\.isFinite\(c\.tint\) \? c\.tint : npcArt \? npcArt\.tint : creatureTint\(c\.kind\)\)/
       .test(RENDER_SRC), 'render.js tints a creature from the table, not a blanket white');
-    assert.truthy(/const baseSheet = npcArt \? npcArt\.sheet : creatureSheet\(c\.kind\);/.test(RENDER_SRC),
+    assert.truthy(/const visualKind = SL\.creatureVisualKind\(c\);/.test(RENDER_SRC),
+      'SpriteLayout owns instance appearance selection');
+    assert.truthy(/const baseSheet = npcArt \? npcArt\.sheet : creatureSheet\(visualKind\);/.test(RENDER_SRC),
       'and picks the monster sheet from the table, not an if-else chain');
   });
 
@@ -1662,7 +1664,9 @@
     const full = SpriteLayout.creatureTapSpanPx(k), half = SpriteLayout.creatureTapSpanPx(k, 0.5);
     assert.lt(half.bottom - half.top, full.bottom - full.top, 'and the tap box shrinks');
     // Art-dependent readers pass the instance; work wheels use the cell centre.
-    assert.truthy(/setScale\(creatureScale\(c\.kind, creatureInstScale\(c\)\)\)/.test(RENDER_SRC), 'render draws it');
+    assert.truthy(/const visualKind = SL\.creatureVisualKind\(c\);/.test(RENDER_SRC), 'SpriteLayout resolves the visual identity');
+    assert.eq(SpriteLayout.creatureVisualKind({ kind: 'goblin', _artScale: 0.5 }), 'goblin');
+    assert.truthy(/setScale\(creatureScale\(visualKind, creatureInstScale\(c\)\)\)/.test(RENDER_SRC), 'render draws the visual art with the original instance scale');
     assert.eq((SCENE_SRC.match(/creatureHealthBarTop\([^)]*, SpriteLayout\.creatureInstScale\(/g) || []).length,
       (SCENE_SRC.match(/creatureHealthBarTop\(/g) || []).length, 'every health bar seat passes it');
   });
