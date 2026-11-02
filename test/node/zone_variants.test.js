@@ -160,18 +160,37 @@ test('zone variants: repeated geometry preserves densities and phase across nega
     }
   }
 });
-test('zone variants: Formal Garden keeps square flower rings and cardinal hedge arms in every repeat', () => {
+test('zone variants: distinct background palettes omit all approved decorative cuts', () => {
+  const cuts = {
+    marine_meadow: ['shrub', 'driftwood', 'barrel'], orchard: ['medium_tree', 'grass'],
+    formal_garden: ['shrub'], hedge_garden: ['flowers', 'orange'], ancient_grove: ['shrub'],
+    sacred_grove: ['grass'], stone_garden: ['grass'], ordered_graves: ['grass'],
+    overgrown_graves: ['shrub'], silent_circle: ['grass'], pirate_cove: ['shell'],
+    shellwater_strand: ['driftwood'], spooky_woods: ['grass']
+  };
+  for (const [id, removed] of Object.entries(cuts)) {
+    const row = V.byId(id);
+    const counts = count(row, -60, -60, 120, 120, 'palette-review');
+    for (const material of removed) assert.eq(counts[material] || 0, 0, `${id}/${material}`);
+    assert.gt(Object.values(counts).reduce((sum, n) => sum + n, 0), 0, `${id}: core motif survives`);
+  }
+  // Finite find budgets are separate from background palettes.
+  assert.eq(V.byId('marine_meadow').finds.count, 2);
+  assert.eq(V.byId('pirate_cove').finds.count, 0, 'buried treasure uses its separate authored lane');
+  assert.eq(V.byId('orchard').finds.count, 6, 'three gemfruit and three berries');
+});
+test('zone variants: Formal Garden keeps square flower rings and clear outer arms in every repeat', () => {
   const row = V.byId('formal_garden');
   assert.eq(row.background.repeatCells.join(','), '8,8');
   assert.eq(V.poiOrigin(row).join(','), '4,4');
   const counts = count(row, 0, 0, 8, 8, 'garden');
   assert.eq(counts.orange, 4, 'central two-by-two accent');
   assert.eq(counts.flowers, 12, 'one complete square flower ring');
-  assert.eq(counts.shrub, 16, 'two-cell hedge arms on all four sides');
+  assert.eq(counts.shrub || 0, 0, 'outer arms are clear ground');
   for (let y = 0; y < 8; y++) for (let x = 0; x < 8; x++) {
     const r = Math.max(Math.abs(2 * x - 7), Math.abs(2 * y - 7));
     const expected = r <= 1 ? 'orange' : r <= 3 ? 'flowers'
-      : [3, 4].includes(x) || [3, 4].includes(y) ? 'shrub' : null;
+      : null;
     const material = V.sample(row, x, y, 'garden');
     assert.eq(material, expected, 'ring and hedge geometry');
     assert.eq(V.sample(row, 7 - y, x, 'garden'), material, 'quarter-turn symmetry');
@@ -179,7 +198,7 @@ test('zone variants: Formal Garden keeps square flower rings and cardinal hedge 
   }
 });
 test('zone variants: beach driftwood thins repeated seats by one fifth without changing other materials', () => {
-  for (const id of ['pirate_cove', 'shellwater_strand']) {
+  for (const id of ['pirate_cove']) {
     const row = V.byId(id), original = { ...row, background: { ...row.background, materialKeepChance: null } };
     let before = 0, after = 0;
     for (let y = -150; y < 150; y++) for (let x = -150; x < 150; x++) {
@@ -229,33 +248,15 @@ test('zone variants: Mushroom Grove repeats the promoted Hilbert layout across s
     }
   }
 });
-test('zone variants: Orchard scatters grass near its trees without moving the trees or repeating grass stamps', () => {
-  const row = V.byId('orchard'), b = row.background;
-  const fixed = { ...row, background: { ...b, gapScatter: null } };
-  assert.eq(b.gapScatter.material, 'grass');
-  assert.lt(Math.abs(V.gapScatterChance(b, 1, 0) - .121), 1e-12, 'grass favours the tree-adjacent cell');
-  assert.lt(Math.abs(V.gapScatterChance(b, 2, 0) - .022), 1e-12, 'open aisles retain a little grass');
-  assert.eq(V.gapScatterChance(b, -1, 0), V.gapScatterChance(b, 1, 0), 'attraction wraps across the motif edge');
-  let changed = 0;
-  for (let y = -80; y < 80; y++) for (let x = -80; x < 80; x++) {
-    const material = V.sample(row, x, y, 'one'), tree = V.sample(fixed, x, y, 'one');
-    assert.eq(V.sample(row, x, y, 'one'), material, 'revisits preserve each grass seat');
-    if (tree) assert.eq(material, tree, 'tree seats retain their original kind');
-    else {
-      assert.truthy(material === null || material === 'grass');
-      if (material !== V.sample(row, x, y, 'two')) changed++;
-    }
+test('zone variants: Orchard retains fruit rows with clear timber and grass seats', () => {
+  const row = V.byId('orchard');
+  for (let y = -32; y < 32; y++) for (let x = -32; x < 32; x++) {
+    const expected = ((x % 4 + 4) % 4 === 2 && (y % 4 + 4) % 4 === 2) ? 'fruit_tree' : null;
+    assert.eq(V.sample(row, x, y, 'one'), expected);
+    assert.eq(V.sample(row, x, y, 'two'), expected);
   }
-  let nearGrass = 0, farGrass = 0;
-  for (let by = -20; by < 20; by++) for (let bx = -20; bx < 20; bx++) {
-    if (V.sample(row, bx * 8 + 1, by * 8, 'one') === 'grass') nearGrass++;
-    if (V.sample(row, bx * 8 + 2, by * 8, 'one') === 'grass') farGrass++;
-  }
-  assert.gt(nearGrass, farGrass * 3, 'the sampled distribution clusters grass beside trees');
-  assert.gt(farGrass, 0, 'grass is not restricted to uniform rings');
-  assert.gt(changed, 100, 'independent anchors do not repeat the same grass layout');
 });
-test('zone variants: Ancient Grove keeps rounded clusters and scatters grass only between them', () => {
+test('zone variants: Ancient Grove retains tree seats and clears its former brambles without grass refill', () => {
   const row = V.byId('ancient_grove'), b = row.background;
   assert.eq(b.repeatCells.join(','), '6,6');
   const fixed = { ...row, background: { ...b, gapScatter: null, materialKeepChance: null } };
@@ -275,7 +276,8 @@ test('zone variants: Ancient Grove keeps rounded clusters and scatters grass onl
       if (material !== V.sample(row, x, y, 'two')) changed++;
     }
   }
-  assert.inRange(keptShrubs / shrubs, 0.48, 0.52, 'half the brambles leave open ground');
+  assert.gt(shrubs, 0, 'former bramble seats stay reserved');
+  assert.eq(keptShrubs, 0, 'all former bramble seats stay clear');
   assert.lt(Math.abs(grass / empty - b.gapScatter.chance), 0.005);
   assert.gt(changed, 100, 'gap grass varies by anchor');
   assert.eq(V.sample(row, 3, 3, 'one'), 'tree');
@@ -290,7 +292,7 @@ test('zone variants: touching Silent Circle rims repeat without seams', () => {
     for (const [dx, dy] of [[4, 0], [-4, 0], [0, 4], [0, -4]]) {
       assert.eq(V.sample(row, cx + dx, cy + dy, 'a'), 'grave', 'neighbouring circles share cardinal pillar cells');
     }
-    assert.eq(V.sample(row, cx + 2, cy + 3, 'a'), 'grass', 'entry does not sever the shared rim');
+    assert.eq(V.sample(row, cx + 2, cy + 3, 'a'), null, 'clear entry does not sever the shared rim');
     assert.eq(V.sample(row, cx, cy, 'a'), null, 'circle centers remain clear');
   }
 });
@@ -327,7 +329,7 @@ test('zone variants: Stone Garden is centered rings with every fifth stone iron'
   const counts = count(row, 0, 0, 21, 21);
   assert.eq(counts.iron_ore, 20);
   assert.eq(counts.stone, 80);
-  assert.eq(counts.grass, 30);
+  assert.eq(counts.grass || 0, 0, 'stone rings have clear gaps');
   let start = 0;
   for (const ring of row.background.stoneRings) {
     const slots = row.background.slots.slice(start, start + ring.count);
@@ -395,7 +397,7 @@ test('bush groves keep their authored background density before placement exclus
    const row=ZoneVariants.byId(id); let shrubs=0;
    assert.eq(row.materialLooks?.shrub, id === 'ancient_grove' ? 'bramble' : 'ordinary');
    for(let y=0;y<120;y++) for(let x=0;x<120;x++) if(ZoneVariants.sample(row,x,y,'coverage')==='shrub')shrubs++;
-   const density = id === 'meadow' ? 0.315 : 0.25;
+   const density = id === 'meadow' ? 0.315 : 0;
    assert.eq(row.background.materialDensity.shrub, density);
    if (id === 'meadow') assert.eq(row.background.nominalDensity, density);
    assert.inRange(shrubs/14400, density - 0.02, density + 0.02, id);

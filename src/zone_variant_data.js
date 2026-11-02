@@ -1227,13 +1227,10 @@
         "densityFalloff": "none",
         "phaseOrigin": "settled_poi_global_cell_hash",
         "orientation": "quarter_turn_toward_approach",
-        "nominalDensity": 0.274,
+        "nominalDensity": 0.17,
         "materialDensity": {
           "grass": 0.14,
-          "shrub": 0.06,
-          "shell": 0.03,
-          "driftwood": 0.024,
-          "barrel": 0.02
+          "shell": 0.03
         },
         "type": "seeded_scatter",
         "seed": "anchor_key + variant_id + global_cell_coordinates",
@@ -1337,7 +1334,7 @@
       "guards": {
         "mode": "none"
       },
-      "atmosphere": "A grassy beach park with open walking space, low shrubs, washed-up shells, driftwood and barrels. The adjoining sand keeps its own beach nexus.",
+      "atmosphere": "A grassy beach park with open walking space and washed-up shells. The adjoining sand keeps its own beach nexus.",
       "materialLooks": {
         "shrub": "palm"
       }
@@ -1595,44 +1592,14 @@
               6
             ],
             "material": "fruit_tree"
-          },
-          {
-            "at": [
-              0,
-              0
-            ],
-            "material": "medium_tree"
-          },
-          {
-            "at": [
-              4,
-              0
-            ],
-            "material": "medium_tree"
-          },
-          {
-            "at": [
-              0,
-              4
-            ],
-            "material": "medium_tree"
-          },
-          {
-            "at": [
-              4,
-              4
-            ],
-            "material": "medium_tree"
           }
         ],
         "densityFalloff": "none",
         "phaseOrigin": "settled_poi_at_declared_motif_cell",
         "orientation": "quarter_turn_toward_approach",
-        "nominalDensity": 0.20824821433126595,
+        "nominalDensity": 0.0625,
         "materialDensity": {
-          "fruit_tree": 0.0625,
-          "medium_tree": 0.0625,
-          "grass": 0.08324821433126593
+          "fruit_tree": 0.0625
         },
         "type": "repeat_motif",
         "poiOrigin": {
@@ -1641,18 +1608,6 @@
             4
           ],
           "role": "avenue_center_between_apple_rows"
-        },
-        "gapScatter": {
-          "material": "grass",
-          "chance": 0.22,
-          "attraction": {
-            "materials": [
-              "fruit_tree",
-              "medium_tree"
-            ],
-            "radiusCells": 2,
-            "floor": 0.1
-          }
         }
       },
       "poi": {
@@ -1794,7 +1749,7 @@
         "spawnClass": "enemy",
         "fallback": "omit_guard_keep_find"
       },
-      "atmosphere": "Regular apple rows alternate with medium maple rows. Sparse, irregular grass gathers near the trunks, leaving open aisles leading to three finite gemfruit finds."
+      "atmosphere": "Regular apple rows leave open aisles leading to three finite gemfruit finds."
     },
     {
       "id": "formal_garden",
@@ -1809,34 +1764,6 @@
         "slots": [
           {
             "at": [
-              3,
-              0
-            ],
-            "material": "shrub"
-          },
-          {
-            "at": [
-              4,
-              0
-            ],
-            "material": "shrub"
-          },
-          {
-            "at": [
-              3,
-              1
-            ],
-            "material": "shrub"
-          },
-          {
-            "at": [
-              4,
-              1
-            ],
-            "material": "shrub"
-          },
-          {
-            "at": [
               2,
               2
             ],
@@ -1862,20 +1789,6 @@
               2
             ],
             "material": "flowers"
-          },
-          {
-            "at": [
-              0,
-              3
-            ],
-            "material": "shrub"
-          },
-          {
-            "at": [
-              1,
-              3
-            ],
-            "material": "shrub"
           },
           {
             "at": [
@@ -1907,34 +1820,6 @@
           },
           {
             "at": [
-              6,
-              3
-            ],
-            "material": "shrub"
-          },
-          {
-            "at": [
-              7,
-              3
-            ],
-            "material": "shrub"
-          },
-          {
-            "at": [
-              0,
-              4
-            ],
-            "material": "shrub"
-          },
-          {
-            "at": [
-              1,
-              4
-            ],
-            "material": "shrub"
-          },
-          {
-            "at": [
               2,
               4
             ],
@@ -1963,20 +1848,6 @@
           },
           {
             "at": [
-              6,
-              4
-            ],
-            "material": "shrub"
-          },
-          {
-            "at": [
-              7,
-              4
-            ],
-            "material": "shrub"
-          },
-          {
-            "at": [
               2,
               5
             ],
@@ -2002,42 +1873,13 @@
               5
             ],
             "material": "flowers"
-          },
-          {
-            "at": [
-              3,
-              6
-            ],
-            "material": "shrub"
-          },
-          {
-            "at": [
-              4,
-              6
-            ],
-            "material": "shrub"
-          },
-          {
-            "at": [
-              3,
-              7
-            ],
-            "material": "shrub"
-          },
-          {
-            "at": [
-              4,
-              7
-            ],
-            "material": "shrub"
           }
         ],
         "densityFalloff": "none",
         "phaseOrigin": "settled_poi_at_declared_motif_cell",
         "orientation": "quarter_turn_toward_approach",
-        "nominalDensity": 0.5,
+        "nominalDensity": 0.25,
         "materialDensity": {
-          "shrub": 0.25,
           "flowers": 0.1875,
           "orange": 0.0625
         },
@@ -2244,7 +2086,7 @@
       "guards": {
         "mode": "none"
       },
-      "atmosphere": "Four clipped hedge arms enter from the north, south, east and west, meeting a concentric flower centre: a pale outer ring surrounds a warm orange heart. Open corners give each repeated parterre room to breathe.",
+      "atmosphere": "A pale flower ring surrounds a warm orange heart. Open outer arms and corners give each repeated parterre room to breathe.",
       "materialLooks": {
         "shrub": "clipped"
       },
@@ -2267,22 +2109,6 @@
         "verticalMaterial": "shrub",
         "intersectionMaterial": "shrub",
         "lineWidthCells": 1,
-        "plotCenters": {
-          "material": {
-            "cycle": [
-              "flowers",
-              "flowers",
-              "flowers",
-              "orange"
-            ],
-            "index": "block_x_plus_block_y"
-          },
-          "excludePoiPlot": true,
-          "offsetCells": [
-            2,
-            2
-          ]
-        },
         "previewPlots": [
           4,
           4
@@ -2290,11 +2116,9 @@
         "phaseOrigin": "settled_poi_at_plot_center",
         "orientation": "quarter_turn_toward_approach",
         "densityFalloff": "none",
-        "nominalDensity": 0.5,
+        "nominalDensity": 0.4375,
         "materialDensity": {
           "shrub": 0.375,
-          "flowers": 0.046875,
-          "orange": 0.015625,
           "carnivorous_plant": 0.0625
         },
         "poiPlot": [
@@ -2626,10 +2450,10 @@
         "densityFalloff": "none",
         "phaseOrigin": "settled_poi_at_declared_motif_cell",
         "orientation": "quarter_turn_toward_approach",
-        "nominalDensity": 0.35,
+        "nominalDensity": 0.09999999999999999,
         "materialDensity": {
           "tree": 0.027777777777777776,
-          "shrub": 0.25,
+          "shrub": 0,
           "grass": 0.04444444444444444,
           "treant": 0.027777777777777776
         },
@@ -2671,7 +2495,7 @@
         },
         "densityBasis": "fixed_cluster_plus_expected_gap_scatter",
         "materialKeepChance": {
-          "shrub": 0.5
+          "shrub": 0
         }
       },
       "poi": {
@@ -2837,7 +2661,7 @@
         "spawnClass": "enemy",
         "fallback": "omit_guard_keep_find"
       },
-      "atmosphere": "Rounded tree-centered clusters repeat six cells apart, with brambles covering roughly a quarter of the background cells, leaving open breaks through the clusters and light grass in the gaps. Stone markers lead to the guarded starflower. A bramble beside each central tree twitches, hiding a treant that wakes when approached.",
+      "atmosphere": "Tree and treant seats repeat six cells apart, with clear former bramble seats and light grass in the gaps. Stone markers lead to the guarded starflower.",
       "materialLooks": {
         "shrub": "bramble"
       }
@@ -2887,13 +2711,6 @@
               2
             ],
             "material": "shrub"
-          },
-          {
-            "at": [
-              3,
-              2
-            ],
-            "material": "grass"
           },
           {
             "at": [
@@ -2992,22 +2809,14 @@
               5
             ],
             "material": "shrub"
-          },
-          {
-            "at": [
-              4,
-              5
-            ],
-            "material": "grass"
           }
         ],
         "densityFalloff": "none",
         "phaseOrigin": "settled_poi_at_declared_motif_cell",
         "orientation": "quarter_turn_toward_approach",
-        "nominalDensity": 0.6,
+        "nominalDensity": 0.5277777777777778,
         "materialDensity": {
           "shrub": 0.5,
-          "grass": 0.07222222222222222,
           "tree": 0.027777777777777776
         },
         "type": "repeat_motif",
@@ -3040,13 +2849,7 @@
           ],
           "role": "cluster_center_replacing_center_tree"
         },
-        "gapScatter": {
-          "material": "grass",
-          "chance": 0.04,
-          "placement": "empty_motif_cells_only",
-          "seed": "anchor_variant_global_cell"
-        },
-        "densityBasis": "fixed_cluster_plus_expected_gap_scatter"
+        "densityBasis": "fixed_cluster_before_poi_replacement"
       },
       "poi": {
         "id": "stone_tree_ring",
@@ -3193,7 +2996,7 @@
       "guards": {
         "mode": "none"
       },
-      "atmosphere": "Old trees shelter soft bushes and grass in quiet clusters around the moss cairn, with open ground between them."
+      "atmosphere": "Old trees shelter soft bushes in quiet clusters around the moss cairn, with open ground between them."
     },
     {
       "id": "stone_garden",
@@ -3248,18 +3051,7 @@
             "sequenceOffset": 3
           }
         ],
-        "grassRings": [
-          {
-            "radiusCells": 4.5,
-            "count": 10,
-            "phaseRadians": 0.3141592653589793
-          },
-          {
-            "radiusCells": 7.5,
-            "count": 20,
-            "phaseRadians": 0.15707963267948966
-          }
-        ],
+        "grassRings": [],
         "slots": [
           {
             "at": [
@@ -3960,223 +3752,12 @@
               1
             ],
             "material": "stone"
-          },
-          {
-            "at": [
-              11,
-              6
-            ],
-            "material": "grass"
-          },
-          {
-            "at": [
-              14,
-              7
-            ],
-            "material": "grass"
-          },
-          {
-            "at": [
-              15,
-              10
-            ],
-            "material": "grass"
-          },
-          {
-            "at": [
-              14,
-              13
-            ],
-            "material": "grass"
-          },
-          {
-            "at": [
-              11,
-              14
-            ],
-            "material": "grass"
-          },
-          {
-            "at": [
-              9,
-              14
-            ],
-            "material": "grass"
-          },
-          {
-            "at": [
-              6,
-              13
-            ],
-            "material": "grass"
-          },
-          {
-            "at": [
-              6,
-              10
-            ],
-            "material": "grass"
-          },
-          {
-            "at": [
-              6,
-              7
-            ],
-            "material": "grass"
-          },
-          {
-            "at": [
-              9,
-              6
-            ],
-            "material": "grass"
-          },
-          {
-            "at": [
-              11,
-              3
-            ],
-            "material": "grass"
-          },
-          {
-            "at": [
-              13,
-              3
-            ],
-            "material": "grass"
-          },
-          {
-            "at": [
-              15,
-              5
-            ],
-            "material": "grass"
-          },
-          {
-            "at": [
-              17,
-              7
-            ],
-            "material": "grass"
-          },
-          {
-            "at": [
-              17,
-              9
-            ],
-            "material": "grass"
-          },
-          {
-            "at": [
-              17,
-              11
-            ],
-            "material": "grass"
-          },
-          {
-            "at": [
-              17,
-              13
-            ],
-            "material": "grass"
-          },
-          {
-            "at": [
-              15,
-              15
-            ],
-            "material": "grass"
-          },
-          {
-            "at": [
-              13,
-              17
-            ],
-            "material": "grass"
-          },
-          {
-            "at": [
-              11,
-              17
-            ],
-            "material": "grass"
-          },
-          {
-            "at": [
-              9,
-              17
-            ],
-            "material": "grass"
-          },
-          {
-            "at": [
-              7,
-              17
-            ],
-            "material": "grass"
-          },
-          {
-            "at": [
-              5,
-              15
-            ],
-            "material": "grass"
-          },
-          {
-            "at": [
-              3,
-              13
-            ],
-            "material": "grass"
-          },
-          {
-            "at": [
-              3,
-              11
-            ],
-            "material": "grass"
-          },
-          {
-            "at": [
-              3,
-              9
-            ],
-            "material": "grass"
-          },
-          {
-            "at": [
-              3,
-              7
-            ],
-            "material": "grass"
-          },
-          {
-            "at": [
-              5,
-              5
-            ],
-            "material": "grass"
-          },
-          {
-            "at": [
-              7,
-              3
-            ],
-            "material": "grass"
-          },
-          {
-            "at": [
-              9,
-              3
-            ],
-            "material": "grass"
           }
         ],
-        "nominalDensity": 0.2947845804988662,
+        "nominalDensity": 0.22675736961451248,
         "materialDensity": {
           "iron_ore": 0.045351473922902494,
-          "stone": 0.18140589569160998,
-          "grass": 0.06802721088435375
+          "stone": 0.18140589569160998
         },
         "phaseOrigin": "settled_poi_at_declared_motif_cell",
         "poiOrigin": {
@@ -4331,7 +3912,7 @@
       "guards": {
         "mode": "none"
       },
-      "atmosphere": "Three concentric stone rings surround the POI, with softer grass rings between. Every fifth stone is iron, creating a regular metallic rhythm through the circles.",
+      "atmosphere": "Three concentric stone rings surround the POI, with clear ground between. Every fifth stone is iron, creating a regular metallic rhythm through the circles.",
       "materialReplacements": {
         "stone": "grave_pillar"
       },
@@ -4378,43 +3959,14 @@
               3
             ],
             "material": "grave"
-          },
-          {
-            "at": [
-              5,
-              1
-            ],
-            "material": "grass"
-          },
-          {
-            "at": [
-              5,
-              3
-            ],
-            "material": "grass"
-          },
-          {
-            "at": [
-              1,
-              5
-            ],
-            "material": "grass"
-          },
-          {
-            "at": [
-              5,
-              5
-            ],
-            "material": "grass"
           }
         ],
         "densityFalloff": "none",
         "phaseOrigin": "settled_poi_at_declared_motif_cell",
         "orientation": "quarter_turn_toward_approach",
-        "nominalDensity": 0.2222222222222222,
+        "nominalDensity": 0.1111111111111111,
         "materialDensity": {
-          "grave": 0.1111111111111111,
-          "grass": 0.1111111111111111
+          "grave": 0.1111111111111111
         },
         "type": "repeat_motif",
         "poiOrigin": {
@@ -4591,7 +4143,7 @@
         "fallback": "omit_guard_keep_find",
         "headstoneGhostChance": 0.3333333333333333
       },
-      "atmosphere": "Close rows of matching graves stand among long grass, with clay pots beside the central aisle.",
+      "atmosphere": "Close rows of matching graves stand beside clear aisles, with grass and clay pots at the POI.",
       "materialFrames": {
         "grave": [
           4
@@ -4636,20 +4188,6 @@
           },
           {
             "at": [
-              3,
-              3
-            ],
-            "material": "shrub"
-          },
-          {
-            "at": [
-              4,
-              3
-            ],
-            "material": "shrub"
-          },
-          {
-            "at": [
               1,
               4
             ],
@@ -4673,10 +4211,9 @@
         "densityFalloff": "none",
         "phaseOrigin": "settled_poi_at_declared_motif_cell",
         "orientation": "quarter_turn_toward_approach",
-        "nominalDensity": 0.2222222222222222,
+        "nominalDensity": 0.16666666666666666,
         "materialDensity": {
           "grass": 0.08333333333333333,
-          "shrub": 0.05555555555555555,
           "grave": 0.08333333333333333
         },
         "type": "repeat_motif",
@@ -4847,7 +4384,7 @@
         "fallback": "omit_guard_keep_find",
         "headstoneGhostChance": 0.3333333333333333
       },
-      "atmosphere": "Three weathered grave markers mingle with grass and shrubs in each 6 × 6-cell patch, with open aisles through the overgrowth.",
+      "atmosphere": "Three weathered grave markers mingle with grass in each 6 × 6-cell patch, with open aisles through the overgrowth.",
       "materialFrames": {
         "grave": [
           4,
@@ -5276,13 +4813,6 @@
           },
           {
             "at": [
-              6,
-              7
-            ],
-            "material": "grass"
-          },
-          {
-            "at": [
               7,
               7
             ],
@@ -5292,10 +4822,9 @@
         "densityFalloff": "none",
         "phaseOrigin": "settled_poi_at_declared_motif_cell",
         "orientation": "quarter_turn_toward_approach",
-        "nominalDensity": 0.28125,
+        "nominalDensity": 0.265625,
         "materialDensity": {
-          "grave": 0.265625,
-          "grass": 0.015625
+          "grave": 0.265625
         },
         "type": "repeat_motif",
         "ring": {
@@ -5308,7 +4837,7 @@
             2,
             3
           ],
-          "entranceMaterial": "grass",
+          "entranceMaterial": null,
           "connectivity": "8_neighbor_continuous_arc; adjacent_circles_share_cardinal_rim_cells",
           "wrap": "modulo_repeat; deduplicate_shared_rim_cells"
         },
@@ -5467,7 +4996,7 @@
         "fallback": "omit_guard_keep_find",
         "proximityCells": 4
       },
-      "atmosphere": "Touching circles of small stone pillars, purportedly graves, form a continuous quiet lattice, with one off-axis grass entrance per circle and a single starflower find.",
+      "atmosphere": "Touching circles of small stone pillars, purportedly graves, form a continuous quiet lattice, with one off-axis clear entrance per circle and a single starflower find.",
       "materialFrames": {
         "grave": [
           1
@@ -7398,27 +6927,6 @@
           {
             "at": [
               1,
-              0
-            ],
-            "material": "shell"
-          },
-          {
-            "at": [
-              4,
-              0
-            ],
-            "material": "shell"
-          },
-          {
-            "at": [
-              6,
-              6
-            ],
-            "material": "shell"
-          },
-          {
-            "at": [
-              1,
               6
             ],
             "material": "rubble"
@@ -7431,9 +6939,8 @@
             "material": "rubble"
           }
         ],
-        "nominalDensity": 0.115625,
+        "nominalDensity": 0.06875,
         "materialDensity": {
-          "shell": 0.046875,
           "rubble": 0.03125,
           "driftwood": 0.0375
         },
@@ -7502,7 +7009,7 @@
         "spawnClass": "enemy",
         "fallback": "omit_guard_keep_find"
       },
-      "atmosphere": "Scattered driftwood and shell fragments surround one shipwreck shrine. Its 3 × 3-cell dry-sand footprint and approach are reserved before scenic, street and zone placements. The shipwreck offers pirate mercenaries for hire. A pirate grunt and gunner patrol beside it. If the full wreck cannot fit on dry sand, the accessible small hiring shrine remains. Four buried treasure spots wait nearby, hidden until discovered.",
+      "atmosphere": "Scattered driftwood and rubble surround one shipwreck shrine. Its 3 × 3-cell dry-sand footprint and approach are reserved before scenic, street and zone placements. The shipwreck offers pirate mercenaries for hire. A pirate grunt and gunner patrol beside it. If the full wreck cannot fit on dry sand, the accessible small hiring shrine remains. Four buried treasure spots wait nearby, hidden until discovered.",
       "decorations": [
         {
           "material": "barrel",
@@ -7561,19 +7068,11 @@
               1
             ],
             "material": "shell"
-          },
-          {
-            "at": [
-              2,
-              3
-            ],
-            "material": "driftwood"
           }
         ],
-        "nominalDensity": 0.18666666666666668,
+        "nominalDensity": 0.13333333333333333,
         "materialDensity": {
-          "shell": 0.13333333333333333,
-          "driftwood": 0.05333333333333334
+          "shell": 0.13333333333333333
         },
         "densityFalloff": "none",
         "phaseOrigin": "settled_poi_at_declared_motif_cell",
@@ -7584,10 +7083,7 @@
           ],
           "role": "center_of_shore_aligned_motif"
         },
-        "orientation": "seeded_quarter_turn",
-        "materialKeepChance": {
-          "driftwood": 0.8
-        }
+        "orientation": "seeded_quarter_turn"
       },
       "poi": {
         "id": "open_shell_horseshoe",
@@ -7689,7 +7185,7 @@
       "guards": {
         "mode": "none"
       },
-      "atmosphere": "Short shell ribbons and one driftwood seat repeat in a narrow 3 × 5 frame. Open sand separates them; the two wild roses stay on eligible landward vegetation.",
+      "atmosphere": "Short shell ribbons repeat in a narrow 3 × 5 frame. Open sand separates them; the two wild roses stay on eligible landward vegetation.",
       "materialFrames": {
         "stone": [
           34
@@ -8134,23 +7630,15 @@
               5
             ],
             "material": "shrub"
-          },
-          {
-            "at": [
-              4,
-              5
-            ],
-            "material": "grass"
           }
         ],
         "densityFalloff": "none",
         "phaseOrigin": "settled_poi_at_declared_motif_cell",
         "orientation": "quarter_turn_toward_approach",
-        "nominalDensity": 0.35,
+        "nominalDensity": 0.3055555555555556,
         "materialDensity": {
           "tree": 0.027777777777777776,
           "shrub": 0.25,
-          "grass": 0.04444444444444444,
           "treant": 0.027777777777777776
         },
         "type": "repeat_motif",
@@ -8183,13 +7671,7 @@
           ],
           "role": "cluster_center_replacing_center_tree"
         },
-        "gapScatter": {
-          "material": "grass",
-          "chance": 0.04,
-          "placement": "empty_motif_cells_only",
-          "seed": "anchor_variant_global_cell"
-        },
-        "densityBasis": "fixed_cluster_plus_expected_gap_scatter",
+        "densityBasis": "fixed_cluster_before_poi_replacement",
         "materialKeepChance": {
           "shrub": 0.5
         }
@@ -8357,7 +7839,7 @@
         "spawnClass": "enemy",
         "fallback": "omit_guard_keep_find"
       },
-      "atmosphere": "Dark olive soil beneath living tree clusters, with bare Rogue Adventure snags around the grove shrine. Existing brambles, grass resources, stone markers and guarded starflower remain interactive.",
+      "atmosphere": "Dark olive soil beneath living tree clusters, with bare Rogue Adventure snags around the grove shrine. Brambles, stone markers and guarded starflower remain interactive.",
       "materialLooks": {
         "shrub": "bramble",
         "dead_tree": "dead_tree"
