@@ -121,3 +121,19 @@
     assert.truthy(r); assert.eq(r.kind,'goblin'); assert.falsy(Pets.canCatch(s,{id:'g2',kind:'goblin'}),'one per species');
   });
 })();
+
+test('pets: habitat-only Owlbears and Horned Sheep use ordinary enemy capture and combat', () => {
+  for (const kind of ['owlbear', 'horned_sheep']) {
+    const save = { released: [], wildAnimals: [], caught: [], inv: [] };
+    const wild = { id: 'habitat_' + kind, kind, x: 1, y: 2, _hp: 10 };
+    assert.truthy(Combat.isEnemy(wild), kind + ' is hostile while wild');
+    assert.truthy(Pets.canCatch(save, wild), kind + ' can be caught');
+    const pet = Pets.bond(save, wild);
+    assert.eq(pet.kind, kind);
+    assert.falsy(Combat.isEnemy(pet), 'caught creature is an ally');
+    assert.truthy(Combat.isTame(pet));
+    assert.gt(Combat.petBlow(pet), 0, 'ally retains a combat attack');
+    Pets.deploy(save, pet.id, { x: 3, y: 4, tx: 0, ty: 0 });
+    assert.eq(Pets.get(JSON.parse(JSON.stringify(save)), pet.id).kind, kind, 'species survives saving');
+  }
+});

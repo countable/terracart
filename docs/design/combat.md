@@ -451,6 +451,12 @@ mechanics.
   catch wildlife. Its item `petFood.maxHp` permanently adds to the individual's
   saved HP bonus and fills that new capacity without healing old wounds or
   interrupting knockout recovery. It does not count as a favourite meal.
+  Pigs and sheep are ordinary catchable livestock: potatoes catch a pig and
+  cress catches a sheep. Producer meals yield a mushroom or wool respectively,
+  using the shared animal-production cooldown. Both yield meat when hunted.
+  Half of baby chickens use the Chick body, chosen from their original ID so
+  capture and reload retain the appearance. Growth restores the adult chicken
+  body; the alternate does not create a second chicken ownership slot.
   Feeding a shiny chicken yields a separate Shiny Egg stack. After 500 m of
   real GPS walking, it hatches a non-shiny green dragon baby; its favourite
   food is meat. Regular eggs still hatch shiny domestic babies. Each egg type

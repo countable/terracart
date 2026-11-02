@@ -16,6 +16,12 @@ access or tile lifecycle mechanics.
 
 ## Habitat populations
 
+- Selected wildlife uses the live per-area density table: Sheep occur only in
+  ordinary Grass and pigs only in Wetland, each at 2 per 1,000 eligible cells.
+  Rare Owlbears occur on Old Growth Paths at 0.5 per 1,000 eligible cells;
+  Horned Sheep occur in Strip Mine Nexus areas at 3 per 1,000 eligible cells.
+  Existing residents retain their rates. The two new enemies have no ordinary
+  landcover or cave pool; all four species use normal ownership and placement gates.
 - `SpawnPipeline.ownerAt` resolves the most-specific existing owner: Nexus or
   road coverage removes cells from basic terrain. Empty or incomplete owner
   tables mean no ambient inhabitants, never fallback to the underlying terrain.

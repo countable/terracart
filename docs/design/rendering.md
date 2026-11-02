@@ -983,8 +983,10 @@ the surrounding grove’s shrub scale.
   and sorts the shared world container only when membership or assigned depth
   changes. Canvas also rasterizes unchanged wildplant sprites by absolute ground
   row while standing north-up; heading-up rotation, movement, work, shine,
-  weather tint and cover animation keep their ordinary live sprites. Heading-up grass retains one world-sorted
-  part per data cell and rasterizes that cell's blade faces once under Canvas.
+  weather tint and cover animation keep their ordinary live sprites. Grass
+  retains one world-sorted part per blade root, so an actor inside a cell
+  stays behind its foreground blades. Whole-cell raster caches cannot preserve
+  that within-cell occlusion.
   Plant data remains in the draw list, so taps and contact never depend on the
   cache. Work transitions invalidate reuse,
   while connected, clock-driven and saved-state art stays live.

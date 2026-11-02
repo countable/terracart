@@ -4297,11 +4297,17 @@ Render.drawGrassPrisms = function (scene, plantItems) {
       const points = [{ x, y }, { x: x + CELL_PX, y }, { x: x + CELL_PX, y: y + CELL_PX }, { x, y: y + CELL_PX }];
       const faces = WallMaterials.geometry('grass', points, WallMaterials.GRASS.height,
         { ...cell, cellSize: CELL_PX, underdark: WorldGen.floorProfile(scene.depth || 0)?.biome === 'underdark' });
-      if (faces.length) {
+      // Keep each blade at its own root in the shared actor sort. Caching a
+      // whole cell at its centre put every blade behind an actor standing in
+      // the front half, including the blades that should cover their feet.
+      for (let blade = 0; blade < faces.length; blade += 2) {
+        const { x: cx, y: cy } = faces[blade].billboard;
         const bladeScale = cell.sparseClump ? WallMaterials.GRASS.sparseScale : 1;
-        WallPerspective.prism(scene, 'grass', points, 0, WallMaterials.GRASS.height * bladeScale,
+        const half = WallMaterials.GRASS.width * bladeScale / 2;
+        WallPerspective.prism(scene, 'grass', [{ x: cx - half, y: cy - half }, { x: cx + half, y: cy - half },
+          { x: cx + half, y: cy + half }, { x: cx - half, y: cy + half }], 0, WallMaterials.GRASS.height * bladeScale,
           { face: 0x7f7f46, top: 0x7f7f46, dark: 0x7f7f46 }, null, false,
-          { materialFaces: faces, canvasCache: true });
+          { materialFaces: faces.slice(blade, blade + 2) });
       }
     }
   });
@@ -4971,7 +4977,7 @@ Render.drawObjects = function drawObjects(scene) {
   // Warm the active creature bubble before viewport culling. Moving or changing
   // depths brings new kinds through this same path without loading the roster.
   if (scene._ensureAsset && typeof SpriteLayout !== 'undefined') {
-    for (const c of consideredCreatures) scene._ensureAsset(SpriteLayout.creatureSheet(c.kind));
+    for (const c of consideredCreatures) scene._ensureAsset(SpriteLayout.creatureSheet(SpriteLayout.creatureVisualKind(c)));
   }
   // The shared viewport cull runs before caught/surface/visibility checks.
   // In the live game wanderCreatures has already removed the frozen ring
@@ -6227,14 +6233,15 @@ Render.drawObjects = function drawObjects(scene) {
     const actor = typeof HeadingUp !== 'undefined' ? HeadingUp.appearanceActor(scene, c) : c;
     const npcArt = c.kind === 'npc' ? SL.npcAppearance(actor, performance.now()) : null;
     const appearance = npcArt ? null : creatureAppearance(actor, performance.now());
+    const visualKind = SL.creatureVisualKind(c);
     const pet = Combat.isTame(c) && !npcArt;
     const down = pet && typeof Pets !== 'undefined' && Pets.isDown(c, Date.now());
     const vivid = !pet && !npcArt && Combat.isElite(c);
-    const baseSheet = npcArt ? npcArt.sheet : creatureSheet(c.kind);
+    const baseSheet = npcArt ? npcArt.sheet : creatureSheet(visualKind);
     const pendingSheet = !scene.textures.exists(baseSheet);
     const texKey = pendingSheet ? 'creature_loading' : pet ? Render.petTexture(scene, c.kind, baseSheet, c.tint)
       : vivid ? Render.vividTexture(scene, c.kind, baseSheet) : baseSheet;
-    const anim = creatureAnim(c.kind);
+    const anim = creatureAnim(visualKind);
     // A baked sheet (a pet's neutral one, an elite's vivid one) is not the
     // sheet Phaser's anims name, so its frame is stepped here.
     // Keep an actor visible on a cold transition while its sheet is in flight.
@@ -6277,7 +6284,7 @@ Render.drawObjects = function drawObjects(scene) {
       lift += Math.round(Math.abs(Math.sin(ph * Math.PI)) * hop.px);
     }
     // A softened lair guard is drawn smaller (creatureInstScale).
-    s.setOrigin(0.5, creatureFoot(c.kind)).setScale(creatureScale(c.kind, creatureInstScale(c)))
+    s.setOrigin(0.5, creatureFoot(visualKind)).setScale(creatureScale(visualKind, creatureInstScale(c)))
      .setPosition(Math.round(sx), Math.round(sy) + CREATURE_GROUND_DY - lift);
     if (pendingSheet) s.setOrigin(0.5, 1).setDisplaySize(24, 24);
     s._huAnchor = { x: Math.round(sx), y: Math.round(sy) + CREATURE_GROUND_DY };
