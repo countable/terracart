@@ -95,7 +95,7 @@
     assert.eq(typeof EnemySpawns.homeDemote, 'undefined', 'nothing is demoted any more');
   });
   test('enemy spawns: every foe the surface can hold has a distance from which it lives', () => {
-    const kinds = new Set([...EnemyRoster.ROWS.filter(r => r.surface).map(r => r.id), 'fire_slime']);
+    const kinds = new Set([...EnemyRoster.ROWS.filter(r => r.surface && !r.rareEncounter).map(r => r.id), 'fire_slime']);
     for (const ladder of Object.values(Lairs.KIND_ORDER)) for (const k of ladder) kinds.add(k);
     for (const kind of kinds) assert.truthy(EnemySpawns.homeAllows(kind, 5000), `${kind} lives somewhere`);
     assert.truthy(EnemySpawns.homeAllows('slime', 0), 'and something lives at Home');

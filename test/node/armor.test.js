@@ -299,7 +299,7 @@ test('armor: every enemy blow uses shared incoming damage before reaching the ba
   assert.truthy(lands, 'foeBlowLands exists');
   assert.truthy(/const dmg = mitigated \? raw : Combat\.incomingDamage\(scene\.save, raw\);/.test(lands[1]),
     'the shared mitigation, unless the caller already mitigated by packets');
-  assert.truthy(/foeBlowLands\(scene, c, raw, \{ condition: Combat\.monster\(c\.kind\)\?\.condition \}\)/.test(CREATURE_AI_SRC),
+  assert.truthy(/foeBlowLands\(scene, c, raw, \{ condition: Combat\.monster\(c\.kind\)\?\.condition, conditionDurationMs: row\.conditionDurationMs \}\)/.test(CREATURE_AI_SRC),
     'a roster foe\'s melee lands through it');
   assert.eq((CREATURE_AI_SRC.match(/foeBlowLands\(scene, [^,]+, Combat\.playerDamageRate\(|foeBlowLands\(scene, c, loss, \{ mitigated: true \}\)/g) || []).length, 2,
     'the aura and the slime trail hand over packet-mitigated rates');

@@ -10,7 +10,7 @@
   <meta name="theme-color" content="#111" />
   <script>
     // Derived with sw.js SHELL_VERSION by tools/cachebust.js.
-    window.__shellVersion = 'shell-b76c56fd';
+    window.__shellVersion = 'shell-c43ea615';
     // Sandbox local reset must run before any saved setting or slot is read.
     (function () {
       const params = new URLSearchParams(location.search);
@@ -105,7 +105,7 @@
        the preload only removes its later network wait. cachebust.js owns both
        versions, just as it owns the matching script and APP_SRC URLs. -->
   <link rel="preload" as="script" fetchpriority="high" href="vendor/phaser.js?v=3fa1b12c" />
-  <link rel="preload" as="script" fetchpriority="high" href="src/app.js?v=98de121e" />
+  <link rel="preload" as="script" fetchpriority="high" href="src/app.js?v=0868ec6e" />
   <script>
     // ── Boot profiler ────────────────────────────────────────────────────
     // FIRST thing on the page, so it is recording before a single byte of the
@@ -3234,11 +3234,11 @@
   <script>window.__boot?.mark('scripts start');</script>
   <script src="vendor/phaser.js?v=3fa1b12c"></script>
   <script src="src/mvt.js?v=d6d1990a"></script>
-  <script src="src/enemy_roster.js?v=2f57534f"></script>
+  <script src="src/enemy_roster.js?v=4bdc357d"></script>
 
-  <script src="src/enemy_spawns.js?v=a0d845aa"></script>
+  <script src="src/enemy_spawns.js?v=15cd9ed9"></script>
   <script src="src/spawn_pipeline.js?v=494353d8"></script>
-  <script src="src/creature_spawns.js?v=a23f98b9"></script>
+  <script src="src/creature_spawns.js?v=306eb227"></script>
   <script src="src/enemy_habitats.js?v=e91c727d"></script>
   <script src="src/difficulty.js?v=58235fea"></script>
   <script src="src/util.js?v=ad636dad"></script>
@@ -3268,6 +3268,7 @@
   <script src="src/coords.js?v=85d2df4c"></script>
   <script src="src/fog.js?v=f59fad6c"></script>
   <script src="src/biome_profiles.js?v=a8e6249a"></script>
+  <script src="src/rare_encounters.js?v=ddf44d9c"></script>
   <script src="src/habitat_spawns.js?v=ecc39a42"></script>
   <script src="src/traps.js?v=4c90ab4d"></script>
   <script src="src/whirlwinds.js?v=a87ce5a8"></script>
@@ -3306,14 +3307,14 @@
   <script src="src/items.js?v=2693904a"></script>
   <script src="src/inventory.js?v=f8d057a5"></script>
   <script src="src/energy.js?v=174f4a68"></script>
-  <script src="src/conditions.js?v=d02102c9"></script>
+  <script src="src/conditions.js?v=94ca613c"></script>
   <script src="src/player_time.js?v=24ed4d4e"></script>
   <script src="src/potion_effects.js?v=f044e56e"></script>
   <script src="src/crops.js?v=286067fc"></script>
   <script src="src/rest.js?v=6433ffb3"></script>
   <script src="src/delivery.js?v=66bf194d"></script>
   <script src="src/save_state.js?v=c64b1d34"></script>
-  <script src="src/gear.js?v=0a1100c9"></script>
+  <script src="src/gear.js?v=9d5c5e1f"></script>
   <script src="src/comet_ring.js?v=950e174d"></script>
   <script src="src/rewards.js?v=3ff8a6ee"></script>
   <script src="src/shops_math.js?v=dd28d4b3"></script>
@@ -3342,10 +3343,10 @@
   <script src="src/ground_fire.js?v=ed5509fb"></script>
   <script src="src/combat.js?v=59fb2d30"></script>
   <script src="src/pirates.js?v=362fddf3"></script>
-  <script src="src/pets.js?v=441af278"></script>
+  <script src="src/pets.js?v=ce51b478"></script>
   <script src="src/character_portraits.js?v=e7b062b6"></script>
   <script src="src/companions.js?v=c7b70d58"></script>
-  <script src="src/creature_ai.js?v=fd3df2d7"></script>
+  <script src="src/creature_ai.js?v=6994045d"></script>
 
   <script src="src/wizard.js?v=649e72fb"></script>
   <script src="src/dragon_story.js?v=0ebfab03"></script>
@@ -3354,12 +3355,12 @@
   <script src="src/pet_stories.js?v=5ccaeef4"></script>
   <script src="src/story_encounters.js?v=1f7d3210"></script>
   <script src="src/lost_miner.js?v=786e16a9"></script>
-  <script src="src/interact.js?v=ed7811dd"></script>
+  <script src="src/interact.js?v=c227626f"></script>
   <script src="src/play_tips.js?v=a0cf0093"></script>
   <script src="src/lighting_gpu.js?v=ad54fc09"></script>
   <script src="src/lighting.js?v=15642756"></script>
   <script src="src/safety.js?v=7972cffc"></script>
-  <script src="src/render.js?v=1d4ed83f"></script>
+  <script src="src/render.js?v=da19d28f"></script>
   <script src="src/gas_render.js?v=968b9603"></script>
   <script src="src/enemy_protocol.js?v=d431fb24"></script>
   <script src="src/weather_codes.js?v=d29f48ce"></script>
@@ -3411,7 +3412,7 @@
   <script src="src/scene_geo.js?v=9108f6d9"></script>
   <script src="src/npc.js?v=afb5c4b1"></script>
   <script src="src/npc_benefits.js?v=2f3841b4"></script>
-  <script src="src/scene_creatures.js?v=94aaf218"></script>
+  <script src="src/scene_creatures.js?v=67a385f8"></script>
   <script src="src/scene_fire.js?v=f548e369"></script>
   <script src="src/scene_shops.js?v=1c9e345b"></script>
   <script src="src/heading_up.js?v=1781dbf7"></script>
@@ -3421,7 +3422,7 @@
   <script src="src/scene_elevators.js?v=38e0b3e9"></script>
   <script src="src/scene_arena.js?v=f444910f"></script>
   <script src="src/scene_sky.js?v=4d74ca34"></script>
-  <script src="src/scene_consumables.js?v=585ca7e3"></script>
+  <script src="src/scene_consumables.js?v=1f11ffc5"></script>
   <script src="src/scene_pets.js?v=db2fac4b"></script>
   <script src="src/scene_venues.js?v=0f311fda"></script>
   <script src="src/scene_furniture.js?v=38e62ac6"></script>
@@ -3496,7 +3497,7 @@
     // tracking joins that same watch — one watchPosition per page, one prompt.
     (function () {
       if (window.__bootRecovery.failed) return;
-      const APP_SRC = 'src/app.js?v=98de121e';
+      const APP_SRC = 'src/app.js?v=0868ec6e';
       // How long the gate waits for that first fix before giving up and
       // booting at the default origin. A cold GPS start can take far longer
       // than this indoors, so app.js keeps its capture-then-reload path as a

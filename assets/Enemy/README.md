@@ -79,9 +79,23 @@ Art gaps to review:
 - Giant Crab supplies walking poses, with no distinct claw-attack cycle.
 - Red Dragon supplies flight and two stationary/open-mouth poses per direction,
   but no authored flame/breath effect. Its attack uses those stationary poses.
-- The other dragon colours and frost animals remain reserve candidates. Their
-  presence does not imply additional encounters with identical mechanics.
+- Frost animals remain reserve candidates. Their presence does not imply
+  additional encounters with identical mechanics.
 
 Retired size/tint enemy IDs retain their art and save compatibility, but are
 removed from ordinary spawn pools. Existing legacy goblin sheets remain for
 older IDs; the new club/spear/archer/farmer/bomb roles have distinct MiniWorld art.
+
+## Reviewed rare encounters
+
+The visit-only roster uses 33 additional creature blocks from the core mini
+monster atlas. Each retains three 16px movement frames in each of four authored
+directions (down, left, right, up); these sheets have no separate attack poses.
+Names and behaviors belong to `enemy_roster.js`, while `rareEncounter` excludes
+these rows from ordinary surface/cave pools.
+
+`Rare/Judge.png` is the reviewed Fantasy Dreamland `Enemy_060.png`: 24px cells,
+four movement poses per direction (down, left, right, up), followed by a death
+row. The Black, Blue, White and Yellow dragon sheets reuse the Red Dragon's
+32px layout, including its authored stationary attack poses. Every source is
+copied without resampling; measured first-frame bounds seat the runtime art.

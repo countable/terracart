@@ -16,6 +16,28 @@ access or tile lifecycle mechanics.
 
 ## Habitat populations
 
+- `RareEncounters` owns the additional named rare monsters independently of
+  ambient density. Rare visits roll 15%, uncommon visits 35%, and species described
+  as present roll 60%; each species has at most one seat per area visit. Dragons
+  each roll independently on L7. These are per-save visit encounters and are never
+  broadcast as shared world IDs. Their roster rows have no generic surface/cave pool.
+- Only the player entering a loaded area starts a visit. Area identity follows the
+  Nexus anchor, road section (or 16-cell fallback), residual 16-cell terrain block,
+  or cave habitat region and exact floor. A new visit requires leaving for 30 seconds
+  of active simulation and moving eight cells away or changing floor. The save
+  retains rolls, seats, visit counters, departure progress and behavior clocks;
+  reloads and tile eviction never give a second draw. Defeat/capture IDs remain final
+  within the visit. Pets are exempt from encounter departure and time visibility.
+- Rare seats use the shared spawn gate, exact owner, water restrictions, occupancy
+  and Home bands. Declared rare encounters gain the existing signature tier exception
+  only beyond the final Home band. Night-only Nighthops and rainy Spectrus also need
+  their live weather/time condition; those gates never reroll a visit. Hidden Dire
+  Toads and Sproutlings use the ordinary adjacent-reveal mechanism.
+- Goldenberry harvesting on Berry Lane rolls a separate 15% trigger once per bush
+  per visit. Up to four nearby plain shrubs or already-picked berry remnants become
+  Thorn Balls, using their actual seats and keeping all other placement exclusions.
+  The transformed shrubs become chopped; fresh fruit-bearing bushes remain intact.
+
 - Selected wildlife uses the live per-area density table: Sheep occur only in
   ordinary Grass and pigs only in Wetland, each at 2 per 1,000 eligible cells.
   Rare Owlbears occur on Old Growth Paths at 0.5 per 1,000 eligible cells;

@@ -56,7 +56,7 @@ test('elite: the shipping code stamps, scales, heals and pays the elite', () => 
     'spawnCaveCreatures stamps shiny off the stable id at the monster rate (EnemySpawns.rollsElite)');
   // The melee formula is typed ONCE (Combat.meleeBlow: the row's dmg × powerMul
   // — elite × lair — plus the Giant bonus, times the Shrinking multiplier).
-  assert.truthy(/\? Combat\.meleeBlow\(c, row\.dmg\)\s*: row\.dmg \* Combat\.powerMul\(c\);/.test(CREATURE_AI_SRC),
+  assert.truthy(/\? Combat\.meleeBlow\(c, row\.dmg\)\s*: row\.dmg \* Combat\.powerMul\(c\)\) \* rareEnemyDamageMul\(c, row\);/.test(CREATURE_AI_SRC),
     'the monster hit is scaled by Combat.powerMul — elite × lair (and the mode)');
   assert.eq(Combat.meleeBlow({ kind: 'goblin', shiny: true }, 9), 18, 'an elite goblin swings double');
   assert.eq(Combat.petBlow({ kind: 'dog', id: 'released_dog' }), Combat.meleeBlow({ kind: 'dog' }, Combat.PET_BITE), 'a pet bites by the same formula');

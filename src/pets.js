@@ -15,7 +15,7 @@
   // storyReward), whose defeat moves the story on, and an `untameable` kind
   // (the crow: hunted, never kept).
   const catchable = c => {
-    if (!c || c.storyEncounter || SpriteLayout.isUntameable(species(c.kind))) return false;
+    if (!c || c._rareIllusion || c.storyEncounter || SpriteLayout.isUntameable(species(c.kind))) return false;
     const row = typeof EnemyRoster !== 'undefined' ? EnemyRoster.get(species(c.kind)) : null;
     return row ? !row.storyReward : eligible(c.kind);
   };

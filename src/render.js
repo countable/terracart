@@ -4986,7 +4986,7 @@ Render.drawObjects = function drawObjects(scene) {
     if (typeof HomeVariant !== 'undefined' && !HomeVariant.allows(scene, c)) return;
     if (caughtSet.has(c.id)) return;
     if (Render.coverHidden(scene, c)) return;
-    if (typeof EnemySpawns !== 'undefined' && EnemySpawns.isSurfaceResident(c)) EnemySpawns.surfaceActive(scene, c);
+    if (typeof EnemySpawns !== 'undefined' && (EnemySpawns.isSurfaceResident(c) || (typeof RareEncounters !== 'undefined' && RareEncounters.isEncounter(c)))) EnemySpawns.surfaceActive(scene, c);
     if (c._surfaceInactive) return;
     if ((c.hidden || c.stealthy) && !c._discovered) return;
     if (!c._burrowed) creatureList.push({ c, dx, dy });

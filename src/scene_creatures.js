@@ -1488,6 +1488,9 @@ class SceneCreatures {
     const now = performance.now();
     const npcDt = this._npcTickAt == null ? 0 : Math.min(0.1, (now - this._npcTickAt) / 1000);
     this._npcTickAt = now;
+    if (typeof RareEncounters !== 'undefined') RareEncounters.tick(this, now);
+    this._tickSummonedThorns?.();
+    rareEnemyCleanup(this, now);
     // Each creature notices a Moss-hidden player only after that player hits
     // it. Shadow Powder, collapse and passenger safety still hide everyone.
     // THE KERB (creature_ai.js): the player's FEET in a major road's kerb
@@ -1730,6 +1733,7 @@ class SceneCreatures {
 
     const spacingIndex = this._characterSpacingIndex = buildCharacterSpacingIndex(this);
     const tickCreature = (c) => {
+      if (c._rareInactive) return;
       // Cheapest reject first: the sim range cull. Everything below runs only
       // for the handful of creatures actually near the player.
       const ddx = c.x - px, ddy = c.y - py;
@@ -1757,6 +1761,7 @@ class SceneCreatures {
         if (Pets.tick(this.save,c)) persistSave(this.save);
         if (Pets.isDown(c)) { c._moving=false; c._chaseTarget=null; return; }
       }
+      if (rareEnemyTick(this, c, EnemyRoster.get(c.kind), now, this._storyPause ? 0 : npcDt, px, py)) return;
       if (enemyConcealmentTick(this, c)) return;
       if (enemyDisguiseTick(this, c, px, py)) return;
       if (!Combat.isParalyzed(c) && enemyBurrowTick(this, c, EnemyRoster.get(c.kind), now)) return;
@@ -2146,6 +2151,13 @@ class SceneCreatures {
           const fightRange = Combat.petReachCells(c);
           const FIGHT_R2 = (fightRange * this.cellM) ** 2;
           if (fd2 <= FIGHT_R2 && (typeof Multiplayer === 'undefined' || Multiplayer.shouldApplyDamage(this, tgt, 'pet'))) {
+            // A summoned copy vanishes on contact; it has no bite or bounty.
+            if (tgt._rareIllusion) {
+              this._damageEnemy(tgt, 1, 'pet');
+              creatureMeleeSwing(c, tgt.x, tgt.y, fightRange);
+              c._chaseTarget = null;
+              return;
+            }
             // One HP table for every fight (combat.js): the bite is Combat.petBite (a
             // point for a tame pet, the slime's own blow for the spirit raven). The prey
             // bites back a point either way.

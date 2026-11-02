@@ -1216,6 +1216,7 @@ const TAP_HANDLERS = [
           }
         }
         persistSave(save);
+        if (outId === 'goldenberry' && typeof RareEncounters !== 'undefined') RareEncounters.berryPicked(scene, wp);
         // Display NAMES, never raw ids (QC_RULES §4).
         const outName = itemName(outId);
         if (bonus) scene.flashLoot(`${outName}${bonus}`, '#ff8aff', 1, outId);

@@ -159,7 +159,12 @@ test('kerb: the harness bites — every mobile hostile attacks a player in open 
     const row = EnemyRoster.get(spec.label);
     // Circling trail-makers and buried ambushers do not chase a still target.
     // Their contact/ground hazards and aquatic movement have separate tests.
-    if (row?.attackType === 'none' || row?.movement.waterOnly || ['orbit_trail', 'burrow'].includes(row?.movement.pattern)) continue;
+    // Support-only casters act through children (rare_summons.test.js); this
+    // single-body fixture does not simulate their spawned children.
+    if (row?.attackType === 'none' || row?.movement.waterOnly
+        || (row?.ability?.type === 'summon' && (!row.dmg || (row.attackType === 'melee'
+          && row.movement.pattern === 'keep_distance' && row.movement.preferredDistanceCells > row.range)))
+        || ['orbit_trail', 'burrow'].includes(row?.movement.pattern)) continue;
     const separation = Math.max(1, (row?.minRange || 0) + 1);
     const r = walk(spec, at(10, OPEN_ROW + separation), () => at(10, OPEN_ROW), 30);
     assert.gt(attacks(r.scene), 0, `${spec.label}: attacked a player standing in the open`);

@@ -119,6 +119,8 @@ class SceneConsumables {
   // themselves (a test drives them directly), so an empty or wrong selection
   // is refused in one place however the action was reached.
   _selectedConsumable(id) {
+    const item = ITEM_BY_ID[id];
+    if ((item?.scroll || item?.tome) && Conditions.spellsBlocked(this.save)) return null;
     const sel = getSelectedSlot(this.save);
     return sel && sel.id === id && (sel.count ?? 0) > 0 ? sel : null;
   }
@@ -362,7 +364,7 @@ class SceneConsumables {
     return !wait;
   }
   // The button gate (CONSUMABLE_SPEC usable): no flash, just grey.
-  tomeUsable(id) { return !this._tomeWait(id); }
+  tomeUsable(id) { return !Conditions.spellsBlocked(this.save) && !this._tomeWait(id); }
   _readTome(id) {
     const t = CONSUMABLE_SPEC[id]?.tome;
     if (!t || !this._selectedConsumable(id) || !this._tomeReady(id)) return false;
@@ -514,6 +516,7 @@ class SceneConsumables {
   // Asked by the tick and the draw alike, so the light drawn is the light
   // that burns.
   _moonbeamSegment(now = Date.now()) {
+    if (Conditions.spellsBlocked(this.save)) return null;
     if (Buffs.until('moonbeam', this.save, this) <= now) return null;
     const f = this.facing, mag = Math.hypot(f?.x || 0, f?.y || 0);
     if (!(mag > 0)) return null;
@@ -853,7 +856,8 @@ class SceneConsumables {
   // and the item kept — when none is there, or while downed (no reach). A
   // tome passes its own `damage`, `noun` and `spend: false`.
   _castOnFoes(id, { damage = CONSUMABLE_SPEC[id]?.damage, spend = true, noun } = {}) {
-    if (Conditions.attacksBlocked(this.save)) return false;
+    if (Conditions.attacksBlocked(this.save) || Conditions.meleeOnly(this.save)) return false;
+    if ((ITEM_BY_ID[id]?.scroll || ITEM_BY_ID[id]?.tome) && Conditions.spellsBlocked(this.save)) return false;
     const row = CAST_ROWS[id];
     if (!row || (spend && !this._selectedConsumable(id)) || Combat.playerDowned(this.save.energy)) return false;
     const reach = row.scope === 'reach';
@@ -911,7 +915,7 @@ class SceneConsumables {
   }
 
   canThrowItem(id) {
-    if (Conditions.attacksBlocked(this.save) || this._workProgress?.flee) return false;   // no throw mid-catch
+    if (Conditions.attacksBlocked(this.save) || Conditions.meleeOnly(this.save) || this._workProgress?.flee) return false;   // no throw mid-catch
     const sel = getSelectedSlot(this.save);
     return sel?.id === id && (sel.count ?? 0) > 0
       && !Combat.playerDowned(this.save.energy) && !this.isShadowActive()

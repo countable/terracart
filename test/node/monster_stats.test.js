@@ -10,12 +10,17 @@
       assert.eq(Combat.spawnsUnderground(row.id), !!row.cave && row.attackType !== 'touch');
     }
   });
-  test('roster: surface tiers stop at three and at least half are dungeon-only', () => {
+  test('roster: ambient surface tiers stop at three and at least half are dungeon-only', () => {
     let dungeonOnly = 0, rolled = 0;
     for (const row of EnemyRoster.ROWS) {
       assert.gt(row.hp, 0);
-      if (row.surface) assert.lte(row.tier, 3, row.id);
       const ambientSurface = row.surface?.weight > 0 && row.surface.biomes.length > 0;
+      if (ambientSurface) assert.lte(row.tier, 3, row.id);
+      if (row.rareEncounter) {
+        assert.eq(row.surface?.weight || 0, 0, row.id);
+        assert.eq(row.surface?.biomes.length || 0, 0, row.id);
+        assert.falsy(row.cave, row.id);
+      }
       if (row.cave && !ambientSurface) dungeonOnly++;
       // Authored-only surface encounters have no biome weight. Like fauna
       // with their own seating rule, they are outside the ambient pool split.

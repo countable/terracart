@@ -1291,7 +1291,139 @@ function enemyWalkHazardTick(scene, c, now) {
 // flinch, a shop shut). What was lost joins the scene's ONE drain roll-up
 // (app.js _bankDrain, the 'monsters' lane popped as "⚔️ monsters"), never a
 // pop of its own; a row's `condition` lands with a blow that cost something.
-function foeBlowLands(scene, c, raw, { condition = null, mitigated = false } = {}) {
+// Visit-owned behaviour uses foreground time, so reloading cannot reset a
+// retreat or an observer's departure. Ordinary foes never allocate this state.
+function rareEnemyState(scene, c) {
+  const seat = typeof RareEncounters !== 'undefined' && RareEncounters.stateFor(scene, c);
+  return seat ? (seat.behaviour ||= {}) : (c._rareBehaviourState ||= {});
+}
+function rareEnemyLanded(scene, c, row, now) {
+  const b = row?.rareBehaviour;
+  if (!b || Combat.isTame(c)) return;
+  const state = rareEnemyState(scene, c);
+  if (b.retreatAfterHitSeconds) {
+    state.retreatMs = b.retreatAfterHitSeconds * 1000;
+    if (b.retreatForever) state.spentAttack = true;
+    c._attackWindupUntil = null;
+  }
+  if (b.shoreHuntSeconds) state.shoreHuntMs = b.shoreHuntSeconds * 1000;
+}
+function rareEnemyDamageMul(c, row) {
+  const enrage = row?.rareBehaviour?.enrage;
+  if (!enrage) return 1;
+  const missing = Math.max(0, Math.min(1, 1 - Combat.hp(c) / Combat.maxHp(c)));
+  c._rareBaseScale ??= c._artScale || 1;
+  c._artScale = c._rareBaseScale * (1 + (enrage.scaleMax - 1) * missing);
+  return 1 + (enrage.damageMulMax - 1) * missing;
+}
+function rareEnemyDepart(scene, c) {
+  if (typeof RareEncounters !== 'undefined') RareEncounters.retire(scene, c);
+  c._surfaceInactive = true; c._rareInactive = true; c._moving = false;
+  Combat.cancelCreatureAction(c);
+}
+function rareEnemyCleanup(scene, now) {
+  for (const c of scene._rareIllusions || []) {
+    if (!c.dead && now < c._illusionUntil && c.depth === (scene.depth || 0)) continue;
+    c._rareInactive = true; c._surfaceInactive = true;
+    for (const entry of WorldGen.tileCacheFor(c.depth || 0).values()) {
+      const index = entry.creatures?.indexOf(c) ?? -1;
+      if (index >= 0) entry.creatures.splice(index, 1);
+    }
+    scene._rareIllusions.delete(c);
+  }
+}
+function rareEnemyTick(scene, c, row, now, dt, px, py) {
+  if (c._rareIllusion) {
+    if (c.dead || now >= c._illusionUntil || Math.hypot(c.x - px, c.y - py) < scene.cellM * .5) {
+      rareEnemyDepart(scene, c);
+      const cache = WorldGen.tileCacheFor(scene.depth || 0);
+      for (const entry of cache.values()) {
+        const index = entry.creatures?.indexOf(c) ?? -1;
+        if (index >= 0) entry.creatures.splice(index, 1);
+      }
+      scene._rareIllusions?.delete(c);
+    } else if (!scene._storyPause && !Combat.isParalyzed(c)) {
+      const distance = Math.hypot(px - c.x, py - c.y);
+      const step = Math.min(distance, row.movement.speedMetersPerSecond * 2 * dt);
+      enemySweep(scene, c, row, c.x + (px - c.x) / distance * step, c.y + (py - c.y) / distance * step, now);
+    }
+    return true;
+  }
+  const b = row?.rareBehaviour;
+  if (!b || Combat.isTame(c) || c._rareInactive) return false;
+  const state = rareEnemyState(scene, c), ms = Math.max(0, dt * 1000);
+  state.elapsedMs = (state.elapsedMs || 0) + ms;
+  state.retreatMs = Math.max(0, (state.retreatMs || 0) - ms);
+  state.shoreHuntMs = Math.max(0, (state.shoreHuntMs || 0) - ms);
+  if ((b.despawnSeconds && state.elapsedMs >= b.despawnSeconds * 1000)
+      || (state.spentAttack && !state.retreatMs)) {
+    rareEnemyDepart(scene, c); return true;
+  }
+  if (b.regenPerSecond && Combat.hp(c) > 0)
+    c._hp = Math.min(Combat.maxHp(c), Combat.hp(c) + b.regenPerSecond * dt);
+  rareEnemyDamageMul(c, row);
+  return false;
+}
+function rareEnemyForming(scene, c, now) {
+  if (!c._rareSurround) return false;
+  const state = rareEnemyState(scene, c);
+  if (state.surrounded) return false;
+  state.formationStartedMs ??= state.elapsedMs || 0;
+  const group = c._rareSurround.group;
+  let ready = !!c._rareRingReady;
+  if (group && ready) {
+    const caught = new Set(scene.save.caught || []);
+    for (const entry of WorldGen.tileCache.values()) for (const peer of entry.creatures || [])
+      if (peer._rareSurround?.group === group && !peer._rareInactive && !caught.has(peer.id) && !peer._rareRingReady) ready = false;
+  }
+  // A blocked bush eventually gives up its flank, rather than leaving the
+  // entire ambush harmless forever. Open formations wait for every member.
+  if (ready || (state.elapsedMs || 0) - state.formationStartedMs >= 20000) {
+    state.surrounded = true; return false;
+  }
+  return true;
+}
+function rareEnemySpecialAttack(scene, c, row, now, px, py, clear, dt) {
+  if (!clear || !row.rareEncounter || Combat.isCharmed(c) || c._rareIllusion) return;
+  const gaze = row.gaze, dist = Math.hypot(c.x - px, c.y - py);
+  if (gaze && dist <= gaze.cells * scene.cellM && now >= (c._gazeNextT || 0)) {
+    const facing = scene.facing || { x: 0, y: 1 };
+    const norm = Math.hypot(facing.x, facing.y) * dist;
+    if (norm > 0 && (facing.x * (c.x - px) + facing.y * (c.y - py)) / norm >= Math.cos(gaze.halfAngleDeg * Math.PI / 180)) {
+      scene._applyCondition(gaze.condition);
+      c._gazeNextT = now + 1000;
+    }
+  }
+  const illusions = row.rareBehaviour?.illusions;
+  if (!illusions || now < (c._illusionNextT || 0)) return;
+  c._illusionNextT = now + illusions.intervalSeconds * 1000;
+  const caught = new Set(scene.save.caught || []);
+  const state = rareEnemyState(scene, c);
+  let live = 0;
+  for (const entry of WorldGen.tileCache.values())
+    for (const other of entry.creatures || [])
+      if (other._illusionOwner === c.id && !other._rareInactive && !other.dead && now < other._illusionUntil) live++;
+  for (let i = live; i < illusions.count; i++) {
+    let destination;
+    const seat = ringSeat(c.x, c.y, scene.cellM, i * Math.PI * 2 / illusions.count, (x, y) => {
+      const cell = worldMetersToTileCell(scene, x, y);
+      destination = WorldGen.tileCache.get(WorldGen.tileKey(cell.tx, cell.ty));
+      return destination?.creatures && enemyCanStep(scene, c, row, x, y)
+        && CreatureSpawns.gateAt(scene, x, y, c.kind)
+        && !destination.creatures.some(other => !caught.has(other.id) && !other._rareInactive && Math.hypot(other.x - x, other.y - y) < scene.cellM * .7);
+    });
+    if (!seat) break;
+    const serial = state.illusionSerial = (state.illusionSerial || 0) + 1;
+    const copy = CreatureSpawns.createOwned('summons', c.id, c.kind, seat.x, seat.y, `${c.id}_illusion_${serial}`,
+      { depth: scene.depth || 0, _sharedId: false, _rareIllusion: true, _illusionOwner: c.id,
+        _illusionUntil: now + illusions.durationSeconds * 1000, _hp: 1 });
+    destination.creatures.push(copy);
+    (scene._rareIllusions ||= new Set()).add(copy);
+  }
+}
+
+function foeBlowLands(scene, c, raw, { condition = null, conditionDurationMs = null, conditionOptions = null, mitigated = false } = {}) {
+  if (c?._rareIllusion) return 0;
   const dmg = mitigated ? raw : Combat.incomingDamage(scene.save, raw);
   if (!(dmg > 0)) return 0;
   const lost = scene._losePlayerEnergy(dmg, { closeShop: true });
@@ -1304,7 +1436,12 @@ function foeBlowLands(scene, c, raw, { condition = null, mitigated = false } = {
     scene._toast?.(`${Combat.monster(c.kind).name} stole ${taken} coins!`, { tier: 'note' });
     if (typeof persistSave === 'function') persistSave(scene.save);
   }
-  if (lost > 0 && condition) scene._applyCondition(condition);
+  if (lost > 0 && condition) scene._applyCondition(condition,
+    { ...conditionOptions, ...(conditionDurationMs != null ? { durationMs: conditionDurationMs } : {}) });
+  if (lost > 0 && c) {
+    rareEnemyLanded(scene, c, Combat.monster(c.kind), performance.now());
+    scene._rareEnemyHit?.(c, Combat.monster(c.kind));
+  }
   // A BAT FEEDS (its row's `lifesteal`): the life it took, past its own max.
   if (lost > 0 && c) Combat.feed(c, Combat.lifestealHeal(Combat.monster(c.kind)?.lifesteal, lost, null));
   return lost;
@@ -1345,6 +1482,11 @@ function creatureStepRefused(scene, c, x, y, { row = null, retreating = false, e
     if (scene.placedRockSet.has(cellKeyFromAbsCell(cellIX, cellIY))) return true;
   }
   if (c.kind === 'npc' && inBuildingMoatAt(scene, x, y) && !inBuildingMoatAt(scene, c.x, c.y)) return true;
+  const rare = row?.rareBehaviour;
+  const amphibious = !!(rare?.amphibious || rare?.waterSpawn);
+  if (rare?.shoreHuntSeconds && !Combat.isTame(c)
+      && !(rareEnemyState(scene, c).shoreHuntMs > 0)
+      && scene.cellAt(c.x, c.y).type === WorldGen.T.WATER && cell.type !== WorldGen.T.WATER) return true;
   if (row?.movement.waterOnly) {
     if (cell.type !== WorldGen.T.WATER) return true;
     if (row.movement.shoreOnly) {
@@ -1357,7 +1499,8 @@ function creatureStepRefused(scene, c, x, y, { row = null, retreating = false, e
       const proof = entry && WorldGen.waterEdgesOf(entry.grid, WorldGen.spawnOptsOf(entry))?.[cell.iy * entry.cellsPerEdge + cell.ix];
       if (!EnemyHabitats.shoreWater(typeAt, 0, 0, proof || 0)) return true;
     }
-  } else if (cell.loaded && row?.movement.pattern !== 'orbit_swoop' && !ownFloor && Combat.faunaBlocksCell(cell.type)) return true;
+  } else if (cell.loaded && !Conditions.flying(c) && !ownFloor
+      && Combat.faunaBlocksCell(cell.type) && !(amphibious && cell.type === WorldGen.T.WATER)) return true;
   if (!Combat.isAlly(c)) {
     const road = roadClassBitsAt(scene, x, y);
     if (road & WorldGen.ROAD_CLASS_MAJOR_BAND) return true;
@@ -1521,20 +1664,37 @@ function enemySummon(scene, c, ability) {
   const entry = WorldGen.tileCache.get(WorldGen.tileKey(pc.tx, pc.ty));
   if (!entry?.creatures) return false;
   const caught = new Set(scene.save.caught || []);
+  const renewable = !!EnemyRoster.get(c.kind)?.rareBehaviour?.summonRenewable;
   const existing = new Set();
-  WorldGen.forEachItemNear('creatures', pc.tx, pc.ty, other => existing.add(other.id));
-  const slots = CreatureSpawns.frequencyCount(CreatureSpawnTriggers.summon(ability).frequency, Math.random);
+  let state = null, live = 0;
+  if (renewable) {
+    const seat = globalThis.RareEncounters?.stateFor(scene, c);
+    state = seat ? (seat.behaviour ||= {}) : (c._rareSummonState ||= {});
+    // Count all loaded children, including ones that wandered outside the
+    // caster's local tile ring. Caught and defeated children free their slot.
+    for (const tile of WorldGen.tileCache.values()) for (const other of tile.creatures || []) {
+      existing.add(other.id);
+      if (other._summonerId === c.id && !caught.has(other.id) && Combat.hp(other) > 0 && !Combat.isTame(other)) live++;
+    }
+    if (live >= Math.max(1, ability.maxMinions || 2)) return false;
+  } else WorldGen.forEachItemNear('creatures', pc.tx, pc.ty, other => existing.add(other.id));
+  const slots = renewable ? 1 : CreatureSpawns.frequencyCount(CreatureSpawnTriggers.summon(ability).frequency, Math.random);
   for (let slot = 0; slot < slots; slot++) {
-    const id = `${c.id}_summon_${slot}`;
+    let serial = renewable ? (state.summonSerial || 0) : slot;
+    let id = `${c.id}_summon_${serial}`;
+    if (renewable) while (caught.has(id) || existing.has(id)) id = `${c.id}_summon_${++serial}`;
     if (caught.has(id) || existing.has(id)) continue;
     let destination = null;
+    // Terrain and conditions belong to the child: a shore-bound jellyfish
+    // cannot use its caster's land/flight permissions.
+    const mover = renewable ? { kind, x: c.x, y: c.y, id, depth: c.depth } : c;
     const seat = ringSeat(c.x, c.y, scene.cellM, 0, (x, y) => {
       const cell = worldMetersToTileCell(scene, x, y);
       destination = WorldGen.tileCache.get(WorldGen.tileKey(cell.tx, cell.ty));
-      if (!destination?.creatures || !enemyCanStep(scene, c, row, x, y)) return false;
+      if (!destination?.creatures || !enemyCanStep(scene, mover, row, x, y)) return false;
       const grid = destination.baseGrid || destination.grid;
       const opts = destination._spawnOpts;
-      if (!grid || !opts || !CreatureSpawns.gateAt(scene, x, y, kind)) return false;
+      if (!grid || !opts || !CreatureSpawns.gateAt(scene, x, y, kind, renewable && row.movement?.waterOnly ? { waterOnly: true } : undefined)) return false;
       return !destination.creatures.some(other => !caught.has(other.id)
           && Math.hypot(other.x - x, other.y - y) < scene.cellM * 0.7);
     });
@@ -1551,6 +1711,10 @@ function enemySummon(scene, c, ability) {
       child.seatX = x; child.seatY = y;
       child._summonerId = c.id;
       destination.creatures.push(child);
+      if (renewable) {
+        state.summonSerial = serial + 1;
+        if (typeof persistSave === 'function') persistSave(scene.save);
+      }
       return true;
     }
   }
@@ -1694,6 +1858,13 @@ function peerFeint(scene, c, row, now, tx, ty) {
 }
 function rosterEnemyAttack(scene, c, row, now, px, py, inactive, dt, npcTarget = null, creatureTarget = null) {
   if (npcTarget?.peer) { if (!inactive) peerFeint(scene, c, row, now, px, py); return; }
+  if (c._rareInactive || c._rareIllusion) return;
+  if (row.rareBehaviour) {
+    const state = rareEnemyState(scene, c);
+    if (state.retreatMs > 0 || state.spentAttack || rareEnemyForming(scene, c, now)) return;
+    if (row.rareBehaviour.shoreHuntSeconds && state.shoreHuntMs > 0)
+      row = { ...row, attackType: 'melee', range: .6 };
+  }
   if (Combat.raidSpent(scene.save, c) || Combat.isPacified(c) || Combat.isPacified(creatureTarget)) return;
   if (Combat.isConcealed(c) || c._emergeUntil > now || Combat.isSleeping(c) || Combat.isParalyzed(c) || (Combat.isCharmed(c) && !creatureTarget)) return;
   if (creatureTarget && (Combat.isConcealed(creatureTarget)
@@ -1737,6 +1908,7 @@ function rosterEnemyAttack(scene, c, row, now, px, py, inactive, dt, npcTarget =
   }
   const clear = attentive && Combat.lineOfFire(c.x, c.y, px, py,
     (x, y) => enemySightBlocked(scene, c, x, y), scene.cellM);
+  if (!npcTarget && !creatureTarget) rareEnemySpecialAttack(scene, c, row, now, px, py, clear, dt);
   if (!Combat.isCharmed(c) && enemySupportTick(scene, c, row, now, clear)) {
     SpriteLayout.faceCreature(c, px - c.x, py - c.y);
     return;
@@ -1797,9 +1969,9 @@ function rosterEnemyAttack(scene, c, row, now, px, py, inactive, dt, npcTarget =
     return;
   }
   if (row.attackType === 'melee') creatureMeleeSwing(c, px, py, attackRange);
-  const raw = row.attackType === 'melee' || row.attackType === 'touch'
+  const raw = (row.attackType === 'melee' || row.attackType === 'touch'
     ? Combat.meleeBlow(c, row.dmg)
-    : row.dmg * Combat.powerMul(c);
+    : row.dmg * Combat.powerMul(c)) * rareEnemyDamageMul(c, row);
   if (row.movement.stopToReload) c._reloadUntil = now + row.movement.reloadSeconds * 1000;
   if (row.attackType === 'blast') {
     // A spent bomb carrier disappears without paying a kill reward.
@@ -1808,16 +1980,32 @@ function rosterEnemyAttack(scene, c, row, now, px, py, inactive, dt, npcTarget =
   }
   if (shaped && (!clear || !enemyAreaContains(c, row, px, py, scene.cellM))) return;
   if (row.attackType === 'projectile') {
-    const shot = Combat.monsterShot(c.x, c.y, px, py, scene.cellM,
+    const serial = row.rareEncounter ? (rareEnemyState(scene, c).attackSerial = (rareEnemyState(scene, c).attackSerial || 0) + 1) : 0;
+    const count = row.projectileCount || 1;
+    for (let i = 0; i < count; i++) {
+    const angle = Math.atan2(py - c.y, px - c.x) + (i - (count - 1) / 2) * (row.projectileSpreadRadians || 0);
+    const shot = Combat.monsterShot(c.x, c.y, c.x + Math.cos(angle) * dist, c.y + Math.sin(angle) * dist, scene.cellM,
       raw * row.attackHits, row.attackHits);
     if (shot) {
       shot.projectile = row.projectile || (row.id === 'goblin_archer' ? 'arrow' : 'enemy_magic');
       shot.enemyKind = row.id;
       if (row.projectileCondition) shot.condition = row.projectileCondition;
+      if (row.projectileConditionDurationMs) shot.conditionDurationMs = row.projectileConditionDurationMs;
+      shot.attackSerial = serial;
+      if (row.rareBehaviour?.randomDebuffSeconds) {
+        shot.curseSeed = EnemySpawns.hash(`${c.id}:${serial}:${i}`) >>> 0;
+        shot.conditionDurationMs = row.rareBehaviour.randomDebuffSeconds * 1000;
+      }
+      if (row.projectileBlastRadiusCells) {
+        shot.blastRadiusM = row.projectileBlastRadiusCells * scene.cellM;
+        shot.radiusM = .2 * scene.cellM;
+        shot.rangeM = row.range * scene.cellM;
+      }
       if (row.projectileSpeedMetersPerSecond) shot.speedMps = row.projectileSpeedMetersPerSecond;
       shot._sourceGuard = c;
       shot.hostile = !Combat.isCharmed(c);
       (scene._shots ||= []).push(shot);
+    }
     }
   } else if (creatureTarget) {
     const before = Combat.hp(creatureTarget);
@@ -1832,7 +2020,7 @@ function rosterEnemyAttack(scene, c, row, now, px, py, inactive, dt, npcTarget =
     const take = Combat.incomingTheft(scene.save, c, Date.now());
     if (take) scene._losePlayerToThief(take, c);
   } else {
-    foeBlowLands(scene, c, raw, { condition: Combat.monster(c.kind)?.condition });
+    foeBlowLands(scene, c, raw, { condition: Combat.monster(c.kind)?.condition, conditionDurationMs: row.conditionDurationMs });
   }
   if (swoop) c._batHit = true;
   if (lunging) c._lungeHit = true;
@@ -2136,6 +2324,28 @@ function enemySlimeTrailTick(scene, px, py, dt, now = Date.now()) {
 }
 
 function rosterEnemyMove(scene, c, row, now, px, py, inactive, routed, lairState, dt, creatureTarget = null) {
+  if (c._rareInactive || c._rareIllusion) return;
+  if (row.rareBehaviour) {
+    const state = rareEnemyState(scene, c);
+    if (state.retreatMs > 0 || state.spentAttack) routed = true;
+    if (row.rareBehaviour.shoreHuntSeconds && !routed) {
+      if (state.shoreHuntMs > 0) row = { ...row, movement: { ...row.movement, pattern: 'pursue' } };
+      else if (!inactive && scene.cellAt(c.x, c.y).type !== WorldGen.T.WATER && c.homeX != null) {
+        const dx = c.homeX - c.x, dy = c.homeY - c.y, distance = Math.hypot(dx, dy);
+        const step = Math.min(distance, row.movement.speedMetersPerSecond * dt);
+        if (distance > .1) enemySweep(scene, c, row, c.x + dx / distance * step, c.y + dy / distance * step, now);
+        return;
+      }
+    }
+    if (!inactive && !routed && rareEnemyForming(scene, c, now)) {
+      const ring = c._rareSurround, angle = (ring.ordinal + .5) * Math.PI * 2 / ring.count - Math.PI;
+      const x = px + Math.cos(angle) * ring.cells * scene.cellM, y = py + Math.sin(angle) * ring.cells * scene.cellM;
+      const dist = Math.hypot(x - c.x, y - c.y), step = Math.min(dist, row.movement.speedMetersPerSecond * dt);
+      c._rareRingReady = dist <= scene.cellM * .35;
+      if (dist > .1) enemySweep(scene, c, row, c.x + (x - c.x) / dist * step, c.y + (y - c.y) / dist * step, now);
+      return;
+    }
+  }
   if (c._pirateParleyPending) return;
   if (Combat.raidSpent(scene.save, c)) { routed = true; creatureTarget = null; }
   if (Combat.isPacified(c)) { inactive = true; creatureTarget = null; }
