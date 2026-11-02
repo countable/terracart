@@ -50,7 +50,6 @@
     flint_field: ['club_goblin', 'spear_goblin'], broken_depot: ['skeleton', 'club_goblin'],
     seep: ['slime', 'plant', 'golden_slime'], work_yard: ['club_goblin'],
     black_ring: ['skeleton', 'skeleton_soldier'], shellwater_strand: ['giant_crab', 'jellyfish'],
-    'quarry-strip-mine': ['horned_sheep'],
   };
   // One encounter roll per ~84 m square at the usual 7 m cell size.
   // Most are solitary; 25% are pairs and 10% are trios. No per-kind budget.

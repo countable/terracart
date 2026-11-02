@@ -106,7 +106,7 @@
     ['feature', ['building-garrisons', 'citadel-guards', 'road-lairs', 'tar-guards',
       'gate-guards', 'habitat-lairs', 'zone-formations', 'cave-finite',
       'dragon-roost', 'bone-gallery', 'serpent', 'shore-fauna', 'path-fauna']],
-    ['trigger', ['mushroom-hive', 'honey-bees', 'nest', 'mimic', 'pot-snake',
+    ['trigger', ['rare-encounters', 'mushroom-hive', 'honey-bees', 'nest', 'mimic', 'pot-snake',
       'bone-cache', 'headstone', 'haunting', 'fishing-slime', 'crop-pests']],
     ['contract', ['guild-bounty', 'debt-collector', 'temple-trials']],
     ['storyEvent', ['story-witness', 'starter']],

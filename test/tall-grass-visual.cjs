@@ -30,11 +30,9 @@ const out=process.env.ART_OUTPUT||'/tmp/grass-native-runtime';fs.mkdirSync(out,{
  };
  __grassIsolate();
  });
- let fullBlocks;
  for(const angle of [0,Math.PI/4,Math.PI/2]){
- const data=await page.evaluate(a=>{const s=__scene;s.mapRot=a;s._huManualAngle=a;s.drawObjects();WallPerspective.update(s);const g=s._wallPerspective.grass;return {blocks:g?.blocks.length,triangles:g?.blocks.reduce((n,b)=>n+(b.materialFaces?.length||0),0),covered:s._obstacleStep?.grassCovered,cropped:s.player.isCropped,submerged:s._playerSubmerged,gl:__game.renderer.gl?.getError()};},angle);
- if(fullBlocks===undefined)fullBlocks=data.blocks;else assert.equal(data.blocks,fullBlocks);
- assert.ok(data.blocks>49);assert.equal(data.triangles,data.blocks*2);assert.equal(data.covered,true);assert.equal(data.cropped,true);assert.equal(data.submerged,false);assert.equal(data.gl,0);
+ const data=await page.evaluate(a=>{const s=__scene;s.mapRot=a;s._huManualAngle=a;s.drawObjects();WallPerspective.update(s);const g=s._wallPerspective.grass;return {blocks:g?.blocks.length,triangles:g?.blocks.reduce((n,b)=>n+(b.materialFaces?.length||0),0),covered:s._playerSubmerged,gl:__game.renderer.gl?.getError()};},angle);
+ assert.equal(data.blocks,49*4);assert.equal(data.triangles,49*16);assert.equal(data.covered,true);assert.equal(data.gl,0);
  await page.evaluate(()=>__grassIsolate());
  const shot=await page.evaluate(()=>new Promise(resolve=>{__game.loop.wake();setTimeout(()=>__game.renderer.snapshotArea(__scene.viewLeft,__scene.viewTop,__scene.viewSize,__scene.viewSize,img=>{__game.loop.sleep();resolve(img.src)}),180)}));
  fs.writeFileSync(`${out}/grass-${Math.round(angle*180/Math.PI)}.png`,Buffer.from(shot.split(',')[1],'base64'));console.log(data);
@@ -44,7 +42,7 @@ const out=process.env.ART_OUTPUT||'/tmp/grass-native-runtime';fs.mkdirSync(out,{
  __grassEntry.wildplants=__grassEntry.wildplants.filter(p=>p.id!=='grass_fixture_1_0');__grassEntry._chunkIdx={};s._boot_still=false;s.drawObjects();WallPerspective.update(s);__grassIsolate();
  return {blocks:s._wallPerspective.grass.blocks.length,chest:s._wallPerspective.looseProps?.blocks.length||s.objectPool.filter(p=>p.visible&&p._staticObject?.id==='grass_fixture_chest').length};
  });
- assert.ok(cleared.blocks>48&&cleared.blocks<fullBlocks);assert.ok(cleared.chest>0,'chest remains a rendered object after clearing');
+ assert.equal(cleared.blocks,48*4);assert.ok(cleared.chest>0,'chest remains a rendered object after clearing');
  const shot=await page.evaluate(()=>new Promise(resolve=>{__game.loop.wake();setTimeout(()=>__game.renderer.snapshotArea(__scene.viewLeft,__scene.viewTop,__scene.viewSize,__scene.viewSize,img=>{__game.loop.sleep();resolve(img.src)}),180)}));
  fs.writeFileSync(out+'/cleared.png',Buffer.from(shot.split(',')[1],'base64'));console.log('CLEARED',cleared);
  const patch=await page.evaluate(()=>{

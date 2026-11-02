@@ -142,11 +142,31 @@
     assert.eq(group.blocks.length, 1, 'a removed piece leaves the batch');
   });
 
-  test('grass prisms: Canvas caches one world-sorted part per data cell', () => {
-    const body = RENDER_SRC.slice(RENDER_SRC.indexOf('Render.drawGrassPrisms ='), RENDER_SRC.indexOf('Render.drawLowPolyProps ='));
-    assert.truthy(body.includes('{ materialFaces: faces, canvasCache: true }'),
-      'all blade faces in one cell share one retained Canvas raster');
-    assert.falsy(body.includes('faces.slice(blade'), 'the renderer no longer creates a display part per blade');
+  test('grass prisms: foreground blades hide actors standing in the front half of a cell', () => {
+    for (const rendererType of [1, 2]) {
+      const s = makeScene(), texture = {};
+      s.sys.game.renderer.type = rendererType;
+      s.textures = { createCanvas() { throw new Error('the existing grass atlas is reused'); },
+        exists: key => key === WallMaterials.GRASS.texture, get: () => texture };
+      const grass = plant({ crop: 'longgrass', wildId: 'grass-occlusion', x: 2.5, y: 2.5 });
+      assert.truthy(Render.drawGrassPrisms(s, [grass]).has(grass));
+      const group = s._wallPerspective.grass, parts = WallPerspective.worldPieces(s);
+      assert.gt(group.blocks.length, 1, 'grass retains independently sorted roots inside the data cell');
+      assert.eq(parts.length, group.blocks.length);
+      const roots = group.blocks.map(block => block.support.y);
+      assert.gt(new Set(roots).size, 3, 'the cell has several distinct rows of roots');
+      for (const block of group.blocks) {
+        assert.eq(block.materialFaces.length, 2, 'one complete blade per sort support');
+        assert.lt(Math.abs(block.support.y - block.materialFaces[0].billboard.y), 1e-8,
+          'the sort support is the blade root');
+      }
+      const actorGroundY = 3.75; // 75% into the five-metre cell, beyond its centre.
+      assert.truthy(parts.some(p => p.groundY < actorGroundY), 'back blades stay behind the actor');
+      assert.truthy(parts.some(p => p.groundY > actorGroundY), 'front blades still draw over the actor');
+      const blocks = group.blocks.slice();
+      Render.drawGrassPrisms(s, [grass]);
+      assert.eq(group.blocks[0], blocks[0], 'unchanged grass geometry is retained between frames');
+    }
   });
 
   test('connected wall prisms: north-up and underground keep the sprites', () => {

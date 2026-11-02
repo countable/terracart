@@ -267,9 +267,10 @@
     assert.falsy(HabitatSpawns.allows('deer', WorldGen.T.ORCHARD), 'the Deer terrain restriction remains intact');
   });
 
-  test('habitat populations: rare Owlbears belong only to Old Growth Paths and keep their encounter roll', () => {
+  test('habitat populations: rare Owlbears belong only to Old Growth Paths with stable density candidates', () => {
     const profile = HabitatSpawns.roadProfile('old_growth_path');
-    assert.eq(HabitatSpawns.enemyRows(profile, WorldGen.T.FOREST).map(row => row.id).join(','), 'owlbear');
+    assert.includes(HabitatSpawns.enemyRows(profile, WorldGen.T.FOREST).map(row => row.id), 'owlbear');
+    assert.includes(HabitatSpawns.enemyRows(profile, WorldGen.T.FOREST).map(row => row.id), 'treant');
     for (const name of Object.keys(HabitatSpawns.LAND_FAUNA)) {
       assert.falsy(HabitatSpawns.enemyRows(HabitatSpawns.landProfile(name), WorldGen.T[name])
         .some(row => row.id === 'owlbear'), 'not in ordinary ' + name);
@@ -292,27 +293,25 @@
     let requested = 0, firstTile = null;
     for (let tx = 0; tx < 200; tx++) {
       const result = run(tx);
-      assert.lte(result.stats.requested, 1, 'at most one corridor encounter per tile');
-      requested += result.stats.requested;
-      if (result.stats.requested && firstTile === null) firstTile = tx;
-      assert.eq(result.creatures.filter(c => c.kind === 'owlbear').length, result.stats.requested,
-        'safe old-growth cells actually receive the requested creature');
+      const owlbears = result.creatures.filter(c => c.kind === 'owlbear');
+      requested += owlbears.length;
+      if (owlbears.length && firstTile === null) firstTile = tx;
       for (const c of result.creatures.filter(c => c.kind === 'owlbear')) {
         assert.eq(c._habitatSpawn.key, 'street:old_growth_path');
         assert.truthy(EnemySpawns.surfaceActive(sceneForVisibility(), c), 'daytime encounter is visible');
       }
     }
     function sceneForVisibility() { return { depth: 0, save: {}, startWorldM: { x: -5000, y: 0 } }; }
-    assert.inRange(requested, 8, 34, 'rare in a broad deterministic sample, rather than every corridor');
+    assert.inRange(requested, 10, 45, 'rare .5 per thousand cells across a broad deterministic sample');
     assert.truthy(firstTile !== null);
     assert.eq(signature(run(firstTile).creatures), signature(run(firstTile).creatures), 'revisits keep identities and seats');
     const nearHome = run(firstTile).creatures.find(c => c.kind === 'owlbear');
     assert.falsy(EnemySpawns.surfaceActive({ depth: 0, save: {}, startWorldM: nearHome._surfaceSpawn }, nearHome),
       'the shared tier safety rule still hides the Owlbear near Home');
     const blocked = run(firstTile, true);
-    assert.eq(blocked.stats.requested, 1, 'exclusions do not reroll rarity');
+    assert.eq(blocked.stats.requested, 0, 'ineligible cells do not roll density candidates');
     assert.eq(blocked.stats.placed, 0);
-    assert.eq(blocked.stats.shortfall, 1);
+    assert.eq(blocked.creatures.filter(c => c.kind === 'owlbear').length, 0);
   });
 
   test('habitat populations: Variety snakes stay inside their corridor and remain ordinary enemies', () => {

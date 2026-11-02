@@ -2,7 +2,9 @@
   const rows = key => HabitatSpawns.DENSITY_ROWS[key] || [];
   const total = (key, category) => rows(key).filter(r => r.category === category).reduce((n,r) => n+r.per1000,0);
   test('density tuning: curated fauna retain the approved zone totals and remove repeated residents', () => {
-    assert.lt(Math.abs(total('Terrain:GRASS','fauna')-11.76),1e-9);
+    assert.lt(Math.abs(total('Terrain:GRASS','fauna')-13.76),1e-9);
+    assert.eq(rows('Terrain:GRASS').find(r => r.kind === 'sheep').per1000, 2,
+      'new grassland sheep add their own density without thinning existing fauna');
     assert.lt(Math.abs(total('Nexus:meadow','fauna')-16.5),1e-9);
     assert.eq(rows('Nexus:meadow').filter(r=>r.category==='fauna').map(r=>r.kind).sort().join(','),'butterfly,rabbit');
     assert.lt(Math.abs(rows('Terrain:GRASS').find(r=>r.kind==='slime').per1000-.9527777777777778),1e-9);

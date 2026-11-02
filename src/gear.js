@@ -53,6 +53,7 @@
     return 1 + (effectiveRelics(save, now).amulet?.tier || 0);
   }
   function activeWeapon(save, now = Date.now()) {
+    if (typeof Conditions !== 'undefined' && Conditions.meleeOnly(save)) return null;
     if (!Shrines.leverActive(save, 'wand', now)) return save?.activeWeapon;
     return save.boonWeapon?.until === save.boonUntil.wand ? save.boonWeapon.slot : 'staff';
   }
@@ -62,6 +63,7 @@
   // Unequip, and that deliberately empty hand stays peaceful so catching a
   // creature never starts a bare-hand fight.
   function meleeActive(save, now = Date.now()) {
+    if (typeof Conditions !== 'undefined' && Conditions.meleeOnly(save)) return true;
     const slot = activeWeapon(save, now), relics = effectiveRelics(save, now);
     if (!slot) return !WEAPON_SLOTS.some((s) => relics[s]);
     return WEAPON_SLOTS.includes(slot) && !Combat.RANGED_SLOTS.includes(slot) && !!relics[slot];

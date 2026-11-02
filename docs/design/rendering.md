@@ -693,13 +693,11 @@ the surrounding grove’s shrub scale.
   compensate for sprite seating by changing the projection. Step-over support
   re-seats the shadow at the current ground point after movement, alongside
   the raised body; its shadow never inherits the support lift.
-- Long grass keeps the player grounded and crops the lower half of the current
-  frame, leaving the head consistently visible through gaps between blades.
-  `ObstacleStep.grassCovered` follows the whole grass cell; harvesting or leaving
-  clears the crop. Flight, dragon form, collapse and raised support override it.
-  Sparse roadside clumps, reeds and clipped hedges retain natural occlusion.
-  Grass adds no sinking, step lift or balancing slowdown; `covered` remains
-  the general foliage footprint, separate from liquid submersion.
+- Long grass leaves the player at the normal feet-on-ground position, with no
+  half-body crop, sinking, step lift or balancing slowdown. Only foreground
+  blades naturally obscure the body. Clipped hedges likewise never crop or
+  sink the body; liquids and quicksand (below) do. `ObstacleStep`'s `covered` marks
+  the foliage footprint and is not a waterline.
 - Water, tar-yard terrain and unburned street tar puddles lower the player's
   body to the waterline and crop away the lower half of its current sprite frame.
   Furniture with height `basin` does the same at the player's feet cell on the
@@ -985,8 +983,10 @@ the surrounding grove’s shrub scale.
   and sorts the shared world container only when membership or assigned depth
   changes. Canvas also rasterizes unchanged wildplant sprites by absolute ground
   row while standing north-up; heading-up rotation, movement, work, shine,
-  weather tint and cover animation keep their ordinary live sprites. Heading-up grass retains one world-sorted
-  part per data cell and rasterizes that cell's blade faces once under Canvas.
+  weather tint and cover animation keep their ordinary live sprites. Grass
+  retains one world-sorted part per blade root, so an actor inside a cell
+  stays behind its foreground blades. Whole-cell raster caches cannot preserve
+  that within-cell occlusion.
   Plant data remains in the draw list, so taps and contact never depend on the
   cache. Work transitions invalidate reuse,
   while connected, clock-driven and saved-state art stays live.
@@ -1839,8 +1839,8 @@ A shared 16×16 texture is created once: green soft-chisel surface blades and
 pink rounded original blades for the Underdark biome. Both gradually darken
 45% toward the root. No pixel readback or per-blade texture creation occurs
 when cells rebuild; movement within a cell reuses the retained geometry.
-Grass crops the lower half of the normally grounded player so blade gaps cannot
-expose the legs. Other submerged terrain and basin behavior is separate.
+Grass neither crops nor sinks the player: only foreground blades obscure the
+normally grounded body. Other submerged terrain and basin behavior is separate.
 Harvesting, hidden finds and reed presentation remain unchanged.
 
 - Stacked native terrain is unconditional, including for old `terrainLayers`

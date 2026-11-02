@@ -1,7 +1,7 @@
 // Content-addressed resources survive deployments. HTML stays network-first;
 // tiles retain their independent offline cache. Keep two shell generations so
 // old tabs can still request their exact script URLs after a worker update.
-const SHELL_VERSION = 'shell-9a17cfd0';
+const SHELL_VERSION = 'shell-225e541a';
 
 const RESOURCE_CACHE = 'terracart-resources-v1';
 const RESOURCE_MANIFEST = './__terracart_resource_manifest__';
@@ -66,7 +66,11 @@ const ASSET_HASHES = {
   "assets/Enemy/Demons/ArmouredRedDemon.png": "d97eb830",
   "assets/Enemy/Demons/PurpleDemon.png": "da086e1c",
   "assets/Enemy/Demons/RedDemon.png": "e07c0dbf",
+  "assets/Enemy/Dragons/BlackDragon.png": "c79fcde0",
+  "assets/Enemy/Dragons/BlueDragon.png": "95ce81ef",
   "assets/Enemy/Dragons/RedDragon.png": "8aec2297",
+  "assets/Enemy/Dragons/WhiteDragon.png": "2092da28",
+  "assets/Enemy/Dragons/YellowDragon.png": "b08b5eb3",
   "assets/Enemy/Ghost/1Fullsheet_Ghost.png": "86ada061",
   "assets/Enemy/Ghost/Reskin/1Fullsheet_PinkGhost.png": "dc4fdb91",
   "assets/Enemy/GiantCrab.png": "633bd8b3",
@@ -92,6 +96,7 @@ const ASSET_HASHES = {
   "assets/Enemy/Plant/1Fullsheet_Plant.png": "6350265e",
   "assets/Enemy/Plant/Reskin/1Fullsheet_BonePlant.png": "fc72b100",
   "assets/Enemy/Purple Slime.png": "0b22864f",
+  "assets/Enemy/Rare/Judge.png": "acaa4cd4",
   "assets/Enemy/Rat.png": "c0e24c18",
   "assets/Enemy/SegmentedSerpent/parts.png": "4c7e813e",
   "assets/Enemy/Skeleton/1Fullsheet_Skeleton.png": "b10d4d1f",

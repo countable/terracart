@@ -2654,6 +2654,7 @@ class MapScene extends Phaser.Scene {
     if (typeof Traps === 'undefined') return;
     if (c._nextLayT && now < c._nextLayT) return;
     const m = Combat.monster(c.kind);
+    if (m.rareBehaviour?.thornTrap) return this._veloxGrowThorns(c, now, px, py);
     const layIntervalMs = m.damageIntervalSeconds * 1000;
     const dist = Math.hypot(px - c.x, py - c.y);
     if (dist > ((m?.range || 1) + TRAPPER_LAY_SLACK_CELLS) * this.cellM) return;
@@ -2693,6 +2694,48 @@ class MapScene extends Phaser.Scene {
     // Nowhere on the line will take one (rock, road, the player too close):
     // look again in a second rather than on every frame.
     c._nextLayT = now + 1000;
+  }
+
+  // Velox grows ordinary, visible brambles under its target. They share the
+  // shrub renderer, axe harvest, and contact damage; no hidden metal snare.
+  _veloxGrowThorns(c, now, px, py) {
+    const row = Combat.monster(c.kind);
+    if (Math.hypot(px - c.x, py - c.y) > ((row.range || 2) + TRAPPER_LAY_SLACK_CELLS) * this.cellM) return;
+    const wall = Date.now();
+    this._tickSummonedThorns(wall);
+    c._nextLayT = now + row.damageIntervalSeconds * 1000;
+    const active = this._summonedThorns || (this._summonedThorns = []);
+    if (active.filter(t => t.plant._thornCaster === c.id).length >= 4) return;
+    const at = worldMetersToAbsCell(this, px, py);
+    const point = absCellCenterMeters(this, at.cellIX, at.cellIY);
+    // This gate excludes homes, roads, reserved cells, existing flora, and
+    // player structures. It deliberately permits the player's occupied cell.
+    const seat = CreepingVines.seat(this, point.x, point.y, null);
+    if (!seat || !Traps.canLay(seat.e, seat.ix, seat.iy)) return;
+    const serial = this._thornSerial = (this._thornSerial || 0) + 1;
+    const plant = WorldGen.makeWildplant('shrub', point.x, point.y,
+      `summoned_thorn:${c.id}:${wall}:${serial}`, {
+        _plantArt: 'bramble', _thornCaster: c.id, _thornExpiresAt: wall + 30000,
+        _ix: seat.ix, _iy: seat.iy, depth: this.depth || 0
+      });
+    seat.e.wildplants ||= [];
+    seat.e.wildplants.push(plant);
+    active.push({ entry: seat.e, plant });
+    this._vineRevision = (this._vineRevision || 0) + 1;
+  }
+
+  // Runs independently of its caster, so defeated or caught Velox cannot
+  // leave permanent hazards. Array replacement also invalidates spatial caches.
+  _tickSummonedThorns(now = Date.now()) {
+    if (!this._summonedThorns?.length) return;
+    const cleared = new Set([...(this.save.picked || []), ...(this.save.chopped || []), ...(this.save.burnedObjects || [])]);
+    this._summonedThorns = this._summonedThorns.filter(({ entry, plant }) => {
+      if (plant._thornExpiresAt > now && !cleared.has(plant.id) && !plant.picked && !plant.chopped && !plant.burned
+          && entry.wildplants?.includes(plant)) return true;
+      entry.wildplants = (entry.wildplants || []).filter(p => p !== plant);
+      this._vineRevision = (this._vineRevision || 0) + 1;
+      return false;
+    });
   }
 
   // ── The player's Magic Traps ──────────────────────────────────────────────
@@ -4184,7 +4227,7 @@ class MapScene extends Phaser.Scene {
 
     const visibleEnemies = typeof Visibility === 'undefined' ? enemies
       : enemies.filter(c => !Visibility.hidden(this, c.x, c.y));
-    DragonStory.tick(this, now, px, py, visibleEnemies);
+    if (!Conditions.meleeOnly(this.save)) DragonStory.tick(this, now, px, py, visibleEnemies);
     const relics = Gear.effectiveRelics(this.save);
     const activeWeapon = Gear.activeWeapon(this.save);
     // The player's attack multiplier (_attackMul — Dragon Powder's ×2, the
@@ -4213,12 +4256,12 @@ class MapScene extends Phaser.Scene {
     // the cadence holds its fire too. The else-branch re-arms, so the first
     // arrow flies the instant the shadow lifts.
     // A CATCH attempt (a fleeing wheel) is no time to fight: no auto-fire.
-    const rangedArmed = !Combat.playerDowned(this.save.energy) && !Conditions.attacksBlocked(this.save) && !this.isShadowActive()
+    const rangedArmed = !Conditions.meleeOnly(this.save) && !Combat.playerDowned(this.save.energy) && !Conditions.attacksBlocked(this.save) && !this.isShadowActive()
       && !this._workProgress?.flee
       && Combat.anyEnemyWithin(px, py, visibleEnemies, Combat.rangedTriggerM(reachCells(this), this.cellM));
     if (rangedArmed) {
       for (const slot of Combat.RANGED_SLOTS) {
-        if (!relics[slot] || activeWeapon !== slot) continue;
+        if (!relics[slot] || activeWeapon !== slot || (slot === 'staff' && Conditions.spellsBlocked(this.save))) continue;
         const due = this._nextShotT[slot];
         if (due == null) {
           // First sighting this weapon has been active for: arm the cadence
@@ -4718,9 +4761,69 @@ class MapScene extends Phaser.Scene {
   // the shield potion halves it at the moment of impact, worn armour soaks
   // what is left (Combat.incomingProjectileDamage) — only delivered by a shot
   // you could see coming rather than a silent drain at range.
+  _rareEnemyHit(source, row) {
+    const effect = row?.rareBehaviour;
+    if (!effect) return;
+    if (effect.polymorphDurationMs) this._applyCondition('slime_form', { durationMs: effect.polymorphDurationMs });
+    if (effect.knockbackCells && source) Whirlwinds.impulse(this, this, source, performance.now(), true,
+      { cells: effect.knockbackCells, anyGround: true });
+    if (effect.floorShiftChance) this._rareFloorShift?.(source, row);
+  }
+
+  // Resolve the destination while the current floor stays live. A sealed
+  // downward route requires its real unlock; this curse never excavates walls.
+  async _rareFloorShift(source, row) {
+    const chance = row?.rareBehaviour?.floorShiftChance || 0;
+    if (!source || !chance || this._rareFloorShiftPending || this._hazardFallPending || this._caveFallPending
+        || this.depth === Arena.DEPTH || Combat.playerDowned(this.save.energy)) return false;
+    const serial = source._floorShiftSerial = (source._floorShiftSerial || 0) + 1;
+    const seed = `${source.id}:floor-shift:${serial}`;
+    if (fnv1a(seed) / 4294967296 >= chance) return false;
+    const delta = fnv1a(`${seed}:direction`) & 1 ? 1 : -1;
+    const depth = this.depth, target = depth + delta;
+    if (target < 1 || target === Arena.DEPTH) return false;
+    const route = delta > 0 && !DungeonProgression.ropeCanDescend(depth) ? 'elevator' : 'rope';
+    if (!DungeonProgression.canUseDescent(this.save, depth, target, route)) return false;
+    const point = playerWorldM(this), edge = this.tileEdgeM;
+    const tx = Math.floor(point.x / edge), ty = Math.floor(point.y / edge);
+    const request = this._rareFloorShiftPending = {};
+    const stillHere = () => this._rareFloorShiftPending === request && this.depth === depth
+      && !this._hazardFallPending && !this._caveFallPending && !Combat.playerDowned(this.save.energy)
+      && Math.hypot(playerWorldM(this).x - point.x, playerWorldM(this).y - point.y) < this.cellM / 2
+      && DungeonProgression.canUseDescent(this.save, depth, target, route);
+    try {
+      let entry = await WorldGen.loadTile.atDepth(target, tx, ty, typeof START_LAT === 'number' ? START_LAT : 0);
+      if (entry?.status === 'loading') {
+        await entry.promise;
+        entry = WorldGen.tileCacheFor(target).get(WorldGen.tileKey(tx, ty));
+      }
+      if (!stillHere() || entry?.status !== 'ready') return false;
+      if (!entry._spawned) {
+        const ready = this._spawnCaveCreaturesSliced
+          ? await this._spawnCaveCreaturesSliced(entry, tx, ty, target)
+          : (this.spawnCaveCreatures(entry, tx, ty, target), true);
+        if (!ready) return false;
+      }
+      if (!stillHere()) return false;
+      const landing = HazardFalls.landing(entry, point, edge);
+      if (!landing) return false;
+      this.changeDepth(delta, { ...landing, descentSource: route });
+      return this.depth === target;
+    } catch (_) {
+      return false;
+    } finally {
+      if (this._rareFloorShiftPending === request) this._rareFloorShiftPending = null;
+    }
+  }
+
   _shotHitsPlayer(shot) {
+    if (shot.projectile === 'curse_star') {
+      shot.condition = Conditions.curseDebuff(shot.curseSeed ?? shot.attackSerial ?? 0);
+      shot.conditionDurationMs = 10000;
+      shot.conditionOptions = { ...shot.conditionOptions, stack: false };
+    }
     return foeBlowLands(this, shot._sourceGuard, Combat.incomingProjectileDamage(this.save, shot.damage, shot.hits),
-      { mitigated: true, condition: shot.condition }) > 0;
+      { mitigated: true, condition: shot.condition, conditionDurationMs: shot.conditionDurationMs, conditionOptions: shot.conditionOptions }) > 0;
   }
 
   // The body takes a hit: a short red flick on the character, at the INSTANT
@@ -4928,6 +5031,25 @@ class MapScene extends Phaser.Scene {
         lift = s.liftFromPx + (SHOT_DRAW_LIFT_PX - s.liftFromPx) * f;
       }
       const hx = Math.round(head.x), hy = Math.round(head.y - lift);
+      if (s.projectile === 'bubble_mute' || s.projectile === 'ink_blast') {
+        const ink = s.projectile === 'ink_blast';
+        g.fillStyle(ink ? 0x10112e : 0x46daca, ink ? 0.95 : 0.35).fillCircle(hx, hy, 5);
+        g.lineStyle(1.5, ink ? 0x65528a : 0x9bfff0, 1).strokeCircle(hx, hy, 5);
+        g.fillStyle(0xbaffef, ink ? 0.15 : 0.9).fillCircle(hx - 2, hy - 2, 1);
+        continue;
+      }
+      if (s.projectile === 'curse_star' || s.projectile === 'frost_bolt') {
+        const points = [], frost = s.projectile === 'frost_bolt';
+        for (let i = 0; i < 10; i++) {
+          const angle = i * Math.PI / 5 - Math.PI / 2, radius = i % 2 ? 2 : 6;
+          points.push({ x: hx + Math.cos(angle) * radius, y: hy + Math.sin(angle) * radius });
+        }
+        g.fillStyle(frost ? 0x99eaff : 0xb46aff, 1).fillPoints(points, true);
+        g.fillStyle(0xffffff, 0.8).fillCircle(hx, hy, 1);
+        continue;
+      }
+      if (s.projectile === 'poison_bolt') { s.dotPx = 3; s.color = 0x8fdd42; }
+      if (s.projectile === 'exploding_fireball') { s.dotPx = 5; s.color = 0xff6c21; }
       const thrownArt = MINERAL_ICON_SHEET[s.projectile]
         || (s.effect && CROP_SPRITE[s.projectile]);
       if (thrownArt) {
@@ -5212,6 +5334,7 @@ class MapScene extends Phaser.Scene {
   // and abandon does heal back up. `source` names the killer for
   // resolveDefeat (Combat.isPlayerKill): 'player' unless a shot says otherwise.
   _damageEnemy(c, amount, source = 'player', options = {}) {
+    if (c._rareIllusion && amount > 0) { c._illusionUntil = 0; c.dead = true; c._hp = 0; return true; }
     if (!(amount > 0)) return false;
     // Replicated world damage belongs to one nearby publisher. Gate before
     // HP, wake-up, provocation and death side effects on the other copies.
@@ -5363,6 +5486,7 @@ class MapScene extends Phaser.Scene {
   // bonus — only when Combat.isPlayerKill(source): the player or their pet. A
   // castle turret's kill leaves the coin and nothing else.
   resolveDefeat(victim, source = 'player') {
+    if (victim._rareIllusion) { this._damageEnemy(victim, 1, source); return; }
     const save = this.save;
     save.caught = save.caught || [];
     if (save.caught.includes(victim.id)) return;
@@ -6123,8 +6247,8 @@ class MapScene extends Phaser.Scene {
   }
 
   // The waterline follows the body, not the camera. Liquid and quicksand sink
-  // the body. Long grass crops the lower half without lowering the body;
-  // hedges retain their natural occlusion. Crop in frame coordinates
+  // the body: long grass and hedges leave it standing (ObstacleStep's `covered`
+  // is foliage, not a waterline). Crop in frame coordinates
   // so walking directions and heading-up counterrotation keep the upper half.
   // This is a pose only: movement, reach and world sorting keep the same feet.
   _updatePlayerSubmersion() {
@@ -6162,11 +6286,9 @@ class MapScene extends Phaser.Scene {
         + sand.amount * (scaledHeight * (.5 - ratio) - this.playerFeetNudgeY) };
     }
     this._playerSubmerged = submerged || !!this._quicksandPose;
-    const grassCovered = this._obstacleStep?.grassCovered && !airborne
-      && !Combat.playerDowned(this.save.energy) && !(this._obstacleStep?.liftPx > 0);
     if (typeof Weather !== 'undefined') Weather.waterContact(this, weatherWater);
     if (!this.player) return;
-    if (submerged || this._quicksandPose || grassCovered) {
+    if (submerged || this._quicksandPose) {
       const frame = this.player.frame;
       this.player.setCrop(0, 0, frame.realWidth, this._quicksandPose?.height ?? frame.realHeight / 2);
     } else if (this.player.isCropped) this.player.setCrop();
@@ -10437,11 +10559,38 @@ class MapScene extends Phaser.Scene {
     this._syncPlayerSkin();
     if (this.playerShadow) this.playerShadow.setDisplaySize(ready ? 13 : 17, ready ? 5 : 6);
   }
-  // Resolve directly from wizard assignment / bicycle deadline every frame,
-  // including restored saves. The dragon transform keeps visual priority.
+  // Bake the curse palette once so the dark blue form also works in Canvas mode.
+  _slimeFormTexture() {
+    const key = 'player_slime_form';
+    if (this.textures.exists(key)) return key;
+    if (!this.textures.exists('purple_slime')) return null;
+    const source = this.textures.get('purple_slime').getSourceImage();
+    const canvas = document.createElement('canvas');
+    canvas.width = source.width; canvas.height = source.height;
+    const ctx = canvas.getContext('2d', { willReadFrequently: true });
+    ctx.drawImage(source, 0, 0);
+    const pixels = ctx.getImageData(0, 0, canvas.width, canvas.height);
+    for (let i = 0; i < pixels.data.length; i += 4) {
+      if (!pixels.data[i + 3]) continue;
+      const light = Math.max(pixels.data[i], pixels.data[i + 1], pixels.data[i + 2]) / 255;
+      pixels.data[i] = Math.round(42 * light);
+      pixels.data[i + 1] = Math.round(74 * light);
+      pixels.data[i + 2] = Math.round(180 * light);
+    }
+    ctx.putImageData(pixels, 0, 0);
+    this.textures.addSpriteSheet(key, canvas, { frameWidth: 32, frameHeight: 32 });
+    return key;
+  }
+
+  // Forced slime form overrides dragon, wizard and bicycle skins until cured.
   _syncPlayerSkin() {
     if (!this.player) return;
     const giantScale = PotionEffects.scaleMul(this.save);
+    if (Conditions.meleeOnly(this.save)) {
+      this.player.setScale(1.2 * giantScale);
+      this.playerFeetNudgeY = -6 * giantScale;
+      return;
+    }
     if (this._dragonActive) {
       this.player.setScale(this.dragonScale * giantScale);
       this.playerFeetNudgeY = -PLAYER_FEET_DROP_PX * this.playerScale * giantScale;
@@ -10507,9 +10656,21 @@ class MapScene extends Phaser.Scene {
     // Dragon transform: the player flies as a single-direction dragon.
     // Keep the flap looping and just mirror by heading (art faces
     // right at rest), ignoring the human walk/idle directional sheets.
+    if (Conditions.meleeOnly(this.save) && sprite === this.player) {
+      const key = this._slimeFormTexture();
+      if (key) {
+        this._syncPlayerSkin();
+        sprite.anims.stop();
+        this._slimeFormShown = true;
+        sprite.setTexture(key, Math.floor(performance.now() / 200) % 4).setFlipX(x < 0);
+        return;
+      }
+    }
+    const restoreSlime = sprite === this.player && this._slimeFormShown;
+    if (restoreSlime) this._slimeFormShown = false;
     if (this._dragonActive && sprite === this.player) {
       this._syncPlayerSkin();
-      if (sprite.anims.currentAnim?.key !== 'dragon-fly') sprite.play('dragon-fly');
+      if (restoreSlime || sprite.anims.currentAnim?.key !== 'dragon-fly') sprite.play('dragon-fly');
       if (Math.abs(x) > 0.001) sprite.setFlipX(x < 0);
       sprite.anims.timeScale = 1;
       return;
@@ -10525,7 +10686,7 @@ class MapScene extends Phaser.Scene {
     // crash: anim_guard.test.js).
     const skin = (sprite === this.player && this._playerArt) || SpriteLayout.PLAYER_ART.farmer;
     const key = `${skin.sheet}-${baseKey}-${dir}`;
-    if (sprite.anims.currentAnim?.key !== key) sprite.play(key);
+    if (restoreSlime || sprite.anims.currentAnim?.key !== key) sprite.play(key);
     sprite.setFlipX(false);
     // TIRED WALK: eases the CYCLE's frame pace toward WALK_TIRED_SLOW_MUL as
     // energy drains past Lighting.LOW_ENERGY_FRAC — the same weight the reach

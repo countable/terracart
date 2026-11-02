@@ -48,6 +48,12 @@
     poison: Object.freeze({ icon: 'poison', durationMs: 60000, intervalMs: 2000, energyLoss: 1,
       repeat: Object.freeze({ mode: 'stack', capMul: 2 }),
       label: 'Poison', tint: 0x9fdc8c, flicker: false, ink: '#d9b1ff', bg: '#22132ee8' }),
+    venom: Object.freeze({ icon: 'poison', durationMs: 20000, intervalMs: 1000, energyLoss: 2,
+      label: 'Strong poison', tint: 0x69b94b, ink: '#b6ef8b', bg: '#182a12e8' }),
+    mute: Object.freeze({ icon: 'confused', durationMs: 120000, blocksSpells: true,
+      label: 'Mute', tint: 0x48c9bd, ink: '#a9fff2', bg: '#10322ee8' }),
+    slime_form: Object.freeze({ icon: 'confused', durationMs: 180000, blocksSpells: true, meleeOnly: true,
+      label: 'Slime form', tint: 0x233d96, ink: '#9eb6ff', bg: '#101d42e8' }),
     confused: Object.freeze({ icon: 'confused', durationMs: 10000, maxDurationMs: 60000, steeringTakeoverMs: 20000, turnRadS: 0.3,
       label: 'Confused', tint: 0xc68ee8, flicker: false, ink: '#e8c2ff', bg: '#321b40e8' }),
     jellyfish_stun: Object.freeze({ icon: 'jellyfish_stun', durationMs: 5000, attackSpeedMul: 0.5, blocksMovement: true,
@@ -87,6 +93,12 @@
   function attacksBlocked(save) {
     return Object.entries(DEFINITIONS).some(([id, def]) => def.blocksAttacks && active(save, id));
   }
+  function spellsBlocked(save) {
+    return Object.entries(DEFINITIONS).some(([id, def]) => def.blocksSpells && active(save, id));
+  }
+  function meleeOnly(save) { return active(save, 'slime_form'); }
+  const CURSE_DEBUFFS = Object.freeze(['poison', 'blinded', 'confused', 'frozen', 'mute']);
+  function curseDebuff(seed) { return CURSE_DEBUFFS[(Number(seed) >>> 0) % CURSE_DEBUFFS.length]; }
   function attackIntervalMul(save) {
     let mul = 1;
     for (const [id, def] of Object.entries(DEFINITIONS)) if (def.attackSpeedMul && active(save, id)) mul /= def.attackSpeedMul;
@@ -217,7 +229,7 @@
     const duration = explicit ? Math.min(options.durationMs, def.maxDurationMs || def.durationMs) : def.durationMs;
     if (id === 'burning' && fireImmune(save, now)) return false;
     // A Toad Shrine's boon (src/shrines.js 'antidote'): poison cannot take hold.
-    if (id === 'poison' && root.Shrines && root.Shrines.leverActive(save, 'antidote')) return false;
+    if ((id === 'poison' || id === 'venom') && root.Shrines && root.Shrines.leverActive(save, 'antidote')) return false;
     // The row's repeat rule (repeatDose) decides what the dose does — a held
     // row refuses and leaves no stamp; then the one-dose-a-second window.
     const clock = doseClock(save), fresh = !active(save, id);
@@ -336,6 +348,9 @@
     const rules = {
       burning: `You lose ${d.energyLoss} energy every ${shortDuration(d.intervalMs)}, and more the longer you stay in the fire. Get out of the flames.`,
       poison: `You lose ${d.energyLoss} energy every ${shortDuration(d.intervalMs)}.`,
+      venom: `You lose ${d.energyLoss} energy every ${shortDuration(d.intervalMs)}.`,
+      mute: 'You cannot cast spells.',
+      slime_form: 'You are a dark blue slime. You can only attack in melee.',
       confused: 'Your steps wander off course.',
       jellyfish_stun: `You can't move, and you attack at ${half(d.attackSpeedMul)} speed.`,
       frozen: `You move and attack at ${half(d.moveSpeedMul)} speed.`,
@@ -354,5 +369,5 @@
     clearDebuffs(save);
     return true;
   }
-  root.Conditions = { DEFINITIONS, FLICKER_MS, APPLY_DEBOUNCE_MS, conditionTintOn, normalize, active, confusionSteering, movementBlocked, attacksBlocked, attackIntervalMul, movementMul, lightMul, repeatDose, apply, cure, advanceBurn, burnTickLoss, damageImmune, setDialogShield, flying, fireImmune, fireDamage, tick, hasDebuffs, clearDebuffs, describe, useAntidote, useElixir };
+  root.Conditions = { DEFINITIONS, spellsBlocked, meleeOnly, CURSE_DEBUFFS, curseDebuff, FLICKER_MS, APPLY_DEBOUNCE_MS, conditionTintOn, normalize, active, confusionSteering, movementBlocked, attacksBlocked, attackIntervalMul, movementMul, lightMul, repeatDose, apply, cure, advanceBurn, burnTickLoss, damageImmune, setDialogShield, flying, fireImmune, fireDamage, tick, hasDebuffs, clearDebuffs, describe, useAntidote, useElixir };
 })(typeof globalThis !== 'undefined' ? globalThis : this);

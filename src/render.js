@@ -4297,11 +4297,17 @@ Render.drawGrassPrisms = function (scene, plantItems) {
       const points = [{ x, y }, { x: x + CELL_PX, y }, { x: x + CELL_PX, y: y + CELL_PX }, { x, y: y + CELL_PX }];
       const faces = WallMaterials.geometry('grass', points, WallMaterials.GRASS.height,
         { ...cell, cellSize: CELL_PX, underdark: WorldGen.floorProfile(scene.depth || 0)?.biome === 'underdark' });
-      if (faces.length) {
+      // Keep each blade at its own root in the shared actor sort. Caching a
+      // whole cell at its centre put every blade behind an actor standing in
+      // the front half, including the blades that should cover their feet.
+      for (let blade = 0; blade < faces.length; blade += 2) {
+        const { x: cx, y: cy } = faces[blade].billboard;
         const bladeScale = cell.sparseClump ? WallMaterials.GRASS.sparseScale : 1;
-        WallPerspective.prism(scene, 'grass', points, 0, WallMaterials.GRASS.height * bladeScale,
+        const half = WallMaterials.GRASS.width * bladeScale / 2;
+        WallPerspective.prism(scene, 'grass', [{ x: cx - half, y: cy - half }, { x: cx + half, y: cy - half },
+          { x: cx + half, y: cy + half }, { x: cx - half, y: cy + half }], 0, WallMaterials.GRASS.height * bladeScale,
           { face: 0x7f7f46, top: 0x7f7f46, dark: 0x7f7f46 }, null, false,
-          { materialFaces: faces, canvasCache: true });
+          { materialFaces: faces.slice(blade, blade + 2) });
       }
     }
   });
@@ -4980,7 +4986,7 @@ Render.drawObjects = function drawObjects(scene) {
     if (typeof HomeVariant !== 'undefined' && !HomeVariant.allows(scene, c)) return;
     if (caughtSet.has(c.id)) return;
     if (Render.coverHidden(scene, c)) return;
-    if (typeof EnemySpawns !== 'undefined' && EnemySpawns.isSurfaceResident(c)) EnemySpawns.surfaceActive(scene, c);
+    if (typeof EnemySpawns !== 'undefined' && (EnemySpawns.isSurfaceResident(c) || (typeof RareEncounters !== 'undefined' && RareEncounters.isEncounter(c)))) EnemySpawns.surfaceActive(scene, c);
     if (c._surfaceInactive) return;
     if ((c.hidden || c.stealthy) && !c._discovered) return;
     if (!c._burrowed) creatureList.push({ c, dx, dy });

@@ -74,7 +74,7 @@
     assert.truthy(/tomeMagicCd \|\|= \{\}\)\[id\] = now \+ \(CONSUMABLE_SPEC\[id\]\?\.cooldownMs \|\| 0\) \* mul/.test(APP),
       'the own cooldown stamps the spec length');
     assert.truthy(/this\.flashAtPlayer\(Macros\.waitLine\(wait\.line, wait\.ms\)\)/.test(APP), 'refusals show their wait, on the player');
-    assert.truthy(/tomeUsable\(id\) \{ return !this\._tomeWait\(id\); \}/.test(APP), 'the button greys on the same wait');
+    assert.truthy(/tomeUsable\(id\) \{ return !Conditions\.spellsBlocked\(this\.save\) && !this\._tomeWait\(id\); \}/.test(APP), 'the button greys on the same wait');
     assert.falsy(/isRestingAtHome/.test(SCENE_SRC.match(/\n  _tomeWait\(id\) \{\n([\s\S]*?)\n  \}\n/)[1]), 'Home waives nothing');
     assert.truthy(/noun: 'tome'/.test(read[1]), 'the storm tome refuses an empty screen with "tome kept"');
   });

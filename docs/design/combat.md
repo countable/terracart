@@ -6,6 +6,41 @@ mechanics.
 
 ## Combat, energy and Home
 
+- Visit creatures use the ordinary movement, collision, concealment and attack
+  gates. Sproutling heals eight HP per second and retreats permanently after
+  one landed hit; Corrupticore and Gargirl retreat for 2.5 seconds then return.
+  Fungusaur grows up to 1.8 times its size and three times its attack power as
+  HP falls. Watcher and Darkling never attack and leave after five and two
+  active minutes respectively. Their visit clocks survive reloads.
+- Cockathrice petrifies only within five cells, clear sight, and a 35-degree
+  cone around the player's facing. Spectrus creates at most three harmless
+  six-second copies every eight seconds; hitting one dissolves it without a
+  reward. Copies cannot be caught. Rare summoners replace defeated minions
+  while respecting their live cap and the child's terrain rules.
+- Leviathan stays in water until its ink lands, then pursues on land for ten
+  seconds, renewing the hunt on a landed blow. Tidal Force remains on the
+  shoreline; Locylady remains in water. Infernal fireballs explode over a
+  1.5-cell radius through the shared swept projectile and line-of-sight rules.
+- Portacular's quarter-chance hit effect loads a safe landing on an adjacent
+  floor before moving the player. It respects progression locks, so a downward
+  shift from L2 requires the repaired elevator route. Failed loads, unsafe
+  destinations, player movement or a changed floor cancel the shift.
+
+- Rare encounter attacks use the ordinary landed-hit pipeline, including damage
+  immunity and mitigation. Per-hit `conditionDurationMs` and `conditionOptions`
+  configure a dose without changing the global condition definition. Nighthop
+  curse stars select a seeded debuff for ten seconds and do not stack poison
+  duration. Shadow Scorpion venom is a separate stronger poison, also prevented
+  by the antidote shrine boon and cleared by ordinary cures.
+- Mute blocks scrolls, tomes and staff attacks for two foreground minutes.
+  Judge's three-minute slime curse blocks spells, ranged weapons and hand throws,
+  forces bare melee without changing saved equipment, and renders a dark blue
+  slime palette on both Canvas and WebGL. Expiry restores the selected weapon
+  and player art. Ordinary condition cures remove either curse.
+- Roc knockback uses the shared swept Whirlwinds displacement so walls and
+  blocked cells stop the push. Spectrus illusions dissolve when hit without
+  damage rewards, loot or permanent caught records.
+
 - Creature creation from hives, summons, splits and boss pieces runs through
   explicit owned requests in `CreatureSpawns`, sharing `SpawnPipeline` execution.
   Existing activation clocks, finite slots, split HP/reward conservation and
@@ -32,6 +67,13 @@ mechanics.
 - Creeping vines use the shared thorn contact rule: five energy on entry and
   one per second while touching, with flight immunity. They can be chopped
   with the normal axe/wood harvest interaction; clearing a cell is permanent.
+
+- Velox keeps two cells away and grows a visible bramble on the player's cell
+  every six seconds. These are ordinary shrubs with thorn contact damage and
+  axe/wood harvesting. At most four remain per caster; each disappears after
+  thirty seconds even if its caster dies or is caught. Placement uses the vine
+  hazard gate, excluding protected ground, roads, water, existing props and
+  player structures. Growth is session state, without a saved vine colony.
 
 - A Residential Thief uses the roster's `hitAndRun` contract: after a landed
   player blow, take up to the configured coin amount through the normal purse

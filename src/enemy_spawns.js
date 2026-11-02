@@ -178,7 +178,7 @@
     const declaration = root.HabitatSpawns?.enemyDeclaration(creature);
     const lastBand = root.EnemyRoster.SURFACE_TIERS[root.EnemyRoster.SURFACE_TIERS.length - 1];
     // This exception belongs to a declared signature, not the enemy kind.
-    const distantSignature = declaration?.signature && !row?.retired && distance >= lastBand.minDistance;
+    const distantSignature = (declaration?.signature || root.RareEncounters?.isEncounter(creature)) && !row?.retired && distance >= lastBand.minDistance;
     return distantSignature ? distance >= (row?.surface?.minDistance || 0) : homeAllows(creature.kind, distance);
   }
   function homeEligible(scene, creature) {
@@ -228,6 +228,11 @@
   }
   function surfaceActive(scene, creature) {
     if (!creature) return true;
+    if (creature._rareVisibilityInactive) {
+      creature._surfaceInactive = creature._surfaceInactiveBeforeRare;
+      delete creature._surfaceInactiveBeforeRare;
+      delete creature._rareVisibilityInactive;
+    }
     // Remove only this overlay's stamp before recomputing other policies.
     // A pre-existing inactive reason survives leaving Home or entering a cave.
     if (creature._homeFaunaInactive) {
@@ -250,6 +255,12 @@
     if (!busyRoadAllows(scene, creature)) {
       creature._surfaceInactiveBeforeBusyRoad = creature._surfaceInactive;
       creature._busyRoadInactive = true;
+      creature._surfaceInactive = true;
+      return false;
+    }
+    if (root.RareEncounters?.isEncounter(creature) && !root.RareEncounters.eligible(scene, creature)) {
+      creature._surfaceInactiveBeforeRare = creature._surfaceInactive;
+      creature._rareVisibilityInactive = true;
       creature._surfaceInactive = true;
       return false;
     }
@@ -352,6 +363,7 @@
   const SHARED_ID_RE = /^[A-Za-z0-9_:.%|,\/-]{1,96}$/;
   function markShared(c, on = true) { if (c && on) c._sharedId = true; return c; }
   function isSharedId(c, save = null) {
+    if (root.RareEncounters?.isEncounter(c)) return false;
     if (!c || c._sharedId !== true || typeof c.id !== 'string' || !SHARED_ID_RE.test(c.id)) return false;
     // The original body becomes one private half; exclude the entire species.
     if (root.EnemyRoster.get(c.kind)?.ability?.type === 'split') return false;
