@@ -80,7 +80,10 @@
       'a giant goblin draws the goblin sheet');
     assert.eq(SpriteLayout.creatureFrames('giant_goblin'), SpriteLayout.creatureFrames('goblin'),
       'and runs the same cycle');
-    assert.truthy(/const baseSheet = npcArt \? npcArt\.sheet : creatureSheet\(c\.kind\);/.test(render),
+    assert.truthy(/const visualKind = SL\.creatureVisualKind\(c\);/.test(render),
+      'the visual identity comes from SpriteLayout without changing the creature kind');
+    assert.eq(SpriteLayout.creatureVisualKind({ kind: 'giant_goblin' }), 'giant_goblin');
+    assert.truthy(/const baseSheet = npcArt \? npcArt\.sheet : creatureSheet\(visualKind\);/.test(render),
       'render.js picks the sheet from the table');
     assert.truthy(/CRITTER_SHADOW_W\[baseKind\(c\.kind\)\] \|\| 18\) \* giantMul\(c\.kind\)/.test(render),
       'the shadow follows the giant scale');

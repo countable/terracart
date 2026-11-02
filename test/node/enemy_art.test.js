@@ -179,3 +179,25 @@ test('enemy art: mimic shares chest display size and its own orange and dark-met
   assert.eq(pixels.join(), '194,113,61,255,55,62,88,255,250,214,178,255,145,109,86,0');
   assert.truthy(window.ASSETS.mimic.onLoad);
 });
+
+test('enemy art: Owlbear and Horned Sheep retain complete authored walk directions', () => {
+  const starts = {
+    owlbear: { down: 984, left: 1014, right: 1044, up: 1074 },
+    horned_sheep: { down: 0, up: 4, right: 8, left: 12 },
+  };
+  for (const [kind, directions] of Object.entries(starts)) {
+    const art = SpriteLayout.creatureArt(kind);
+    for (const [direction, start] of Object.entries(directions)) {
+      const c = { kind, _facing: direction, _moveUntil: 10000 };
+      const count = kind === 'owlbear' ? 3 : 4;
+      for (let i = 0; i < count; i++) {
+        const appearance = SpriteLayout.creatureAppearance(c, i * art.frameMs);
+        assert.eq(appearance.frame, start + i, kind + ' ' + direction);
+        assert.falsy(appearance.flipX, 'authored sides are not mirrored');
+      }
+      delete c._moveUntil;
+      assert.eq(SpriteLayout.creatureAppearance(c, 5000).frame, start, 'rest holds the facing pose');
+      assert.falsy(art.directions[direction].attack, 'no invented attack frames');
+    }
+  }
+});

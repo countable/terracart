@@ -148,7 +148,7 @@
 // BASELINE_HP below is a fixed anchor, not a reading of this table.
   // The cow and horse are twice the default 10: twice the netting
   // (a catch's difficulty is current HP — Pets.catchMs).
-  const FAUNA_HP = { cat: 20, dog: 40, crow: 8, deer: 15, slime: 10, cow: 20, horse: 20 };
+  const FAUNA_HP = { cat: 20, dog: 40, crow: 8, deer: 15, slime: 10, cow: 20, horse: 20, pig: 20, sheep: 20 };
   // A SUMMONED ally borrows a kind's stats rather than carrying its own: the
   // spirit raven (the Scroll of the Raven) is "equal to a slime", so
   // its pool is the surface slime's here and its bite is the slime's below

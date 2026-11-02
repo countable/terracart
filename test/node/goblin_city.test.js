@@ -32,6 +32,33 @@
     }
   });
 
+  test('goblin city: roughly one in ten L3 rooms contains a deterministic grunt hive', () => {
+    let rooms=0, hives=0;
+    for (let tx=945001;tx<945025;tx++) {
+      const f=fixture(tx), p=CaveAreas.planCity(f);
+      const size=W.floorProfile(3).warren.roomCells;
+      const completeX=Math.floor((f.tx*N+N)/size)-Math.ceil(f.tx*N/size);
+      const completeY=Math.floor((f.ty*N+N)/size)-Math.ceil(f.ty*N/size);
+      rooms+=completeX*completeY;
+      const houses=p.objects.filter(o=>o.hive);
+      hives+=houses.length;
+      assert.eq(JSON.stringify(houses),JSON.stringify(CaveAreas.planCity(f).objects.filter(o=>o.hive)));
+      for (const h of houses) {
+        assert.eq(h.kind,'house');assert.eq(h.hive,'goblin');assert.eq(h.depth,3);
+        assert.eq(Hives.KINDS[h.hive].enemy,'goblin_runt');
+        assert.truthy(Hives.isActive({},h));
+        const i=index(f,h);
+        assert.falsy(p.areas[0].passages.has(i),'hives leave the room doors and lanes open');
+        assert.eq(p.objects.concat(p.encounters).filter(o=>index(f,o)===i).length,1,'one owner at hive seat');
+      }
+    }
+    assert.inRange(hives/rooms,.06,.14,'seeded per-room rate stays near ten percent');
+    for (const depth of [0,1,2,4,5,6,7,8]) {
+      const f=fixture();f.depth=depth;
+      assert.falsy(CaveAreas.planCity(f).objects.some(o=>o.hive),'only L3 city creates these hives');
+    }
+  });
+
   test('goblin city: reloads preserve layout and unique object and encounter identities', () => {
     const p = CaveAreas.planCity(fixture());
     assert.eq(snapshot(p), snapshot(CaveAreas.planCity(fixture())));

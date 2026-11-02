@@ -209,6 +209,9 @@
     // — lighting.test.js pins the order — so a lit cave reads as "a torch
     // there, some fungus here", never two of the same lamp.
     mushroom: { radiusCells: 1.25, colour: 0x9fdcff, peak: 0.50, flicker: 0, pulse: 0.35 },
+    // Radiflor's golden petals cast a small, steady pool of warm light.
+    // WILDPLANT_RULES selects this row while the flower remains in the world.
+    radiflor: { radiusCells: 1.5, colour: 0xffd36a, peak: 0.65, flicker: 0 },
     // A stepped-on Pilgrim's Way stone: steady ivory, no availability pulse.
     waystone: { radiusCells: 1.5, colour: 0xffedb8, peak: 0.95, flicker: 0 },
     // A GROVE SHRINE (src/zones.js — the one standing prop at a park's heart):
@@ -773,7 +776,9 @@
     if (o.kind === 'furniture') {
       const kind = furnitureSpec(o)?.light;
       return kind && KINDS[kind] && PlacedFloor.onDepth(o, scene.depth)
-        && PlacedFloor.furnitureIndoors(scene, o) ? kind : null;
+        && (Furniture.isGenerated(o)
+          ? !(scene.save?.picked || []).includes(o.id)
+          : PlacedFloor.furnitureIndoors(scene, o)) ? kind : null;
     }
     if (o.kind === 'house') {
       if (scene.save && scene.save.starterShopId && scene.save.starterShopId === o.id) return 'trailer';

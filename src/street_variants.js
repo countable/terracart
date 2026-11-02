@@ -472,7 +472,7 @@
       stone: { weathered: '#83916c', restored: '#83916c' }, lampGlow: '#d8cf9c',
       story: 'street_grassy_lane', art: 'street_grassy_lane', title: 'Grassy Lane',
       body: 'Grass covers the road and its grassy verges.', flash: 'Grassy Lane.' },
-    { id: 'old_growth_path', cacheTheme: 'old_growth_path', materialLooks: { tree: 'conifer_tree' }, baseline: true, size: 'minor', share: 0.2, pathWeight: 0.2, rung: 'common',
+    { id: 'old_growth_path', habitatEnemies: { kinds: ['owlbear'], count: 1, chance: 0.1 }, cacheTheme: 'old_growth_path', materialLooks: { tree: 'conifer_tree' }, baseline: true, size: 'minor', share: 0.2, pathWeight: 0.2, rung: 'common',
       terrain: 'FOREST', pathTerrainInfluence: true, affinities: ["woodland"],
       stone: { weathered: '#69745b', restored: '#69745b' }, lampGlow: '#d8cf9c',
       story: 'street_old_growth_path', art: 'street_old_growth_path', title: 'Old Growth Path',

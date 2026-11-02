@@ -53,9 +53,9 @@ test('craft stations: recipes include the starter Spear and the Sugar Potion fro
   const by = Object.fromEntries(HOME_RECIPES.map(r => [r.id, r.cost]));
   assert.eq(JSON.stringify(by.throwing_spear), JSON.stringify([{ id: 'rubble', qty: 1 }, { id: 'wood', qty: 1 }]), 'throwing_spear');
   assert.falsy(by.torch, 'the torch is bought or found, never crafted (Oct 2026)');
-  assert.eq(JSON.stringify(by.scarecrow), JSON.stringify([{ id: 'wood', qty: 3 }]), 'scarecrow');
+  assert.eq(JSON.stringify(by.scarecrow), JSON.stringify([{ id: 'wood', qty: 3 }, { id: 'wool', qty: 1 }]), 'scarecrow');
   assert.eq(JSON.stringify(by.rope), JSON.stringify([{ id: 'longgrass', qty: 5 }]), 'rope from five long grass');
-  assert.eq(JSON.stringify(by.trap_disarm_kit), JSON.stringify([{ id: 'rubble', qty: 4 }]), 'a disarm kit from four stones');
+  assert.eq(JSON.stringify(by.trap_disarm_kit), JSON.stringify([{ id: 'iron_bar', qty: 1 }]), 'a disarm kit from one iron');
   assert.eq(JSON.stringify(by.sugar_potion), JSON.stringify([{ id: 'berry', qty: 2 }]), 'Sugar Potion from two berries');
   assert.falsy(by.taming_potion, 'the T7 Potion of Taming is found, never crafted');
   assert.truthy(/wall/.test(ITEM_EFFECTS.rubble), 'stone hints at rebuilding');
@@ -103,7 +103,7 @@ test('craft stations: recipeCap is the fewest times any ingredient covers its sh
 });
 
 test('craft stations: crafting spends the wood and hands over the item', () => {
-  const s = scene([['wood', 5], ['rubble', 2]]);
+  const s = scene([['wood', 5], ['wool', 1], ['rubble', 2]]);
   s.save.foundWild = { scarecrow: 1 };
   s.presentWorkshop(0, 0, s.workshop, 'scarecrow');
   const m = last(s);
@@ -121,7 +121,23 @@ test('craft stations: crafting spends the wood and hands over the item', () => {
   assert.eq(Inventory.count(s.save, 'throwing_spear'), 2, 'two spears');
 });
 
-test('craft stations: tier-2 barricades cost exactly three wood after discovery', () => {
+test('craft stations: scarecrow needs wool even with enough wood', () => {
+  const s = scene([['wood', 6]]);
+  s.save.foundWild = { scarecrow: 1 };
+  s.presentWorkshop(0, 0, s.workshop, 'scarecrow');
+  assert.falsy(last(s).canAfford);
+  craft(s);
+  assert.eq(Inventory.count(s.save, 'wood'), 6);
+  Inventory.add(s.save, 'wool', 1);
+  s.presentWorkshop(0, 0, s.workshop, 'scarecrow');
+  craft(s);
+  assert.eq(Inventory.count(s.save, 'wood'), 3);
+  assert.eq(Inventory.count(s.save, 'wool'), 0);
+  assert.eq(Inventory.count(s.save, 'scarecrow'), 1);
+  assert.falsy(last(s).canAfford, 'wood alone cannot make another scarecrow');
+});
+
+test('craft stations: tier-2 barricades consume three wood and one copper after discovery', () => {
   assert.eq(ITEM_BY_ID.barricade.baseTier, 2);
   assert.includes(ITEMS_BY_CLASS_TIER.supply[2], 'barricade');
   assert.falsy(ITEMS_BY_CLASS_TIER.supply[1].includes('barricade'));
@@ -132,18 +148,20 @@ test('craft stations: tier-2 barricades cost exactly three wood after discovery'
   assert.includes(Shops.themedStock('supply', 2), 'barricade');
   assert.falsy(Shops.themedStock('supply', 1).includes('barricade'));
   assert.truthy(homeRecipeLocked({}, 'barricade'));
-  const s = scene([['wood', 5]]);
+  const s = scene([['wood', 6], ['copper_bar', 1]]);
   s.save.foundWild = { barricade: 1 };
   s.presentWorkshop(0, 0, s.workshop, 'barricade');
   assert.truthy(last(s).canAfford);
   last(s).onAccept();
-  assert.eq(Inventory.count(s.save, 'wood'), 2);
+  assert.eq(Inventory.count(s.save, 'wood'), 3);
   assert.eq(Inventory.count(s.save, 'barricade'), 1);
+  assert.eq(Inventory.count(s.save, 'copper_bar'), 0, 'copper consumed; wood alone cannot craft again');
   s.presentWorkshop(0, 0, s.workshop, 'barricade');
   assert.falsy(last(s).canAfford);
   last(s).onAccept();
-  assert.eq(Inventory.count(s.save, 'wood'), 2);
+  assert.eq(Inventory.count(s.save, 'wood'), 3);
   assert.eq(Inventory.count(s.save, 'barricade'), 1);
+  assert.eq(Inventory.count(s.save, 'copper_bar'), 0, 'copper consumed; wood alone cannot craft again');
 });
 
 test('craft stations: bag room disables Craft and is rechecked before ingredients are spent', () => {
@@ -223,7 +241,7 @@ test('craft stations: recipe picker jumps directly among learned recipes without
 });
 
 test('craft stations: ingredient and output counts refresh after each craft, including exhaustion', () => {
-  const s = scene([['wood', 5], ['scarecrow', 1]]);
+  const s = scene([['wood', 5], ['wool', 1], ['scarecrow', 1]]);
   s.save.foundWild = { scarecrow: 1 };
   s.iconSpanHTML = id => `<i data-item="${id}"></i>`;
   const text = html => html.replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim();
@@ -289,7 +307,7 @@ test('craft stations: every mode starts with only the Spear and the Cot and hide
   try {
     for (const mode of [Difficulty.EASY, Difficulty.HARD]) {
       Difficulty.setMode(mode);
-      const s = scene([['rubble', 8], ['wood', 8], ['trap_disarm_kit', 1], ['berry', 8]]);
+      const s = scene([['iron_bar', 2], ['wood', 8], ['trap_disarm_kit', 1], ['berry', 8]]);
       s.presentWorkshop(0, 0, s.workshop, 'trap_disarm_kit');
       let m = last(s);
       assert.truthy(m.grid, 'a locked target falls back to the grid of known recipes');
@@ -304,8 +322,8 @@ test('craft stations: every mode starts with only the Spear and the Cot and hide
       assert.truthy(m.canAfford);
       craft(s);
       craft(s);
-      assert.eq(Inventory.count(s.save, 'trap_disarm_kit'), 3, 'two kits from eight stones');
-      assert.eq(Inventory.count(s.save, 'rubble'), 0);
+      assert.eq(Inventory.count(s.save, 'trap_disarm_kit'), 3, 'two kits from two iron');
+      assert.eq(Inventory.count(s.save, 'iron_bar'), 0);
       assert.includes(last(s).get, 'Trap Disarm Kit', 'crafting keeps the picked recipe open');
     }
   } finally { Difficulty.setMode(was); }
@@ -337,17 +355,21 @@ test('craft stations: the wild-finds ledger — every grant counts except bought
   const add = SCENE_SRC.slice(SCENE_SRC.indexOf('\n  addToInv(id, n = 1, silent = false, opts = {}) {'));
   assert.truthy(/if \(!opts\.notWild\) \(this\.save\.foundWild = this\.save\.foundWild \|\| \{\}\)\[id\] = 1;/.test(add.slice(0, 3000)),
     'addToInv records the find');
-  const notWild = (SCENE_SRC.match(/\{ notWild: true(?:, deferRefresh: true)?(?:, deferBookRead: (?:!!boothKind|true))? \}/g) || []).length;
+  const notWild = (SCENE_SRC.match(/\{ notWild: (?:true|!generated)(?:, deferRefresh: true)?(?:, deferBookRead: (?:!!boothKind|true))? \}/g) || []).length;
   assert.eq(notWild, 13, 'the thirteen non-wild grant sites: shared craft/brew, smelt, trader, the trader\'s gear swap, a counter\'s gear, stand, two shop buys, a slot win, a potion transmuted in a campfire, its full-bag refund and ground/house furniture pickup');
   assert.truthy(/addToInv\('scarecrow', 1, false, \{ notWild: true \}\)/.test(INTERACT_SRC), 'a reclaimed scarecrow is not a find');
 });
 
-test('craft stations: scrolls require prior use in both modes and spend blank scrolls', () => {
+test('craft stations: scrolls require prior use and spend a blank plus a common ingredient in both modes', () => {
   const was = Difficulty.mode();
   try {
     for (const mode of [Difficulty.EASY, Difficulty.HARD]) {
       Difficulty.setMode(mode);
-      for (const id of ['fireball_scroll', 'fear_scroll', 'treasure_map']) {
+      for (const item of ITEMS.filter(item => item.scroll)) {
+        const id = item.id, ingredient = item.scrollIngredient;
+        assert.truthy(ITEM_BY_ID[ingredient], `${id}: common ingredient exists`);
+        if (id === 'fireball_scroll') assert.eq(ingredient, 'flint_shard');
+        if (id === 'fear_scroll') assert.eq(ingredient, 'bone');
         const s = scene([['blank_scroll', 3], [id, 1]]);
         s.save.foundWild = { [id]: 1 };
         s.presentWorkshop(0, 0, s.workshop, id);
@@ -361,7 +383,12 @@ test('craft stations: scrolls require prior use in both modes and spend blank sc
         s.save.usedScrolls = [id];
         s.save.foundWild = {};
         s.presentWorkshop(0, 0, s.workshop, id);
-        assert.truthy(last(s).canAfford, 'use alone teaches the recipe, even in hard mode');
+        assert.falsy(last(s).canAfford, 'a blank alone cannot craft the learned scroll');
+        craft(s);
+        assert.eq(Inventory.count(s.save, 'blank_scroll'), 3, 'missing ingredient spends nothing');
+        Inventory.add(s.save, ingredient, 2);
+        s.presentWorkshop(0, 0, s.workshop, id);
+        assert.truthy(last(s).canAfford, 'learned recipe with both ingredients can be crafted');
         assert.includes(last(s).get, itemName(id), 'learned scroll is offered');
         assert.eq(last(s).quantity, undefined, 'one blank per tap');
         assert.eq(known(s).length, knownCount + 1, 'using a scroll adds its recipe to the grid');
@@ -370,6 +397,8 @@ test('craft stations: scrolls require prior use in both modes and spend blank sc
         craft(s);
         assert.eq(Inventory.count(s.save, 'blank_scroll'), 1, 'two blanks spent');
         assert.eq(Inventory.count(s.save, id), 3, 'two scrolls made');
+        assert.eq(Inventory.count(s.save, ingredient), 0, 'two common ingredients spent');
+        assert.falsy(last(s).canAfford, 'remaining blank cannot craft without the common ingredient');
       }
     }
     assert.falsy(HOME_RECIPES.some(r => r.id === 'blank_scroll'), 'blank scroll is only a material');

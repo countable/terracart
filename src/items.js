@@ -253,6 +253,7 @@ function wildplantFrame(p) {
 // the vast majority — it drops itself, is picked instantly for nothing, hides
 // no treasure and casts no light.
 const WILDPLANT_RULES = {
+  golden_flower: { light: 'radiflor' },
   creeping_vine: { name: 'Creeping vine', output: 'wood', workRelic: 'axe', barehandMs: 5000, workCharged: true },
   // `pickedCrop`: picking the fruit leaves the plant standing as this crop
   // (render.js wildplantView — a plain bush; the id stays spent). Every
@@ -928,7 +929,7 @@ const BASE_TIER = {
   forgetmenot: 2, marigold: 3, wildrose: 3, starflower: 5,
   poisonberry: 2,
   goldenberry: 5,
-  egg: 2, milk: 3,
+  egg: 2, milk: 3, wool: 2,
   // Fish span the loot ladder, with gaps of at most two tiers.
   minnow: 1, bass: 2, trout: 4, salmon: 5, goldenfish: 7,
   // The sewer's own two (FISH_POOLS.sewer): a pale cave fish and the eel.
@@ -944,7 +945,7 @@ const BASE_TIER = {
   // Animals balance basic catches, specialised fauna and lasting utility.
   // Combat HP stays in Combat; tier no longer follows HP alone.
   crow: 1, rabbit: 1,
-  chicken: 2, crab: 2,
+  chicken: 2, crab: 2, sheep: 2, pig: 2,
   deer: 3, butterfly: 3, sea_turtle: 3,
   cat: 4, cow: 4, horse: 4,
   dog: 5,
@@ -1091,6 +1092,8 @@ const ITEMS = [
   ...['slime', 'cave_slime', 'purple_slime', 'fire_slime'].map(kind => ({ id: kind, name: kind.split('_').map(s => s[0].toUpperCase() + s.slice(1)).join(' '), kind: 'animal', baseTier: 1 })),
   { id: 'chicken',   name: 'Chicken',   kind: 'animal' },
   { id: 'cow',       name: 'Cow',       kind: 'animal' },
+  { id: 'pig',       name: 'Pig',       kind: 'animal' },
+  { id: 'sheep',     name: 'Sheep',     kind: 'animal' },
   { id: 'cat',       name: 'Cat',       kind: 'animal' },
   { id: 'dog',       name: 'Dog',       kind: 'animal' },
   { id: 'deer',      name: 'Deer',      kind: 'animal' },
@@ -1104,7 +1107,7 @@ const ITEMS = [
   // The sea turtle — the rabbit of the beach (CREATURE_BEHAVIOUR.turtle).
   { id: 'sea_turtle',    name: 'Sea Turtle', kind: 'animal' },
   // Variant catalog rows supply names and icons; owned animals live in Pets.
-  ...['chicken', 'cow', 'cat', 'dog', 'rabbit', 'butterfly', 'crab', 'horse', 'sea_turtle'].map(k => ({
+  ...['chicken', 'cow', 'pig', 'sheep', 'cat', 'dog', 'rabbit', 'butterfly', 'crab', 'horse', 'sea_turtle'].map(k => ({
     id: `shiny_${k}`,
     name: `Shiny ${k.charAt(0).toUpperCase() + k.slice(1)}`,
     kind: 'animal', base: k, shiny: true, baseTier: Math.min(7, (BASE_TIER[k] || 1) + SHINY_TIER_UP),
@@ -1121,6 +1124,7 @@ const ITEMS = [
   { id: 'green_dragon', name: 'Green Dragon', kind: 'animal', baseTier: 7 },
   { id: 'baby_green_dragon', name: 'Baby Green Dragon', kind: 'animal', base: 'green_dragon', baby: true, baseTier: 7 },
   { id: 'milk', name: 'Milk', kind: 'produce' },
+  { id: 'wool', name: 'Wool', kind: 'supply', dropWeight: 0 },
   // Wild-only produce — grows in grasslands, picked as debris. Not plantable.
   // Display name 'Long grass'; id stays 'longgrass' for save / loot-table
   // back-compat. The sprite is Props.png's frond frame; in-world + inventory
@@ -1130,10 +1134,10 @@ const ITEMS = [
   { id: 'nettle', name: 'Nettle', kind: 'produce', crop: 'nettle' },
   // Wild flower pickups (per-polygon color but stacks as a single item).
   { id: 'flowers', name: 'Flowers', kind: 'produce' },
-  { id: 'white_flower', name: 'White flower', kind: 'produce', baseTier: 1 },
-  { id: 'yellow_flower', name: 'Yellow meadow flowers', kind: 'produce', baseTier: 1 },
-  { id: 'golden_flower', name: 'Golden flowers', kind: 'produce', baseTier: 3 },
-  { id: 'young_fern', name: 'Young fern', kind: 'produce', baseTier: 1 },
+  { id: 'white_flower', name: 'Purelace', kind: 'produce', baseTier: 1 },
+  { id: 'yellow_flower', name: 'Lyepetal', kind: 'produce', baseTier: 1 },
+  { id: 'golden_flower', name: 'Radiflor', kind: 'produce', baseTier: 3 },
+  { id: 'young_fern', name: 'Bitterleaf', kind: 'produce', baseTier: 1 },
   { id: 'golden_bowl', name: 'Golden bowl', kind: 'supply', baseTier: 3 },
   { id: 'bone', name: 'Bone', kind: 'supply', baseTier: 1 },
 
@@ -1171,11 +1175,11 @@ const ITEMS = [
   { id: 'tome_frost_aura', name: 'Tome of Frost Aura', kind: 'unique_relic', tome: true },
   { id: 'tome_fire_wall', name: 'Wall of Fire Tome', kind: 'unique_relic', tome: true },
   { id: 'blank_scroll', name: 'Blank Scroll', kind: 'supply' },
-  { id: 'fireball_scroll', name: 'Fireball Scroll', kind: 'magic', scroll: true },
+  { id: 'fireball_scroll', name: 'Fireball Scroll', kind: 'magic', scroll: true, scrollIngredient: 'flint_shard' },
   { id: 'explosive_flask', name: 'Explosive Flask', kind: 'magic' },
-  { id: 'fear_scroll', name: 'Scroll of Fear', kind: 'magic', scroll: true },
-  { id: 'wind_scroll', name: 'Scroll of Wind', kind: 'magic', scroll: true },
-  { id: 'treasure_map', name: 'Treasure Map', kind: 'magic', scroll: true },
+  { id: 'fear_scroll', name: 'Scroll of Fear', kind: 'magic', scroll: true, scrollIngredient: 'bone' },
+  { id: 'wind_scroll', name: 'Scroll of Wind', kind: 'magic', scroll: true, scrollIngredient: 'longgrass' },
+  { id: 'treasure_map', name: 'Treasure Map', kind: 'magic', scroll: true, scrollIngredient: 'rubble' },
   // Spent on a wreck restore (houses.js HAMMER_ID): the building comes up shiny and sells cheaper for good.
   { id: 'magic_hammer', name: 'Magic Hammer', kind: 'magic' },
   { id: 'pet_collar', name: 'Sturdy Collar', kind: 'pet_accessory', baseTier: 1, petAccessory: { slot: 'collar', stats: { maxHp: 4 } } },
@@ -1209,9 +1213,9 @@ const ITEMS = [
   { id: 'fire_resistance_potion', name: 'Potion of Fire Resistance', kind: 'magic', potion: true },
   { id: 'blight_potion', name: 'Potion of Blight',    kind: 'magic', potion: true },
   // Read to summon a temporary ally through the shared companion keeper.
-  { id: 'bones_scroll', name: 'Scroll of Bones', kind: 'magic', scroll: true },
-  { id: 'wraith_scroll', name: 'Scroll of the Wraith', kind: 'magic', scroll: true },
-  { id: 'raven_scroll',  name: 'Scroll of the Raven', kind: 'magic', scroll: true },
+  { id: 'bones_scroll', name: 'Scroll of Bones', kind: 'magic', scroll: true, scrollIngredient: 'bone' },
+  { id: 'wraith_scroll', name: 'Scroll of the Wraith', kind: 'magic', scroll: true, scrollIngredient: 'white_flower' },
+  { id: 'raven_scroll',  name: 'Scroll of the Raven', kind: 'magic', scroll: true, scrollIngredient: 'crow_feather' },
   // The serpent idols (SERPENT_IDOLS above): scarce finds, never wares.
   ...SERPENT_IDOLS,
   // Drunk while DOWN (zero energy) to get back up on the spot — see
@@ -1219,8 +1223,8 @@ const ITEMS = [
   { id: 'revival_potion',       name: 'Potion of Revival',       kind: 'magic', potion: true },
   { id: 'resurrection_potion', name: 'Potion of Resurrection', kind: 'magic', potion: true },
   // Read to strike every foe on screen.
-  { id: 'thunder_scroll',      name: 'Scroll of Thunder',      kind: 'magic', scroll: true },
-  { id: 'moonbeam_scroll',     name: 'Scroll of Moonbeam',     kind: 'magic', scroll: true },
+  { id: 'thunder_scroll',      name: 'Scroll of Thunder',      kind: 'magic', scroll: true, scrollIngredient: 'flint_shard' },
+  { id: 'moonbeam_scroll',     name: 'Scroll of Moonbeam',     kind: 'magic', scroll: true, scrollIngredient: 'shell' },
   // Dragon Powder: use it (Use button with it selected) to wear a red dragon
   // for one minute — tier-8 boot movement and 2× attack
   // damage (useDragonPowder in app.js). A stat buff, not a movement mode.
@@ -1967,6 +1971,8 @@ const PRICES = {
   chicken: 4,      // 150–250/tile
   crab: 6,         // shore only — a handful per beach (SHORE_FAUNA)
   cow: 40,         // premium over chicken/crab without a late-game sale payout
+  pig: 18,
+  sheep: 18,
   horse: 200,      // five a tile, and a mount while kept
   cat: 35,         // companion animal (wants milk/fish) — modest sale, never eaten
   dog: 35,         // companion animal (wants meat) — modest sale, never eaten
@@ -1990,6 +1996,7 @@ const PRICES = {
   baby_green_dragon: 360,
   green_dragon: 120,
   milk: 28,
+  wool: 18,
   // ── Consumables ──────────────────────────────────────────
   // Bought from shops occasionally; small sell value if you hoard them.
   syrup: 7,
@@ -2052,7 +2059,7 @@ const PRICES = {
   torch:          5,   // T1 — 3 min of the player's own light reaching twice as far (useTorch); cheap: found on cave floors, sold at the first supply shop, never crafted
   javelin:      60,   // T4 — a stronger single-use throw; no starter crafting recipe
   renovation_permit: 180,   // T4 — one rank on one building, forever; a hammer's neighbour
-  barricade: 12,   // T2 — three wood at a workshop; deploys the existing wooden obstacle
+  barricade: 12,   // T2 — three wood and one copper at a workshop; deploys the existing wooden obstacle
   scarecrow: 20,   // crow/deer ward — crafted at a workshop (HOME_RECIPES) or sold by a Supply Shop
   acorn: 5,
 
@@ -2112,7 +2119,7 @@ function itemValues() {
 }
 // Shiny animals sell at 10× their plain counterpart's value — a real prize in
 // the bag, on top of the catch-time money + memory.
-for (const k of ['chicken', 'cow', 'cat', 'dog', 'rabbit', 'butterfly', 'crab', 'horse', 'sea_turtle']) {
+for (const k of ['chicken', 'cow', 'pig', 'sheep', 'cat', 'dog', 'rabbit', 'butterfly', 'crab', 'horse', 'sea_turtle']) {
   PRICES[`shiny_${k}`] = itemValue(k) * 10;
 }
 // A baby sells for three of its kind: a promise of a shiny, not yet one.
@@ -2165,8 +2172,8 @@ const ITEM_GUIDE_TIPS = {
   workshop: 'I restored a ruined building as a Workshop. Tools, supplies and remembered scrolls take shape here.',
   bed_quilted: 'Seven lengths of timber became a cot at the workshop. I slept the afternoon through at home and woke whole, the seedlings a little taller. No bed would have me again before evening.',
   growth_powder: 'At the workshop I ground nettles with long grass into a green powder. The seedlings stirred before I had finished sprinkling it.',
-  psychosis_powder: 'At the workshop I crushed yellow meadow flowers with young fern. The dust made the room tilt. I opened every window.',
-  sleep_powder: 'I ground golden flowers with white ones into a fine dust. One breath of it and I woke at the bench at dusk.',
+  psychosis_powder: 'At the workshop I crushed Lyepetal with Bitterleaf. The dust made the room tilt. I opened every window.',
+  sleep_powder: 'I ground Radiflor with Purelace into a fine dust. One breath of it and I woke at the bench at dusk.',
   barricade: 'I lashed the spare timber into a barricade at the workshop, then carried it down to the cave. The narrow passage needed less wood than I feared.',
   crow_feather: 'My legs failed on the long road. I pressed the black feather to my lips. Just enough strength to rise. Sometimes that is all a mercy needs to be.',
   scarecrow: 'The deer have kept to the tree line since I dressed the scarecrow in your father’s coat. Even empty, it can still look cross.',
@@ -2244,6 +2251,8 @@ const ITEM_EFFECTS = {
   goldenberry: 'Gold and sweet. A foe that eats one fights beside you for a while, and will not run from your net.',
   miracle_lettuce: 'Its crisp leaves leave you feeling unusually lucky.',
   horse: 'It stamps and tosses its head, impatient for the open road.',
+  pig: 'It noses through wet ground and finds mushrooms after a meal.',
+  sheep: 'A grassland grazer whose fleece yields wool after a meal.',
   coffee: 'A roasted warmth sets your feet itching for the road.',
   starfruit: 'A golden sweetness lingers, warming the hands that helped it grow.',
   mango: 'Even wary animals lean toward its golden scent.',
@@ -2253,8 +2262,8 @@ const ITEM_EFFECTS = {
   nettle: 'A stinging herb ground into Growth Powder to wake sleeping crops. Pick it with care.',
   white_flower: 'A small pale bloom. Its scent makes your eyelids heavy.',
   yellow_flower: 'Bright pollen dusts your fingers, and the road seems to sway.',
-  golden_flower: 'Golden petals that glitter like the dust of a long dream.',
-  young_fern: 'Old wives hang fern over the door to keep harm outside.',
+  golden_flower: 'Golden petals cast a warm light into the dark.',
+  young_fern: 'Old wives hang Bitterleaf over the door to keep harm outside.',
   rubble: 'Beneath its pale skin lies a stone hard enough for a ruined wall.',
   quartz: 'Soft pink light catches in the stone’s cloudy heart.',
   topaz: 'A honey-gold gleam rests between its sharp edges.',
@@ -2263,6 +2272,7 @@ const ITEM_EFFECTS = {
   emerald: 'A green light waits for a staff to carry it.',
   ruby: 'A small red fortune warms your palm.',
   milk: 'A cat follows the scent of the fresh cream.',
+  wool: 'Soft fleece from a contented sheep, ready for market.',
   old_boot: 'Water seeps from the split sole of someone else’s journey.',
   shell: 'The sea has polished a little treasure for your pocket.',
   rabbit_pelt: 'A soft scrap of the forest, still warm in memory.',
@@ -2448,6 +2458,8 @@ const ANIMAL_FOOD = {
   butterfly: ['flowers'],
   sea_turtle: ['cress'],
   cow:     ['pairy'],      // pears to munch
+  pig:     ['potato'],
+  sheep:   ['cress'],
   horse:   ['pairy'],      // the cow's favourite
   // Cats love milk AND any kind of fish.
   cat:     ['milk', 'minnow', 'bass', 'trout', 'salmon', 'goldenfish', 'blind_cavefish', 'sewer_eel'],
@@ -3229,17 +3241,20 @@ const HOME_RECIPES = [
   // The Quilted Cot (T1 furniture): seven wood. Placed inside Home it is a
   // night's rest — Rest.sleep, the Inn's own routine (src/rest.js).
   { id: 'bed_quilted', station: 'workshop', cost: [{ id: 'wood', qty: 7 }], known: true },
-  { id: 'scarecrow', station: 'workshop', cost: [{ id: 'wood', qty: 3 }] },
-  { id: 'barricade', station: 'workshop', cost: [{ id: 'wood', qty: 3 }] },
+  { id: 'scarecrow', station: 'workshop', cost: [{ id: 'wood', qty: 3 }, { id: 'wool', qty: 1 }] },
+  { id: 'barricade', station: 'workshop', cost: [{ id: 'wood', qty: 3 }, { id: 'copper_bar', qty: 1 }] },
   { id: 'rope', station: 'workshop', cost: [{ id: 'longgrass', qty: 5 }] },
-  { id: 'trap_disarm_kit', station: 'workshop', cost: [{ id: 'rubble', qty: 4 }] },
+  { id: 'trap_disarm_kit', station: 'workshop', cost: [{ id: 'iron_bar', qty: 1 }] },
   { id: 'sugar_potion', station: 'workshop', cost: [{ id: 'berry', qty: 2 }] },
   { id: 'growth_powder', station: 'workshop', cost: [{ id: 'nettle', qty: 3 }, { id: 'longgrass', qty: 5 }] },
   // Roadside flora: same-tier inputs, like Growth Powder's nettles and grass.
   { id: 'psychosis_powder', station: 'workshop', cost: [{ id: 'yellow_flower', qty: 5 }, { id: 'young_fern', qty: 2 }] },
   { id: 'sleep_powder', station: 'workshop', cost: [{ id: 'golden_flower', qty: 3 }, { id: 'white_flower', qty: 3 }] },
   ...ITEMS.filter(item => item.scroll).map(item => ({
-    id: item.id, station: 'workshop', cost: [{ id: 'blank_scroll', qty: 1 }],
+    id: item.id, station: 'workshop', cost: [
+      { id: 'blank_scroll', qty: 1 },
+      { id: item.scrollIngredient, qty: 1 },
+    ],
   })),
 ];
 // Magic Shop brewing: one potion per batch, with fixed ingredient and coin costs.

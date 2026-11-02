@@ -73,6 +73,19 @@
     const entry = fixture();
     assert.truthy(generate(entry).some(c => c.kind === 'rabbit'), 'ordinary Grass actually produces Rabbits');
   });
+  test('habitat populations: sheep graze grassland and pigs forage wetland', () => {
+    const grass = fixture(WorldGen.T.GRASS), wetland = fixture(WorldGen.T.WETLAND);
+    const grassKinds = generate(grass).map(c => c.kind), wetKinds = generate(wetland).map(c => c.kind);
+    assert.includes(grassKinds, 'sheep');
+    assert.falsy(grassKinds.includes('pig'));
+    assert.includes(wetKinds, 'pig');
+    assert.falsy(wetKinds.includes('sheep'));
+    for (const name of ['FOREST', 'FARMLAND', 'RESIDENTIAL', 'ROCK']) {
+      const rows = kinds(HabitatSpawns.landProfile(name));
+      assert.falsy(rows.includes('pig'), name);
+      assert.falsy(rows.includes('sheep'), name);
+    }
+  });
   test('habitat populations: plain roads and paths have no population profile', () => {
     for (const type of [WorldGen.T.ROAD, WorldGen.T.PATH]) {
       if (type == null) continue;
@@ -252,6 +265,54 @@
       assert.eq(entry.habitatPopulation.totals.fauna.requested, entry.habitatPopulation.totals.fauna.placed + entry.habitatPopulation.totals.fauna.shortfall, 'crowded density candidates are accounted for without replacement');
     }
     assert.falsy(HabitatSpawns.allows('deer', WorldGen.T.ORCHARD), 'the Deer terrain restriction remains intact');
+  });
+
+  test('habitat populations: rare Owlbears belong only to Old Growth Paths and keep their encounter roll', () => {
+    const profile = HabitatSpawns.roadProfile('old_growth_path');
+    assert.eq(HabitatSpawns.enemyRows(profile, WorldGen.T.FOREST).map(row => row.id).join(','), 'owlbear');
+    for (const name of Object.keys(HabitatSpawns.LAND_FAUNA)) {
+      assert.falsy(HabitatSpawns.enemyRows(HabitatSpawns.landProfile(name), WorldGen.T[name])
+        .some(row => row.id === 'owlbear'), 'not in ordinary ' + name);
+    }
+    for (const id of ['ancient_grove', 'spooky_woods', 'sacred_grove']) {
+      assert.falsy(HabitatSpawns.enemyRows(HabitatSpawns.variantProfile(id, 'grove'), WorldGen.T.FOREST)
+        .some(row => row.id === 'owlbear'), 'not borrowed by ' + id);
+    }
+    assert.eq(EnemyRoster.get('owlbear').cave, null);
+    const run = (tx, blocked = false) => {
+      const entry = fixture(WorldGen.T.FOREST, 16);
+      entry.streetArea = new Uint8Array(256).fill(1);
+      entry.streetAreaVariants = new Uint8Array(256).fill(StreetVariants.VARIANT_BY_ID.old_growth_path.code);
+      if (blocked) entry.spawnWhy = new Uint16Array(256).fill(WorldGen.SPAWN_WHY.RESTRICTED);
+      const scene = { depth: 0, tileEdgeM: 640, cellM: 40 };
+      const steps = HabitatSpawns.populationSteps(scene, entry, tx, 0);
+      let step; do { step = steps.next(); } while (!step.done);
+      return { creatures: step.value, stats: entry.habitatPopulation.totals.enemies };
+    };
+    let requested = 0, firstTile = null;
+    for (let tx = 0; tx < 200; tx++) {
+      const result = run(tx);
+      assert.lte(result.stats.requested, 1, 'at most one corridor encounter per tile');
+      requested += result.stats.requested;
+      if (result.stats.requested && firstTile === null) firstTile = tx;
+      assert.eq(result.creatures.filter(c => c.kind === 'owlbear').length, result.stats.requested,
+        'safe old-growth cells actually receive the requested creature');
+      for (const c of result.creatures.filter(c => c.kind === 'owlbear')) {
+        assert.eq(c._habitatSpawn.key, 'street:old_growth_path');
+        assert.truthy(EnemySpawns.surfaceActive(sceneForVisibility(), c), 'daytime encounter is visible');
+      }
+    }
+    function sceneForVisibility() { return { depth: 0, save: {}, startWorldM: { x: -5000, y: 0 } }; }
+    assert.inRange(requested, 8, 34, 'rare in a broad deterministic sample, rather than every corridor');
+    assert.truthy(firstTile !== null);
+    assert.eq(signature(run(firstTile).creatures), signature(run(firstTile).creatures), 'revisits keep identities and seats');
+    const nearHome = run(firstTile).creatures.find(c => c.kind === 'owlbear');
+    assert.falsy(EnemySpawns.surfaceActive({ depth: 0, save: {}, startWorldM: nearHome._surfaceSpawn }, nearHome),
+      'the shared tier safety rule still hides the Owlbear near Home');
+    const blocked = run(firstTile, true);
+    assert.eq(blocked.stats.requested, 1, 'exclusions do not reroll rarity');
+    assert.eq(blocked.stats.placed, 0);
+    assert.eq(blocked.stats.shortfall, 1);
   });
 
   test('habitat populations: Variety snakes stay inside their corridor and remain ordinary enemies', () => {

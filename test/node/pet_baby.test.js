@@ -286,6 +286,24 @@ test('baby feeding: a cancelled confirmation or missing meal grants no progress'
   } finally { window.__TEST_MODE = testMode; }
 });
 
+test('livestock feeding: pig mushrooms and sheep wool share the persisted production cooldown', () => {
+  for (const [kind, yieldId] of [['pig', 'mushroom'], ['sheep', 'wool']]) {
+    const pet = { kind, id: `pet_${kind}_produce`, pet: true, x: 2.5, y: 2.5 };
+    const save = { caught: [], released: [{ ...pet }] };
+    const drops = [];
+    const overrides = { addToInv: (id, n) => drops.push([id, n]) };
+    assert.truthy(feedBaby(pet, save, 'apple', overrides));
+    assert.eq(drops.length, 1);
+    assert.eq(drops[0][0], yieldId);
+    assert.eq(drops[0][1], 1);
+    assert.eq(Inventory.count(save, 'apple'), 0);
+    const reloaded = JSON.parse(JSON.stringify(save));
+    feedBaby({ ...pet, _lastProduceT: undefined }, reloaded, 'apple', overrides);
+    assert.eq(drops.length, 1, 'reloading does not reset production');
+    assert.eq(Inventory.count(reloaded, 'apple'), 1, 'cooldown keeps the offered food');
+  }
+});
+
 test('chicken feeding: shiny chickens lay separate shiny eggs on the same cooldown', () => {
   for (const shiny of [false, true]) {
     const pet = { kind: 'chicken', id: `pet_egg_${shiny}`, pet: true, shiny, x: 2.5, y: 2.5 };

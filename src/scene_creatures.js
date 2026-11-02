@@ -2307,7 +2307,7 @@ class SceneCreatures {
       // Released enemies use the ordinary pet step lane, but keep their
       // directional art, as does any fauna whose art authors directions (the
       // horse, the turtle). NPCs and other fauna retain their existing facing.
-      if (EnemyRoster.get(c.kind) || SpriteLayout.creatureArt(c.kind)?.directions) {
+      if (EnemyRoster.get(c.kind) || SpriteLayout.creatureArt(SpriteLayout.creatureVisualKind(c))?.directions) {
         SpriteLayout.updateCreatureFacing(c, nx - c.x, ny - c.y, now);
       }
       if (!Combat.isEnemy(c)) {

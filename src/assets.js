@@ -133,6 +133,9 @@ const ASSETS = {
   // keeps the visual footprint comparable to the cow. Frames {0, 1} on
   // the top row form the idle animation pair.
   chicken: { kind: 'spritesheet', path: 'assets/Farm Animals/Chicken Red.png',        frameWidth: 16, frameHeight: 16 },
+  chick:   { kind: 'spritesheet', path: 'assets/Farm Animals/Chick.png', frameWidth: 16, frameHeight: 16 },
+  pig:     { kind: 'spritesheet', path: 'assets/Farm Animals/Pig.png', frameWidth: 16, frameHeight: 16 },
+  sheep:   { kind: 'spritesheet', path: 'assets/Farm Animals/Sheep.png', frameWidth: 16, frameHeight: 16 },
   green_dragon: {
     kind: 'spritesheet', path: 'assets/Enemy/Dragons/RedDragon.png', frameWidth: 32, frameHeight: 32,
     onLoad: scene => {

@@ -1,10 +1,12 @@
-// Roadside hives retain their wreck identity. Only health and birth serials
-// survive reloads; their one-minute clock advances while nearby in play.
+// Hives retain their wreck identity on their generated floor. Only health
+// and birth serials survive reloads; clocks advance while nearby in play.
 (function (root) {
   'use strict';
   const KINDS = Object.freeze({
     mushroom: Object.freeze({ name: 'Mushroom House', texture: 'hive_mushroom', frame: 0,
       hp: 120, enemy: 'mushroom_monster', intervalMs: 60000, maxAlive: 4 }),
+    goblin: Object.freeze({ name: 'Goblin Hive', texture: 'house', frame: 'front',
+      hp: 120, enemy: 'goblin_runt', intervalMs: 60000, maxAlive: 4 }),
   });
   const CONFIG = Object.freeze({ activeCells: 24, spawnRadiusCells: 4, spawnClearanceCells: .7, observeMs: 1000, maxFrameMs: 100 });
   function isActive(save, house) {
@@ -47,7 +49,7 @@
   }
   function spawn(scene, house) {
     const row = KINDS[house?.hive];
-    if (!row) return false;
+    if (!row || (house.depth || 0) !== (scene.depth || 0)) return false;
     const W = root.WorldGen, edge = scene.tileEdgeM || scene.cellsPerTile * scene.cellM;
     if (!(edge > 0)) return false;
     const generated = W.runSteps(root.CreatureSpawns.generateOwnedSteps('mushroom-hive', house.id, {
@@ -95,9 +97,11 @@
     return generated[0] || false;
   }
   function tick(scene, dt) {
-    if (scene.depth || !scene.save || !scene.startWorldM || !scene.playerM
+    if (!scene.save || !scene.startWorldM || !scene.playerM
         || !(dt > 0) || !Number.isFinite(dt) || typeof document !== 'undefined' && document.hidden) return;
-    const state = scene._hives ||= { clocks: new Map(), elapsedMs: 0, nextObserveMs: 0 };
+    const depth = scene.depth || 0;
+    if (scene._hives && scene._hives.depth !== depth) delete scene._hives;
+    const state = scene._hives ||= { clocks: new Map(), elapsedMs: 0, nextObserveMs: 0, depth };
     state.elapsedMs += Math.min(CONFIG.maxFrameMs, dt * 1000);
     if (state.elapsedMs < state.nextObserveMs) return;
     const elapsed = state.elapsedMs - (state.lastObserveMs ?? state.elapsedMs);
@@ -107,7 +111,8 @@
     if (!(edge > 0)) return;
     const { tx, ty } = worldMetersToTileCell(scene, p.x, p.y), seen = new Set();
     root.WorldGen.forEachItemNear('objects', tx, ty, (house, entry) => {
-      if (seen.has(house.id) || entry.status !== 'ready' || !isActive(scene.save, house)
+      if (seen.has(house.id) || entry.status !== 'ready' || (entry.depth || 0) !== depth
+          || (house.depth || 0) !== depth || !isActive(scene.save, house)
           || root.HomeVariant?.contains(scene, house.x, house.y)
           || root.HomeVariant?.discardedAt(scene, house.x, house.y)
           || Math.hypot(house.x - p.x, house.y - p.y) > CONFIG.activeCells * scene.cellM) return;

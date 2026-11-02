@@ -159,6 +159,46 @@ test('enemy habitats: every selected cave theme has an eligible family through d
     grid: new Array(N * N).fill(WorldGen.T.PARK), objects: [],
     zone: { coverage: new Uint8Array(N * N).fill(1), anchors: [{ variant: theme }] } });
   const signature = cs => cs.map(c => `${c.id}:${c.kind}:${c.x},${c.y}`).join('|');
+  test('surface encounters: Horned Sheep inhabit Strip Mines without leaking into other quarries', () => {
+    const e = entry('quarry-strip-mine');
+    e.grid.fill(WorldGen.T.ROCK);
+    const rows = HabitatSpawns.densityRows('Nexus:quarry-strip-mine').filter(r => r.category === 'enemy');
+    assert.eq(rows.length, 1);
+    assert.eq(rows[0].kind, 'horned_sheep');
+    assert.eq(rows[0].per1000, .5, 'preserve the approved per-owned-cell signature density');
+    const creatures = [];
+    for (let tx = 0; tx < 16; tx++) {
+      const current = EnemyHabitats.surfaceEncounters(e, tx, 0, new Set());
+      assert.eq(signature(current), signature(EnemyHabitats.surfaceEncounters(e, tx, 0, new Set())));
+      creatures.push(...current);
+    }
+    assert.inRange(creatures.length, 16, 52, 'real owned density pipeline populates eligible Strip Mine cells');
+    assert.truthy(creatures.every(c => c.kind === 'horned_sheep'
+      && c._spawnSource === 'zone-density' && c._spawnOwner === 'Nexus:quarry-strip-mine'));
+    assert.truthy(creatures.every(c => HabitatSpawns.enemyDeclaration(c)?.kind === 'horned_sheep'),
+      'live enemy activation recognizes the Strip Mine owner declaration');
+    assert.eq(EnemyRoster.get('horned_sheep').cave, null);
+    for (const name of Object.keys(HabitatSpawns.LAND_FAUNA)) {
+      assert.falsy(HabitatSpawns.enemyRows(HabitatSpawns.landProfile(name), WorldGen.T[name])
+        .some(row => row.id === 'horned_sheep'), 'no ordinary ' + name + ' spawn');
+    }
+    const mixed = entry('quarry-strip-mine');
+    mixed.grid.fill(WorldGen.T.ROCK);
+    mixed.zone.anchors.push({ variant: 'quarry-abandoned' });
+    for (let y = 0; y < N; y++) for (let x = N / 2; x < N; x++) mixed.zone.coverage[y * N + x] = 2;
+    const mixedSheep = [];
+    for (let tx = 0; tx < 16; tx++) for (const c of EnemyHabitats.surfaceEncounters(mixed, tx, 0, new Set())) {
+      if (c.kind !== 'horned_sheep') continue;
+      mixedSheep.push(c);
+      assert.lt(c._surfaceSpawn.cx, N / 2, 'resident stays in Strip Mine coverage');
+    }
+    assert.gt(mixedSheep.length, 0, 'the mixed ownership check exercises actual sheep');
+    for (const theme of ['quarry-abandoned', 'quarry-crater', 'quarry-stronghold']) {
+      assert.falsy(EnemyHabitats.surfaceEncounters(entry(theme), 0, 0, new Set()).some(c => c.kind === 'horned_sheep'));
+    }
+    e.spawnWhy = new Uint16Array(N * N).fill(WorldGen.SPAWN_WHY.RESTRICTED);
+    assert.eq(EnemyHabitats.surfaceEncounters(e, 0, 0, new Set()).length, 0, 'shared placement exclusions still apply');
+  });
   test('surface encounters: mushroom groves scatter stable solitary mushrooms across the grove', () => {
     const e = entry('mushroom_grove'), occupied = new Set();
     const cs = EnemyHabitats.surfaceEncounters(e, 0, 0, occupied);
