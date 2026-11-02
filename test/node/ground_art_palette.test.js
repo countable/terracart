@@ -56,11 +56,11 @@
     e.zone.coverage[32*64+32]=0;
     assert.eq(art.zoneGroundColor(e,32,32,28),null);
   });
-  test('ground art: ancient grove shade follows only tree and shrub cluster cells', () => {
+  test('ground art: ancient grove shade follows surviving trees and leaves cleared shrub seats warm', () => {
     const e=entry('ancient_grove'),c=art.ZONE_GROUND_ACCENTS.ancient_grove.color;
     assert.eq(art.zoneGroundColor(e,32,32,28),c,'cluster tree');
-    assert.eq(art.zoneGroundColor(e,33,33,28),c,'shrub layer');
-    assert.eq(art.zoneGroundColor(e,34,32,28),null,'thinned bramble seat leaves warm open ground');
+    assert.eq(art.zoneGroundColor(e,33,33,28),null,'removed shrub seat has no canopy shade');
+    assert.eq(art.zoneGroundColor(e,34,32,28),null,'removed outer bramble seat leaves warm open ground');
     assert.eq(art.zoneGroundColor(e,33,34,28),null,'remaining grass accent stays warmer');
     assert.eq(art.zoneGroundColor(e,35,32,28),null,'open gap stays warmer');
     assert.eq(art.zoneGroundColor(e,38,32,28),c,'repeat is phased from POI');

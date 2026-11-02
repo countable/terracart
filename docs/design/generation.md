@@ -994,12 +994,12 @@ spawn-rate roll.
   both game and layout lab; `ZoneVariants.placement` caches the configured plan
   and samples it in the canonical POI frame, preserving empty-area reservations,
   spawn gates and per-cell identities through ordinary `ZoneDressing`.
-- Formal Garden uses four clipped hedge arms around concentric pale-flower
-  and orange rings in an eight-cell parterre. Formal and Hedge Gardens use
-  connected hedge art from the surviving cardinal shrub neighbours.
-- Orchard motifs retain their apple and maple seats; seeded grass scatters into
-  unoccupied motif cells with distance-weighted attraction to those trees,
-  measured across motif seams. Grass becomes sparse in the open aisles.
+- Zone background palettes leave deliberate open ground: Formal Garden keeps
+  its pale-flower and orange rings, while Hedge Garden keeps connected hedges
+  without flower-filled plot centers. Orchard keeps fruit rows with clear aisles.
+  Decorative palette cuts do not alter coverage, POIs, connections or finite
+  finds and guards. Ancient Grove's former bramble seats remain reserved empty
+  through its authored material keep chance, so gap grass cannot refill them.
 - Mushroom groves use a Hilbert background with a 60:40 giant-to-small mushroom
   mix. Reduced material affinity distributes giant caps more evenly; the
   repeating 29-cell plan has 133 giant and 89 small mushrooms before exclusions,
@@ -1040,7 +1040,7 @@ spawn-rate roll.
   seating) and per-device mints do not scale
   (`test/node/multiplayer_shared.test.js`).
 - Spooky Woods is a selectable wooded Grove variant. It keeps Ancient Grove's
-  living tree clusters, brambles, harvestable grass, stone trail and guarded
+  living tree seats, brambles, stone trail and guarded
   starflower, adding bare harvestable trees only in the existing shrine tree
   seats. These use the ordinary tree identity, save ledger and shared spawn
   gate; they are not extra decorative pickups. Dark olive soil covers eligible
