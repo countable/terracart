@@ -4819,7 +4819,6 @@ class MapScene extends Phaser.Scene {
   _shotHitsPlayer(shot) {
     if (shot.projectile === 'curse_star') {
       shot.condition = Conditions.curseDebuff(shot.curseSeed ?? shot.attackSerial ?? 0);
-      shot.conditionDurationMs = 10000;
       shot.conditionOptions = { ...shot.conditionOptions, stack: false };
     }
     return foeBlowLands(this, shot._sourceGuard, Combat.incomingProjectileDamage(this.save, shot.damage, shot.hits),

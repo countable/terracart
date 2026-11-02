@@ -45,15 +45,15 @@
     assert.truthy(Conditions.useAntidote(save));
     assert.eq(Conditions.active(save, 'venom'), false);
   });
-  test('rare effects: shot carries per-hit duration through the real hit dispatch', () => {
+  test('rare effects: hit dispatch preserves the roster-derived shot duration', () => {
     const body = SCENE_SRC.match(/\n  _shotHitsPlayer\(shot\) \{([\s\S]*?)\n  \}\n/)[1];
     const hit = new Function('shot', 'Conditions', 'Combat', 'foeBlowLands', body);
     let received;
     const land = (scene, source, damage, options) => { received = options; return 1; };
-    hit.call({ save: {} }, { projectile: 'curse_star', curseSeed: 4, damage: 3 }, Conditions,
+    hit.call({ save: {} }, { projectile: 'curse_star', curseSeed: 4, conditionDurationMs: 37000, damage: 3 }, Conditions,
       { incomingProjectileDamage: () => 3 }, land);
     assert.eq(received.condition, 'mute');
-    assert.eq(received.conditionDurationMs, 10000);
+    assert.eq(received.conditionDurationMs, 37000);
   });
   test('rare effects: mute refuses spell use before consuming inventory but still permits cures', () => {
     const body = SCENE_SRC.match(/\n  _selectedConsumable\(id\) \{([\s\S]*?)\n  \}\n/)[1];
