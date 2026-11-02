@@ -871,6 +871,7 @@
             extra: (member, seat) => ({ _sharedId: true, _street: request._street, _streetRequest: request.rule,
               _featureHome: { x: tx * tileM + request.lx, y: ty * tileM + request.ly, quiet: true },
               ...(member.ambush ? { ambush: true } : {}),
+              ...(member._landEnemyReserve ? { _landEnemyReserve: true } : {}),
               _habitatSpawn: { key: regionKey, profile: request._street, tx, ty, ...seat },
               _surfaceSpawn: { tx, ty, ...seat },
             }),

@@ -97,10 +97,11 @@ access or tile lifecycle mechanics.
   shortfalls. Zero eligible area produces zero requests, not a deferred allowance.
 - Hard-mode reserve candidates use the same species rates multiplied by the
   maximum additional `landEnemyCountMul` share, placed after base candidates.
-  `HabitatSpawns.reserveVisible` shows each mode's share; reserve visibility
-  never rerolls base identities. Counts are expected density, not an exact 1.5×
-  ratio in each individual tile. Nexus density singles opt into existing party
-  scaling, which creates owned extras without changing their base rates.
+  Finite street rows may mark specific members as mode reserves too. Every mode
+  materializes the same shared bodies; `HabitatSpawns.reserveVisible` shows its
+  share without rerolling identities. Counts are expected density, not an exact
+  1.5× ratio in each individual tile. Nexus density singles opt into existing
+  party scaling, which creates owned extras without changing their base rates.
 - `HabitatSpawns.ENEMY_PACKS` opts rats, goblin fighters, skeletons and pirates
   into spatial groups in both surface and cave ambient generation. An anchor
   is solo 35% of the time or requests 2–4 members 65% of the time. Rates remain

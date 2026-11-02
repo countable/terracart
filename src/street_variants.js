@@ -2635,14 +2635,15 @@
     street_trade: [{ kind: 'thief', count: 1 }, { kind: 'goblin_runt', count: 2 }],
     street_spider_path: [{ kind: 'spider', count: 2 }],
     burned: [{ kind: 'fire_slime', count: 1 }],
-    barricade: [{ kind: 'spear_goblin', count: 1 }, { kind: 'archer_goblin', count: 1, hardOnly: true }],
+    barricade: [{ kind: 'spear_goblin', count: 1 }, { kind: 'archer_goblin', count: 1, modeReserve: true }],
     ...Object.fromEntries(VARIANT_BY_ID.slime_trail.enemyKinds.map(kind =>
       [`street_slime_trail_${kind}`, [{ kind, count: VARIANT_BY_ID.slime_trail.guardsPerPost }]])),
   });
-  function creatureRequestMembers(request, mode = root.Difficulty?.mode()) {
+  function creatureRequestMembers(request) {
     return (CREATURE_REQUEST_RULES[request.rule] || []).flatMap(row =>
-      row.hardOnly && mode !== 'hard' ? [] : Array.from({ length: row.count }, () => ({ kind: row.kind,
-        ...(row.ambush ? { ambush: true } : {}) })));
+      Array.from({ length: row.count }, () => ({ kind: row.kind,
+        ...(row.ambush ? { ambush: true } : {}),
+        ...(row.modeReserve ? { _landEnemyReserve: true } : {}) })));
   }
 
   // ── Dressing (the end of rasterizeTileSteps; laid by spawnInTile) ─────────

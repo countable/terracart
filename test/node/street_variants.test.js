@@ -640,9 +640,15 @@ test('toadstool lane: a minor row at 5%, its verge holds glowing mushrooms with 
   }
 });
 
-test('barricade road: one goblin per barricade, held in either mode', () => {
-  assert.eq(SV.creatureRequestMembers({rule:'barricade'},'easy').length, 1);
-  assert.eq(SV.creatureRequestMembers({rule:'barricade'},'hard').map(r=>r.kind).join(), 'spear_goblin,archer_goblin');
+test('barricade road: shared guards use the existing mode reserve', () => {
+  const easy=SV.creatureRequestMembers({rule:'barricade'},'easy');
+  const hard=SV.creatureRequestMembers({rule:'barricade'},'hard');
+  assert.eq(easy.map(r=>r.kind).join(), 'spear_goblin,archer_goblin');
+  assert.eq(JSON.stringify(hard),JSON.stringify(easy),'every mode builds the same shared bodies');
+  const archer=easy.find(r=>r.kind==='archer_goblin');
+  assert.truthy(archer._landEnemyReserve);
+  assert.falsy(HabitatSpawns.reserveVisible({...archer,id:'barricade_archer'},Difficulty.PROFILES.easy));
+  assert.truthy(HabitatSpawns.reserveVisible({...archer,id:'barricade_archer'},Difficulty.PROFILES.hard));
   assert.falsy(Lairs.STREET_TIER_GUARDS.barricade, 'no lair population');
   const { d, r, spawnOpts } = dressedVariants();
   const bars = d.wildplants.filter((w) => w.crop === 'barricade' && !w._streetScenery);
@@ -672,8 +678,8 @@ test('barricade road: one goblin per barricade, held in either mode', () => {
   }
 });
 
-test('barricade support follows difficulty, independently of building garrisons', () => {
-  const previous = Difficulty.mode();
+test('barricade support uses shared bodies with local mode visibility', () => {
+  const previous = Difficulty.mode(), shared=[];
   try {
     for (const mode of ['easy', 'hard']) {
       Difficulty.setMode(mode);
@@ -682,9 +688,12 @@ test('barricade support follows difficulty, independently of building garrisons'
       const entry = { grid: r.grid, cellsPerEdge: CPE, buildingShapes: [], _spawnOpts: spawnOpts,
         roadClass: r.roadClass, streetLairs: [post], creatures: [] };
       entry.creatures = streetResidents(entry,[post],new Set(),TX,TY);
-      assert.eq(entry.creatures.map((c) => c.kind).sort().join(),
+      shared.push(entry.creatures.map(c=>`${c.id}:${c.kind}:${!!c._landEnemyReserve}`).sort().join('|'));
+      const visible=entry.creatures.filter(c=>HabitatSpawns.reserveVisible(c,Difficulty.get()));
+      assert.eq(visible.map(c=>c.kind).sort().join(),
         mode === 'hard' ? 'archer_goblin,spear_goblin' : 'spear_goblin');
     }
+    assert.eq(shared[0],shared[1],'difficulty cannot change shared barricade identities');
   } finally { Difficulty.setMode(previous); }
 });
 
