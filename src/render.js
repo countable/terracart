@@ -2481,6 +2481,63 @@ Render.beginVariantTint = function beginVariantTint(scene) {
   return scene._variantTintGfx;
 };
 
+// Treasure ink shares the trail's ground overlay: cellGfx sits underneath
+// opaque terrain textures, which would paint over even discovered X marks.
+Render.drawTreasureMarks = function drawTreasureMarks(scene) {
+  let g = scene._treasureMarkGfx;
+  if (!g) {
+    g = scene._treasureMarkGfx = scene.add.graphics();
+    scene.cobbleContainer.add(g);
+  }
+  g.clear();
+  // Treasure marks — subtle X on the ground (unfound only). Drawn from the
+  // camera anchor (they're marks on the ground, so they slide with a peek);
+  // the 3×3 tile scan below stays on the PLAYER's tile, which covers the
+  // peeked window many times over (a tile is hundreds of cells wide).
+  const _anchor = viewAnchorWorldM(scene);
+  const pWorldX = _anchor.x;
+  const pWorldY = _anchor.y;
+  const halfM = (VIEW_CELLS / 2 + 1) * scene.cellM;
+  const found = setOf(scene.save.foundTreasures);
+  // Dark earth on the surface; pale scratched stone underground, where the
+  // floor (0x2a2622) is darker than the surface ink and would swallow it.
+  const underground = (scene.depth || 0) > 0;
+  const plainX = () => underground ? g.lineStyle(2, 0xc9b48a, 0.6) : g.lineStyle(2, 0x2a1d10, 0.55);
+  plainX();
+  const trailEnds = new Set(!underground && typeof Starter !== 'undefined'
+    ? Starter.trailPaths(scene, Date.now()).map(p => p.id) : []);
+  const drawX = (tr) => {
+    if (!treasureExposed(tr, scene) || found.has(tr.id)) return;
+    const dx = tr.x - pWorldX, dy = tr.y - pWorldY;
+    if (!inViewBox(dx, dy, halfM)) return;
+    // After the view box: a cover ray is the costly test (re-traced per step).
+    if (Render.coverHidden(scene, tr, true)) return;
+    // Buried until the feet stand beside it (HiddenObjects.tick), unless a
+    // treasure trail leads to it.
+    if (HiddenObjects.treasureHidden(scene.save, tr) && !trailEnds.has(tr.id)) return;
+    const { x: cx, y: cy } = deltaMToScreen(scene, dx, dy);
+    // 15% smaller than the old 6px; X is symmetric so the centroid (cx,cy) is unchanged.
+    // A GREAT X (loot.js GREAT_X) is thick and dark red.
+    const great = isGreatX(tr);
+    const s = great ? GREAT_X.halfSize : 5.1;
+    if (great) g.lineStyle(GREAT_X.width, underground ? GREAT_X.caveColor : GREAT_X.color, GREAT_X.alpha);
+    g.lineBetween(Math.round(cx - s), Math.round(cy - s), Math.round(cx + s), Math.round(cy + s));
+    g.lineBetween(Math.round(cx + s), Math.round(cy - s), Math.round(cx - s), Math.round(cy + s));
+    if (great) plainX();
+  };
+  // Treasure marks — only check the player's 3×3 tile neighbourhood. drawX
+  // already culls by viewport, but iterating all cached tiles every frame
+  // gets expensive once a session has visited many tiles.
+  {
+    const tpc = scene.playerToWorldCell();
+    forEachLoadedTile(tpc.tx, tpc.ty, (entry) => {
+      drawX(entry.treasure);
+      if (entry.parkingTreasures) for (const tr of entry.parkingTreasures) drawX(tr);
+      if (entry.extraTreasures) for (const tr of entry.extraTreasures) drawX(tr);
+    });
+  }
+};
+
 Render.drawCells = function drawCells(scene) {
   const variantTint=Render.beginVariantTint(scene);
   Render.drawChestTrails(scene);
@@ -3553,52 +3610,7 @@ Render.drawCells = function drawCells(scene) {
   }
   scene.gridContainer.setPosition(-fracX * CELL_PX, -fracY * CELL_PX);
 
-  // Treasure marks — subtle X on the ground (unfound only). Drawn from the
-  // camera anchor (they're marks on the ground, so they slide with a peek);
-  // the 3×3 tile scan below stays on the PLAYER's tile, which covers the
-  // peeked window many times over (a tile is hundreds of cells wide).
-  const _anchor = viewAnchorWorldM(scene);
-  const pWorldX = _anchor.x;
-  const pWorldY = _anchor.y;
-  const halfM = (VIEW_CELLS / 2 + 1) * scene.cellM;
-  const found = setOf(scene.save.foundTreasures);
-  // Dark earth on the surface; pale scratched stone underground, where the
-  // floor (0x2a2622) is darker than the surface ink and would swallow it.
-  const underground = (scene.depth || 0) > 0;
-  const plainX = () => underground ? g.lineStyle(2, 0xc9b48a, 0.6) : g.lineStyle(2, 0x2a1d10, 0.55);
-  plainX();
-  const trailEnds = new Set(!underground && typeof Starter !== 'undefined'
-    ? Starter.trailPaths(scene, Date.now()).map(p => p.id) : []);
-  const drawX = (tr) => {
-    if (!treasureExposed(tr, scene) || found.has(tr.id)) return;
-    const dx = tr.x - pWorldX, dy = tr.y - pWorldY;
-    if (!inViewBox(dx, dy, halfM)) return;
-    // After the view box: a cover ray is the costly test (re-traced per step).
-    if (Render.coverHidden(scene, tr, true)) return;
-    // Buried until the feet stand beside it (HiddenObjects.tick), unless a
-    // treasure trail leads to it.
-    if (HiddenObjects.treasureHidden(scene.save, tr) && !trailEnds.has(tr.id)) return;
-    const { x: cx, y: cy } = deltaMToScreen(scene, dx, dy);
-    // 15% smaller than the old 6px; X is symmetric so the centroid (cx,cy) is unchanged.
-    // A GREAT X (loot.js GREAT_X) is thick and dark red.
-    const great = isGreatX(tr);
-    const s = great ? GREAT_X.halfSize : 5.1;
-    if (great) g.lineStyle(GREAT_X.width, underground ? GREAT_X.caveColor : GREAT_X.color, GREAT_X.alpha);
-    g.lineBetween(Math.round(cx - s), Math.round(cy - s), Math.round(cx + s), Math.round(cy + s));
-    g.lineBetween(Math.round(cx + s), Math.round(cy - s), Math.round(cx - s), Math.round(cy + s));
-    if (great) plainX();
-  };
-  // Treasure marks — only check the player's 3×3 tile neighbourhood. drawX
-  // already culls by viewport, but iterating all cached tiles every frame
-  // gets expensive once a session has visited many tiles.
-  {
-    const tpc = scene.playerToWorldCell();
-    forEachLoadedTile(tpc.tx, tpc.ty, (entry) => {
-      drawX(entry.treasure);
-      if (entry.parkingTreasures) for (const tr of entry.parkingTreasures) drawX(tr);
-      if (entry.extraTreasures) for (const tr of entry.extraTreasures) drawX(tr);
-    });
-  }
+  Render.drawTreasureMarks(scene);
 
   // ── Fog of war ────────────────────────────────────────────────────────────
   // Land the player has never been to is washed FOG_ALPHA grey when enabled. Load-bearing:

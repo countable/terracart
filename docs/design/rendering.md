@@ -199,6 +199,10 @@ Use these terms for object presentation and walking behavior, not pixel height:
 | Step-over props | `WorldLayers.STEP_OVER_PROP` | Cold/lit firepit, rocks, rubble, bushes, low walls | Upright; supports the player's feet while crossing |
 | Standing props | `WorldLayers.STANDING_PROP` | Saplings, trees, lamps, dropped-item icons, houses | Upright; ordinary feet-based depth ordering; no support lift |
 
+Treasure X marks use a reusable graphics overlay in `cobbleContainer`, alongside
+treasure trails, above opaque terrain textures and below props. Clear and redraw
+the overlay each frame so collected, covered and out-of-view marks disappear.
+
 `WorldLayers.forObject` uses the explicit `RENDER_SPEC.layer` for decals and
 `ObstacleStep.profile` with positive lift for step-over props; all other objects are standing props.
 Do not infer a category from image size, shadows, or whether an object is lit.

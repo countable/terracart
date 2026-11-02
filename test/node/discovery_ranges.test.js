@@ -81,4 +81,42 @@
       if (old) WorldGen.tileCache.set(key, old); else WorldGen.tileCache.delete(key);
     }
   });
+  test('discovery: stationary feet find newly added objects, plants, traps and X marks', () => {
+    const key = WorldGen.tileKey(0, 0), old = WorldGen.tileCache.get(key);
+    try {
+      for (const prop of ['objects', 'wildplants', 'traps', 'parkingTreasures', 'extraTreasures']) {
+        for (const replace of [false, true]) {
+          const s = scene(), entry = { status: 'ready', [prop]: [] };
+          WorldGen.tileCache.set(key, entry);
+          HiddenObjects.tick(s);
+          const o = object(1, 0, { id: `late-${prop}-${replace}` });
+          if (replace) entry[prop] = [o]; else entry[prop].push(o);
+          HiddenObjects.tick(s);
+          assert.truthy(s.save.hiddenDiscoveries?.[o.id], `${prop} ${replace ? 'replacement' : 'append'}`);
+        }
+      }
+      const s = scene(), entry = { status: 'ready' };
+      WorldGen.tileCache.set(key, entry);
+      HiddenObjects.tick(s);
+      entry.treasure = object(1);
+      HiddenObjects.tick(s);
+      assert.truthy(s.save.hiddenDiscoveries?.[entry.treasure.id]);
+    } finally {
+      if (old) WorldGen.tileCache.set(key, old); else WorldGen.tileCache.delete(key);
+    }
+  });
+  test('discovery: breaking cover reveals an adjacent X without another step', () => {
+    const s = scene(), tr = object(1, 0, { coverRockId: 'discovery-cover' });
+    const key = WorldGen.tileKey(0, 0), old = WorldGen.tileCache.get(key);
+    WorldGen.tileCache.set(key, { status: 'ready', treasure: tr });
+    try {
+      HiddenObjects.tick(s);
+      assert.truthy(HiddenObjects.treasureHidden(s.save, tr));
+      s.save.brokenRocks = [tr.coverRockId];
+      HiddenObjects.tick(s);
+      assert.falsy(HiddenObjects.treasureHidden(s.save, tr));
+    } finally {
+      if (old) WorldGen.tileCache.set(key, old); else WorldGen.tileCache.delete(key);
+    }
+  });
 })();
