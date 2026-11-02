@@ -22,10 +22,10 @@
 
   // Save fields holding ONE absolute epoch-ms deadline that the night brings
   // closer. Add a gate here, never a subtraction of its own beside it.
-  const DEADLINES = ['eatReadyAt', 'tomeReadyAt'];
+  const DEADLINES = ['eatReadyAt'];
   // Save maps of `<id> → epoch ms` (save.js Ledger stamps, save_state
   // regrowth deadlines) whose every entry the night ages by the same amount.
-  const LEDGERS = ['fruitPicked', 'grassRegrowth'];
+  const LEDGERS = ['fruitPicked', 'grassRegrowth', 'tomeMagicCd'];
 
   // Ms until a bed will take the player again, 0 when one will now. Clamped
   // to the cooldown so a wound-back clock reads as one wait, not days.

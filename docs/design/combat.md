@@ -588,7 +588,8 @@ mechanics.
   `Rest.waitMs` is the one gate and both refuse on it. The hours move a watered
   crop's stamp and advance it one stage if its hold has run (as the growth tick
   would; a slower crop only comes closer), age planted trees, fruit picks and
-  cleared grass, and bring the bite and tome gates closer; nothing else, so a
+  cleared grass, bring the bite gate closer and age every `save.tomeMagicCd`
+  deadline; nothing else, so a
   potion drunk before bed keeps its clock. The scene's half (`_afterRest`) pops
   the gain and re-seats live planted trees. The cot is a workshop recipe
   (seven wood, `known` from the start) that works only on an owned Home

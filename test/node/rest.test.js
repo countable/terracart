@@ -17,7 +17,7 @@ test('rest: the cot is a T1 workshop recipe of seven wood, offered without findi
   assert.falsy(homeRecipeLocked({ foundWild: { scarecrow: 1 } }, 'scarecrow'));
 });
 
-test('rest: four hours pass on crops, planted trees, picked fruit, grass and the bite gate — nothing else', () => {
+test('rest: four hours pass on crops, planted trees, regrowth and action gates — nothing else', () => {
   const t0 = Date.UTC(2026, 9, 30, 12, 0, 0);
   const hold = Crops.stageHoldMs('berry');
   const save = {
@@ -30,7 +30,7 @@ test('rest: four hours pass on crops, planted trees, picked fruit, grass and the
     fruittrees: [{ id: 'pft_1', x: 3, y: 0, species: 'apple', planted_t: t0 - 1000 }],
     fruitPicked: { wild_tree: t0 - 1000 },
     grassRegrowth: { tuft: t0 + 10 * H },
-    eatReadyAt: t0 + 5000, tomeReadyAt: t0 + 10 * H,
+    eatReadyAt: t0 + 5000, tomeMagicCd: { tome_fire_wall: t0 + 10 * H },
     boonUntil: t0 + 2 * H,
   };
   const moved = [];
@@ -46,7 +46,7 @@ test('rest: four hours pass on crops, planted trees, picked fruit, grass and the
   assert.eq(save.fruitPicked.wild_tree, t0 - 1000 - 4 * H, 'a pick is four hours older');
   assert.eq(save.grassRegrowth.tuft, t0 + 6 * H, 'grass is four hours nearer regrowth');
   assert.eq(save.eatReadyAt, t0, 'the bite gate is open on waking');
-  assert.eq(save.tomeReadyAt, t0 + 6 * H, 'the tome gate moved four hours');
+  assert.eq(save.tomeMagicCd.tome_fire_wall, t0 + 6 * H, 'the live tome gate moved four hours');
   assert.eq(save.boonUntil, t0 + 2 * H, 'a buff keeps its own clock');
   assert.eq(moved.map(p => p.x).join(), '0,3', 'the grown crop and the tree are reported for the scene');
   assert.eq(save.restedAt, t0, 'the gate is armed');
