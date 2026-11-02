@@ -31,4 +31,13 @@
     assert.eq(pass.RENDER_SPEC.house.layer(o, s, pass), WorldLayers.GROUND_DECAL);
     assert.eq(pass.RENDER_SPEC.house.scaleYMul(o, s, pass), 0.4);
   });
+  test('hive art: L3 goblin hive is an upright labelled house and clears to a wreck', () => {
+    const o={...house(),hive:'goblin',depth:3},s=scene();s.depth=3;
+    const art=Render.objectAppearance(s,new Map([[o,'wreck']])).resolveAppearance(o);
+    assert.eq(art.texKey,'house');assert.eq(art.frameVal,'front');
+    assert.eq(art.layer,WorldLayers.STANDING_PROP);assert.eq(art.scaleYMul,1);
+    assert.eq(Render.hiveLabel(o,s),'Goblin Hive · 120/120 HP');
+    s.save.hives[o.id]={hp:0};
+    assert.eq(Render.houseTextureKey('wreck',o,s),'house_wreck');
+  });
 })();

@@ -36,7 +36,7 @@
       assert.eq(payload(p), payload(CaveAreas.plan(f)), 'same immutable evidence repeats exact slots');
       const props = p.objects.concat(p.wildplants), ids = props.map(o => o.id);
       assert.eq(new Set(ids).size, ids.length, 'finite slots have unique ids');
-      assert.falsy(props.some(o => o.kind === 'chest' && !o.barrel), 'no added cache reward');
+      assert.falsy(props.some(o => o.kind === 'chest' && !o.barrel && !o.quarryCrate), 'no added cache reward');
       for (const o of props) assert.truthy(p.reserved.has(idx(f, o)), 'props stay inside own region');
     }
     for (const depth of [0, 10]) for (const kind of ['grove', 'quarry', 'seep'])
@@ -45,6 +45,65 @@
       assert.eq(CaveAreas.select({ kind: 'seep', gx: 5, gy: 5 }, depth), null, 'seep never maps');
       assert.eq(CaveAreas.select({ kind: 'quarry', gx: 5, gy: 5 }, depth), 'mine_tunnels',
         'the program floors keep Mine Tunnels for quarries');
+    }
+  });
+
+  test('quarry ruins: every underground program floor fits a reachable furnished stone house', () => {
+    for (let depth = 1; depth <= 8; depth++) {
+      const f = fixture('mine_tunnels', depth), before = f.grid.slice(), plan = CaveAreas.plan(f);
+      const ruin = plan.areas[0].ruinHouse;
+      assert.truthy(ruin, `L${depth} fits a ruin`);
+      assert.eq(payload(plan), payload(CaveAreas.plan(f)), 'repeat generation preserves identities and contents');
+      assert.eq([...f.grid].join(), [...before].join(), 'planning never carves the input');
+      const props = plan.objects.filter(o => o.quarryRuin === ruin.id);
+      const furniture = props.filter(o => o.kind === 'furniture');
+      assert.eq(furniture.length, 2, 'one furnishing plus one lamp');
+      const lamp = furniture.filter(o => furnitureSpec(o.itemId).light);
+      const ordinary = furniture.filter(o => !furnitureSpec(o.itemId).light);
+      assert.eq(lamp.length, 1); assert.eq(ordinary.length, 1);
+      assert.eq(itemTierOf(ordinary[0].itemId), Math.min(depth, 3), 'tier tracks floor through the current catalog cap');
+      assert.truthy(furniture.every(o => o.generatedFurniture && o.depth === depth));
+      assert.eq(props.filter(o => o.kind === 'chest' && o.quarryCrate).length, 2);
+      const walls = new Set(props.filter(o => o.kind === 'stronghold_wall').map(o => idx(f, o)));
+      assert.gt(walls.size, 8, 'recognizable low stone enclosure');
+      const occupied = new Set(plan.objects.concat(plan.wildplants, plan.encounters).map(o => idx(f, o)));
+      const [left, top, right, bottom] = ruin.bounds;
+      const door = ruin.door[1] * N + ruin.door[0];
+      assert.falsy(occupied.has(door), 'door stays open through ore and encounter dressing');
+      const reachable = new Set([door]), queue = [door];
+      for (let n = 0; n < queue.length; n++) {
+        const i = queue[n];
+        for (const next of [i - 1, i + 1, i - N, i + N]) {
+          const x = next % N, y = Math.floor(next / N);
+          if (x < left || x > right || y < top || y > bottom || occupied.has(next) || reachable.has(next)) continue;
+          reachable.add(next); queue.push(next);
+        }
+      }
+      for (const o of props.filter(o => o.kind !== 'stronghold_wall')) {
+        const i = idx(f, o);
+        assert.truthy([i-1, i+1, i-N, i+N].some(j => reachable.has(j)), 'each furnishing and crate has an interior approach');
+      }
+      for (const o of plan.objects.concat(plan.wildplants, plan.encounters)) {
+        const i = idx(f, o), x = i % N, y = Math.floor(i / N);
+        if (x >= left && x <= right && y >= top && y <= bottom)
+          assert.eq(o.quarryRuin, ruin.id, 'ambient ore and enemies cannot refill the ruin');
+      }
+      assert.eq(new Set(props.map(o => idx(f, o))).size, props.length, 'no overlapping props');
+    }
+  });
+
+  test('quarry ruins: narrow passages and protected route ground do not receive partial houses', () => {
+    for (const reason of ['narrow', 'route', 'occupied', 'private']) {
+      const f = fixture('mine_tunnels', 3);
+      if (reason === 'narrow') {
+        f.grid.fill(T.CAVE_WALL);
+        for (let x = 0; x < N; x++) f.grid[f.cy * N + x] = T.CAVE_FLOOR;
+      } else if (reason === 'route') f.routeLane = new Set(Array.from({length:N*N}, (_,i) => i));
+      else if (reason === 'occupied') f.occupied = new Set(Array.from({length:N*N}, (_,i) => i));
+      else f.surface.zone.caveSource.spawnWhy.fill(W.SPAWN_WHY.PRIVATE);
+      const before = [...f.grid].join(), plan = CaveAreas.plan(f);
+      assert.falsy(plan.objects.some(o => o.quarryRuin), reason + ': no partial house or contents');
+      assert.eq([...f.grid].join(), before, 'existing geology is preserved');
     }
   });
 
@@ -98,7 +157,7 @@
       assert.eq(p.areas.length, 1, kind + ' has a usable source chamber');
       if (kind === 'mine_tunnels') {
         for (let i = 0; i < before.length; i++) assert.eq(f.grid[i], before[i], 'mine preserves existing route geometry');
-        assert.falsy(p.objects.some(o => ['grove_shrine', 'chest', 'temple'].includes(o.kind)));
+        assert.falsy(p.objects.some(o => ['grove_shrine', 'chest', 'temple'].includes(o.kind) && !o.quarryCrate));
       } else {
         assert.gt([...p.reserved].filter(i => f.grid[i] === T.CAVE_FLOOR).length, 0, 'eligible grove opens a chamber');
       }

@@ -159,19 +159,50 @@
     assert.falsy(s._playerSubmerged); assert.falsy(s.player.isCropped);
     assert.eq(method('playerBodyDy').call(s), -9);
   }));
-  test('foliage: long grass and hedges never sink the body, only liquid does', () => fixture((s,c,e,update) => {
+  test('foliage: long grass hides the lower body without sinking; hedges use natural occlusion', () => fixture((s,c,e,update) => {
     c.type=WorldGen.T.GRASS;
     const grass={kind:'wildplant',crop:'longgrass',x:42,y:63};
     for (const plant of [grass,{...grass,crop:'shrub',_plantArt:'zone_hedge'}]) {
       s._obstacleStep=ObstacleStep.sample(42,63,[plant],5);
       assert.truthy(s._obstacleStep.covered, 'the plant still covers the feet cell');
       update.call(s);
-      assert.falsy(s._playerSubmerged); assert.falsy(s.player.isCropped);
+      assert.falsy(s._playerSubmerged);
+      assert.eq(s.player.isCropped, plant.crop === 'longgrass');
       assert.eq(method('playerBodyDy').call(s),-9, 'feet stay on the ground');
       c.type=WorldGen.T.WATER; update.call(s);
       assert.truthy(s.player.isCropped, 'foliage standing in water still wades');
       c.type=WorldGen.T.GRASS;
     }
+  }));
+
+  test('grass cover: crop persists across positions and headings, clears on exit and yields to raised poses', () => fixture((s,c,e,update) => {
+    c.type=WorldGen.T.GRASS;
+    const grass={kind:'wildplant',crop:'longgrass',x:42,y:63};
+    for (const dx of [-2.49, 0, 2.49]) for (const heading of [0, 45, 90, 180]) {
+      s.compassDeg=heading;
+      s._obstacleStep=ObstacleStep.sample(42+dx,63,[grass],5);
+      for (const size of [16,32]) {
+        s.player.frame={realWidth:size,realHeight:size}; update.call(s);
+        assert.eq(s.player.crop.join(','),[0,0,size,size/2].join(','));
+        assert.eq(method('playerBodyDy').call(s),-9);
+        assert.falsy(s._playerSubmerged);
+      }
+    }
+    for (const [enable,disable] of [
+      [()=>s.save.flightPotionUntil=Date.now()+60000,()=>delete s.save.flightPotionUntil],
+      [()=>s.isDragonActive=()=>true,()=>delete s.isDragonActive],
+      [()=>s.save.energy=0,()=>s.save.energy=100],
+      [()=>s._obstacleStep.liftPx=3,()=>s._obstacleStep.liftPx=0],
+    ]) {
+      enable();update.call(s);assert.falsy(s.player.isCropped);
+      disable();update.call(s);assert.truthy(s.player.isCropped);
+    }
+    for (const objects of [[],[{...grass,_streetArt:'grass_clump'}],[{...grass,_plantArt:'reeds'}]]) {
+      s._obstacleStep=ObstacleStep.sample(42,63,objects,5);update.call(s);
+      assert.falsy(s.player.isCropped,'cleared grass, sparse clumps and reeds leave the body visible');
+    }
+    s._obstacleStep=ObstacleStep.sample(44.5,63,[grass],5);update.call(s);
+    assert.falsy(s.player.isCropped,'leaving the footprint clears the crop');
   }));
 
 })();

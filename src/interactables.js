@@ -1175,6 +1175,7 @@ function isSpent(o, sets) {
     // Same key (save.picked) as the wildplant pickup tracking, so a save
     // doesn't grow a field for it.
     case 'stakes': return sets.picked.has(o.id);
+    case 'furniture': return !!o.generatedFurniture && sets.picked.has(o.id);
     // Starter material crates became loose piles. Their old opened ids still
     // spend every pile from that supply, so upgrading never refills the kit.
     case 'groundstack': return sets.picked.has(o.id)

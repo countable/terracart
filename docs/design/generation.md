@@ -386,7 +386,10 @@ spawn-rate roll.
   clearings, landmarks and stair approaches stay clear. The city owns its empty
   ground so ordinary rock scatter cannot refill its passages. Room encounters
   use stable IDs and the class-specific safety gate; finite stores share the
-  existing cave-container budget. The drill budget is placed before the city.
+  existing cave-container budget. About one in ten complete city rooms gets a
+  Goblin Hive, selected by a stable world-room hash and seated off the passage
+  lanes. Hives emit Goblin Runts through the shared foreground hive lifecycle;
+  destroyed hives stay defeated. The drill budget is placed before the city.
 
 - L3 pressure plates are subtle floor marks, visible only within one cell of
   the player's body. Stepping on one triggers its paired rolling ball, spike
@@ -419,6 +422,15 @@ spawn-rate roll.
   floors from `geologyGrid`, before authored terrain changes. Ordinary cleanup
   and gem conversion must leave `caveArea` pieces intact. Authored warren
   stores spend `WorldGen.caveContainerBudget` before ambient barrels.
+  Underground quarry (parking-lot) regions fit one roofless 5×5 stone ruin on
+  existing connected floor where space permits. Low connected stone walls
+  surround one tier-matched furniture item, a Floor Lamp and two quarry crates.
+  Furniture uses the floor tier up to the catalog maximum (currently tier 3);
+  lamps are additional to that item. The full room and doorway approach stay
+  clear of ore and enemies. Narrow or protected footprints get no partial ruin.
+  Ruin crates are authored rewards, separate from the ambient barrel budget.
+  Generated furniture can be collected once through the ordinary picked ledger;
+  its lamp lights the underground room until collected.
   Quicksand caverns are grove variants on floors 2–3. Native sand tiles mark
   their pools; `caveAreas.quicksand` records the hazardous cells. Ordinary sand
   remains safe. Cardinal approaches, the focus, routes, occupied ground and
@@ -515,7 +527,7 @@ spawn-rate roll.
   empty plots lose both their tilled marker and bed quality through the saved
   set binding; rendering never repairs farming state.
   Barricades are tier-2 supplies found in supply/field loot or supply shops.
-  Finding one unlocks its workshop recipe: three wood makes one barricade. Select
+  Finding one unlocks its workshop recipe: three Wood and one Copper make one barricade. Select
   it and tap an empty safe cell to place it on the current floor. Saved
   barricades reuse the wild obstacle's art, slowing, damage and axe/fire/kit
   clearing rules; floor-tagged records survive reloads without reappearing
@@ -915,7 +927,7 @@ spawn-rate roll.
   occupancy gates keep repeated generation stable. Decorations fill a sparse
   inner-verge layer and a separate outer tree row around the main theme rows.
   Golden-route decorations reserve cells before coin seats to avoid overlaps.
-  White, yellow and golden flowers, young fern, bone fragments, loose flint,
+  Purelace, Lyepetal, Radiflor, Bitterleaf, bone fragments, loose flint,
   driftwood and golden bowls use ordinary pickup rules. The bowl is a valuable
   sale item with no active effect. Rare magenta mushrooms emit healing gas;
   green slicks on Slime Trail and Poison Path apply three seconds of poison

@@ -9714,7 +9714,7 @@
       fallLandings: false, chestSource: 'surface', quarryProvenance: true, lava: false }),
     Object.freeze({ depth: 3, arrivalStory: 'dungeon_city', entryKey: null,
       vents: Object.freeze(['poison', 'fire', 'paralysis']),
-      warren: Object.freeze({ roomCells: 10, enemyChance: .45, enemies: Object.freeze(['club_goblin', 'spear_goblin', 'archer_goblin', 'goblin_trapper']) }),
+      warren: Object.freeze({ roomCells: 10, enemyChance: .45, hiveChance: .1, hiveKind: 'goblin', enemies: Object.freeze(['club_goblin', 'spear_goblin', 'archer_goblin', 'goblin_trapper']) }),
       pressureTraps: true, caveAreas: caveAreaProfile([20, 45, 25, 10, 15, 10], true, 16, true),
       streetGems: Object.freeze({ region: .10, ordinary: .08 }), biome: 'goblin_city', terrain: 'city', streetMirror: true,
       fallLandings: true, chestSource: 'above', quarryProvenance: false, lava: false }),
