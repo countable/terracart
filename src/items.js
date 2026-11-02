@@ -289,6 +289,7 @@ const WILDPLANT_RULES = {
   driftwood: { output: 'wood' },
   bone_fragments: { output: 'bone' },
   slime_slick: { name: 'Poison slick', unpickable: true, contactCondition: { id: 'poison', durationMs: 3000 } },
+  torch: { unpickable: true },
   longgrass: { treasure: { chance: 0.01, coins: 1 }, hiddenItem: { chance: 0.01, item: 'egg' } },
   // Stone debris. The pick relic's ladder times the wheel the same way a rock
   // does — but gathering loose rubble off the ground costs no energy, so no

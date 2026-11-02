@@ -104,6 +104,7 @@ test('floor torches: rolled LAST, so no level already walked rearranges', () => 
 test('floor torches: drawn with the Torch\'s own icon, off a sheet the renderer loads', () => {
   const ov = CROP_SPRITE.torch;
   assert.truthy(ov && ov.custom, 'a custom-sheet crop');
+  assert.truthy(wildplantRule('torch').unpickable, 'floor and grove torches stay dressing, not free inventory items');
   const assets = new Function('window', 'EnemyRoster', 'SpriteLayout', ASSETS_SRC + '\nreturn ASSETS;')({}, EnemyRoster, SpriteLayout);
   const alias = assets[ov.sheet];
   const frame = wildplantFrame({ crop: 'torch', id: 'ctorch_1_0_0_1_1' });
