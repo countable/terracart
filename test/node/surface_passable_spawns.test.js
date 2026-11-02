@@ -55,4 +55,15 @@
     assert.eq(guarded.filter(c => c._spawnSource === 'feature-encounter').length, 3);
     assert.truthy(guarded.every(c => !guards.has(indexOf(c))));
   });
+
+  test('surface passable seats: party extras ignore the prop occupancy ledger', () => {
+    const entry = fixture(), occupied = new Set(Array.from({length:4096},(_,i)=>i));
+    entry.zone={coverage:new Uint16Array(4096).fill(1),anchors:[{kind:'grove',variant:'meadow',key:'party-meadow'}]};
+    const base = run(entry, occupied);
+    entry.creatures = base;
+    assert.truthy(base.some(c => c._spawnSource === 'zone-density'), 'fixture creates party-scaled zone enemies');
+    const scaled = EnemyHabitats.scaleEncounters(entry,4,new Set());
+    assert.gt(scaled.added.length,0, 'party policy still finds seats under passable props');
+    assert.truthy(scaled.added.every(c => occupied.has(indexOf(c))), 'every extra shares a prop-ledger cell');
+  });
 })();

@@ -794,7 +794,7 @@
         out.push(c);
         // Each base body receives party scaling exactly once. The pack itself
         // is not registered again as another population allowance.
-        if (!fauna && owner.type === 'zone') root.EnemyHabitats.registerDensityEncounter(entry, c, occupied, owners);
+        if (!fauna && owner.type === 'zone') root.EnemyHabitats.registerDensityEncounter(entry, c, reserved, owners);
       }
       if (size > 1) yield 'spawn enemy pack';
     }
