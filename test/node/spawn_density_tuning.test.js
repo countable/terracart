@@ -54,6 +54,15 @@
     creature._spawnOwner='Terrain:GRASS';assert.eq(HabitatSpawns.enemyDeclaration(creature),null);
     assert.falsy(EnemySpawns.surfaceActive(scene,creature));
   });
+  test('density tuning: weather variants inherit their declared surface habitat', () => {
+    const scene={save:{},depth:0};
+    for(const kind of ['fire_slime','split_slime']) {
+      const creature={kind,_spawnRowKind:'slime',_spawnSource:'zone-density',_spawnOwner:'Terrain:GRASS',
+        _surfaceSpawn:{tx:0,ty:0,cx:1,cy:1,x:2000,y:2000}};
+      assert.eq(HabitatSpawns.enemyDeclaration(creature).kind,'slime',kind+' keeps the density row that birthed it');
+      assert.truthy(EnemySpawns.surfaceActive(scene,creature),kind+' stays active on its declared surface habitat');
+    }
+  });
   test('density tuning: higher-tier signatures unlock exactly at the final Home band boundary', () => {
     const owner=Object.entries(HabitatSpawns.DENSITY_ROWS).find(([key,table])=>table.some(r=>r.kind==='dryad'&&r.signature))[0];
     const boundary=EnemyRoster.SURFACE_TIERS[EnemyRoster.SURFACE_TIERS.length-1].minDistance;

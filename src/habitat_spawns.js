@@ -593,7 +593,8 @@
       const replacement = DENSITY_ROWS['Park character:park_character_' + character];
       if (replacement) rows = rows.filter(row => !row.signature).concat(replacement);
     }
-    return rows.find(row => row.category === 'enemy' && row.kind === creature.kind) || null;
+    const kind = creature.kind, declaredKind = creature._spawnRowKind;
+    return rows.find(row => row.category === 'enemy' && (row.kind === kind || row.kind === declaredKind)) || null;
   }
   // Aquatic beach rows belong to water itself, never borrow a neighbouring
   // Nexus/road table. Require an actual adjacent residual sand beach.
