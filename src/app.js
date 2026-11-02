@@ -6122,8 +6122,8 @@ class MapScene extends Phaser.Scene {
   }
 
   // The waterline follows the body, not the camera. Liquid and quicksand sink
-  // the body: long grass and hedges leave it standing (ObstacleStep's `covered`
-  // is foliage, not a waterline). Crop in frame coordinates
+  // the body. Long grass crops the lower half without lowering the body;
+  // hedges retain their natural occlusion. Crop in frame coordinates
   // so walking directions and heading-up counterrotation keep the upper half.
   // This is a pose only: movement, reach and world sorting keep the same feet.
   _updatePlayerSubmersion() {
@@ -6161,9 +6161,11 @@ class MapScene extends Phaser.Scene {
         + sand.amount * (scaledHeight * (.5 - ratio) - this.playerFeetNudgeY) };
     }
     this._playerSubmerged = submerged || !!this._quicksandPose;
+    const grassCovered = this._obstacleStep?.grassCovered && !airborne
+      && !Combat.playerDowned(this.save.energy) && !(this._obstacleStep?.liftPx > 0);
     if (typeof Weather !== 'undefined') Weather.waterContact(this, weatherWater);
     if (!this.player) return;
-    if (submerged || this._quicksandPose) {
+    if (submerged || this._quicksandPose || grassCovered) {
       const frame = this.player.frame;
       this.player.setCrop(0, 0, frame.realWidth, this._quicksandPose?.height ?? frame.realHeight / 2);
     } else if (this.player.isCropped) this.player.setCrop();

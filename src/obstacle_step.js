@@ -68,15 +68,18 @@ const ObstacleStep = (() => {
   // passes only present/uncleared props. Max support (never sum) also lets a
   // connected row of walls share its flat top instead of bouncing each cell.
   function sample(x, y, objects, cellM) {
-    let liftPx = 0, obstacle = null, support = null, covered = false;
+    let liftPx = 0, obstacle = null, support = null, covered = false, grassCovered = false;
     const supports = [];
-    if (!(cellM > 0) || !Number.isFinite(x) || !Number.isFinite(y)) return { liftPx, obstacle, profile: support, supports, covered };
+    if (!(cellM > 0) || !Number.isFinite(x) || !Number.isFinite(y)) return { liftPx, obstacle, profile: support, supports, covered, grassCovered };
     for (const o of objects || []) {
       if (!o || !Number.isFinite(o.x) || !Number.isFinite(o.y)) continue;
       const dx = (x - o.x) / cellM, dy = (y - o.y) / cellM;
       // Grass occupies its whole square; cover never becomes foot support.
       if (WorldGen.isGrassCover(o)) {
-        if (dx >= -0.5 && dx < 0.5 && dy >= -0.5 && dy < 0.5) covered = true;
+        if (dx >= -0.5 && dx < 0.5 && dy >= -0.5 && dy < 0.5) {
+          covered = true;
+          if (o._streetArt !== 'grass_clump') grassCovered = true;
+        }
         continue;
       }
       const p = profile(o);
@@ -89,7 +92,7 @@ const ObstacleStep = (() => {
       supports.push(o);
       if (height > liftPx) { liftPx = height; obstacle = o; support = p; }
     }
-    return { liftPx, obstacle, profile: support, supports, covered };
+    return { liftPx, obstacle, profile: support, supports, covered, grassCovered };
   }
   function balance(phaseCells, amount) {
     return Math.sin(phaseCells * Math.PI * 2 / 1.3) * 0.035 * Math.max(0, Math.min(1, amount));
