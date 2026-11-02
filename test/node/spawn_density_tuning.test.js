@@ -62,6 +62,10 @@
       assert.eq(HabitatSpawns.enemyDeclaration(creature).kind,'slime',kind+' keeps the density row that birthed it');
       assert.truthy(EnemySpawns.surfaceActive(scene,creature),kind+' stays active on its declared surface habitat');
     }
+    const [owner,rows]=Object.entries(HabitatSpawns.DENSITY_ROWS).find(([,table])=>table.filter(r=>r.category==='enemy').length>1);
+    const enemies=rows.filter(r=>r.category==='enemy');
+    const declared={kind:enemies[1].kind,_spawnRowKind:enemies[0].kind,_spawnSource:'zone-density',_spawnOwner:owner};
+    assert.eq(HabitatSpawns.enemyDeclaration(declared).kind,enemies[1].kind,'a direct declaration wins before the birth-row fallback');
   });
   test('density tuning: higher-tier signatures unlock exactly at the final Home band boundary', () => {
     const owner=Object.entries(HabitatSpawns.DENSITY_ROWS).find(([key,table])=>table.some(r=>r.kind==='dryad'&&r.signature))[0];
