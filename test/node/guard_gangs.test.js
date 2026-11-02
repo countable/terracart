@@ -18,7 +18,7 @@
         lx, ly, ox, oy: 0, wx: ox + lx, wy: ly, halfW: cellM / 2, halfH: cellM / 2 },
     };
   }
-  test('grunt gangs: fixed tenth of held houses, with ordinary groups using the remaining ticket', () => {
+  test('wreck groups: removed gangs leave thieves and ordinary groups on the remaining ticket', () => {
     for (const t of [0, .5, 1]) {
       const counts = {};
       for (let i = 0; i < 10000; i++) {
@@ -27,11 +27,11 @@
         counts[group || 'plain'] = (counts[group || 'plain'] || 0) + 1;
         assert.eq(draws, 1);
       }
-      assert.eq(counts.grunt_gang, 1000, 'exactly ten percent of eligible group-selection tickets');
+      assert.falsy(counts.grunt_gang, 'no wreck gang selection tickets');
       assert.eq(counts.thieves, 1500, 'fifteen percent of held houses get thieves');
-      assert.eq(counts.plain, 10000 * .75 * (1 - L.GROUP_RATE[9]));
+      assert.eq(counts.plain, 10000 * .85 * (1 - L.GROUP_RATE[9]));
       // The splitting slime is a wreck's one ordinary group (bats left the surface).
-      assert.eq(counts.splitter, 10000 * .75 * L.GROUP_RATE[9]);
+      assert.eq(counts.splitter, 10000 * .85 * L.GROUP_RATE[9]);
     }
     assert.falsy(L.groupRows(11, 1, true).includes('grunt_gang'));
     assert.falsy(L.groupRows(12, 1, true).includes('grunt_gang'));
@@ -68,57 +68,24 @@
     } finally { Difficulty.setMode(prev); }
   });
 
-  test('grunt gangs: occupancy remains unchanged and seeded sizes cover three through eight uniformly', () => {
-    let held = 0, gangs = 0;
-    const counts = new Map();
-    for (let tx = 0; tx < 30000; tx++) {
+  test('wreck groups: occupancy stays fixed and no seeded wreck generates a goblin gang', () => {
+    let held = 0;
+    for (let tx = 0; tx < 10000; tx++) {
       const g = world(tx);
       if (!g.held) continue;
       held++;
-      if (g.group !== 'grunt_gang') continue;
-      gangs++; counts.set(g.n, (counts.get(g.n) || 0) + 1);
-      assert.inRange(g.n, 3, 8);
-      assert.eq(JSON.stringify(g), JSON.stringify(world(tx)), 'the same structure keeps its gang');
+      assert.falsy(g.group === 'grunt_gang');
+      assert.eq(JSON.stringify(g), JSON.stringify(world(tx)), 'structure selection stays deterministic');
     }
-    assert.inRange(held / 30000, L.occupancyFor(9) - .01, L.occupancyFor(9) + .01);
-    assert.inRange(gangs / held, .09, .11, 'a tenth of held houses, not all houses');
-    assert.eq([...counts.keys()].sort().join(), '3,4,5,6,7,8');
-    for (const count of counts.values()) assert.inRange(count / gangs, .12, .22, 'each inclusive count equally likely');
+    assert.inRange(held / 10000, L.occupancyFor(9) - .02, L.occupancyFor(9) + .02);
+    assert.falsy(L.GROUPS.grunt_gang);
+    assert.falsy(L.GROUPS.street_goblin_gang);
+    assert.falsy(L.TIER_GUARDS.street_goblin_gang);
+    assert.falsy(L.FOCUS_RULES.street_goblin_gang);
     let draws = 0;
-    L.expandGroup('splitter', 9, () => { draws++; return .5; });
+    const plan = L.expandGroup('splitter', 9, () => { draws++; return .5; });
     assert.eq(draws, 0, 'fixed groups preserve their count stream');
-    const plan = L.expandGroup('grunt_gang', 9, () => { draws++; return .999; });
-    assert.eq(draws, 1); assert.eq(plan.length, 8);
-    plan.forEach((m, i) => { assert.eq(m.idx, i); assert.eq(m.of, 8); assert.eq(m.kind, 'goblin_runt'); });
-  });
-
-  test('grunt gangs: full real garrison in Easy and Hard, stable caught IDs, ordinary spawn gate', () => {
-    const prev = Difficulty.mode(), sizes = new Set();
-    try {
-      for (let tx = 0; tx < 10000 && sizes.size < 6; tx++) {
-        const g = world(tx);
-        if (g.group !== 'grunt_gang' || sizes.has(g.n)) continue;
-        sizes.add(g.n);
-        const { entry, cand } = fixture(tx, g.sid), opts = { tileEdgeM: edge, caughtSet: new Set() };
-        Difficulty.setMode('hard');
-        const hard = L.garrisonFor(entry, cand, opts);
-        assert.eq(hard.length, g.n, 'all members seat on open ground');
-        assert.eq(new Set(hard.map(c => c.id)).size, g.n);
-        hard.forEach(c => {
-          assert.eq(c.kind, 'goblin_runt'); assert.eq(c.group, 'grunt_gang');
-          assert.truthy(c.immobile && c.lair === g.sid);
-          const ix = Math.floor((c.x - cand.ox) / cellM), iy = Math.floor(c.y / cellM);
-          assert.truthy(W.isSpawnCell(entry.grid, N, N, ix, iy, entry._spawnOpts, creatureSpawnClass(c.kind)));
-        });
-        Difficulty.setMode('easy');
-        assert.eq(JSON.stringify(L.garrisonFor(entry, cand, opts)), JSON.stringify(hard), 'authored gang bypasses only its mode cap');
-        const caught = hard[1].id;
-        assert.eq(JSON.stringify(L.garrisonFor(entry, cand, { ...opts, caughtSet: new Set([caught]) })),
-          JSON.stringify(hard.filter(c => c.id !== caught)), 'caught member removed without rerolling survivors');
-        entry._spawnOpts.spawnWhy.fill(W.SPAWN_WHY.QUIET);
-        assert.eq(L.garrisonFor(entry, cand, opts).length, 0, 'the full gang still respects protected ground');
-      }
-      assert.eq([...sizes].sort().join(), '3,4,5,6,7,8', 'real garrisons exercise every count in both modes');
-    } finally { Difficulty.setMode(prev); }
+    assert.eq(plan.length, 1);
+    assert.eq(plan[0].kind, 'split_slime');
   });
 })();

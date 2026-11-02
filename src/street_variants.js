@@ -3244,8 +3244,8 @@
 
     if(root.ZoneDressing) root.ZoneDressing.stampHedges(res.wildplants,N);
 
-    // Pool a street's fragments before distributing six paired clusters;
-    // splitting mapped geometry must not multiply its encounter budget.
+    // Pool street fragments before distributing barrel stacks. Creatures
+    // use the regular density pipeline independently of this decoration.
     for (const parts of gangStreets.values()) {
       activeVariant='goblin_gang';
       yield 'goblin gang clusters';
@@ -3262,14 +3262,6 @@
         const { rec } = part;
         sampleLine(rec.line, gM, S.lineLengthM(rec.line, gM) + CELL_M, part.a + offset, (s, x, y, nx, ny) => {
           const side = group % 2 ? -1 : 1;
-          const origin = vergeCell(rec, x, y, nx, ny, side, 2);
-          const guard = foeSeat(origin.ix, origin.iy);
-          if (guard) {
-            claim(guard.ix, guard.iy);
-            res.lairs.push({ tier: 'street_goblin_gang', _street: rec.variant,
-              sid: WG.cellId('gang', tx, ty, guard.ix, guard.iy),
-              lx: (guard.ix + 0.5) * frameCellM, ly: (guard.iy + 0.5) * frameCellM });
-          }
           // A compact two-row stack on the opposite verge.
           let barrels = 0;
           for (const along of [-1, 0, 1, -2, 2]) for (const k of [1, 2]) {

@@ -79,11 +79,8 @@ Fifteen percent of occupied houses use `Lairs.GROUPS.thieves`: one or two
 thieves seated around the wreck, with the existing ambush and steal-and-flee
 behavior. They retain normal mode caps, Home safety and saved defeat rules.
 
-Ten percent of occupied ordinary houses use `Lairs.GROUPS.grunt_gang`: a
-seeded uniform group of three to eight weak goblin runts around the house.
-This authored group keeps its full size in both modes through `modeCap: false`;
-other garrisons retain their existing mode caps. The occupied-house roll,
-tile budget, shared seat restrictions and saved defeat identities still apply.
+Goblin gangs use the regular habitat spawner on Goblin Gang Street,
+Barricade and Snare variants. Wrecks do not generate goblin gang encounters.
 
 Optional wetland and rock sites (`surfaceSites`) place a small finite group
 outside other variants' owned ground. Home safety rules hide unsuitable

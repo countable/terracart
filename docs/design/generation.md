@@ -111,6 +111,10 @@ access or tile lifecycle mechanics.
   are applied after reservations, and child aliases preserve former singleton
   identities. Authored encounters and hive births retain their own counts.
   Each Nexus body opts into party scaling once; the pack adds no second allowance.
+- Goblin runts use the same pack profile. Goblin Gang Street, Barricade and
+  Snare each declare 0.5 runts per 1,000 eligible cells in the regular road
+  density table. These replace the fixed street gang posts; barrel stacks
+  remain dressing. Wrecks no longer offer a goblin gang encounter.
 - Conditional fauna selection (including nest discoveries) reads those same
   declared species rates. Legacy profile mixtures and tile-budget constants
   remain only for old-save alias replay. Crows retain Grass/Grove/declared-road

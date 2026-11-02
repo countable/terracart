@@ -2183,7 +2183,7 @@ test('medium and large roads remain free of themed obstacles, including diagonal
 });
 
 
-test('Goblin Gang Street: six barrel stacks and thirty grunts, deterministic and safe', () => {
+test('Goblin Gang Street: deterministic barrel stacks leave creatures to the regular spawner', () => {
   const row = SV.VARIANT_BY_ID.goblin_gang;
   assert.eq(row.size, 'minor');
   const grid = new Uint8Array(CPE * CPE).fill(T.GRASS);
@@ -2205,25 +2205,8 @@ test('Goblin Gang Street: six barrel stacks and thirty grunts, deterministic and
   const { d, spawnOpts } = run();
   const barrels = d.objects.filter(o => o.barrel && o._street === row.id);
   assert.eq(barrels.length, 30);
-  assert.eq(d.lairs.length, 6);
+  assert.eq(d.lairs.length, 0, 'no fixed gang posts');
   assert.eq(JSON.stringify(d), JSON.stringify(run().d), 'stable ids and positions');
-  const previous = Difficulty.mode();
-  try {
-    for (const mode of ['easy', 'hard']) {
-      Difficulty.setMode(mode);
-      const entry = { grid, cellsPerEdge: CPE, roadClass, streetArea, _spawnOpts: spawnOpts,
-        buildingShapes: [], streetLairs: d.lairs, creatures: [] };
-      const idx = Lairs.buildIndex(entry, TX, TY, TILE_EDGE_M / CPE, TILE_EDGE_M);
-      const candidates = [...idx.buckets.values()].flat().filter(c => c.tier === 'street_goblin_gang');
-      const guards = candidates.flatMap(c => Lairs.garrisonFor(entry, c, { tileEdgeM: TILE_EDGE_M, homeM: { x: 0, y: 0 } }));
-      assert.eq(guards.length, 30, mode + ' keeps six five-grunt gangs');
-      for (const g of guards) {
-        assert.eq(g.kind, 'goblin_runt');
-        const at = cellOf(g.y, TY) * CPE + cellOf(g.x, TX);
-        assert.eq(roadMask[at], 0);
-      }
-    }
-  } finally { Difficulty.setMode(previous); }
   const blocked = run(true).d;
   assert.eq(blocked.lairs.length, 0);
   assert.eq(blocked.objects.filter(o => o.barrel).length, 0);

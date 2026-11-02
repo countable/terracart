@@ -135,7 +135,7 @@
   // StreetVariants.BANDIT_STRETCH_UNITS) are the same reason again: one guard
   // each, always held, every mode. (There is no 'wagon' tier: a bus stop is on
   // the kerb by definition.)
-  const STREET_TIER_GUARDS = { cafe: 1, barricade: 1, burned: 1, street_hedgerow: 2, street_overgrown: 1, street_wild_boar: 2, street_forest_bear: 1, street_orchard: 1, street_toadstool: 1, street_goblin_gang: 5, street_spider_path: 2, street_berry: 1, street_trade: 3 };
+  const STREET_TIER_GUARDS = { cafe: 1, barricade: 1, burned: 1, street_hedgerow: 2, street_overgrown: 1, street_wild_boar: 2, street_forest_bear: 1, street_orchard: 1, street_toadstool: 1, street_spider_path: 2, street_berry: 1, street_trade: 3 };
   const SLIME_TRAIL = root.StreetVariants.VARIANT_BY_ID.slime_trail;
   for (const kind of SLIME_TRAIL.enemyKinds) STREET_TIER_GUARDS[`street_slime_trail_${kind}`] = SLIME_TRAIL.guardsPerPost;
   Object.assign(TIER_GUARDS, STREET_TIER_GUARDS);
@@ -247,7 +247,6 @@
     street_orchard: ['farmer_goblin'],
     street_toadstool: ['spider'],
     street_spider_path: ['spider'],
-    street_goblin_gang: ['goblin_runt'],
     // A burned row's stretch: one fire slime in the tar (the fire slimes are
     // zone-seated, never a tile's wild spawn, so the burned row seats its own
     // here rather than relocating any).
@@ -280,8 +279,8 @@
   // ticket for ordinary rows, and the rest roll the plain garrison.
   //
   // A GROUP IS A HOUSE'S OR A CASTLE'S, never both and never a fort's
-  // (owner): most wrecked-house groups are one or two; occasional grunt
-  // gangs contain three to eight — and sit round the walls as a wreck's slimes do; a castle's are
+  // (owner): wrecked-house groups are one or two, seated round the walls
+  // as a wreck's slimes are; a castle's are
   // the big ones and start INSIDE THE KEEP like every castle garrison
   // (CORE_SEATED_TIERS: walking past is safe, walking in is the fight).
   //
@@ -333,9 +332,6 @@
     street_spider_path: { label: 'Spider Path', tiers: ['street_spider_path'], modeCap: false,
       story: 'Two spiders lurk beside a path strewn with lasting webs.',
       members: [{ kind: 'spider', n: 2, place: 'ring' }] },
-    street_goblin_gang: { label: 'Street goblin gang', tiers: ['street_goblin_gang'], modeCap: false,
-      story: 'Five weak goblin grunts gather beside the street, with barrel stacks nearby.',
-      members: [{ kind: 'goblin_runt', n: 5, place: 'ring' }] },
     // A Trade Row's post: a THIEF among the goods (owner, Oct 2026 — the
     // market street is where purses are cut; its hitAndRun snatch and flight
     // are the roster row's) and the pair of grunts picking through the
@@ -345,9 +341,6 @@
       story: 'A thief waits among the barrels of goods beside the road, two weak goblin grunts picking through them.',
       members: [{ kind: 'thief', n: 1, place: 'ring' }, { kind: 'goblin_runt', n: 2, place: 'ring' }] },
     // ── A wrecked house: small ──
-    grunt_gang: { label: 'Goblin grunt gang', tiers: [9], minT: 0, chance: .1, modeCap: false,
-      story: 'Three to eight weak goblins crowd around the wreck. Each falls quickly; the gang comes together.',
-      members: [{ kind: 'goblin_runt', nRange: [3, 8], place: 'ring' }] },
     thieves: { label: 'House thieves', tiers: [9], minT: 0, chance: .15,
       story: 'One or two thieves hide around the wreck, steal a purse and flee.',
       members: [{ kind: 'thief', nRange: [1, 2], place: 'ring' }] },
@@ -578,7 +571,6 @@
     street_orchard: { rate: 1, thinned: false },
     street_toadstool: { rate: 1, thinned: false },
     street_spider_path: { rate: 1, thinned: false },
-    street_goblin_gang: { rate: 1, thinned: false },
     street_berry: { rate: 1, thinned: false },
     street_trade: { rate: 1, thinned: false },
     gate:   { rate: 1, thinned: false },   // a gate's posts — held every day

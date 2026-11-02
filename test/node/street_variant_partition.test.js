@@ -58,18 +58,18 @@
     for(const type of ['objects','wildplants','traps','webs','vents','lairs'])assert.truthy(kinds.has(type),'exercised '+type);
   });
   test('road partition: initial lair members cannot spread onto the parallel theme',()=>{
-    const index=fixture(['goblin_gang','orchard']),owner=StreetVariants.variantOwner(index,N);
+    const index=fixture(['trade','orchard']),owner=StreetVariants.variantOwner(index,N);
     const entry={cellsPerEdge:N,tileEdgeM:N*cellM,grid:new Uint8Array(N*N).fill(WorldGen.T.GRASS),
       streetIndex:index,streetArea:StreetVariants.area(index,N),objects:[],buildingShapes:[],
       _spawnOpts:{occupied:new Set(),roadMask:new Uint8Array(N*N),spawnWhy:new Uint16Array(N*N)}};
     let count=0;
     for(let i=0;i<30;i++) {
-      const cand={tier:'street_goblin_gang',_street:'goblin_gang',sid:'partition-guard-'+i,
+      const cand={tier:'street_trade',_street:'trade',sid:'partition-guard-'+i,
         tx:0,ty:0,ox:0,oy:0,lx:15.5*cellM,ly:14.5*cellM,ix:15,iy:14,halfW:0,halfH:0};
       const guards=Lairs.garrisonFor(entry,cand,{tileEdgeM:N*cellM});
       count+=guards.length;
       for(const guard of guards) {
-        assert.eq(owner(Math.floor(guard.x/cellM),Math.floor(guard.y/cellM)),'goblin_gang');
+        assert.eq(owner(Math.floor(guard.x/cellM),Math.floor(guard.y/cellM)),'trade');
         assert.truthy(edgeDistance(index.dressingLines[0],guard.x/cellM,guard.y/cellM)<=StreetVariants.VERGE_MAX_CELLS+1e-9,
           'guard formation stays within three cells of its road edge');
       }

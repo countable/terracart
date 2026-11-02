@@ -26,8 +26,8 @@
         assert.truthy(group.tiers.some(t => String(t) === tier));
       }
     }
-    assert.eq(Lairs.FOCUS_RULES[9].groups.grunt_gang, Lairs.GROUPS.grunt_gang);
-    assert.eq(Lairs.FOCUS_RULES[9].groups.grunt_gang.modeCap, false);
+    assert.eq(Lairs.FOCUS_RULES[9].groups.thieves, Lairs.GROUPS.thieves);
+    assert.falsy(Lairs.FOCUS_RULES[9].groups.grunt_gang);
   });
 
   test('focus guards: Nexus finite garrisons pass through the common generator with stable ordinal IDs', () => {

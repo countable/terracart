@@ -103,7 +103,8 @@
       assert.truthy(G[name], `${name} is a group`);
       assert.eq(G[name].members.map((m) => m.kind).join(), kinds, `${name}'s members`);
     };
-    has('grunt_gang', 'goblin_runt');
+    assert.falsy(G.grunt_gang, 'wrecks have no authored goblin gang');
+    assert.falsy(G.street_goblin_gang, 'street gangs use ambient packs');
     has('horde', 'goblin_runt');                 // a horde of 15 weak goblins
     assert.eq(Lairs.memberCount(G.horde.members[0], 12), 15, 'fifteen of them');
     has('decoy', 'goblin,orc');                  // a decoy goblin with fast orcs behind
