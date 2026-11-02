@@ -253,6 +253,7 @@ function wildplantFrame(p) {
 // the vast majority — it drops itself, is picked instantly for nothing, hides
 // no treasure and casts no light.
 const WILDPLANT_RULES = {
+  golden_flower: { light: 'radiflor' },
   creeping_vine: { name: 'Creeping vine', output: 'wood', workRelic: 'axe', barehandMs: 5000, workCharged: true },
   // `pickedCrop`: picking the fruit leaves the plant standing as this crop
   // (render.js wildplantView — a plain bush; the id stays spent). Every
@@ -1133,10 +1134,10 @@ const ITEMS = [
   { id: 'nettle', name: 'Nettle', kind: 'produce', crop: 'nettle' },
   // Wild flower pickups (per-polygon color but stacks as a single item).
   { id: 'flowers', name: 'Flowers', kind: 'produce' },
-  { id: 'white_flower', name: 'White flower', kind: 'produce', baseTier: 1 },
-  { id: 'yellow_flower', name: 'Yellow meadow flowers', kind: 'produce', baseTier: 1 },
-  { id: 'golden_flower', name: 'Golden flowers', kind: 'produce', baseTier: 3 },
-  { id: 'young_fern', name: 'Young fern', kind: 'produce', baseTier: 1 },
+  { id: 'white_flower', name: 'Purelace', kind: 'produce', baseTier: 1 },
+  { id: 'yellow_flower', name: 'Lyepetal', kind: 'produce', baseTier: 1 },
+  { id: 'golden_flower', name: 'Radiflor', kind: 'produce', baseTier: 3 },
+  { id: 'young_fern', name: 'Bitterleaf', kind: 'produce', baseTier: 1 },
   { id: 'golden_bowl', name: 'Golden bowl', kind: 'supply', baseTier: 3 },
   { id: 'bone', name: 'Bone', kind: 'supply', baseTier: 1 },
 
@@ -1174,11 +1175,11 @@ const ITEMS = [
   { id: 'tome_frost_aura', name: 'Tome of Frost Aura', kind: 'unique_relic', tome: true },
   { id: 'tome_fire_wall', name: 'Wall of Fire Tome', kind: 'unique_relic', tome: true },
   { id: 'blank_scroll', name: 'Blank Scroll', kind: 'supply' },
-  { id: 'fireball_scroll', name: 'Fireball Scroll', kind: 'magic', scroll: true },
+  { id: 'fireball_scroll', name: 'Fireball Scroll', kind: 'magic', scroll: true, scrollIngredient: 'flint_shard' },
   { id: 'explosive_flask', name: 'Explosive Flask', kind: 'magic' },
-  { id: 'fear_scroll', name: 'Scroll of Fear', kind: 'magic', scroll: true },
-  { id: 'wind_scroll', name: 'Scroll of Wind', kind: 'magic', scroll: true },
-  { id: 'treasure_map', name: 'Treasure Map', kind: 'magic', scroll: true },
+  { id: 'fear_scroll', name: 'Scroll of Fear', kind: 'magic', scroll: true, scrollIngredient: 'bone' },
+  { id: 'wind_scroll', name: 'Scroll of Wind', kind: 'magic', scroll: true, scrollIngredient: 'longgrass' },
+  { id: 'treasure_map', name: 'Treasure Map', kind: 'magic', scroll: true, scrollIngredient: 'rubble' },
   // Spent on a wreck restore (houses.js HAMMER_ID): the building comes up shiny and sells cheaper for good.
   { id: 'magic_hammer', name: 'Magic Hammer', kind: 'magic' },
   { id: 'pet_collar', name: 'Sturdy Collar', kind: 'pet_accessory', baseTier: 1, petAccessory: { slot: 'collar', stats: { maxHp: 4 } } },
@@ -1212,9 +1213,9 @@ const ITEMS = [
   { id: 'fire_resistance_potion', name: 'Potion of Fire Resistance', kind: 'magic', potion: true },
   { id: 'blight_potion', name: 'Potion of Blight',    kind: 'magic', potion: true },
   // Read to summon a temporary ally through the shared companion keeper.
-  { id: 'bones_scroll', name: 'Scroll of Bones', kind: 'magic', scroll: true },
-  { id: 'wraith_scroll', name: 'Scroll of the Wraith', kind: 'magic', scroll: true },
-  { id: 'raven_scroll',  name: 'Scroll of the Raven', kind: 'magic', scroll: true },
+  { id: 'bones_scroll', name: 'Scroll of Bones', kind: 'magic', scroll: true, scrollIngredient: 'bone' },
+  { id: 'wraith_scroll', name: 'Scroll of the Wraith', kind: 'magic', scroll: true, scrollIngredient: 'white_flower' },
+  { id: 'raven_scroll',  name: 'Scroll of the Raven', kind: 'magic', scroll: true, scrollIngredient: 'crow_feather' },
   // The serpent idols (SERPENT_IDOLS above): scarce finds, never wares.
   ...SERPENT_IDOLS,
   // Drunk while DOWN (zero energy) to get back up on the spot — see
@@ -1222,8 +1223,8 @@ const ITEMS = [
   { id: 'revival_potion',       name: 'Potion of Revival',       kind: 'magic', potion: true },
   { id: 'resurrection_potion', name: 'Potion of Resurrection', kind: 'magic', potion: true },
   // Read to strike every foe on screen.
-  { id: 'thunder_scroll',      name: 'Scroll of Thunder',      kind: 'magic', scroll: true },
-  { id: 'moonbeam_scroll',     name: 'Scroll of Moonbeam',     kind: 'magic', scroll: true },
+  { id: 'thunder_scroll',      name: 'Scroll of Thunder',      kind: 'magic', scroll: true, scrollIngredient: 'flint_shard' },
+  { id: 'moonbeam_scroll',     name: 'Scroll of Moonbeam',     kind: 'magic', scroll: true, scrollIngredient: 'shell' },
   // Dragon Powder: use it (Use button with it selected) to wear a red dragon
   // for one minute — tier-8 boot movement and 2× attack
   // damage (useDragonPowder in app.js). A stat buff, not a movement mode.
@@ -2058,7 +2059,7 @@ const PRICES = {
   torch:          5,   // T1 — 3 min of the player's own light reaching twice as far (useTorch); cheap: found on cave floors, sold at the first supply shop, never crafted
   javelin:      60,   // T4 — a stronger single-use throw; no starter crafting recipe
   renovation_permit: 180,   // T4 — one rank on one building, forever; a hammer's neighbour
-  barricade: 12,   // T2 — three wood at a workshop; deploys the existing wooden obstacle
+  barricade: 12,   // T2 — three wood and one copper at a workshop; deploys the existing wooden obstacle
   scarecrow: 20,   // crow/deer ward — crafted at a workshop (HOME_RECIPES) or sold by a Supply Shop
   acorn: 5,
 
@@ -2171,8 +2172,8 @@ const ITEM_GUIDE_TIPS = {
   workshop: 'I restored a ruined building as a Workshop. Tools, supplies and remembered scrolls take shape here.',
   bed_quilted: 'Seven lengths of timber became a cot at the workshop. I slept the afternoon through at home and woke whole, the seedlings a little taller. No bed would have me again before evening.',
   growth_powder: 'At the workshop I ground nettles with long grass into a green powder. The seedlings stirred before I had finished sprinkling it.',
-  psychosis_powder: 'At the workshop I crushed yellow meadow flowers with young fern. The dust made the room tilt. I opened every window.',
-  sleep_powder: 'I ground golden flowers with white ones into a fine dust. One breath of it and I woke at the bench at dusk.',
+  psychosis_powder: 'At the workshop I crushed Lyepetal with Bitterleaf. The dust made the room tilt. I opened every window.',
+  sleep_powder: 'I ground Radiflor with Purelace into a fine dust. One breath of it and I woke at the bench at dusk.',
   barricade: 'I lashed the spare timber into a barricade at the workshop, then carried it down to the cave. The narrow passage needed less wood than I feared.',
   crow_feather: 'My legs failed on the long road. I pressed the black feather to my lips. Just enough strength to rise. Sometimes that is all a mercy needs to be.',
   scarecrow: 'The deer have kept to the tree line since I dressed the scarecrow in your father’s coat. Even empty, it can still look cross.',
@@ -2261,8 +2262,8 @@ const ITEM_EFFECTS = {
   nettle: 'A stinging herb ground into Growth Powder to wake sleeping crops. Pick it with care.',
   white_flower: 'A small pale bloom. Its scent makes your eyelids heavy.',
   yellow_flower: 'Bright pollen dusts your fingers, and the road seems to sway.',
-  golden_flower: 'Golden petals that glitter like the dust of a long dream.',
-  young_fern: 'Old wives hang fern over the door to keep harm outside.',
+  golden_flower: 'Golden petals cast a warm light into the dark.',
+  young_fern: 'Old wives hang Bitterleaf over the door to keep harm outside.',
   rubble: 'Beneath its pale skin lies a stone hard enough for a ruined wall.',
   quartz: 'Soft pink light catches in the stone’s cloudy heart.',
   topaz: 'A honey-gold gleam rests between its sharp edges.',
@@ -3240,17 +3241,20 @@ const HOME_RECIPES = [
   // The Quilted Cot (T1 furniture): seven wood. Placed inside Home it is a
   // night's rest — Rest.sleep, the Inn's own routine (src/rest.js).
   { id: 'bed_quilted', station: 'workshop', cost: [{ id: 'wood', qty: 7 }], known: true },
-  { id: 'scarecrow', station: 'workshop', cost: [{ id: 'wood', qty: 3 }] },
-  { id: 'barricade', station: 'workshop', cost: [{ id: 'wood', qty: 3 }] },
+  { id: 'scarecrow', station: 'workshop', cost: [{ id: 'wood', qty: 3 }, { id: 'wool', qty: 1 }] },
+  { id: 'barricade', station: 'workshop', cost: [{ id: 'wood', qty: 3 }, { id: 'copper_bar', qty: 1 }] },
   { id: 'rope', station: 'workshop', cost: [{ id: 'longgrass', qty: 5 }] },
-  { id: 'trap_disarm_kit', station: 'workshop', cost: [{ id: 'rubble', qty: 4 }] },
+  { id: 'trap_disarm_kit', station: 'workshop', cost: [{ id: 'iron_bar', qty: 1 }] },
   { id: 'sugar_potion', station: 'workshop', cost: [{ id: 'berry', qty: 2 }] },
   { id: 'growth_powder', station: 'workshop', cost: [{ id: 'nettle', qty: 3 }, { id: 'longgrass', qty: 5 }] },
   // Roadside flora: same-tier inputs, like Growth Powder's nettles and grass.
   { id: 'psychosis_powder', station: 'workshop', cost: [{ id: 'yellow_flower', qty: 5 }, { id: 'young_fern', qty: 2 }] },
   { id: 'sleep_powder', station: 'workshop', cost: [{ id: 'golden_flower', qty: 3 }, { id: 'white_flower', qty: 3 }] },
   ...ITEMS.filter(item => item.scroll).map(item => ({
-    id: item.id, station: 'workshop', cost: [{ id: 'blank_scroll', qty: 1 }],
+    id: item.id, station: 'workshop', cost: [
+      { id: 'blank_scroll', qty: 1 },
+      { id: item.scrollIngredient, qty: 1 },
+    ],
   })),
 ];
 // Magic Shop brewing: one potion per batch, with fixed ingredient and coin costs.

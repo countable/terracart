@@ -6,12 +6,14 @@ mechanics.
 
 ## Combat, energy and Home
 
-- Roadside hives are wrecks occupied by a hostile building. `Hives.KINDS`
+- Hives are wrecks occupied by a hostile building. `Hives.KINDS`
   owns their HP, sprite and spawning rules. The Mushroom House has 120 HP
   and births one Mushroom Monster per foreground minute, up to four living
-  children per house. Births obey the ordinary enemy spawn gate and live
-  collision checks, including clearance from the player. Only nearby, loaded
-  surface hives advance; leaving the area restarts the minute, and background time never produces catch-up waves.
+  children per house. L3 Goblin Hives use the same health, interval and cap,
+  emitting the weak Goblin Runt used by street grunt gangs. Births obey the ordinary
+  enemy spawn gate and live collision checks, including clearance from the player. Only nearby, loaded
+  hives on the current floor advance; changing floors or leaving the area restarts
+  the minute, and background time never produces catch-up waves.
   Player swings use their ordinary weapon damage and cooldown. Damage and
   destruction persist in `save.hives`; zero HP reveals the original repairable
   wreck permanently. Existing children remain after the house falls. Claimed,
@@ -460,14 +462,13 @@ mechanics.
   unlocks one. Antidote, Hardworking, Grip, Healing, Stoneskin, Blight, Shielding,
   Shrinking and Protection are brewable; Revival and Resurrection remain unbrewable.
   Healing uses berries and onions; Blight uses Marigolds and Meat;
-  Shielding uses Starflowers and Milk; Protection uses Young Ferns and White
-  Flowers. Shrinking
+  Shielding uses Starflowers and Milk; Protection uses Bitterleaf and Purelace. Shrinking
   uses two Mango and four coins, an intentional exception to same-tier inputs
   and the otherwise conservative recipe economics. Sugar Potion retains its
   workshop recipe. Growth Powder is crafted at a workshop from three Nettles
   and five Long Grass after finding the powder in the wild. The roadside flora
-  make two more workshop powders the same way: Psychosis from Yellow Meadow
-  Flowers and Young Ferns, Sleep from Golden and White Flowers. Brewing does not change potion effects.
+  make two more workshop powders the same way: Psychosis from Lyepetal
+  and Bitterleaf, Sleep from Radiflor and Purelace. Brewing does not change potion effects.
 - Home light and ward retain `HOME_R` and surface-only `homeWorldPos()`.
   Home rest uses `isRestingAtHome`: the player's owned Home building cells
   and their four edge-sharing neighbours, never corner-only contact. Ownership

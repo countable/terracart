@@ -470,6 +470,11 @@ pixels and decorative details do not define additional tap cells.
   grid; one known recipe opens its counter directly. A card's Back returns
   to the grid. Recheck the workshop's restored role before spending and
   reopen the same workshop and selected recipe after crafting.
+  Scarecrows cost three Wood and one Wool; Barricades cost three Wood and
+  one Copper; Trap Disarm Kits cost one Iron. `HOME_RECIPES` owns these costs.
+  Each scroll recipe consumes one Blank Scroll and one common ingredient from
+  `ITEMS.scrollIngredient` (Flint for Fireball, Bone for Fear). Prior successful
+  use still teaches the recipe.
   Show each ingredient's
   held and required quantities, its shortfall in text, and a visible reason
   when Craft is disabled. Keep the chosen recipe after crafting and refresh

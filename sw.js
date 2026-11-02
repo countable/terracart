@@ -1,7 +1,7 @@
 // Content-addressed resources survive deployments. HTML stays network-first;
 // tiles retain their independent offline cache. Keep two shell generations so
 // old tabs can still request their exact script URLs after a worker update.
-const SHELL_VERSION = 'shell-99c732e1';
+const SHELL_VERSION = 'shell-cd740c7b';
 
 const RESOURCE_CACHE = 'terracart-resources-v1';
 const RESOURCE_MANIFEST = './__terracart_resource_manifest__';
@@ -106,10 +106,14 @@ const ASSET_HASHES = {
   "assets/Enemy/Zombie/1Fullsheet_Zombie.png": "c3270696",
   "assets/Enemy/Zombie/Reskin/1Fullsheet_Fiend.png": "1e8670a9",
   "assets/Enemy/spr_mini_monsters_spritesheet.png": "bb6b07b9",
+  "assets/Farm Animals/Chick.png": "72d47cca",
   "assets/Farm Animals/Chicken Red.png": "e686e0bf",
   "assets/Farm Animals/Crab.png": "633bd8b3",
   "assets/Farm Animals/Female Cow Brown.png": "2fc6c8fa",
+  "assets/Farm Animals/HornedSheep.png": "de98d8f8",
   "assets/Farm Animals/Horse.png": "34847aa7",
+  "assets/Farm Animals/Pig.png": "0e583192",
+  "assets/Farm Animals/Sheep.png": "601f7519",
   "assets/Farm Animals/Turtle.png": "ac1f581f",
   "assets/Icons/AltWeapons/1/Dagger.png": "d1d16ea4",
   "assets/Icons/AltWeapons/1/Lance.png": "7a2df61e",
@@ -272,7 +276,7 @@ const ASSET_HASHES = {
   "assets/Icons/RPG icons/Weapons and Armor/7. Frost/Pickaxe.png": "c60441ea",
   "assets/Icons/RPG icons/Weapons and Armor/7. Frost/Staff.png": "b2484a06",
   "assets/Icons/RPG icons/Weapons and Armor/7. Frost/Sword.png": "232136a0",
-  "assets/Icons/SelectedItems/items.png": "5aa36f2f",
+  "assets/Icons/SelectedItems/items.png": "76899171",
   "assets/Icons/StatusEffects/status-icons.png": "fe5d9c9f",
   "assets/Icons/coin.png": "4c9e7ebc",
   "assets/Icons/dom-atlas.png": "3739dbb8",
@@ -560,7 +564,6 @@ const ASSET_HASHES = {
   "assets/art/fall_open_pit.webp": "c88f7b9e",
   "assets/art/fire_first.webp": "deb62b48",
   "assets/art/first_sale.webp": "a27a8f1e",
-  "assets/art/food_first_taste.webp": "5739e022",
   "assets/art/forge_done.webp": "ca89eb2a",
   "assets/art/fort_unseal.webp": "93423ef5",
   "assets/art/health_low.webp": "ba65785f",

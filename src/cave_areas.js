@@ -443,6 +443,46 @@
       else out.objects.push(W.makeObject(objectKind,p.x,p.y,slot,attrs));
       used.add(c.i); return true;
     };
+    if (mine) {
+      // A roofless 5x5 cottage fits entirely inside existing quarry floor.
+      // Reserve its room and doorway before ore or inhabitants are seated.
+      // Furniture identity, not an invented object tier, chooses its artwork
+      // and pickup: deeper floors use the highest catalogued furniture tier.
+      const furnishings = ITEMS.filter(item => item.kind === 'furniture' && !furnitureSpec(item.id)?.light);
+      const tier = Math.min(depth, Math.max(...furnishings.map(item => itemTierOf(item.id))));
+      const pool = furnishings.filter(item => itemTierOf(item.id) === tier);
+      const byIndex = new Map(usable.map(c => [c.i, c]));
+      const candidates = order(usable.filter(free), 'ruin-house');
+      const rewardSeat = c => W.isSpawnCell(sourceGrid, N, N, c.ix, c.iy, sourceOpts, 'reward')
+        && W.isSpawnCell(sourceGrid, N, N, c.ix, c.iy, { spawnWhy: ctx.spawnWhy }, 'reward')
+        && W.isSpawnCell(grid, N, N, c.ix, c.iy, { spawnWhy: ctx.spawnWhy }, 'reward');
+      for (const centre of candidates) {
+        if (!pool.length) break;
+        const at = (dx, dy) => frame.inTile(centre.ix + dx, centre.iy + dy)
+          ? byIndex.get((centre.iy + dy) * N + centre.ix + dx) : null;
+        const footprint = [];
+        for (let dy = -2; dy <= 2; dy++) for (let dx = -2; dx <= 2; dx++) footprint.push(at(dx, dy));
+        footprint.push(at(0, 3));
+        if (footprint.some(c => !c || used.has(c.i))) continue;
+        const seats = [at(-1, -1), at(1, -1), at(-1, 1), at(1, 1)];
+        if (!seats.every(rewardSeat)) continue;
+        const ruinId = `${id}|ruin`, item = pool[fnv1a(`${seedId}|ruin-furniture`) % pool.length];
+        const walls = footprint.filter(c => Math.abs(c.ix - centre.ix) === 2 || Math.abs(c.iy - centre.iy) === 2)
+          .filter(c => !(c.ix === centre.ix && c.iy === centre.iy + 2)
+            && !(c.ix === centre.ix - 2 && c.iy === centre.iy - 2));
+        const wallCells = new Set(walls.map(c => c.i));
+        for (const c of walls) put(c, 'stronghold_wall', { quarryRuin: ruinId,
+          variant: root.QuarryLayout.wallFrameAt(wallCells, c.i, N), yieldTier: 1, requiredTier: 1 });
+        put(seats[0], 'furniture', { quarryRuin: ruinId, generatedFurniture: true, itemId: item.id });
+        put(seats[1], 'furniture', { quarryRuin: ruinId, generatedFurniture: true, itemId: 'lamp_floor' });
+        for (const c of seats.slice(2)) put(c, 'chest', { quarryRuin: ruinId, quarryCrate: true });
+        for (const c of footprint) { used.add(c.i); dry.add(c.i); }
+        area.ruinHouse = { id: ruinId, tier, furnitureId: item.id,
+          bounds: [centre.ix - 2, centre.iy - 2, centre.ix + 2, centre.iy + 2],
+          door: [centre.ix, centre.iy + 2] };
+        break;
+      }
+    }
     if (kind === 'quicksand_cavern') {
       // Preserve the dry cardinal approaches, focus, routes and landmark halos.
       // The explicit mask makes ordinary sand elsewhere harmless.
@@ -905,11 +945,21 @@
     for (const [key, cells] of rooms) {
       const seats = cells.filter(i => !occupied.has(i) && !protectedCells.has(i) && !passages.has(i));
       seats.sort((a, b) => fnv1a(`${id}|seat|${a}`) - fnv1a(`${id}|seat|${b}`));
+      // A world-room hash gives every observer the same hive roll. Only a
+      // complete room owns the hive; tile-clipped fragments cannot duplicate it.
+      const roomKey = `goblin_city|${depth}|room|${key}`;
+      if (cfg.hiveChance && cells.length === cfg.roomCells * cfg.roomCells
+          && fnv1a(`${roomKey}|hive`) / 4294967296 < cfg.hiveChance) {
+        const cls = creatureSpawnClass(root.Hives.KINDS[cfg.hiveKind].enemy);
+        const i = seats.find(i => !occupied.has(i) && W.isSpawnCell(grid, N, N,
+          i % N, Math.floor(i / N), opts, cls));
+        if (i != null) put(i, 'house', { tier: 9, hive: cfg.hiveKind, id: `${roomKey}|hive` });
+      }
       if (fnv1a(`${id}|room|${key}`) / 4294967296 < cfg.enemyChance) {
         const kinds = cfg.enemies;
         const kind = kinds[fnv1a(`${id}|kind|${key}`) % kinds.length];
         const cls = creatureSpawnClass(kind);
-        const i = seats.find(i => W.isSpawnCell(grid, N, N, i % N, Math.floor(i / N), opts, cls));
+        const i = seats.find(i => !occupied.has(i) && W.isSpawnCell(grid, N, N, i % N, Math.floor(i / N), opts, cls));
         if (i != null) {
           const ix = i % N, iy = Math.floor(i / N);
           out.encounters.push({ ...frame.centre(ix, iy), kind, id: `${id}|enemy|${key}`,

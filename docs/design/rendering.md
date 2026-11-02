@@ -1211,11 +1211,17 @@ the reach rim within the existing player-light radius.
   barrel or pot (`o.barrel`, no `poiClass`) get neither. Use the existing
   derived luminance/contrast controls; remeasure the plateau ceiling before
   raising it.
+- Radiflor (the saved `golden_flower` wildplant) selects the `radiflor` light
+  through `WILDPLANT_RULES.light`: a steady warm pool reaching 1.5 cells.
+  It joins the normal wildplant light scan, including flowers just beyond
+  the sprite cull. Picking the flower removes its world light; carrying it
+  does not light the player.
 - Furniture light is selected by its metadata `light` through `sourceKind`:
   `furniture_lamp` reaches 2 cells with steady warm light; `furniture_candle`
-  reaches 1.5 cells with slight warm flicker. Only saved-depth objects inside
-  the active Home's owned cells (`PlacedFloor.furnitureIndoors`) emit; outside
-  pieces still render. Both sprite and pre-cull scans offer furniture, so
+  reaches 1.5 cells with slight warm flicker. Placed furniture emits only on its
+  saved depth inside the active Home's owned cells (`PlacedFloor.furnitureIndoors`);
+  outside pieces still render. Generated underground quarry lamps also emit on
+  their own depth until their picked-ledger entry removes them. Both sprite and pre-cull scans offer furniture, so
   off-screen fixtures can light the room edge. The metadata `lightFrameY`
   emitter is seated with the frame's trimmed bounds and furniture scale,
   then follows the existing `dyPx` / `liftPx` mechanism at every map heading.

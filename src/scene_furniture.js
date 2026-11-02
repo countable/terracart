@@ -2,6 +2,10 @@
 const Furniture = (() => {
   const ENERGY_PER_LUXURY_S = 0.1;
   const HOUSE_SLOTS = 4;
+  function isGenerated(record) {
+    return record?.kind === 'furniture' && record.generatedFurniture === true
+      && !!record.quarryRuin && record.depth > 0 && !!furnitureSpec(record.itemId);
+  }
   function itemLuxury(itemId) {
     const spec = furnitureSpec(itemId);
     return spec ? Math.max(0, spec.luxury ?? itemTierOf(itemId) ** 2) : 0;
@@ -107,7 +111,7 @@ const Furniture = (() => {
     return score;
   }
   return { luxuryOf, recompute, footprintKey, restBonus, ENERGY_PER_LUXURY_S,
-    HOUSE_SLOTS, itemLuxury, houseFurniture, isNpcHouse, furnishHouse };
+    HOUSE_SLOTS, itemLuxury, houseFurniture, isNpcHouse, furnishHouse, isGenerated };
 })();
 
 // Placed furniture shows its world frame and uses one lossless pickup transaction.
@@ -383,13 +387,22 @@ class SceneFurniture {
   }
 
   _placedFurniture(o) {
+    if (Furniture.isGenerated(o)) {
+      if (!PlacedFloor.onDepth(o, this.depth) || (this.save.picked || []).includes(o.id)) return null;
+      for (const entry of WorldGen.tileCache.values()) {
+        const live = (entry.objects || []).find(record => record.id === o.id
+          && Furniture.isGenerated(record) && PlacedFloor.onDepth(record, this.depth));
+        if (live) return live;
+      }
+      return null;
+    }
     return (this.save.furniture || []).find(record => record.id === o?.id
       && PlacedFloor.onDepth(record, this.depth) && furnitureSpec(record.itemId)) || null;
   }
 
   flipPlacedFurniture(o) {
     const record = this._placedFurniture(o);
-    if (!record || !furnitureSpec(record.itemId).flip) return false;
+    if (!record || Furniture.isGenerated(record) || !furnitureSpec(record.itemId).flip) return false;
     record.flip = !record.flip;
     for (const entry of WorldGen.tileCache.values()) {
       for (const live of entry.objects || []) {
@@ -415,10 +428,12 @@ class SceneFurniture {
       this.flashAtPlayer(bagFullFor(record.itemId));
       return false;
     }
-    const accepted = this.addToInv(record.itemId, 1, false, { notWild: true, deferRefresh: true });
+    const generated = Furniture.isGenerated(record);
+    const accepted = this.addToInv(record.itemId, 1, false, { notWild: !generated, deferRefresh: true });
     // Keep the placed item until the bag confirms acceptance, including stale dialogs.
     if (accepted !== 1) return false;
-    this.save.furniture.splice(this.save.furniture.indexOf(record), 1);
+    if (generated) (this.save.picked ||= []).push(record.id);
+    else this.save.furniture.splice(this.save.furniture.indexOf(record), 1);
     for (const entry of WorldGen.tileCache.values()) {
       if (entry.objects) entry.objects = entry.objects.filter(live =>
         live.kind !== 'furniture' || live.id !== record.id || !PlacedFloor.onDepth(live, this.depth));
@@ -470,14 +485,14 @@ class SceneFurniture {
     const actions = document.createElement('div');
     actions.className = 'furniture-actions';
     actions.style.cssText = 'display:flex;gap:8px;justify-content:center;flex-wrap:wrap;';
-    if (spec.ability) {
+    if (spec.ability && !Furniture.isGenerated(record)) {
       const ability = mkBtn(FURNITURE_ABILITY_LABELS[spec.ability]);
       ability.addEventListener('click', () => {
         if (this.useFurniture(record)) wrap.remove();
       });
       actions.appendChild(ability);
     }
-    if (spec.flip) {
+    if (spec.flip && !Furniture.isGenerated(record)) {
       const flip = mkBtn('Flip', { variant: 'ghost' });
       flip.addEventListener('click', () => {
         if (this.flipPlacedFurniture(record)) art.style.transform = record.flip ? 'scaleX(-1)' : '';

@@ -66,4 +66,32 @@
     assert.truthy(child,'another legal seat is available');
     assert.truthy(Math.hypot(child.x-44,child.y-44)>=s.cellM*Hives.CONFIG.spawnClearanceCells,'a birth cannot overlap the player');
   }));
+  test('hives: L3 goblin houses emit grunts, cap births and retain defeat state',()=>fixture(({scene:s,house:h,entry:e})=>{
+    h.hive='goblin';h.depth=3;s.depth=3;e.depth=3;
+    e.grid.fill(WorldGen.T.CAVE_FLOOR);
+    s.cellAt=()=>({loaded:true,type:WorldGen.T.CAVE_FLOOR});
+    Hives.tick(s,.1);advance(s,60000);
+    assert.eq(e.creatures.length,1);
+    assert.eq(e.creatures[0].kind,'goblin_runt');
+    assert.eq(e.creatures[0].depth,3);
+    advance(s,240000);assert.eq(Hives.living(s,h).length,4);
+    const dead=e.creatures[0];dead._spent=true;s.save.caught.push(dead.id);
+    advance(s,60000);assert.eq(e.creatures.length,5);
+    assert.truthy(e.creatures[4].id!==dead.id);
+    assert.truthy(Hives.damage(s,h,1000));
+    s.save=JSON.parse(JSON.stringify(s.save));
+    advance(s,120000);assert.eq(e.creatures.length,5);
+    assert.falsy(Hives.isActive(s.save,{...h}));
+  }));
+  test('hives: underground births never leak across floors or catch up after returning',()=>fixture(({scene:s,house:h,entry:e})=>{
+    h.hive='goblin';h.depth=3;e.depth=3;
+    e.grid.fill(WorldGen.T.CAVE_FLOOR);
+    s.cellAt=()=>({loaded:true,type:WorldGen.T.CAVE_FLOOR});
+    assert.falsy(Hives.spawn(s,h),'surface cannot birth from a cached underground hive');
+    advance(s,120000);assert.eq(e.creatures.length,0);
+    s.depth=3;Hives.tick(s,.1);advance(s,30000);
+    s.depth=2;advance(s,120000);assert.eq(e.creatures.length,0);
+    s.depth=3;Hives.tick(s,.1);advance(s,30000);assert.eq(e.creatures.length,0);
+    advance(s,30000);assert.eq(e.creatures.length,1);
+  }));
 })();

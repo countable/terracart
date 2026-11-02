@@ -444,6 +444,29 @@ test('lighting: what lights is what is yours', () => {
     'a kind that is not a light stays dark whatever else is on it');
 });
 
+test('lighting: Radiflor casts warm light through the wildplant collector', () => {
+  const flower = { kind: 'wildplant', crop: 'golden_flower', id: 'radiflor-test' };
+  const row = Lighting.KINDS.radiflor;
+  assert.gt(row.peak, 0, 'petals emit light');
+  assert.gt(ch(row.colour, 16), ch(row.colour, 0), 'the light is warm');
+  assert.eq(row.flicker, 0, 'flowers do not flicker like flames');
+  assert.truthy(Lighting.wildplantLightPadCells() >= Lighting.radiusCells('radiflor'),
+    'the wildplant scan includes the full light radius');
+  for (const depth of [0, 1]) {
+    const s = scene({ depth, _lights: [] });
+    assert.eq(Lighting.sourceKind(s, flower), 'radiflor', 'surface and cave flowers light alike');
+    assert.truthy(Lighting.consider(s, flower, HALF_M + 1, 0, HALF_M),
+      'a flower beyond its sprite cull still lights the view edge');
+    assert.eq(s._lights[0].kind, 'radiflor');
+    assert.falsy(Lighting.consider(s, flower, HALF_M + Lighting.radiusCells('radiflor') * s.cellM + 1, 0, HALF_M),
+      'flowers beyond light range are culled');
+    Lighting.beginFrame(s);
+    assert.eq(s._lights.length, 0, 'a harvested flower leaves no light in the next frame');
+    s.save.inv = [{ id: 'golden_flower', count: 1 }];
+    assert.eq(Lighting.playerKind(s), 'player', 'carrying a picked flower adds no player light');
+  }
+});
+
 test('lighting: furniture emits indoors, across the sprite cull, and stops after pickup', () => {
   const s = scene({ cellsPerTile: 32, tileEdgeM: 160, mPerPx: 5 / (WorldGen.TILE_PX / 32),
     save: { starterShopId: 'furniture-home', furniture: [], inv: [] }, _lights: [] });
