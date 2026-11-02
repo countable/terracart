@@ -138,7 +138,8 @@ class SceneCreatures {
   // BEFORE entry._spawned is raised: from there to the end it is one slice,
   // so nothing outside ever meets an entry flagged spawned with its traps or
   // treasure still to come. The heavy but pure work of that stretch (the trap
-  // draw, the path / sand / pier scan) is done ahead, before the flag.
+  // draw, the path / sand / pier scan and surface/shore treasure selection)
+  // is done ahead, before the flag.
   *spawnInTileSteps(entry, tx, ty) {
     // Shared draws must read generated ownership, even when replaying a live tile.
     entry._homeVariantGenerating = true;
@@ -446,13 +447,12 @@ class SceneCreatures {
       if (Pets.eligible(c.kind)) c.tint = Pets.tintFor(c);
     }
     yield 'spawn habitats';
-    // AHEAD OF THE FLAG: the two heavy, pure pieces of the stretch after
-    // entry._spawned (see spawnInTileSteps) — the trap draw and the one grid
-    // pass the bonus X marks and the shore fauna read — are computed here,
-    // where the pass may still yield. Neither reads anything the stretch
-    // between writes (the trap draw is its own stream on the generated
-    // ambient options; the scan reads the generated grid), so the result is
-    // the one they gave in place. Both are explained where they are used.
+    // AHEAD OF THE FLAG: the heavy, pure work of the stretch after
+    // entry._spawned (see spawnInTileSteps) is computed here, where the pass
+    // may still yield: the trap draw, the grid pass read by path/shore fauna,
+    // and surface/shore treasure selection. Each reads generated state only,
+    // so moving it ahead preserves the shared draws. Their results are
+    // explained where the atomic commit uses them.
     const surfaceTraps = (typeof Traps !== 'undefined' && !testMode)
       ? yield* Traps.spawnSurfaceSteps(genGrid, entry.roadClass, N, N, tx, ty, this.tileEdgeM, ambientSpawnOpts,
           Difficulty.get().trapCountMul, entry.zone && entry.zone.under, entry)

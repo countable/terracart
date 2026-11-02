@@ -405,9 +405,10 @@ spawn-rate roll.
   depth seed and deterministic slot ordering. L1 sewer keeps its own grove
   menu. Physical-depth encounter, ore and travel progression remain
   unchanged by this wall update; saved object IDs still include actual depth.
-- Every underground floor carries a grove menu (`GROVE_MENUS`, at least four
-  variants; floors 2–3 keep their classic six). Floors 1 and 4–8 draw the
-  program variants: moat islands (`CaveAreas.ISLANDS`) paint cell-exact
+- Every underground floor carries a grove menu. Floors 1 and 4–8 read at
+  least four variants from `GROVE_MENUS`; the `floorProfile(2/3).caveAreas`
+  rows own floors 2–3's classic six. The program variants include moat islands:
+  `CaveAreas.ISLANDS` paints cell-exact
   water or lava rings with seeded per-angle jitter, stepping-stone lanes on
   the crossings, and move the grove's surviving mirror cache onto the island
   focus — never minting one. Theme dressing seats through the street art
@@ -1244,10 +1245,11 @@ spawn-rate roll.
 - Yield during tile-wide cell/object/polygon passes in `rasterizeTileSteps`,
   including helpers via `yield*`. Keep unsliced post-rasterize work linear.
   A profile's worst-block label identifies the block ending at that yield.
-  Surface spawn passes prepare shore/yard treasure eligibility in bounded
-  chunks and yield after resident generation before publishing `_spawned`.
-  Treasure selection still follows live Home/starter overlays and keeps the
-  original seeded draw order. The final live-state commit remains atomic;
+  Surface spawn passes select shore and surface treasure from the generated
+  grid in bounded chunks before Home/starter overlays. The seeded draw order
+  stays shared; the live-ground cull removes records displaced by those
+  overlays. The pass yields after resident generation before publishing
+  `_spawned`. The final live-state commit remains atomic;
   `spawn commit …` profile counters split its NPC, starter, treasure, saved
   object, fauna, cull and Home work so a remaining stall names its owner.
 - Park and beach coverage unions scan conservative polygon bounds including
