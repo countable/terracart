@@ -59,9 +59,9 @@ class SceneCreatures {
     if ((this.save.caught || []).includes(id)) return;
     const tx = Math.floor(o.x / this.tileEdgeM), ty = Math.floor(o.y / this.tileEdgeM);
     const entry = WorldGen.tileCache.get(WorldGen.tileKey(tx, ty));
-    if (!entry?.creatures || entry.creatures.some(c => c.id === id)) return;
-    if (!CreatureSpawns.gateAtEntry(this, entry, o.x, o.y, 'skeleton', { occupied: null })) return;
-    entry.creatures.push(EnemySpawns.markShared(CreatureSpawns.createOwned('bone-cache', o.id, 'skeleton', o.x, o.y, id,
+    if (!entry?.creatures) return;
+    if (!CreatureSpawns.canPlaceAt(this, entry, o.x, o.y, 'skeleton', { id })) return;
+    CreatureSpawns.register(entry, EnemySpawns.markShared(CreatureSpawns.createOwned('bone-cache', o.id, 'skeleton', o.x, o.y, id,
       { depth: o.depth, shiny: false, _hunting: true })));
   }
 
@@ -74,12 +74,12 @@ class SceneCreatures {
     const tx = Math.floor(o.x / this.tileEdgeM), ty = Math.floor(o.y / this.tileEdgeM);
     const entry = WorldGen.tileCache.get(WorldGen.tileKey(tx, ty));
     if (!entry?.creatures) return false;
-    if (!CreatureSpawns.gateAtEntry(this, entry, o.x, o.y, kind, { occupied: null })) return false;
+    if (!CreatureSpawns.canPlaceAt(this, entry, o.x, o.y, kind)) return false;
     const id = kind + ':' + o.id;
     const revealed = (this.save.revealedMimics ||= []);
     if (!revealed.some(c => c.id === id)) revealed.push({ id, chestId: o.id, kind, x: o.x, y: o.y });
     if (!entry.creatures.some(c => c.id === id)) {
-      entry.creatures.push(EnemySpawns.markShared(CreatureSpawns.createOwned(kind === 'snake' ? 'pot-snake' : 'mimic', o.id, kind, o.x, o.y, id, {
+      CreatureSpawns.register(entry, EnemySpawns.markShared(CreatureSpawns.createOwned(kind === 'snake' ? 'pot-snake' : 'mimic', o.id, kind, o.x, o.y, id, {
         depth: 0, shiny: false, _hunting: true,
       })));
     }
@@ -94,8 +94,8 @@ class SceneCreatures {
           || Math.floor(c.x / this.tileEdgeM) !== tx || Math.floor(c.y / this.tileEdgeM) !== ty
           || caught.has(c.id) || liveIds.has(c.id)) continue;
       const kind = c.kind || 'mimic';
-      if (!CreatureSpawns.gateAtEntry(this, entry, c.x, c.y, kind, { occupied: null })) continue;
-      entry.creatures.push(EnemySpawns.markShared(CreatureSpawns.createOwned(kind === 'snake' ? 'pot-snake' : 'mimic', c.chestId || c.id, kind, c.x, c.y, c.id, {
+      if (!CreatureSpawns.canPlaceAt(this, entry, c.x, c.y, kind, { id: c.id })) continue;
+      CreatureSpawns.register(entry, EnemySpawns.markShared(CreatureSpawns.createOwned(kind === 'snake' ? 'pot-snake' : 'mimic', c.chestId || c.id, kind, c.x, c.y, c.id, {
         depth: 0, shiny: false, _hunting: true,
       })));
       liveIds.add(c.id);
@@ -297,6 +297,7 @@ class SceneCreatures {
     }
     yield 'spawn zone dressing';
     const dressing = entry.streetDress;
+    entry.streetCreatureRequests = [];
     if (dressing && typeof StreetVariants !== 'undefined' && !testMode) {
       const cellIdx = (p) => {
         const ix = Math.floor((p.x - tx * this.tileEdgeM) / cellM);
@@ -330,6 +331,7 @@ class SceneCreatures {
       entry.pathVents = (dressing.vents || []).filter(p => lay(p, 'hazard'));
       streetTreasures = dressing.treasures.filter(p => lay(p, 'reward'));
       entry.streetLairs.push(...dressing.lairs);
+      entry.streetCreatureRequests = dressing.creatureRequests || [];
       entry.slowCells = slow.size ? slow : null;
       entry.streetMarks = dressing.marks;
     }
@@ -723,175 +725,13 @@ class SceneCreatures {
     return kindStr !== 'crow' || EnemySpawns.roll(creature.id + ':mode') < Difficulty.get().crowCountMul;
   }
 
-  // THE SHORE FAUNA pass (see the call in spawnInTile). Pure in the tile:
-  // the shore (entry.scenic.shore — generated) and the pier cells (the
-  // generated grid) decide it; nothing per-player. Returns what it seated.
-  //   count   waterline budget capped at `max`, then shared fauna density —
-  //           in GENERATION metres (WorldGen.CELL_M per cell), never the
-  //           save's frame (CLAUDE.md "Every player sees the SAME world")
-  //   seats   exhaust legal shore cells inside the same owner; safety
-  //           changes seats, not population budgets or species identities.
-  //   ids     raw canonical cell draws, reserved before saved captures.
-  //           Nexus coverage never receives this ambient population.
-  spawnShoreFauna(creatures, shore, pierCells, N, tx, ty, cellM, genGrid, faunaOpts, foeOpts, caughtSet, zoneCoverage, habitatEntry = null, authoredCreatures = []) {
-    const out = [];
-    if (typeof SHORE_FAUNA === 'undefined') return out;
-    const allShore = shore?.cells || [], groups = new Map();
-    const reserved = foeOpts.creatureCells || new Set();
-    for (const c of [...creatures, ...authoredCreatures]) {
-      const cx = Math.floor((c.x - tx * this.tileEdgeM) / cellM), cy = Math.floor((c.y - ty * this.tileEdgeM) / cellM);
-      if (cx >= 0 && cy >= 0 && cx < N && cy < N) reserved.add(cy * N + cx);
-    }
-
-    const spacing = HabitatSpawns.faunaSpacing(N, reserved);
-    const getGroup = i => {
-      const owner = habitatEntry ? HabitatSpawns.resolve(habitatEntry, i) : null;
-      const areaOwner = habitatEntry ? WorldGen.variantOwnerAt(habitatEntry, i) : null;
-      // Every Nexus owns its empty cells too. Path content comes from its
-      // own generator; ordinary shoreline fauna never fills either owner.
-      if (areaOwner || zoneCoverage?.[i] || owner?.profile?.owner === 'zone' || owner?.profile?.owner === 'road') return null;
-      const key = 'shore:ordinary';
-      if (!groups.has(key)) groups.set(key, { key, owner, shore: [], pier: [] });
-      return groups.get(key);
-    };
-    for (const i of allShore) getGroup(i)?.shore.push(i);
-    for (const i of pierCells) getGroup(i)?.pier.push(i);
-    const rawWaterline = shore?.waterline;
-    const diagnostics = [];
-    for (const group of [...groups.values()].sort((a, b) => a.key.localeCompare(b.key))) {
-      const kinds = SHORE_FAUNA_ORDER;
-      const ground = new Set(group.shore);
-      const shoreM = rawWaterline ? rawWaterline.filter(i => ground.has(i)).length * WorldGen.CELL_M
-        : (shore?.shoreM || 0) * group.shore.length / Math.max(1, allShore.length);
-      for (const kind of kinds) {
-        const row = SHORE_FAUNA[kind];
-        if (!row) continue;
-        const rawPool = row.pier ? group.shore.concat(group.pier) : group.shore;
-        if (!rawPool.length) continue;
-        const lenM = shoreM + (row.pier ? group.pier.length * WorldGen.CELL_M : 0);
-        const spClass = creatureSpawnClass(kind);
-        const fauna = spClass === 'fauna' || spClass === 'fastFauna';
-        const rawCount = Math.max(0, Math.min(row.max, Math.floor(lenM / row.perShoreM)));
-        const requested = fauna || SpriteLayout.creatureBehaviour(kind)?.animal
-          ? HabitatSpawns.faunaCount(rawCount) : rawCount;
-        const opts = fauna ? faunaOpts : foeOpts;
-        const canonicalPool = rawPool.filter(i => HabitatSpawns.allows(kind, genGrid[i], group.owner?.profile));
-        const pool = canonicalPool.filter(i => {
-          const cx = i % N, cy = Math.floor(i / N);
-          return WorldGen.isSpawnCell(genGrid, N, N, cx, cy, opts, spClass);
-        });
-        const srng = WorldGen.makeRng(fnv1a(`${row.salt}|${tx},${ty}`));
-        const taken = new Set();
-        let placed = 0;
-        for (let n = 0; n < requested && taken.size < canonicalPool.length; n++) {
-          const start = Math.floor(srng() * canonicalPool.length);
-          let canonical = null;
-          for (let at = 0; at < canonicalPool.length; at++) {
-            const candidate = canonicalPool[(start + at) % canonicalPool.length];
-            if (!taken.has(candidate)) { canonical = candidate; break; }
-          }
-          if (canonical == null) break;
-          taken.add(canonical);
-          // Identity uses this species' own draw. Other inhabitants can move
-          // its seat within the same shore owner without changing that ID.
-          const canonicalX = canonical % N, canonicalY = Math.floor(canonical / N);
-          const id = WorldGen.cellId(kind, tx, ty, canonicalX, canonicalY);
-          let cell = null;
-          const canonicalSeat = pool.indexOf(canonical);
-          const seatStart = canonicalSeat >= 0 ? canonicalSeat : Math.floor(EnemySpawns.roll(id + ':seat') * pool.length);
-          let clearance = -1;
-          for (let at = 0; at < pool.length; at++) {
-            const candidate = pool[(seatStart + at) % pool.length];
-            if (reserved.has(candidate)) continue;
-            const gap = spacing.clearance(candidate);
-            if (gap > clearance) { cell = candidate; clearance = gap; }
-            if (gap >= HabitatSpawns.FAUNA_SPACING_CELLS) break;
-          }
-          if (cell == null) continue;
-          reserved.add(cell); spacing.add(cell); placed++;
-          const cx = cell % N, cy = Math.floor(cell / N);
-          const seat = tileCellCentre(this.tileEdgeM, tx, ty, cellM, cx, cy);
-          const point = { key: `land:${genGrid[cell]}:shore`, profile: group.owner?.profile?.id || 'shore', tx, ty, cx, cy, sourceCx: canonicalX, sourceCy: canonicalY, ...seat };
-          const c = CreatureSpawns.createOwned('shore-fauna', group.key, kind, seat.x, seat.y, id, {
-            shiny: fauna || ITEM_BY_ID[kind]?.kind === 'animal' ? faunaShiny(kind, id) : false,
-            _habitatSpawn: point,
-          });
-          EnemySpawns.surfaceActive(this, c);
-          if (caughtSet.has(id)) continue;
-          creatures.push(c); out.push(c);
-        }
-        diagnostics.push({ key: group.key, kind, requested, placed, shortfall: Math.max(0, requested - placed) });
-      }
-    }
-    if (habitatEntry) habitatEntry.shorePopulation = diagnostics;
-    return out;
+  // Compatibility entry points for the shared environmental allocator.
+  spawnShoreFauna(creatures, shore, pierCells, N, tx, ty, cellM, grid, faunaOpts, foeOpts, caughtSet, zoneCoverage, entry = null, authoredCreatures = []) {
+    return EnvironmentalPopulations.shore(this, creatures, shore, pierCells, N, tx, ty, cellM, grid, faunaOpts, foeOpts, caughtSet, zoneCoverage, entry, authoredCreatures);
   }
 
-  // Path populations belong to their variant rows, including their budget.
-  // Each species keeps an independent stream and stable canonical path-cell IDs.
   spawnPathVariantFauna(creatures, allPathCells, N, tx, ty, cellM, grid, opts, caughtSet, entry, authoredCreatures = []) {
-    const out = [], groups = new Map();
-    const ownerAt = entry?.streetIndex ? StreetVariants.variantOwner(entry.streetIndex, N, Infinity, true) : null;
-    for (const cell of allPathCells) {
-      const id = HabitatSpawns.resolve(entry, cell).variant;
-      const variant = StreetVariants.VARIANT_BY_ID[id];
-      if (!variant?.pathFauna) continue;
-      const perPath = Object.values(variant.pathFauna).some(row => row.perPath);
-      const owner = perPath && ownerAt?.(cell % N, Math.floor(cell / N));
-      const key = owner?.variant === id ? owner.key : `${id}|${tx},${ty}`;
-      if (!groups.has(key)) groups.set(key, { variant, key, cells: [] });
-      groups.get(key).cells.push(cell);
-    }
-    for (const { variant, key, cells: pathCells } of [...groups.values()].sort((a, b) => a.key.localeCompare(b.key))) {
-      pathCells.sort((a, b) => a - b);
-      for (const [baseKind, row] of Object.entries(variant.pathFauna)) {
-        const stream = row.perPath ? `${row.salt}|${key}` : row.salt;
-        const kinds = row.kinds && SpriteLayout[row.kinds];
-        const kind = kinds ? kinds[Math.floor(EnemySpawns.roll(`${stream}|kind`) * kinds.length)].id : baseKind;
-        const spClass = creatureSpawnClass(kind);
-        const requested = row.count
-          ? row.count[0] + Math.floor(EnemySpawns.roll(`${stream}|count`) * (row.count[1] - row.count[0] + 1))
-          : Math.min(row.max, Math.floor(pathCells.length * WorldGen.CELL_M / row.perPathM));
-        const rng = WorldGen.makeRng(fnv1a(`${stream}|${tx},${ty}`));
-        const remaining = pathCells.slice().sort((a, b) => a - b);
-        const reserved = new Set(opts.creatureCells || []);
-        for (const c of [...creatures, ...authoredCreatures]) {
-          const cx = Math.floor((c.x - tx * this.tileEdgeM) / cellM), cy = Math.floor((c.y - ty * this.tileEdgeM) / cellM);
-          if (cx >= 0 && cy >= 0 && cx < N && cy < N) reserved.add(cy * N + cx);
-        }
-        for (let n = 0; n < requested && remaining.length; n++) {
-          const canonical = remaining.splice(Math.floor(rng() * remaining.length), 1)[0];
-          const sourceCx = canonical % N, sourceCy = Math.floor(canonical / N);
-          const legacyId = WorldGen.cellId(`${kind}_path`, tx, ty, sourceCx, sourceCy);
-          const id = `${kind}_path_section_${fnv1a(key).toString(36)}_${n}`;
-          let cell = null;
-          // Search other path verges if the canonical one is occupied; never
-          // relocate onto unrelated beach or open ground away from a path.
-          const start = pathCells.indexOf(canonical);
-          for (let j = 0; j < pathCells.length && cell == null; j++) {
-            const path = pathCells[(start + j) % pathCells.length];
-            const px = path % N, py = Math.floor(path / N);
-            for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) {
-              const cx = px + dx, cy = py + dy, i = cy * N + cx;
-              if (cx < 0 || cy < 0 || cx >= N || cy >= N || grid[i] === WorldGen.T.PATH || reserved.has(i)) continue;
-              if (HabitatSpawns.resolve(entry, i).variant !== variant.id) continue;
-              if (row.perPath && ownerAt && ownerAt(cx, cy)?.key !== key) continue;
-              if (!WorldGen.isSpawnCell(grid, N, N, cx, cy, opts, spClass)) continue;
-              cell = i; break;
-            }
-          }
-          if (cell == null) continue;
-          reserved.add(cell);
-          if (caughtSet.has(id) || caughtSet.has(legacyId)) continue;
-          const cx = cell % N, cy = Math.floor(cell / N);
-          const point = tileCellCentre(this.tileEdgeM, tx, ty, cellM, cx, cy);
-          const c = CreatureSpawns.createOwned('path-fauna', key, kind, point.x, point.y, id, { _legacyDefeatIds: [legacyId] });
-          EnemySpawns.surfaceActive(this, c);
-          creatures.push(c); out.push(c);
-        }
-      }
-    }
-    return out;
+    return EnvironmentalPopulations.path(this, creatures, allPathCells, N, tx, ty, cellM, grid, opts, caughtSet, entry, authoredCreatures);
   }
 
   // The live-ground cull. spawnInTile draws every creature, trap and X mark
@@ -1462,9 +1302,9 @@ class SceneCreatures {
       }
     }
     for (const guard of entry.underground?.boneGuards || []) {
-      if (!caughtSet.has(guard.id) && !entry.creatures.some(c => c.id === guard.id)
-        && CreatureSpawns.gateAtEntry(this, entry, guard.x, guard.y, guard.kind, { occupied: null })) {
-        entry.creatures.push(EnemySpawns.markShared(CreatureSpawns.createOwned('bone-gallery', guard.id, guard.kind, guard.x, guard.y, guard.id,
+      if (!caughtSet.has(guard.id)
+        && CreatureSpawns.canPlaceAt(this, entry, guard.x, guard.y, guard.kind, { id: guard.id })) {
+        CreatureSpawns.register(entry, EnemySpawns.markShared(CreatureSpawns.createOwned('bone-gallery', guard.id, guard.kind, guard.x, guard.y, guard.id,
           { depth, shiny: guard.shiny, _hunting: true })));
       }
     }

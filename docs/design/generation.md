@@ -120,15 +120,27 @@ access or tile lifecycle mechanics.
   remain only for old-save alias replay. Crows retain Grass/Grove/declared-road
   placement; Ravens remain Residential. Cat, Deer and Butterfly physical terrain
   restrictions remain. Underground floors do not generate ambient rabbits.
+- `EnvironmentalPopulations.run` allocates finite and length-based requests for
+  street residents, shoreline fauna and path inhabitants through the shared
+  creature executor. Geometry adapters supply counts, identities and candidate
+  cells; the executor owns legal placement, reservations and capture filtering.
+  Street residents join the main habitat pass after density draws, preserving
+  the existing per-street/per-post budgets without spending ambient density.
+  They use ordinary AI, including the existing roaming ambush behavior, rather
+  than building-garrison wake and leash rules.
 - Shore fauna retain the declared shoreline-length rows, caps and 70% count
-  scaling. They are explicit length requests through shared creation, outside
-  both Nexus and road ownership; captures never invite a top-up. Their specialized
-  seat search can report a shortfall (`entry.shorePopulation`).
+  scaling. Their requests exclude Nexus and road ownership; captures never invite
+  a top-up. Placement shortfalls remain visible in `entry.shorePopulation`.
 - Path fauna use fixed/length rows owned by canonical path sections; Park Path
   chooses one butterfly type and 1–3 slots per section. Current map section keys
   include tile-boundary cuts: this does not claim to stitch an entire OSM path
   across tiles. Variety's three snakes are likewise section-owned requests,
   separate from ambient density, and remain inside the winning corridor.
+- Runtime births share `CreatureSpawns.canPlaceAt` for terrain, optional live
+  clearance and duplicate checks, then `register` for a single insertion by ID.
+  Registration never rolls or relocates. Interaction, rare-visit, summon, hive,
+  story and contract controllers retain their clocks, caps and saved progression;
+  atomic operations such as slime splitting validate the whole operation first.
 - New ambient identities include owner, species and cell. Saved filtering never
   frees a seat. The old quota and Nexus-block generators run only when translating
   older saved IDs, not to add live populations. Migration matches species, owner
@@ -797,8 +809,8 @@ spawn-rate roll.
   and Spider Path. All path weights are normalized together. Slime Trail picks one species per stable section
   from green, purple, fire and splitting slimes. Seeded posts every 70 m hold
   two of that species, with a midpoint post on short sections where placement
-  allows. These are finite path-authored enemies using the ordinary defeated
-  guard ledger, with no daily reset or extra shrine. Gold coin routes generate only
+  allows. These are finite requests through the shared environmental allocator,
+  retaining their saved defeat IDs, with no daily reset or extra shrine. Gold coin routes generate only
   as Golden Path, never on small roads. The retired Golden Road row and shrine
   handlers remain readable for saved records; its old weight remains only in
   underground substrate selection to preserve cave layouts. Golden Path uses the
@@ -838,7 +850,7 @@ spawn-rate roll.
   concealed caches are reserved before either web pass.
   Webs use the hazard spawn gate and reserve their cells; restricted land,
   occupancy, vehicle roads and road-junction safety can leave gaps. One
-  two-spider garrison per section seats on safe nearby ground. Both webs
+  two-spider finite request per section seats on safe nearby ground. Both webs
   and spiders yield to Nexus coverage. Web contact
   uses the usual six-second paralysis, once per entry, with flight immunity.
 - Nexus interiors suppress Small-road variants using exact coverage-boundary
@@ -1397,10 +1409,9 @@ Higher-priority placements and their access space take precedence in this order:
    buildings. The hive defeat ledger leaves the building as a regular wreck.
    Goblin Gang Street is a Small-road
    variant with compact sections up to 250 m. Per street key in a tile, six
-   paired clusters target 30 breakable barrels and 30 goblin grunts (five
-   per gang, in either difficulty). Fragments share that budget; blocked
-   seats reduce the count. Barrels use the attractor gate, and gang posts
-   and their guards retain the fast-enemy spawn gate.
+   stacks target 30 breakable barrels. Fragments share that decoration budget;
+   blocked seats reduce the count. Goblin runts use the regular density and
+   pack rows described above, independently of the barrel stacks.
    Berry Lane (a Small-road row) and Berry Trail (a path row) line both
    verges with bushes of every kind (`BERRY_LANE_BUSHES`: shrubs, berry and
    poisonberry bushes, and occasional brambles), one sample a
@@ -1411,8 +1422,8 @@ Higher-priority placements and their access space take precedence in this order:
    a hundred and fifty) through `goldenBushCrop` (items.js) — one salt, so
    the wild roll is a subset of the lane's; authored zone, hedge and thicket
    pieces never roll it. A goblin runt post every 40 m, a
-   third of them held (`BERRY_RUNT_CHANCE`), seats the `street_berry`
-   garrison one cell behind the bush row: one ambusher that hides in the
+   third of them held (`BERRY_RUNT_CHANCE`), requests one `street_berry`
+   resident behind the bush row: one ambusher that hides in the
    nearest bush.
    Berry Lane and Berry Trail share two bush rows on each side and one exact
    cell-seeded mix: 48% ordinary shrubs, 25% berry, 15% poisonberry, 10% bramble
@@ -1430,19 +1441,18 @@ Higher-priority placements and their access space take precedence in this order:
    Trade Row (a Small-road row, sections up to 250 m) lines both verges with
    generated wooden barrels the same way (`VERGE_ROWS.trade`,
    `TRADE_BARREL_GAP` 30% left empty, directly beside the road on the reward
-   gate) and seats a `street_trade` garrison post — a thief and two runts
-   (`Lairs.GROUPS`) — every 25 m (`TRADE_GRUNT_STEP_M`), two thirds of them
+   gate) and requests a thief and two runts through
+   `StreetVariants.CREATURE_REQUEST_RULES` every 25 m (`TRADE_GRUNT_STEP_M`), two thirds of them
    held (`TRADE_GRUNT_CHANCE`), a cell behind the barrel row on the fast-foe
    gate.
    Overgrown forest roads add extra encounters beside the usual plant guard,
    each a row of the variant's `extraEncounters` rolled from the stable street
    key: a sounder of two wild boars on every overgrown street, and a Giant
    Bear on one third of them. Each selected encounter attempts one finite post
-   per owning tile (its own `street_*` tier in `src/lairs.js`). Geometry
+   per owning tile (its own row in `StreetVariants.CREATURE_REQUEST_RULES`). Geometry
    fragments share the post; occupancy and the fast-enemy safety gate can
-   prevent placement. An extra encounter's garrison is its own ladder
-   (`StreetVariants.EXTRA_ENCOUNTER_TIERS`): the street's building family,
-   which themes the plant stretch, never re-themes the boars or the bear.
+   prevent placement. Each request declares its own species; building-family
+   selection never re-themes the boars or the bear.
 6. Ambient fill: ordinary plants, rocks and generic scattered content.
    Forest landcover scatters pine only; wooded park characters scatter maple
    only, from their `BiomeProfiles` rows. Both mark `treeSpeciesFixed` so

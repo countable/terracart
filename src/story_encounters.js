@@ -43,9 +43,10 @@ const StoryEncounters = (() => {
     if (other && Math.hypot(px - other.x, py - other.y) < cm * 0.8) return null;
     if (kind !== 'npc' && scene.inHomeRing?.(px, py)) return null;
     if (WorldGen.privateVetoAt?.(cell.tx, cell.ty, cell.ix, cell.iy)) return null;
-    if ((entry.creatures || []).some(c => !(scene.save.caught || []).includes(c.id) && Math.hypot(c.x - px, c.y - py) < cm * 0.8)) return null;
-    const cls = kind === 'npc' ? 'npc' : creatureSpawnClass(kind);
-    if (!WorldGen.isSpawnCell(entry.grid, n, n, cell.ix, cell.iy, entry._spawnOpts, cls)) return null;
+    if (kind === 'npc') {
+      if ((entry.creatures || []).some(c => !(scene.save.caught || []).includes(c.id) && Math.hypot(c.x - px, c.y - py) < cm * .8)) return null;
+      if (!WorldGen.isSpawnCell(entry.grid, n, n, cell.ix, cell.iy, entry._spawnOpts, 'npc')) return null;
+    } else if (!CreatureSpawns.canPlaceAt(scene, entry, px, py, kind, { clearance: cm * .8 })) return null;
     return { x: px, y: py, tx: cell.tx, ty: cell.ty };
   }
   function choose(scene, kind, other, anchor) {
@@ -80,7 +81,7 @@ const StoryEncounters = (() => {
       : { shiny: false, storyEncounter: KEY };
     const c = CreatureSpawns.createOwned('story-witness', q.key || KEY, kind, p.x, p.y, id, fields);
     if (kind === 'npc') NPC.restore?.(scene, c);
-    (entry.creatures || (entry.creatures = [])).push(c);
+    CreatureSpawns.register(entry, c);
     return c;
   }
   // Credit is the one kill predicate (Macros.slainByPlayer): her archer in

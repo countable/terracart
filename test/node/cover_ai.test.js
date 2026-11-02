@@ -57,7 +57,7 @@
       lairX: 0, lairY: 0, lairR: 0, aggroCells: 6 };
     withCover(0, () => assert.eq(enemyGuardState(s, guard, { x: 28, y: 0 }, true), 'hold', 'a hedge ambusher ignores its ring'));
     withCover(0, () => assert.eq(enemyGuardState(s, guard, { x: 14, y: 0 }, true), 'hunt', 'but not a body within hearing'));
-    assert.eq(Lairs.GROUPS.street_hedgerow.members[0].ambush, true, 'the hedged lane fields ambushers');
+    assert.eq(StreetVariants.CREATURE_REQUEST_RULES.street_hedgerow[0].ambush, true, 'the hedged lane fields ambushers');
   });
   test('range rejection avoids a visibility ray', () => {
     const ray = Visibility.coverBetween;

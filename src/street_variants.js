@@ -253,7 +253,7 @@
       flash: 'A hedged lane, still kept.' },
     { id: 'overgrown', cacheTheme: 'overgrown', materialLooks: { tree: 'conifer_tree' }, terrain: 'FOREST', terrainPuddles: true, treeSpecies: 'pine', affinities: ['woodland'], size: 'minor', share: 0.04, rung: 'common',
       // EXTRA ENCOUNTERS beside the plant guard, each its own finite post
-      // (lairs.js STREET_TIER_GUARDS / KIND_ORDER rows), rolled off the
+      // (CREATURE_REQUEST_RULES below), rolled off the
       // street key: a sounder of wild boars on every overgrown street, a
       // giant bear on a third of them.
       extraEncounters: [{ tier: 'street_wild_boar', chance: 1 }, { tier: 'street_forest_bear', chance: 1 / 3 }],
@@ -2621,6 +2621,30 @@
     throw new Error('Road verge ray did not reach its bounded cell row');
   }
 
+  // Finite street populations share the main creature allocator. Geometry
+  // supplies request anchors; this table owns counts and behaviour, never a
+  // second building-garrison draw or a lazy lair wake.
+  const CREATURE_REQUEST_RULES = Object.freeze({
+    street_hedgerow: [{ kind: 'goblin_runt', count: 2, ambush: true }],
+    street_overgrown: [{ kind: 'plant', count: 1 }],
+    street_orchard: [{ kind: 'farmer_goblin', count: 1 }],
+    street_toadstool: [{ kind: 'spider', count: 1 }],
+    street_wild_boar: [{ kind: 'boar', count: 2 }],
+    street_forest_bear: [{ kind: 'giant_bear', count: 1 }],
+    street_berry: [{ kind: 'goblin_runt', count: 1, ambush: true }],
+    street_trade: [{ kind: 'thief', count: 1 }, { kind: 'goblin_runt', count: 2 }],
+    street_spider_path: [{ kind: 'spider', count: 2 }],
+    burned: [{ kind: 'fire_slime', count: 1 }],
+    barricade: [{ kind: 'spear_goblin', count: 1 }, { kind: 'archer_goblin', count: 1, hardOnly: true }],
+    ...Object.fromEntries(VARIANT_BY_ID.slime_trail.enemyKinds.map(kind =>
+      [`street_slime_trail_${kind}`, [{ kind, count: VARIANT_BY_ID.slime_trail.guardsPerPost }]])),
+  });
+  function creatureRequestMembers(request, mode = root.Difficulty?.mode()) {
+    return (CREATURE_REQUEST_RULES[request.rule] || []).flatMap(row =>
+      row.hardOnly && mode !== 'hard' ? [] : Array.from({ length: row.count }, () => ({ kind: row.kind,
+        ...(row.ambush ? { ambush: true } : {}) })));
+  }
+
   // ── Dressing (the end of rasterizeTileSteps; laid by spawnInTile) ─────────
   // ctx: { index, tx, ty, N, tileEdgeM, grid (the GENERATED grid), spawnOpts
   //        (roadMask + occupied + pois [+ roadClass] — occupied GROWS: each
@@ -2698,7 +2722,7 @@
   // never in the unsliced spawn pass (CLAUDE.md, the worst-block rule).
   function* dressSteps(ctx) {
     const WG = root.WorldGen, S = root.Streets;
-    const res = { objects: [], wildplants: [], treasures: [], coinSeats: new Map(), traps: [], webs: [], vents: [], lairs: [], guards: [], slowCells: new Map(), marks: null };
+    const res = { objects: [], wildplants: [], treasures: [], coinSeats: new Map(), traps: [], webs: [], vents: [], lairs: [], creatureRequests: [], guards: [], slowCells: new Map(), marks: null };
     const idx = ctx && ctx.index;
     if (!idx || !WG || !S) return res;
     const { tx, ty, N, grid, spawnOpts } = ctx;
@@ -2930,7 +2954,7 @@
       }
       // One finite encounter per themed street and owning tile, independent
       // of how many geometry fragments represent the street. Scenery streams
-      // keep their draws; guards share the existing lair persistence lane.
+      // keep their draws; members join the main creature population pass.
       const encounters = ['hedgerow', 'overgrown', 'orchard', 'toadstool'].includes(v) ? [`street_${v}`] : [];
       // An extra encounter's roll belongs to the street identity, not its
       // tile fragments or the scenery RNG. Each has its own post and leaves
@@ -2955,7 +2979,7 @@
               ? (foeOk(candidate.ix, candidate.iy) ? candidate : null) : foeSeat(candidate.ix, candidate.iy));
             if (!c) continue;
             claim(c.ix, c.iy); habitatSeats.add(sid);
-            res.lairs.push({ tier, sid, _street: v,
+            res.creatureRequests.push({ rule: tier, sid, _street: v,
               lx: (c.ix + 0.5) * frameCellM, ly: (c.iy + 0.5) * frameCellM });
             break;
           }
@@ -3021,7 +3045,7 @@
           const sid = WG.cellId('berry_runt', tx, ty, c.ix, c.iy);
           if (habitatSeats.has(sid)) return;
           claim(c.ix, c.iy); habitatSeats.add(sid);
-          res.lairs.push({ tier: 'street_berry', sid, _street: v,
+          res.creatureRequests.push({ rule: 'street_berry', sid, _street: v,
             lx: (c.ix + 0.5) * frameCellM, ly: (c.iy + 0.5) * frameCellM });
         });
       }
@@ -3042,7 +3066,7 @@
           const sid = WG.cellId('trade_grunt', tx, ty, c.ix, c.iy);
           if (habitatSeats.has(sid)) return;
           claim(c.ix, c.iy); habitatSeats.add(sid);
-          res.lairs.push({ tier: 'street_trade', sid, _street: v,
+          res.creatureRequests.push({ rule: 'street_trade', sid, _street: v,
             lx: (c.ix + 0.5) * frameCellM, ly: (c.iy + 0.5) * frameCellM });
         });
       }
@@ -3057,7 +3081,7 @@
           const sid = WG.cellId(`slime_trail_${kind}`, tx, ty, c.ix, c.iy);
           if (habitatSeats.has(sid)) return;
           claim(c.ix, c.iy); habitatSeats.add(sid);
-          res.lairs.push({ tier: `street_slime_trail_${kind}`, sid, _street: v,
+          res.creatureRequests.push({ rule: `street_slime_trail_${kind}`, sid, _street: v,
             lx: (c.ix + 0.5) * frameCellM, ly: (c.iy + 0.5) * frameCellM });
         });
       }
@@ -3072,7 +3096,7 @@
             const seat = foeSeat(c.ix, c.iy);
             if (!seat) continue;
             claim(seat.ix, seat.iy); habitatSeats.add(sid);
-            res.lairs.push({ tier: 'street_spider_path', sid, _street: v,
+            res.creatureRequests.push({ rule: 'street_spider_path', sid, _street: v,
               lx: (seat.ix + .5) * frameCellM, ly: (seat.iy + .5) * frameCellM });
             break;
           }
@@ -3137,7 +3161,7 @@
             }
             if (!c) return;
             burnedSeen.add(sk);
-            res.lairs.push({ tier: 'burned', sid: sk, _street: v,
+            res.creatureRequests.push({ rule: 'burned', sid: sk, _street: v,
               lx: (c.ix + 0.5) * frameCellM, ly: (c.iy + 0.5) * frameCellM });
           });
         }
@@ -3330,7 +3354,7 @@
         // barricade — or there is none.
         const g = foeSeat(c.ix, c.iy);
         if (g) {
-          res.lairs.push({ tier: 'barricade', _street: grp.v, sid: WG.cellId('barricade', tx, ty, c.ix, c.iy),
+          res.creatureRequests.push({ rule: 'barricade', _street: grp.v, sid: WG.cellId('barricade', tx, ty, c.ix, c.iy),
             lx: (g.ix + 0.5) * frameCellM, ly: (g.iy + 0.5) * frameCellM });
         }
         break;
@@ -3902,7 +3926,7 @@
   function isSlowKind(kind) { return SLOW_KINDS.has(kind); }
 
   root.StreetVariants = {
-    APPROVED_DECORATIONS, approvedDecorationRows, VERGE_ROAD_OVERLAP_MAX, vergeCellAt, TOADSTOOL_COVER_MAX, SNARE_STRAYS, SNARE_STRAY_GAP_CELLS, BARRICADE_STRAY_MAX,
+    CREATURE_REQUEST_RULES, creatureRequestMembers, APPROVED_DECORATIONS, approvedDecorationRows, VERGE_ROAD_OVERLAP_MAX, vergeCellAt, TOADSTOOL_COVER_MAX, SNARE_STRAYS, SNARE_STRAY_GAP_CELLS, BARRICADE_STRAY_MAX,
     SUPPRESSED_STYLE, pavementFor, pavementVariantFor, VERGE_ROWS, PARISH_TILES, NAME_NUDGE, NUDGED_SHARE_MAX, ROCK_STREET_SHARE, MINOR_VARIANT_SHARE, PLAIN_HERB_P, PLAIN_BUSH_P, PLAIN_BUSHES, VERGE_MAX_CELLS,
     BANDIT_STRETCH_UNITS, BANDIT_STRETCH_SHARE, BANDIT_STAMP_OUT_CELLS,
     stretchOf, isBanditStretch, stampBanditStretchesSteps,

@@ -121,8 +121,15 @@
       assert.truthy(enemy); assert.falsy(s.inHomeRing(enemy.x, enemy.y));
       StoryEncounters.tick(s, 3000); assert.eq(e.creatures.length, 2);
       const replacement = makeEntry(); cache.set(WorldGen.tileKey(0,0), replacement);
+      const enemyCell = Math.floor(enemy.y / 7) * N + Math.floor(enemy.x / 7);
+      replacement._spawnOpts.occupied.add(enemyCell);
+      replacement.objects = [{ kind: 'chest', id: 'new-passable-prop', x: enemy.x, y: enemy.y }];
       s.save = JSON.parse(JSON.stringify(s.save));
       StoryEncounters.tick(s, 4000); assert.eq(replacement.creatures.length, 2);
+      const restored = replacement.creatures.find(c => c.id === enemy.id);
+      assert.eq(restored.x, enemy.x, 'passable props do not relocate the saved story enemy');
+      assert.eq(restored.y, enemy.y);
+      StoryEncounters.tick(s, 4500); assert.eq(replacement.creatures.length, 2, 'restoration stays idempotent');
       s.save.caught.push(enemy.id);
       const afterKill = makeEntry(); cache.set(WorldGen.tileKey(0,0), afterKill);
       StoryEncounters.tick(s, 5000);

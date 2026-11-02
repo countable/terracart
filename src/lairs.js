@@ -130,14 +130,9 @@
   // They are NOT buildings: no footprint, no claim key, no part of the tile
   // budget (tileThin reads building shapes only). Street tiers are strings so
   // no terrain code can collide with them.
-  // A BARRICADE (StreetVariants.dress, one per barricade on a barricade
-  // road) and a BURNED ROW's stretch (one per (street key, stretch square) —
-  // StreetVariants.BANDIT_STRETCH_UNITS) are the same reason again: one guard
-  // each, always held, every mode. (There is no 'wagon' tier: a bus stop is on
-  // the kerb by definition.)
-  const STREET_TIER_GUARDS = { cafe: 1, barricade: 1, burned: 1, street_hedgerow: 2, street_overgrown: 1, street_wild_boar: 2, street_forest_bear: 1, street_orchard: 1, street_toadstool: 1, street_spider_path: 2, street_berry: 1, street_trade: 3 };
-  const SLIME_TRAIL = root.StreetVariants.VARIANT_BY_ID.slime_trail;
-  for (const kind of SLIME_TRAIL.enemyKinds) STREET_TIER_GUARDS[`street_slime_trail_${kind}`] = SLIME_TRAIL.guardsPerPost;
+  // Café hoards retain a guard tied to their reward; ordinary street
+  // residents are finite requests in the main population pass.
+  const STREET_TIER_GUARDS = { cafe: 1 };
   Object.assign(TIER_GUARDS, STREET_TIER_GUARDS);
   // ── A TAR YARD — the same reason again (src/zones.js): the fire slimes at
   // a fuel station's pumps, seated about its chest. Fixed and always held
@@ -232,25 +227,8 @@
     // elite roll and every café would flood the map with gear. (The old
     // 'close' tier's ladder; there is no 'wagon' tier — the safety pass.)
     cafe: ['skeleton_soldier', 'orc'],
-    street_berry: ['goblin_runt'],                 // a Berry Lane's bush runt (GROUPS.street_berry)
-    street_trade: ['thief', 'goblin_runt'],        // a Trade Row's thief and pair of grunts (GROUPS.street_trade)
     // A tar yard: fire slimes (the enemy_roster.js fire_slime row).
     tar: ['fire_slime'],
-    // A barricade: the goblin who holds it.
-    barricade: ['spear_goblin', 'archer_goblin'],
-    street_hedgerow: ['slime'],
-    street_overgrown: ['plant'],
-    // An overgrown street's extra posts (StreetVariants extraEncounters): a
-    // sounder of wild boars on every one, a giant bear on a third.
-    street_wild_boar: ['boar'],
-    street_forest_bear: ['giant_bear'],
-    street_orchard: ['farmer_goblin'],
-    street_toadstool: ['spider'],
-    street_spider_path: ['spider'],
-    // A burned row's stretch: one fire slime in the tar (the fire slimes are
-    // zone-seated, never a tile's wild spawn, so the burned row seats its own
-    // here rather than relocating any).
-    burned: ['fire_slime'],
     // A gate: the surface pest or the goblin who holds the way — half each,
     // off the gate's own strength.
     gate: ['slime', 'goblin'],
@@ -260,7 +238,6 @@
     habitat_marsh: ['plant', 'slime'],
     habitat_stronghold: ['orc', 'orc_shaman'],
   };
-  for (const kind of SLIME_TRAIL.enemyKinds) KIND_ORDER[`street_slime_trail_${kind}`] = [kind];
   const KIND_LADDER = {};
   for (const [tier, kinds] of Object.entries(KIND_ORDER)) {
     KIND_LADDER[tier] = kinds.map((kind, i) => ({ kind, minT: i / kinds.length }));
@@ -318,28 +295,6 @@
   // Ghosts are never guards (owner, Oct 2026): they haunt crypts and
   // memorials, not ruins — no row seats a ghost.
   const GROUPS = {
-    // The hedged lane's AMBUSH: runts that slip into the clipped hedge beside
-    // their seat (creature_ai.js lurkSeat — `ambush`), hidden until you are
-    // next to them, and spring out within hearing.
-    street_hedgerow: { label: 'Hedge ambush', tiers: ['street_hedgerow'], modeCap: false,
-      story: 'Two goblin runts crouch inside the clipped hedges. The hedge shivers where one waits.',
-      members: [{ kind: 'goblin_runt', n: 2, place: 'ring', ambush: true }] },
-    // A Berry Lane's bush runt: one, hiding behind a bush beside its seat
-    // (lurkSeat — `ambush`), a post every so often along the lane.
-    street_berry: { label: 'Bush runt', tiers: ['street_berry'], modeCap: false,
-      story: 'A goblin runt crouches behind a berry bush. The bush shivers where it waits.',
-      members: [{ kind: 'goblin_runt', n: 1, place: 'ring', ambush: true }] },
-    street_spider_path: { label: 'Spider Path', tiers: ['street_spider_path'], modeCap: false,
-      story: 'Two spiders lurk beside a path strewn with lasting webs.',
-      members: [{ kind: 'spider', n: 2, place: 'ring' }] },
-    // A Trade Row's post: a THIEF among the goods (owner, Oct 2026 — the
-    // market street is where purses are cut; its hitAndRun snatch and flight
-    // are the roster row's) and the pair of grunts picking through the
-    // barrels, at every held post along the row. The thief leads so what
-    // matters most wakes first.
-    street_trade: { label: 'Trade Row thief and grunts', tiers: ['street_trade'], modeCap: false,
-      story: 'A thief waits among the barrels of goods beside the road, two weak goblin grunts picking through them.',
-      members: [{ kind: 'thief', n: 1, place: 'ring' }, { kind: 'goblin_runt', n: 2, place: 'ring' }] },
     // ── A wrecked house: small ──
     thieves: { label: 'House thieves', tiers: [9], minT: 0, chance: .15,
       story: 'One or two thieves hide around the wreck, steal a purse and flee.',
@@ -562,24 +517,12 @@
     12: { rate: 0.95,  thinned: false },   // T.BUILDING_LARGE — a castle
     cafe:  { rate: 1, thinned: false },    // a café hoard
     tar:   { rate: 1, thinned: false },    // a tar yard's pumps
-    barricade: { rate: 1, thinned: false },  // a barricade road's barricade
-    burned: { rate: 1, thinned: false },   // a burned row's stretch
-    street_hedgerow: { rate: 1, thinned: false },
-    street_overgrown: { rate: 1, thinned: false },
-    street_wild_boar: { rate: 1, thinned: false },
-    street_forest_bear: { rate: 1, thinned: false },
-    street_orchard: { rate: 1, thinned: false },
-    street_toadstool: { rate: 1, thinned: false },
-    street_spider_path: { rate: 1, thinned: false },
-    street_berry: { rate: 1, thinned: false },
-    street_trade: { rate: 1, thinned: false },
     gate:   { rate: 1, thinned: false },   // a gate's posts — held every day
     habitat_marsh: { rate: 1, thinned: false },      // a habitat site — always held
     habitat_stronghold: { rate: 1, thinned: false },
     starter_thief: { rate: 1, thinned: false },
   };
 
-  for (const kind of SLIME_TRAIL.enemyKinds) OCCUPANCY[`street_slime_trail_${kind}`] = { rate: 1, thinned: false };
 
   // Focus adapters expose their authored group references and existing
   // frequency/lifecycle data to the common spawn registry. Strength/count,
@@ -1137,8 +1080,7 @@
     const facing = rng() * TAU;
     const plan = group ? expandGroup(group, cand.tier, rng) : null;
     const baseCount = plan ? plan.length : countFor(cap, rng);
-    // Hard barricades introduce ranged support, capped at a two-member team.
-    const nWorld = cand.tier === 'barricade' && root.Difficulty?.mode() === 'hard' ? 2 : baseCount;
+    const nWorld = baseCount;
     // THE MODE'S GROUP CAP (Difficulty lairGuardMax — 2 on easy, none on
     // hard; owner, Sep 2026). Applied to the ROLLED count, after every world
     // draw above (occupancy, strength, count), so the world's garrison is the
@@ -1218,7 +1160,6 @@
       const spec = plan ? plan[i] : Object.assign({ idx: i }, plainSpec);
       const legacyKind = kindFor(cand.tier, t, rng); // preserve the seat RNG stream
       const kind = plan ? spec.kind
-        : cand.tier === 'barricade' ? (i === 0 ? 'spear_goblin' : 'archer_goblin')
         : family ? family[i % Math.min(family.length, 1 + Math.floor(t * family.length))] : legacyKind;
       if (!kind) continue;                    // no ladder for this tier
       // Every member uses its actual roster profile; street ownership does

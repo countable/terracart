@@ -99,15 +99,15 @@
     // Restoring the same seat never finds a substitute or rolls again.
     const overrides = { waterOnly: !!row.water };
     // Passable props may share this seat; a living creature still may not.
-    if (creatures.some(c => blocksSeat(scene, c) && Math.hypot(c.x - seat.x, c.y - seat.y) < target.cellM)) return;
-    if (!root.CreatureSpawns.gateAtEntry(scene, target.entry, seat.x, seat.y, seat.kind, overrides)) return;
+    if (!root.CreatureSpawns.canPlaceAt(scene, target.entry, seat.x, seat.y, seat.kind,
+      { id: seat.id, clearance: target.cellM, blocks: c => blocksSeat(scene, c), overrides })) return;
     const extra = { _rareEncounter: { key: at.key, visit: area.visit, suffix: seat.suffix || '' },
       _sharedId: false, depth: at.depth, homeX: seat.x, homeY: seat.y, ...(seat.extra || {}) };
     if (root.EnemyRoster.get(seat.kind)?.rareBehaviour?.hiddenUntilAdjacent) extra.hidden = true;
     if (!at.depth) extra._surfaceSpawn = { x: seat.x, y: seat.y, tx: target.tx, ty: target.ty };
     else extra._cave = true;
     const c = root.CreatureSpawns.createOwned('rare-encounters', at.key, seat.kind, seat.x, seat.y, seat.id, extra);
-    if (c) { root.EnemySpawns.surfaceActive(scene, c); creatures.push(c); (scene._rareBodies ||= new Map()).set(c, target.entry); }
+    if (root.CreatureSpawns.register(target.entry, c)) { root.EnemySpawns.surfaceActive(scene, c); (scene._rareBodies ||= new Map()).set(c, target.entry); }
   }
   function chooseSeat(scene, at, row, id, player) {
     const candidates = [];
@@ -120,8 +120,8 @@
     for (const point of candidates) {
       const target = locate(scene, point.x, point.y);
       if (!target || target.key !== at.key || !matches(row, target)) continue;
-      if ((target.entry.creatures || []).some(c => blocksSeat(scene, c) && Math.hypot(c.x - point.x, c.y - point.y) < at.cellM)) continue;
-      if (!root.CreatureSpawns.gateAtEntry(scene, target.entry, point.x, point.y, row.kind, { waterOnly: !!row.water })) continue;
+      if (!root.CreatureSpawns.canPlaceAt(scene, target.entry, point.x, point.y, row.kind,
+        { id, clearance: at.cellM, blocks: c => blocksSeat(scene, c), overrides: { waterOnly: !!row.water } })) continue;
       const probe = { kind: row.kind, id, _rareEncounter: { key: at.key, visit: data(scene).areas[at.key].visit }, _surfaceSpawn: { x: point.x, y: point.y } };
       if (!at.depth && !root.EnemySpawns.homeEligible(scene, probe)) continue;
       return { id, kind: row.kind, x: point.x, y: point.y, behaviour: {} };

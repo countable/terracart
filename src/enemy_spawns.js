@@ -181,21 +181,29 @@
     const distantSignature = (declaration?.signature || root.RareEncounters?.isEncounter(creature)) && !row?.retired && distance >= lastBand.minDistance;
     return distantSignature ? distance >= (row?.surface?.minDistance || 0) : homeAllows(creature.kind, distance);
   }
+  // Feature populations retain their original Home policy independently of
+  // whether their AI guards a building or roams from its encounter anchor.
+  function anchoredHome(creature) {
+    if (creature?._featureHome) return creature._featureHome;
+    return !creature?._surfaceSpawn && creature?.lair
+      ? { x: creature.lairX, y: creature.lairY, quiet: true, castle: creature.castle } : null;
+  }
   function homeEligible(scene, creature) {
     const at = creature?._surfaceSpawn;
-    const guard = !at && creature?.lair ? creature : null;
-    if (!at && !guard) return true;
-    if (guard?.castle && scene?.save && root.Houses?.citadelBattleActive(scene.save, guard.castle)) return true;
+    const feature = anchoredHome(creature);
+    if (!at && !feature) return true;
+    if (feature?.castle && scene?.save && root.Houses?.citadelBattleActive(scene.save, feature.castle)) return true;
     const anchor = homeAnchor(scene);
-    if (guard) {
+    if (feature?.quiet) {
       const quietM = root.Difficulty?.get?.().quietHomeM || 0;
-      const home = quietM > 0 && guard.kind !== 'slime' ? scene?.homeWorldPos?.() : null;
-      if (home && Number.isFinite(home.x) && Number.isFinite(guard.lairX)
-          && Math.hypot(guard.lairX - home.x, guard.lairY - home.y) < quietM) return false;
+      const home = quietM > 0 && creature.kind !== 'slime' ? scene?.homeWorldPos?.() : null;
+      if (home && Number.isFinite(home.x) && Number.isFinite(feature.x)
+          && Math.hypot(feature.x - home.x, feature.y - home.y) < quietM) return false;
     }
-    const x = at ? at.x : guard.lairX, y = at ? at.y : guard.lairY;
+    const { x, y } = feature || at;
     return !anchor || !Number.isFinite(x) || !Number.isFinite(y)
-      || creatureHomeAllows(creature, Math.hypot(x - anchor.x, y - anchor.y));
+      || (feature ? homeAllows(creature.kind, Math.hypot(x - anchor.x, y - anchor.y))
+        : creatureHomeAllows(creature, Math.hypot(x - anchor.x, y - anchor.y)));
   }
   // Is this SURFACE FOE here for this player? One lane, several reasons, all
   // per-player overlays that HIDE a generated foe and never re-roll it: the
@@ -214,7 +222,7 @@
   // seats. It spends no replacement budget and never moves them elsewhere.
   function busyRoadAllows(scene, creature) {
     const at = creature?._habitatSpawn || creature?._surfaceSpawn;
-    if (!at || creature.lair || creature.summoned
+    if (!at || creature.lair || creature._featureHome || creature.summoned
         || root.Combat?.isTame(creature)) return true;
     if (!root.Lighting || root.Lighting.daylight(scene, Date.now()) >= SURFACE_NIGHT_DAYLIGHT) return true;
     const WG = root.WorldGen, entry = WG.tileCache.get(WG.tileKey(at.tx, at.ty));
@@ -268,26 +276,12 @@
   }
   function surfaceEnemyActive(scene, creature) {
     const at = creature?._surfaceSpawn;
-    const guard = !at && creature?.lair ? creature : null;
-    if (!at && !guard) return true;
+    const feature = anchoredHome(creature);
+    if (!at && !feature) return true;
     let active = true;
     const anchor = homeAnchor(scene);
-    if (guard) {
-      // Fight is an explicit encounter, not an ambient threat near Home.
-      // Hiding its generated guards leaves an active battle impossible to
-      // complete. Only this castle's live battle bypasses the Home filters.
-      if (guard.castle && scene?.save && root.Houses?.citadelBattleActive(scene.save, guard.castle)) {
-        creature._surfaceInactive = false;
-        return true;
-      }
-      const quietM = root.Difficulty?.get?.().quietHomeM || 0;
-      const home = quietM > 0 && guard.kind !== 'slime' ? scene?.homeWorldPos?.() : null;
-      if (home && Number.isFinite(home.x) && Number.isFinite(guard.lairX)) {
-        active = Math.hypot(guard.lairX - home.x, guard.lairY - home.y) >= quietM;
-      }
-      if (active && anchor && Number.isFinite(guard.lairX) && Number.isFinite(guard.lairY)) {
-        active = homeAllows(guard.kind, Math.hypot(guard.lairX - anchor.x, guard.lairY - anchor.y));
-      }
+    if (feature) {
+      active = homeEligible(scene, creature);
       creature._surfaceInactive = !active;
       return active;
     }

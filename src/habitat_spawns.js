@@ -836,6 +836,50 @@
       });
       out.push(...records);
     }
+    // Street geometry supplies finite requests, while the same population
+    // lifecycle owns their allocation, reservations and saved identities.
+    // They follow ambient draws so moving them here does not spend that budget.
+    if (opts.category !== 'fauna' && (!opts.ownerType || opts.ownerType === 'road')) {
+      const roadOwner = root.StreetVariants.placementOwner(entry, N);
+      for (const request of entry.streetCreatureRequests || entry.streetDress?.creatureRequests || []) {
+        const members = root.StreetVariants.creatureRequestMembers(request);
+        if (!members.length) continue;
+        const cx = Math.floor(request.lx / cellM), cy = Math.floor(request.ly / cellM);
+        const ownerKey = 'Roads and paths:' + request._street;
+        const regionKey = habitats[cy * N + cx]?.key || ownerKey;
+        let region = regions.get(regionKey);
+        if (!region) regions.set(regionKey, region = { key: regionKey, profile: request._street,
+          owner: ownerKey, rawCells: 0, fauna: counts(), enemies: counts(), reserve: counts() });
+        const candidates = [];
+        for (let y = Math.max(0, cy - 6); y <= Math.min(N - 1, cy + 6); y++)
+          for (let x = Math.max(0, cx - 6); x <= Math.min(N - 1, cx + 6); x++) {
+            const i = y * N + x;
+            if (roadOwner ? roadOwner(x, y) !== request._street : owners[i]?.key !== ownerKey) continue;
+            if (root.WorldGen.variantOwnerAt(entry, i) === 'zone') continue;
+            candidates.push(i);
+          }
+        candidates.sort((a, b) => {
+          const distance = i => (i % N - cx) ** 2 + (Math.floor(i / N) - cy) ** 2;
+          return distance(a) - distance(b) || unit(request.sid + ':' + a) - unit(request.sid + ':' + b);
+        });
+        const result = root.EnvironmentalPopulations.run(scene,
+          { entry, creatures: out, N, tx, ty, cellM, grid, opts: spawnOpts, reserved, caughtSet: new Set() }, {
+            source: 'street-residents', owner: request.sid, count: members.length, surfaceActive: false,
+            member: n => ({ ...members[n], id: `lair_${request.sid}_${n}` }),
+            candidates: () => candidates,
+            extra: (member, seat) => ({ _sharedId: true, _street: request._street, _streetRequest: request.rule,
+              _featureHome: { x: tx * tileM + request.lx, y: ty * tileM + request.ly, quiet: true },
+              ...(member.ambush ? { ambush: true } : {}),
+              _habitatSpawn: { key: regionKey, profile: request._street, tx, ty, ...seat },
+              _surfaceSpawn: { tx, ty, ...seat },
+            }),
+            onPlaced: (_, __, seat) => { occupied.add(seat.cell); },
+          });
+        region.enemies.requested += result.requested;
+        region.enemies.placed += result.placed;
+        yield 'street resident population';
+      }
+    }
     // The older species-first stream is still replayed by the scene to retain
     // unrelated treasure RNG. Attach each historical cell ID once, without
     // deriving another population or consulting saved captures.

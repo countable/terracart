@@ -11,7 +11,7 @@
     const index = { extent, lines: [rec], vehicleLines: [], hoardPois: [] };
     const result = StreetVariants.dress({ index, tx: 0, ty: 0, N, tileEdgeM: edge, grid, spawnOpts });
     result.fixture = { grid, cellsPerEdge:N, tileEdgeM:edge, _spawnOpts:spawnOpts,
-      streetLairs:result.lairs, buildingShapes:[], creatures:[] };
+      streetCreatureRequests:result.creatureRequests, streetIndex:index,streetArea:StreetVariants.area(index,N), buildingShapes:[], creatures:[] };
     return result;
   }
   test('Spider Path: deterministic webs and one two-spider garrison preserve path provenance', () => {
@@ -20,17 +20,18 @@
     assert.eq(JSON.stringify(a.webs), JSON.stringify(b.webs));
     assert.eq(new Set(a.webs.map(w => w.id)).size, a.webs.length);
     assert.truthy(a.webs.every(w => w.permanent && w._street === 'spider_path' && w.expiresAt == null));
-    assert.eq(a.lairs.length, 1); assert.eq(a.lairs[0]._street, 'spider_path');
-    assert.eq(Lairs.GROUPS.street_spider_path.members[0].kind, 'spider');
-    assert.eq(Lairs.GROUPS.street_spider_path.members[0].n, 2);
+    assert.eq(a.creatureRequests.length, 1); assert.eq(a.creatureRequests[0]._street, 'spider_path');
+    assert.eq(StreetVariants.CREATURE_REQUEST_RULES.street_spider_path[0].kind, 'spider');
+    assert.eq(StreetVariants.CREATURE_REQUEST_RULES.street_spider_path[0].count, 2);
   });
   test('Spider Path: Passing and Excluded reject hazards while Core paths interrupt old kerb buffers', () => {
     const spawn = result => {
       const entry = result.fixture;
-      if (!entry.streetLairs.length) return [];
-      const post = entry.streetLairs[0];
-      Lairs.stepResidency([{entry,tx:0,ty:0}], {cellM:7,tileEdgeM:entry.tileEdgeM,
-        playerM:{x:post.lx,y:post.ly},homeM:{x:-5000,y:0},caughtSet:new Set(),buildings:false});
+      if (!entry.streetCreatureRequests.length) return [];
+      const oldRoll=SpawnPipeline.roll;SpawnPipeline.roll=()=>false;
+      try { entry.creatures=WorldGen.runSteps(HabitatSpawns.populationSteps({tileEdgeM:entry.tileEdgeM,save:{}},entry,0,0,
+        {category:'enemy',skipLegacy:true,spawnOpts:entry._spawnOpts})); }
+      finally {SpawnPipeline.roll=oldRoll;}
       return entry.creatures;
     };
     const privateGround = dressing(WorldGen.SPAWN_WHY.PRIVATE);

@@ -560,7 +560,7 @@
       for (const g of wake(tier, ['plant'])) assert.truthy(Lairs.KIND_ORDER[tier].includes(g.kind), `tier ${tier}: fell back to ${g.kind}`);
     }
     // The road variant's own stretch keeps its plants.
-    assert.eq(Lairs.KIND_ORDER.street_overgrown.join(), 'plant', 'an overgrown street is held by plants');
+    assert.eq(StreetVariants.CREATURE_REQUEST_RULES.street_overgrown[0].kind, 'plant', 'ordinary street residents retain their rooted plants');
   });
 
   test('lairs: an excluded ring keeps its guards on the remaining legal seats', () => {

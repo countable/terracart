@@ -131,7 +131,7 @@ class SceneVenues {
     const homePos = this.homeWorldPos();
     const packClass = b.kinds.some((k) => creatureSpawnClass(k) === 'fastEnemy') ? 'fastEnemy' : 'enemy';
     const dest = this.findWalkableDestination(Macros.BOUNTY_DIST_CELLS, {
-      seed: b.id,
+      seed: b.id, kind: b.kinds.find(k => creatureSpawnClass(k) === packClass) || b.kinds[0],
       // Alive and hostile: the pack's seat class (a fast pack keeps off the
       // kerb too — creatureSpawnClass). Same side of any major road is
       // walkableDestination's own rule.
@@ -142,7 +142,7 @@ class SceneVenues {
     if (!dest) return 0;
     const { entry, tx, ty, n: N } = dest;
     const edge = this.tileEdgeM, cm = edge / N;
-    const base = entry._spawnOpts;
+    const base = CreatureSpawns.passableOpts(this, entry, entry._spawnOpts, null, tx, ty);
     const used = new Set();
     // The pack's other seats: the shared rule at each foe's own class, never
     // stacked, and never on this player's live private-ground veto (a
@@ -167,7 +167,7 @@ class SceneVenues {
         return WorldGen.makeCreature(member.kind, seat.x, seat.y, id, { shiny: false, bounty: b.id });
       },
       onPlaced(foe) {
-        entry.creatures.push(foe);
+        CreatureSpawns.register(entry, foe);
         foes.push({ id: foe.id, tx, ty, kind: foe.kind, x: foe.x, y: foe.y });
       },
     }));
@@ -238,8 +238,8 @@ class SceneVenues {
       if (f.dead || caught.has(f.id)) continue;
       const entry = WorldGen.tileCache.get(WorldGen.tileKey(f.tx, f.ty));
       if (!entry || !entry._spawned || !entry.creatures) continue;
-      if (entry.creatures.some((k) => k.id === f.id)) continue;
-      entry.creatures.push(CreatureSpawns.createOwned('guild-bounty', gb.id, f.kind, f.x, f.y, f.id, { shiny: false, bounty: gb.id }));
+      if (!CreatureSpawns.canPlaceAt(this, entry, f.x, f.y, f.kind, { id: f.id })) continue;
+      CreatureSpawns.register(entry, CreatureSpawns.createOwned('guild-bounty', gb.id, f.kind, f.x, f.y, f.id, { shiny: false, bounty: gb.id }));
     }
   }
 
@@ -352,7 +352,7 @@ class SceneVenues {
     this._bankCollectorRetryAt = now + 3000;
     const homePos = this.homeWorldPos();
     const dest = this.findWalkableDestination(Macros.BANK_COLLECTOR_DIST_CELLS, {
-      seed: 'bankdebt:' + loan.due, cls: 'enemy',
+      seed: 'bankdebt:' + loan.due, cls: 'enemy', kind: Macros.BANK_COLLECTOR_KIND,
       accept: (x, y) => !homePos || Math.hypot(x - homePos.x, y - homePos.y) > HOME_R * this.cellM,
     });
     if (!dest) return;
@@ -361,7 +361,7 @@ class SceneVenues {
     const c = CreatureSpawns.createOwned('debt-collector', 'bankdebt:' + loan.due, Macros.BANK_COLLECTOR_KIND, dest.x, dest.y, id,
       { shiny: false, debtCollector: true, _pirateParleyPending: true });
     entry.creatures = entry.creatures || [];
-    entry.creatures.push(c);
+    CreatureSpawns.register(entry, c);
     this._presentBankCollector(c);
   }
   _presentBankCollector(c) {

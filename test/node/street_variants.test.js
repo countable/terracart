@@ -29,6 +29,22 @@ const pts = (cells) => cells.map(([cx, cy]) => ({ x: cellToMvt(cx), y: cellToMvt
 const wholeTile = () => pts([[0, 0], [CPE - 1, 0], [CPE - 1, CPE - 1], [0, CPE - 1]]);
 const TX = 5, TY = 7;
 
+// Run finite street requests through the main population, with ambient
+// probability disabled to isolate the feature's unchanged count contract.
+function streetResidents(entry, requests, caughtSet = new Set(), tx = 0, ty = 0) {
+  const N = entry.cellsPerEdge, edge = entry.tileEdgeM || N * 7;
+  const variantOf = r => r._street || ({street_wild_boar:'overgrown',street_forest_bear:'overgrown',
+    burned:'burned',barricade:'barricade'}[r.rule || r.tier]) || (r.rule || r.tier).replace(/^street_/, '');
+  const normalized = requests.map(r => ({...r, rule:r.rule || r.tier, _street:variantOf(r)}));
+  const copy = {...entry, tileEdgeM:edge, streetCreatureRequests:normalized,
+    streetArea:entry.streetArea || new Uint8Array(N*N).fill(1),
+    streetAreaVariants:entry.streetAreaVariants || new Uint8Array(N*N).fill(SV.VARIANT_BY_ID[variantOf(requests[0])].code)};
+  const oldRoll=SpawnPipeline.roll;SpawnPipeline.roll=()=>false;
+  try { return WorldGen.runSteps(HabitatSpawns.populationSteps({tileEdgeM:edge,save:{}},copy,tx,ty,
+    {category:'enemy',skipLegacy:true,spawnOpts:entry._spawnOpts})).filter(c=>!caughtSet.has(c.id)); }
+  finally {SpawnPipeline.roll=oldRoll;}
+}
+
 // A name whose street key rolls what we want (searched, so the test does not
 // depend on which literal happens to hash where).
 function nameWhere(pred, stem) {
@@ -625,12 +641,12 @@ test('toadstool lane: a minor row at 5%, its verge holds glowing mushrooms with 
 });
 
 test('barricade road: one goblin per barricade, held in either mode', () => {
-  assert.eq(Lairs.capFor('barricade', 1), 1, 'one goblin, whatever the strength');
-  assert.eq(Lairs.KIND_ORDER.barricade.join(), 'spear_goblin,archer_goblin');
-  assert.truthy(Lairs.ALWAYS_AWAKE_TIERS.has('barricade'), 'every mode');
+  assert.eq(SV.creatureRequestMembers({rule:'barricade'},'easy').length, 1);
+  assert.eq(SV.creatureRequestMembers({rule:'barricade'},'hard').map(r=>r.kind).join(), 'spear_goblin,archer_goblin');
+  assert.falsy(Lairs.STREET_TIER_GUARDS.barricade, 'no lair population');
   const { d, r, spawnOpts } = dressedVariants();
   const bars = d.wildplants.filter((w) => w.crop === 'barricade' && !w._streetScenery);
-  const posts = d.lairs.filter((L) => L.tier === 'barricade');
+  const posts = d.creatureRequests.filter((L) => L.rule === 'barricade');
   assert.gt(bars.length, 0, 'the owned end stands a barricade');
   assert.eq(posts.length, bars.length, 'one guard post per barricade');
   for (const b of bars) {
@@ -648,11 +664,8 @@ test('barricade road: one goblin per barricade, held in either mode', () => {
   }
   const entry = { grid: r.grid, cellsPerEdge: CPE, buildingShapes: [], _spawnOpts: spawnOpts,
     roadClass: r.roadClass, streetLairs: posts, creatures: [] };
-  const playerM = { x: TX * TILE_EDGE_M + posts[0].lx, y: TY * TILE_EDGE_M + posts[0].ly };
-  const rep = Lairs.stepResidency([{ entry, tx: TX, ty: TY }], {
-    cellM: TILE_EDGE_M / CPE, tileEdgeM: TILE_EDGE_M, playerM, homeM: { x: 0, y: 0 },
-    caughtSet: new Set(), buildings: false });
-  assert.gt(rep.woken, 0, 'easy (buildings off) still wakes the one beside you');
+  entry.creatures = streetResidents(entry,posts,new Set(),TX,TY);
+  assert.gt(entry.creatures.length,0);
   assert.eq(entry.creatures[0].kind, 'spear_goblin');
   for (const g of entry.creatures) {
     assert.falsy(inBuf(r, cellOf(g.y, TY) * CPE + cellOf(g.x, TX)), `${g.id} stands outside the kerb buffer`);
@@ -665,13 +678,10 @@ test('barricade support follows difficulty, independently of building garrisons'
     for (const mode of ['easy', 'hard']) {
       Difficulty.setMode(mode);
       const { d, r, spawnOpts } = dressedVariants();
-      const post = d.lairs.find((L) => L.tier === 'barricade');
+      const post = d.creatureRequests.find((L) => L.rule === 'barricade');
       const entry = { grid: r.grid, cellsPerEdge: CPE, buildingShapes: [], _spawnOpts: spawnOpts,
         roadClass: r.roadClass, streetLairs: [post], creatures: [] };
-      Lairs.stepResidency([{ entry, tx: TX, ty: TY }], {
-        cellM: TILE_EDGE_M / CPE, tileEdgeM: TILE_EDGE_M,
-        playerM: { x: TX * TILE_EDGE_M + post.lx, y: TY * TILE_EDGE_M + post.ly },
-        homeM: { x: 0, y: 0 }, caughtSet: new Set(), buildings: true });
+      entry.creatures = streetResidents(entry,[post],new Set(),TX,TY);
       assert.eq(entry.creatures.map((c) => c.kind).sort().join(),
         mode === 'hard' ? 'archer_goblin,spear_goblin' : 'spear_goblin');
     }
@@ -689,8 +699,8 @@ test('Passing tier: street dressing suppresses hazards and fast guard births', (
   assert.eq(d.slowCells.size,0,'Passing has no slowing debris seats');
   const entry = { grid:r.grid, cellsPerEdge:CPE, buildingShapes:[], _spawnOpts:opts,
     gameplayTiers, roadClass:r.roadClass, streetLairs:d.lairs, creatures:[] };
-  for(const post of d.lairs) {
-    const guards = Lairs.garrisonFor(entry, post, { tileEdgeM:TILE_EDGE_M, caughtSet:new Set() });
+  for(const post of d.creatureRequests) {
+    const guards = streetResidents(entry,[post],new Set(),TX,TY);
     for(const guard of guards) assert.truthy(GameplayTiers.allowed(3,creatureSpawnClass(guard.kind)),
       guard.kind+' must be eligible in Passing');
   }
@@ -724,11 +734,11 @@ test('burned row: placed torches share the spawn gate and red lamps have twice t
 });
 
 test('burned row: one fire slime per stretch, keyed on the street and the square', () => {
-  assert.eq(Lairs.capFor('burned', 1), 1);
-  assert.eq(Lairs.KIND_ORDER.burned.join(), 'fire_slime');
-  assert.truthy(Lairs.ALWAYS_AWAKE_TIERS.has('burned'), 'every mode');
+  assert.eq(SV.creatureRequestMembers({rule:'burned'}).length,1);
+  assert.eq(SV.creatureRequestMembers({rule:'burned'}).map(r=>r.kind).join(),'fire_slime');
+  assert.falsy(Lairs.STREET_TIER_GUARDS.burned, 'no lair population');
   const { d } = dressedVariants();
-  const posts = d.lairs.filter((L) => L.tier === 'burned');
+  const posts = d.creatureRequests.filter((L) => L.rule === 'burned');
   // The burned row runs down col 20 of tile (TX, TY): 8 squares of
   // BANDIT_STRETCH_UNITS, all inside this tile — one post each.
   const squares = EXTENT / SV.BANDIT_STRETCH_UNITS;
@@ -744,7 +754,7 @@ test('burned row: one fire slime per stretch, keyed on the street and the square
     assert.eq(r.roadMask[iy * CPE + ix], 0, 'off the band');
   }
   // The same from a rebuild (no draws, no stored state).
-  const again = dressedVariants().d.lairs.filter((L) => L.tier === 'burned').map((L) => L.sid).join();
+  const again = dressedVariants().d.creatureRequests.filter((L) => L.rule === 'burned').map((L) => L.sid).join();
   assert.eq(again, posts.map((L) => L.sid).join(), 'generated, the same every build');
 });
 
@@ -873,7 +883,7 @@ test('barricade + pilgrim: fragmented streets share one barricade and one scatte
   const bars = d.wildplants.filter((w) => w.crop === 'barricade' && !w._streetScenery);
   const ways = d.objects.filter((o) => o.kind === 'waystone');
   assert.eq(bars.length, 1, 'one barricade for the street in this tile');
-  assert.eq(d.lairs.filter((L) => L.tier === 'barricade').length, 1, 'and one goblin');
+  assert.eq(d.creatureRequests.filter((L) => L.rule === 'barricade').length, 1, 'and one goblin');
   assert.truthy(ways.length >= 3 && ways.length <= 6, 'three to six stones for this pilgrim way');
   assert.eq(new Set(ways.map(o => o.waystoneSet)).size, 1, 'fragments share one puzzle');
   assert.truthy(ways.every(o => o.waystoneCount === ways.length), 'actual set count travels with every stone');
@@ -1605,22 +1615,22 @@ test('barricade scenery adds stakes and barriers without multiplying guards', ()
   const scattered = d.objects.filter(o => o._streetScatter && o.kind === 'stakes');
   assert.inRange(scattered.length, 1, SV.BARRICADE_STRAY_MAX, 'a few seeded ground stakes beyond the barricade rows');
   assert.eq(JSON.stringify(scattered), JSON.stringify(dressedVariants().d.objects.filter(o => o._streetScatter && o.kind === 'stakes')), 'scattered stakes keep their positions on rebuild');
-  assert.eq(d.lairs.filter((o) => o.tier === 'barricade').length, 1);
+  assert.eq(d.creatureRequests.filter((o) => o.rule === 'barricade').length, 1);
 });
 test('hedgerow encounters: one stable post holds two hedge-ambush runts per street and tile', () => {
   const {d}=dressed(rasterize());
-  const posts=d.lairs.filter(l=>l.tier==='street_hedgerow');
+  const posts=d.creatureRequests.filter(l=>l.rule==='street_hedgerow');
   assert.eq(posts.length,1);
-  assert.eq(JSON.stringify(posts),JSON.stringify(dressed(rasterize()).d.lairs.filter(l=>l.tier==='street_hedgerow')));
-  assert.eq(Lairs.STREET_TIER_GUARDS.street_hedgerow,2);
-  assert.eq(Lairs.KIND_ORDER.street_hedgerow.join(','),'slime');
+  assert.eq(JSON.stringify(posts),JSON.stringify(dressed(rasterize()).d.creatureRequests.filter(l=>l.rule==='street_hedgerow')));
+  assert.eq(SV.creatureRequestMembers({rule:'street_hedgerow'}).length,2);
+  assert.eq(SV.CREATURE_REQUEST_RULES.street_hedgerow[0].kind,'goblin_runt');
   assert.falsy(Lairs.DAILY_TIERS.has('street_hedgerow'),'defeated slimes do not reset daily');
   const N=64,edge=N*7,grid=new Uint8Array(N*N).fill(WorldGen.T.GRASS);
   const entry={cellsPerEdge:N,grid,objects:[],buildingShapes:[],_spawnOpts:{occupied:new Set(),roadMask:new Uint8Array(N*N),spawnWhy:new Uint16Array(N*N)}};
   const cand={tier:'street_hedgerow',sid:'hedge-slime-test',tx:0,ty:0,ox:0,oy:0,lx:32.5*7,ly:32.5*7,ix:32,iy:32,halfW:0,halfH:0};
-  const wake=(caughtSet)=>Lairs.garrisonFor(entry,cand,{tileEdgeM:edge,caughtSet});
+  const wake=(caughtSet)=>streetResidents(entry,[cand],caughtSet);
   const guards=wake();
-  assert.eq(guards.length,2);assert.truthy(guards.every(g=>g.kind==='goblin_runt'&&g.ambush),'Lairs.GROUPS.street_hedgerow: the ambushers');
+  assert.eq(guards.length,2);assert.truthy(guards.every(g=>g.kind==='goblin_runt'&&g.ambush),'finite street request retains ambushers');
   assert.eq(JSON.stringify(wake()),JSON.stringify(guards),'guard positions and IDs repeat');
   assert.eq(wake(new Set(guards.map(g=>g.id))).length,0,'caught ledger spends both guards');
   for(const guard of guards) entry._spawnOpts.occupied.add(Math.floor(guard.y/7)*N+Math.floor(guard.x/7));
@@ -1629,11 +1639,33 @@ test('hedgerow encounters: one stable post holds two hedge-ambush runts per stre
   entry._spawnOpts.spawnWhy.fill(WorldGen.SPAWN_WHY.RESTRICTED);
   assert.eq(wake().length,0,'hard spawn reasons prevent the pair');
 });
+test('street residents: migrated hedge ambushers wait for nearby players without lair AI', () => {
+  const N=24, edge=N*7, entry={cellsPerEdge:N,tileEdgeM:edge,grid:new Uint8Array(N*N).fill(T.GRASS),
+    objects:[],_spawnOpts:{occupied:new Set()}};
+  const requests=[{rule:'street_hedgerow',_street:'hedgerow',sid:'ordinary-hedge',lx:80.5,ly:80.5}];
+  const [c]=streetResidents(entry,requests);
+  assert.truthy(isAmbusher(c));assert.falsy(c.lair);assert.falsy(c.immobile);
+  c._lurk={x:c.x,y:c.y,key:'hedge-hide'};
+  const scene={cellM:7,depth:2,save:{energy:100,armor:{}},
+    cellAt:()=>({loaded:true,type:T.CAVE_FLOOR}),_cellBlocked:()=>false,_nearAny:()=>false};
+  const see=Combat.seesTarget, ranges=[];
+  Combat.seesTarget=(s,foe,x,y,cells)=>{ranges.push(cells);return Math.hypot(foe.x-x,foe.y-y)<=cells*s.cellM;};
+  try {
+    const x=c.x,y=c.y;
+    rosterEnemyMove(scene,c,EnemyRoster.get(c.kind),10000,x+70,y,false,false,null,.1);
+    assert.falsy(c._sprung,'waits hidden in its cover instead of chasing a distant player');
+    assert.eq(c.x,x);assert.eq(c.y,y);
+    assert.lte(ranges[0],Visibility.HEAR_CELLS,'unsprung notice distance stays within hearing');
+    rosterEnemyMove(scene,c,EnemyRoster.get(c.kind),10100,x+3.5,y,false,false,null,.1);
+    assert.truthy(c._sprung,'adjacent player springs the ambush through ordinary enemy AI');
+  } finally {Combat.seesTarget=see;}
+});
+
 test('themed street encounters: one finite spider post per street and tile, outside the kerb', () => {
   const { d, r } = dressedVariants();
-  const posts = d.lairs.filter(l => l.tier === 'street_toadstool');
+  const posts = d.creatureRequests.filter(l => l.rule === 'street_toadstool');
   assert.eq(posts.length, 1);
-  const again = dressedVariants().d.lairs.filter(l => l.tier === 'street_toadstool');
+  const again = dressedVariants().d.creatureRequests.filter(l => l.rule === 'street_toadstool');
   assert.eq(JSON.stringify(posts), JSON.stringify(again));
   for (const p of posts) {
     const ix = Math.floor(p.lx / (TILE_EDGE_M / CPE)), iy = Math.floor(p.ly / (TILE_EDGE_M / CPE));
@@ -1874,7 +1906,7 @@ function overgrownPosts(key, fragments = false, blocked = false) {
   if (fragments) f.index.dressingLines.push({...rec, line: rec.line.slice()});
   if (blocked) f.spawnWhy.fill(WorldGen.SPAWN_WHY.RESTRICTED);
   return SV.dress({...f, tx:0, ty:0, tileEdgeM:f.N*7,
-    spawnOpts:{roadMask:f.roadMask, spawnWhy:f.spawnWhy, occupied:new Set()}}).lairs;
+    spawnOpts:{roadMask:f.roadMask, spawnWhy:f.spawnWhy, occupied:new Set()}}).creatureRequests;
 }
 // Wake one street post's garrison on a 64-cell grass tile; `marked` stamps
 // the whole tile as an overgrown street (entry.streetMarks), the way a real
@@ -1884,7 +1916,7 @@ function wakeStreetPost(tier, sid, caughtSet, marked = false) {
     _spawnOpts:{occupied:new Set(),roadMask:new Uint8Array(N*N),spawnWhy:new Uint16Array(N*N)}};
   if (marked) entry.streetMarks = new Uint8Array(N*N).fill(SV.VARIANT_BY_ID.overgrown.code);
   const cand={tier,sid,tx:0,ty:0,ox:0,oy:0,lx:32.5*7,ly:32.5*7,ix:32,iy:32,halfW:0,halfH:0};
-  return Lairs.garrisonFor(entry,cand,{tileEdgeM:N*7,caughtSet});
+  return streetResidents(entry,[cand],caughtSet);
 }
 test('forest roads: one third add one finite giant bear without replacing the plant', () => {
   const tier = 'street_forest_bear';
@@ -1893,16 +1925,16 @@ test('forest roads: one third add one finite giant bear without replacing the pl
   const build = overgrownPosts;
   let selected = 0, chosen;
   for (let i=0;i<300;i++) {
-    const key = `forest-test-${i}`, posts = build(key), bears = posts.filter(p=>p.tier===tier);
-    assert.eq(posts.filter(p=>p.tier==='street_overgrown').length,1,'plant remains');
+    const key = `forest-test-${i}`, posts = build(key), bears = posts.filter(p=>p.rule===tier);
+    assert.eq(posts.filter(p=>p.rule==='street_overgrown').length,1,'plant remains');
     assert.lte(bears.length,1);
     if (bears.length) { selected++; chosen=key; }
   }
   assert.inRange(selected,75,125,'seeded population is approximately one third');
-  const posts = build(chosen).filter(p=>p.tier===tier);
-  assert.eq(JSON.stringify(build(chosen).filter(p=>p.tier===tier)),JSON.stringify(posts),'reload is stable');
-  assert.eq(JSON.stringify(build(chosen,true).filter(p=>p.tier===tier)),JSON.stringify(posts),'duplicate fragments do not multiply posts');
-  assert.eq(build(chosen,false,true).filter(p=>p.tier===tier).length,0,'restricted land excludes bears');
+  const posts = build(chosen).filter(p=>p.rule===tier);
+  assert.eq(JSON.stringify(build(chosen).filter(p=>p.rule===tier)),JSON.stringify(posts),'reload is stable');
+  assert.eq(JSON.stringify(build(chosen,true).filter(p=>p.rule===tier)),JSON.stringify(posts),'duplicate fragments do not multiply posts');
+  assert.eq(build(chosen,false,true).filter(p=>p.rule===tier).length,0,'restricted land excludes bears');
   const wake=caughtSet=>wakeStreetPost(tier,posts[0].sid,caughtSet);
   const bears=wake();assert.eq(bears.length,1);assert.eq(bears[0].kind,'giant_bear');
   assert.eq(wake(new Set([bears[0].id])).length,0,'defeated bear stays gone');
@@ -1917,22 +1949,22 @@ test('forest roads: every overgrown street posts a sounder of two wild boars bes
   const tier = 'street_wild_boar';
   assert.eq(SV.VARIANT_BY_ID.overgrown.extraEncounters.find(e => e.tier === tier).chance, 1, 'every overgrown street');
   assert.truthy(SV.EXTRA_ENCOUNTER_TIERS.has(tier));
-  assert.eq(Lairs.STREET_TIER_GUARDS[tier], 2, 'a sounder of two');
-  assert.eq(Lairs.KIND_ORDER[tier].join(), 'boar', 'held by boars');
-  assert.truthy(Lairs.FIXED_GUARD_TIERS.has(tier) && Lairs.ALWAYS_AWAKE_TIERS.has(tier), 'a street post: fixed count, every mode');
-  assert.eq(Lairs.OCCUPANCY[tier].rate, 1, 'always held');
+  assert.eq(SV.creatureRequestMembers({rule:tier}).length, 2, 'a sounder of two');
+  assert.eq(SV.CREATURE_REQUEST_RULES[tier][0].kind, 'boar');
+  assert.eq(SV.creatureRequestMembers({rule:tier},'hard').length,2,'same count every mode');
+  assert.falsy(Lairs.OCCUPANCY[tier], 'no lair occupancy draw');
   let chosen;
   for (let i=0;i<40;i++) {
     const key = `boar-test-${i}`, posts = overgrownPosts(key);
-    assert.eq(posts.filter(p=>p.tier===tier).length,1,`${key}: one boar post`);
-    assert.eq(posts.filter(p=>p.tier==='street_overgrown').length,1,`${key}: the plant remains`);
+    assert.eq(posts.filter(p=>p.rule===tier).length,1,`${key}: one boar post`);
+    assert.eq(posts.filter(p=>p.rule==='street_overgrown').length,1,`${key}: the plant remains`);
     chosen = key;
   }
-  const posts = overgrownPosts(chosen).filter(p=>p.tier===tier);
-  assert.eq(JSON.stringify(overgrownPosts(chosen).filter(p=>p.tier===tier)),JSON.stringify(posts),'reload is stable');
-  assert.eq(JSON.stringify(overgrownPosts(chosen,true).filter(p=>p.tier===tier)),JSON.stringify(posts),'duplicate fragments do not multiply posts');
-  assert.eq(overgrownPosts(chosen,false,true).filter(p=>p.tier===tier).length,0,'restricted land excludes boars');
-  const plant = overgrownPosts(chosen).find(p=>p.tier==='street_overgrown');
+  const posts = overgrownPosts(chosen).filter(p=>p.rule===tier);
+  assert.eq(JSON.stringify(overgrownPosts(chosen).filter(p=>p.rule===tier)),JSON.stringify(posts),'reload is stable');
+  assert.eq(JSON.stringify(overgrownPosts(chosen,true).filter(p=>p.rule===tier)),JSON.stringify(posts),'duplicate fragments do not multiply posts');
+  assert.eq(overgrownPosts(chosen,false,true).filter(p=>p.rule===tier).length,0,'restricted land excludes boars');
+  const plant = overgrownPosts(chosen).find(p=>p.rule==='street_overgrown');
   assert.truthy(plant.sid !== posts[0].sid && (plant.lx !== posts[0].lx || plant.ly !== posts[0].ly), 'its own post, not the plant\'s seat');
   const wake=(caughtSet,marked)=>wakeStreetPost(tier,posts[0].sid,caughtSet,marked);
   const boars=wake();
@@ -2370,13 +2402,13 @@ test('berry lane: a Small-road row and a path row, appended last, bushes of ever
 });
 
 test('berry lane: goblin runts hide behind the bushes — one-runt ambush posts, a third of them held', () => {
-  assert.eq(Lairs.STREET_TIER_GUARDS.street_berry, 1);
-  assert.eq(Lairs.KIND_ORDER.street_berry.join(','), 'goblin_runt');
+  assert.eq(SV.creatureRequestMembers({rule:'street_berry'}).length,1);
+  assert.eq(SV.CREATURE_REQUEST_RULES.street_berry[0].kind,'goblin_runt');
   assert.eq(SV.BERRY_RUNT_CHANCE, 1 / 3);
   let posts = 0, lanes = 0;
   for (let tx = 0; tx < 200; tx++) {
     const { d } = berryLane(tx);
-    const runts = d.lairs.filter(l => l.tier === 'street_berry');
+    const runts = d.creatureRequests.filter(l => l.rule === 'street_berry');
     for (const r of runts) {
       const iy = Math.floor(r.ly / 7);
       assert.truthy(iy === 4 || iy === 8, `behind the bush row: row ${iy}`);
@@ -2389,9 +2421,9 @@ test('berry lane: goblin runts hide behind the bushes — one-runt ambush posts,
   const N=64,edge=N*7,grid=new Uint8Array(N*N).fill(WorldGen.T.GRASS);
   const entry={cellsPerEdge:N,grid,objects:[],buildingShapes:[],_spawnOpts:{occupied:new Set(),roadMask:new Uint8Array(N*N),spawnWhy:new Uint16Array(N*N)}};
   const cand={tier:'street_berry',sid:'berry-runt-test',tx:0,ty:0,ox:0,oy:0,lx:32.5*7,ly:32.5*7,ix:32,iy:32,halfW:0,halfH:0};
-  const guards=Lairs.garrisonFor(entry,cand,{tileEdgeM:edge,caughtSet:new Set()});
+  const guards=streetResidents(entry,[cand]);
   assert.eq(guards.length,1);
-  assert.truthy(guards[0].kind==='goblin_runt'&&guards[0].ambush,'Lairs.GROUPS.street_berry: one ambusher');
+  assert.truthy(guards[0].kind==='goblin_runt'&&guards[0].ambush,'finite street request retains one ambusher');
 });
 
 // ── Pottery Road ─────────────────────────────────────────────────────────
@@ -2419,12 +2451,12 @@ test('Berry Trail: matches the Lane bush mix and two verge rows, retaining its l
       assert.truthy(kind,'only the five configured bush kinds');counts[kind]++;total++;rows.add(bush.iy-6);
       assert.inRange(Math.abs(bush.iy-6),1,2,'bush stays inside two-row influence');
     }
-    assert.eq(trail.d.lairs.filter(l=>l.tier==='street_forest_bear').length,1,'one large bear encounter');
+    assert.eq(trail.d.creatureRequests.filter(l=>l.rule==='street_forest_bear').length,1,'one large bear encounter');
   }
   assert.eq([...rows].sort((a,b)=>a-b).join(),'-2,-1,1,2');
   for(const [kind,share] of Object.entries({plain:.48,berry:.25,poison:.15,thorn:.10,golden:.02}))
     assert.inRange(counts[kind]/total,share-.015,share+.015,kind+' matches the Lane share');
-  assert.eq(Lairs.KIND_ORDER.street_forest_bear.join(','),'giant_bear');
+  assert.eq(SV.CREATURE_REQUEST_RULES.street_forest_bear[0].kind,'giant_bear');
 });
 
 test('pottery road: a Small-road row, appended last, two ranks of clay pots starting directly beside the road', () => {
@@ -2475,7 +2507,7 @@ function tradeRow(tx, key = `trade-${tx}`) {
   const cellOfM = v => Math.floor(v / 7);
   const barrels = d.objects.filter(o => /^trade_barrel_/.test(o.id))
     .map(o => ({ ...o, ix: cellOfM(o.x - tx * f.N * 7), iy: cellOfM(o.y) }));
-  const grunts = d.lairs.filter(l => l.tier === 'street_trade').map(l => ({ ...l, iy: cellOfM(l.ly) }));
+  const grunts = d.creatureRequests.filter(l => l.rule === 'street_trade').map(l => ({ ...l, iy: cellOfM(l.ly) }));
   return { d, barrels, grunts };
 }
 test('trade row: a Small-road row, appended last, barrels directly beside the road and grunt pairs behind them', () => {
@@ -2484,9 +2516,9 @@ test('trade row: a Small-road row, appended last, barrels directly beside the ro
   assert.eq(row.art, 'street_trade', 'dedicated trade row painting'); assert.eq(row.sectionMaxM, 250);
   assert.truthy(Shrines.kindForStreet('trade'), 'its shrine kind');
   assert.eq(SV.TRADE_BARREL_GAP, 0.3); assert.eq(SV.TRADE_GRUNT_STEP_M, 25); assert.eq(SV.TRADE_GRUNT_CHANCE, 2 / 3);
-  assert.eq(Lairs.STREET_TIER_GUARDS.street_trade, 3, 'a thief and a pair of grunts a post');
-  assert.eq(Lairs.KIND_ORDER.street_trade.join(','), 'thief,goblin_runt');
-  assert.eq(Lairs.GROUPS.street_trade.members.map(m => `${m.kind}:${m.n}`).join(','), 'thief:1,goblin_runt:2', 'the thief leads');
+  assert.eq(SV.creatureRequestMembers({rule:'street_trade'}).length,3);
+  assert.eq(SV.CREATURE_REQUEST_RULES.street_trade.map(r=>r.kind).join(),'thief,goblin_runt');
+  assert.eq(SV.CREATURE_REQUEST_RULES.street_trade.map(m => `${m.kind}:${m.count}`).join(','), 'thief:1,goblin_runt:2', 'the thief leads');
   assert.truthy(EnemyRoster.get('thief').hitAndRun, 'the Trade Row thief cuts purses like any thief');
   let named = 0, plain = 0;
   for (let i = 0; i < 20000; i++) {

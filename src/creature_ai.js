@@ -638,7 +638,7 @@ function ghostSpawnPass(scene, now, px, py, pcW, homePos, castleWards, wardR2, c
     const ghost = makeGhost(x, y, now, pcW.tx, pcW.ty, made);
     ghost.kind = depth >= 6 && Math.random() < 1 / 3 ? 'pink_ghost' : 'ghost';
     ghost._artScale = profile.sizeMultiplier;
-    entry.creatures.push(ghost);
+    CreatureSpawns.register(entry, ghost);
     made++;
   }
   return made;
@@ -676,7 +676,7 @@ function raiseGhostAt(scene, x, y, now, tag) {
     frequency: CreatureSpawnTriggers.headstone.frequency, maxAlive: nearMax, liveCount: near,
     member: () => ({ kind: 'ghost' }), seat: () => ({ x, y }),
     create: () => makeGhost(x, y, now, tx, ty, tag),
-    onPlaced: ghost => entry.creatures.push(ghost),
+    onPlaced: ghost => CreatureSpawns.register(entry, ghost),
   }));
   return generated[0] || null;
 }
@@ -707,7 +707,7 @@ function fishedSlimeSpawn(scene, now, px, py, pcW) {
     create: (member, seat) => WorldGen.makeCreature('slime', seat.x, seat.y,
       `fished_slime_${pcW.tx}_${pcW.ty}_${Math.floor(now)}_${Math.floor(Math.random() * 1e4)}`,
       { _lastDamagedT: Date.now() }),
-    onPlaced: slime => entry.creatures.push(slime),
+    onPlaced: slime => CreatureSpawns.register(entry, slime),
   }));
   return generated[0] || null;
 }
@@ -834,7 +834,7 @@ function spawnNestBushCreature(scene, bush, type) {
     member: () => ({ kind, id }), seat: () => point,
     create: () => EnemySpawns.markShared(WorldGen.makeCreature(kind, point.x, point.y, id, { shiny: false,
       ...(enemy ? { _surfaceSpawn: { x: point.x, y: point.y, tx: point.tx, ty: point.ty, cx: point.ix, cy: point.iy } } : {}) })),
-    onPlaced: creature => creatures.push(creature),
+    onPlaced: creature => CreatureSpawns.register(point.entry, creature),
   }));
   return generated[0] || null;
 }
@@ -1409,15 +1409,15 @@ function rareEnemySpecialAttack(scene, c, row, now, px, py, clear, dt) {
       const cell = worldMetersToTileCell(scene, x, y);
       destination = WorldGen.tileCache.get(WorldGen.tileKey(cell.tx, cell.ty));
       return destination?.creatures && enemyCanStep(scene, c, row, x, y)
-        && CreatureSpawns.gateAt(scene, x, y, c.kind)
-        && !destination.creatures.some(other => !caught.has(other.id) && !other._rareInactive && Math.hypot(other.x - x, other.y - y) < scene.cellM * .7);
+        && CreatureSpawns.canPlaceAt(scene, destination, x, y, c.kind,
+          { clearance: scene.cellM * .7, blocks: other => !caught.has(other.id) && !other._rareInactive });
     });
     if (!seat) break;
     const serial = state.illusionSerial = (state.illusionSerial || 0) + 1;
     const copy = CreatureSpawns.createOwned('summons', c.id, c.kind, seat.x, seat.y, `${c.id}_illusion_${serial}`,
       { depth: scene.depth || 0, _sharedId: false, _rareIllusion: true, _illusionOwner: c.id,
         _illusionUntil: now + illusions.durationSeconds * 1000, _hp: 1 });
-    destination.creatures.push(copy);
+    CreatureSpawns.register(destination, copy);
     (scene._rareIllusions ||= new Set()).add(copy);
   }
 }
@@ -1694,9 +1694,10 @@ function enemySummon(scene, c, ability) {
       if (!destination?.creatures || !enemyCanStep(scene, mover, row, x, y)) return false;
       const grid = destination.baseGrid || destination.grid;
       const opts = destination._spawnOpts;
-      if (!grid || !opts || !CreatureSpawns.gateAt(scene, x, y, kind, renewable && row.movement?.waterOnly ? { waterOnly: true } : undefined)) return false;
-      return !destination.creatures.some(other => !caught.has(other.id)
-          && Math.hypot(other.x - x, other.y - y) < scene.cellM * 0.7);
+      return !!grid && !!opts && CreatureSpawns.canPlaceAt(scene, destination, x, y, kind, {
+        id, clearance: scene.cellM * .7, blocks: other => !caught.has(other.id),
+        overrides: renewable && row.movement?.waterOnly ? { waterOnly: true } : undefined,
+      });
     });
     if (!seat) return false;
     {
@@ -1710,7 +1711,7 @@ function enemySummon(scene, c, ability) {
       for (const key of garrisonInherit()) if (c[key] != null) child[key] = c[key];
       child.seatX = x; child.seatY = y;
       child._summonerId = c.id;
-      destination.creatures.push(child);
+      CreatureSpawns.register(destination, child);
       if (renewable) {
         state.summonSerial = serial + 1;
         if (typeof persistSave === 'function') persistSave(scene.save);
@@ -1781,7 +1782,7 @@ function enemySplit(scene, c, fromX, fromY, now) {
   // Each half's seat is where it now stands, so a garrison's halves walk home
   // to two seats rather than piling onto one.
   if (c.lair) { c.seatX = c.x; c.seatY = c.y; twin.seatX = twin.x; twin.seatY = twin.y; }
-  entry.creatures.push(twin);
+  CreatureSpawns.register(entry, twin);
   return twin;
 }
 // The caster's support beat (ABILITY_CADENCE): a blow taken during the tell

@@ -40,7 +40,7 @@
         const grid=new Uint8Array(N*N).fill(WorldGen.T.GRASS);
         const result=StreetVariants.dress({index,N,grid,tx:0,ty:0,tileEdgeM:N*cellM,
           spawnOpts:{roadMask:new Uint8Array(N*N),spawnWhy:new Uint16Array(N*N),occupied:new Set()}});
-        for(const type of ['objects','wildplants','traps','webs','vents','lairs','guards']) {
+        for(const type of ['objects','wildplants','traps','webs','vents','lairs','creatureRequests','guards']) {
           for(const p of result[type]) {
             const variant=p._street || p._shrineStreet;
             assert.truthy(variant,type+' identifies its source theme');
@@ -55,18 +55,23 @@
           assert.eq(owner(Math.floor(p.x/cellM),Math.floor(p.y/cellM)),index.dressingLines.find(r=>r.key===key).variant);
       }
     }
-    for(const type of ['objects','wildplants','traps','webs','vents','lairs'])assert.truthy(kinds.has(type),'exercised '+type);
+    for(const type of ['objects','wildplants','traps','webs','vents','creatureRequests'])assert.truthy(kinds.has(type),'exercised '+type);
   });
-  test('road partition: initial lair members cannot spread onto the parallel theme',()=>{
+  test('road partition: initial street residents cannot spread onto the parallel theme',()=>{
     const index=fixture(['trade','orchard']),owner=StreetVariants.variantOwner(index,N);
     const entry={cellsPerEdge:N,tileEdgeM:N*cellM,grid:new Uint8Array(N*N).fill(WorldGen.T.GRASS),
       streetIndex:index,streetArea:StreetVariants.area(index,N),objects:[],buildingShapes:[],
       _spawnOpts:{occupied:new Set(),roadMask:new Uint8Array(N*N),spawnWhy:new Uint16Array(N*N)}};
     let count=0;
     for(let i=0;i<30;i++) {
-      const cand={tier:'street_trade',_street:'trade',sid:'partition-guard-'+i,
+      const cand={rule:'street_trade',_street:'trade',sid:'partition-guard-'+i,
         tx:0,ty:0,ox:0,oy:0,lx:15.5*cellM,ly:14.5*cellM,ix:15,iy:14,halfW:0,halfH:0};
-      const guards=Lairs.garrisonFor(entry,cand,{tileEdgeM:N*cellM});
+      entry.streetCreatureRequests=[cand];
+      const oldRoll=SpawnPipeline.roll;SpawnPipeline.roll=()=>false;
+      let guards;
+      try { guards=WorldGen.runSteps(HabitatSpawns.populationSteps({tileEdgeM:N*cellM,save:{}},entry,0,0,
+        {category:'enemy',skipLegacy:true,spawnOpts:{...entry._spawnOpts,occupied:new Set()}})); }
+      finally {SpawnPipeline.roll=oldRoll;}
       count+=guards.length;
       for(const guard of guards) {
         assert.eq(owner(Math.floor(guard.x/cellM),Math.floor(guard.y/cellM)),'trade');
@@ -93,13 +98,13 @@
       const index={extent:N,dressingLines:[rec]};
       const result=StreetVariants.dress({index,N,grid:new Uint8Array(N*N).fill(WorldGen.T.GRASS),tx:0,ty:0,tileEdgeM:N*cellM,
         spawnOpts:{roadMask:new Uint8Array(N*N),spawnWhy:new Uint16Array(N*N),occupied:new Set()}});
-      for(const type of ['objects','wildplants','traps','webs','vents','lairs'])for(const p of result[type]) {
+      for(const type of ['objects','wildplants','traps','webs','vents','creatureRequests'])for(const p of result[type]) {
         const x=(p.x ?? p.lx)/cellM,y=(p.y ?? p.ly)/cellM;
         assert.truthy(edgeDistance(rec,x,y)<=StreetVariants.VERGE_MAX_CELLS+1e-9,variant.id+' '+type+' escaped the road corridor');
         exercised.add(type);
       }
     }
-    for(const type of ['objects','wildplants','traps','webs','vents','lairs'])assert.truthy(exercised.has(type),'exercised '+type);
+    for(const type of ['objects','wildplants','traps','webs','vents','creatureRequests'])assert.truthy(exercised.has(type),'exercised '+type);
   });
   test('road corridor: blocked old-growth seats cannot escape their two-cell influence',()=>{
     const rec=road('blocked-old-growth','old_growth_path',12.5),index={extent:N,dressingLines:[rec]};
@@ -113,7 +118,7 @@
     assert.gt(props.length,0,'remaining second-row seats receive dressing');
     for(const p of props)assert.truthy(edgeDistance(rec,p.x/cellM,p.y/cellM)>1 && edgeDistance(rec,p.x/cellM,p.y/cellM)<=2);
     const blocked=run(2);
-    for(const type of ['objects','wildplants','traps','webs','vents','lairs'])assert.eq(blocked[type].length,0,type+' must drop when corridor is occupied');
+    for(const type of ['objects','wildplants','traps','webs','vents','creatureRequests'])assert.eq(blocked[type].length,0,type+' must drop when corridor is occupied');
   });
   test('Orchard Lane: additions stay in the first verge row and blocked rows never push them outward',()=>{
     assert.eq(StreetVariants.VARIANT_BY_ID.orchard.terrainVergeCells,1);
@@ -126,12 +131,12 @@
       const result=run(new Set());
       assert.truthy(result.objects.some(p=>p.kind==='fruittree'),'fruit trees remain at the road edge');
       assert.truthy(result.objects.some(p=>p.kind==='tree'),'maples remain at the road edge');
-      for(const type of ['objects','wildplants','traps','webs','vents','lairs'])for(const p of result[type])
+      for(const type of ['objects','wildplants','traps','webs','vents','creatureRequests'])for(const p of result[type])
         assert.truthy(edgeDistance(rec,(p.x ?? p.lx)/cellM,(p.y ?? p.ly)/cellM)<=1+1e-9,type+' cannot use second-row seats');
       const occupied=new Set();
       for(let y=0;y<N;y++)for(let x=0;x<N;x++)if(edgeDistance(rec,x+.5,y+.5)<=1)occupied.add(y*N+x);
       const blocked=run(occupied);
-      for(const type of ['objects','wildplants','traps','webs','vents','lairs'])assert.eq(blocked[type].length,0,type+' drops instead of using outer rows');
+      for(const type of ['objects','wildplants','traps','webs','vents','creatureRequests'])assert.eq(blocked[type].length,0,type+' drops instead of using outer rows');
     }
   });
   test('Rocky Road: common finds use the road and first verge only, including diagonal roads',()=>{
@@ -172,7 +177,7 @@
       const spawnWhy=new Uint16Array(N*N),roadMask=new Uint8Array(N*N);
       const painted=WorldGen.runSteps(StreetVariants.paintTerrainSteps({index,grid,N,spawnWhy}));
       const result=StreetVariants.dress({index,N,grid,tx:0,ty:0,tileEdgeM:N*cellM,spawnOpts:{roadMask,spawnWhy,occupied:new Set()}});
-      for(const type of ['objects','wildplants','traps','webs','vents','lairs'])for(const p of result[type]) {
+      for(const type of ['objects','wildplants','traps','webs','vents','creatureRequests'])for(const p of result[type]) {
         const x=Math.floor((p.x ?? p.lx)/cellM),y=Math.floor((p.y ?? p.ly)/cellM);
         if(row.terrainPools)assert.truthy(grid[y*N+x]!==WorldGen.T.WATER,row.id+' '+type+' stays on dry ground');
         else assert.truthy(painted[y*N+x],row.id+' '+type+' must stand on its terrain influence');

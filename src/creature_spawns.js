@@ -109,6 +109,29 @@
     return root.SpawnPipeline.frequencyCount(spec, rng);
   }
 
+  // Controllers own timing, identity and liveness rules; live seating shares
+  // terrain checks, optional creature clearance and duplicate prevention.
+  function canPlaceAt(scene, entry, x, y, kind, options = {}) {
+    if (!entry) return false;
+    const creatures = entry.creatures || [];
+    if (options.id != null && creatures.some(c => c.id === options.id)) return false;
+    if (options.clearance > 0) {
+      const blocks = options.blocks || (c => !(scene.save?.caught || []).includes(c.id));
+      if (creatures.some(c => blocks(c) && Math.hypot(c.x - x, c.y - y) < options.clearance)) return false;
+    }
+    return gateAtEntry(scene, entry, x, y, kind, options.overrides);
+  }
+
+  // Pair placements (splits) and preflighted batches (bees) may commit only
+  // after their own atomic validation. Registration never rolls or relocates.
+  function register(entry, creature) {
+    if (!entry || !creature) return null;
+    const creatures = entry.creatures ||= [];
+    if (creatures.some(c => c.id === creature.id)) return null;
+    creatures.push(creature);
+    return creature;
+  }
+
   function pickWeighted(items, position, weightFor) {
     if (!items || !items.length) return null;
     const weight = typeof weightFor === 'function' ? weightFor : () => 1;
@@ -140,7 +163,7 @@
     // Citadel is an audit alias: Lairs always uses building-garrisons, one population.
     ['feature', ['building-garrisons', 'citadel-guards', 'road-lairs', 'tar-guards',
       'gate-guards', 'habitat-lairs', 'zone-formations', 'cave-finite',
-      'dragon-roost', 'bone-gallery', 'serpent', 'shore-fauna', 'path-fauna']],
+      'dragon-roost', 'bone-gallery', 'serpent', 'shore-fauna', 'path-fauna', 'street-residents']],
     ['trigger', ['rare-encounters', 'mushroom-hive', 'honey-bees', 'nest', 'mimic', 'pot-snake',
       'bone-cache', 'headstone', 'haunting', 'fishing-slime', 'crop-pests']],
     ['contract', ['guild-bounty', 'debt-collector', 'temple-trials']],
@@ -231,6 +254,6 @@
   }
 
   root.CreatureSpawns = {
-    isSpawnCell, passableOpts, gateAt, gateAtEntry, frequencyCount, pickWeighted, expandMembers, generateSteps, OWNED_RULES, generateOwnedSteps, createOwned, createRecord,
+    isSpawnCell, passableOpts, gateAt, gateAtEntry, canPlaceAt, register, frequencyCount, pickWeighted, expandMembers, generateSteps, OWNED_RULES, generateOwnedSteps, createOwned, createRecord,
   };
 })(globalThis);

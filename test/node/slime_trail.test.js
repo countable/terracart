@@ -14,39 +14,39 @@
   }
   test('slime trail: deterministic section species, finite posts and short-path fallback', () => {
     const a = fixture(), b = fixture();
-    assert.eq(JSON.stringify(a.result.lairs), JSON.stringify(b.result.lairs));
-    assert.eq(a.result.lairs.length, 4, 'one post per 70 m');
-    assert.eq(new Set(a.result.lairs.map(l => l.tier)).size, 1, 'one species for the section');
-    assert.truthy(a.result.lairs.every(l => l._street === 'slime_trail'));
-    assert.eq(fixture('short', 10).result.lairs.length, 1, 'short trail gets its midpoint encounter');
-    assert.eq(fixture('blocked', 280, true).result.lairs.length, 0, 'spawn restrictions are respected');
+    assert.eq(JSON.stringify(a.result.creatureRequests), JSON.stringify(b.result.creatureRequests));
+    assert.eq(a.result.creatureRequests.length, 4, 'one post per 70 m');
+    assert.eq(new Set(a.result.creatureRequests.map(l => l.rule)).size, 1, 'one species for the section');
+    assert.truthy(a.result.creatureRequests.every(l => l._street === 'slime_trail'));
+    assert.eq(fixture('short', 10).result.creatureRequests.length, 1, 'short trail gets its midpoint encounter');
+    assert.eq(fixture('blocked', 280, true).result.creatureRequests.length, 0, 'spawn restrictions are respected');
     const species = new Set();
-    for (let i = 0; i < 100; i++) species.add(fixture(`species-${i}`, 10).result.lairs[0].tier);
+    for (let i = 0; i < 100; i++) species.add(fixture(`species-${i}`, 10).result.creatureRequests[0].rule);
     assert.eq(species.size, row.enemyKinds.length, 'different sections can select every species');
   });
-  test('slime trail: each species wakes a persistent pair with path provenance', () => {
+  test('slime trail: each species uses the regular population with persistent pair identities', () => {
     const f = fixture();
-    const entry = { cellsPerEdge: f.N, grid: f.grid, objects: [], buildingShapes: [], _spawnOpts: f.spawnOpts };
-    for (const kind of row.enemyKinds) {
-      const cand = { tier: `street_slime_trail_${kind}`, sid: `slime-pair-${kind}`, tx: 0, ty: 0,
-        ox: 0, oy: 0, wx: 220, wy: 220, lx: 220, ly: 220, ix: 31, iy: 31, halfW: 0, halfH: 0, _street: row.id };
-      const guards = Lairs.garrisonFor(entry, cand, { tileEdgeM: f.edge });
-      assert.eq(guards.length, 2, kind);
-      assert.truthy(guards.every(g => g.kind === kind && g._street === row.id));
-      assert.falsy(Lairs.DAILY_TIERS.has(cand.tier));
-      assert.eq(Lairs.garrisonFor(entry, cand, { tileEdgeM: f.edge, caughtSet: new Set(guards.map(g => g.id)) }).length, 0);
+    const entry = { cellsPerEdge:f.N,tileEdgeM:f.edge,grid:f.grid,objects:[],
+      streetArea:new Uint8Array(f.N*f.N).fill(1),
+      streetAreaVariants:new Uint8Array(f.N*f.N).fill(row.code),_spawnOpts:f.spawnOpts };
+    const run = request => {
+      const oldRoll=SpawnPipeline.roll;SpawnPipeline.roll=()=>false;
+      entry.streetCreatureRequests=[request];
+      try {return WorldGen.runSteps(HabitatSpawns.populationSteps({tileEdgeM:f.edge,save:{}},entry,0,0,
+        {category:'enemy',skipLegacy:true,spawnOpts:{...f.spawnOpts,occupied:new Set()}}));}
+      finally {SpawnPipeline.roll=oldRoll;}
+    };
+    for(const kind of row.enemyKinds) {
+      const request={rule:`street_slime_trail_${kind}`,sid:`slime-pair-${kind}`,lx:220,ly:220,_street:row.id};
+      const creatures=run(request);
+      assert.eq(creatures.length,2,kind);
+      assert.truthy(creatures.every(c=>c.kind===kind&&c._street===row.id&&!c.lair),'ordinary AI retains path species');
+      assert.eq(creatures.map(c=>c.id).join(),[0,1].map(n=>`lair_${request.sid}_${n}`).join(),'existing captures keep their IDs');
+      const caught=new Set(creatures.map(c=>c.id));
+      assert.eq(run(request).filter(c=>SceneCreatures.prototype._habitatPopulationVisible.call({},c,caught,null)).length,0);
+      assert.eq(JSON.stringify(run(request)),JSON.stringify(creatures),'allocation repeats without a lazy wake');
     }
-    const family = EnemyHabitats.buildingKinds;
-    EnemyHabitats.buildingKinds = () => ['goblin'];
-    try {
-      const c = { tier: 'street_slime_trail_slime', sid: 'nexus-slime', tx: 0, ty: 0,
-        ox: 0, oy: 0, wx: 220, wy: 220, lx: 220, ly: 220, ix: 31, iy: 31, halfW: 0, halfH: 0, _street: row.id };
-      assert.truthy(Lairs.garrisonFor(entry, c, { tileEdgeM: f.edge }).every(g => g.kind === 'slime'),
-        'Nexus habitat cannot replace the path-authored species');
-    } finally { EnemyHabitats.buildingKinds = family; }
-    entry.streetLairs = f.result.lairs;
-    const index = Lairs.buildIndex(entry, 0, 0, 7, f.edge);
-    assert.truthy([...index.buckets.values()].flat().every(c => c._street === row.id), 'index preserves path provenance');
+    assert.eq(f.result.lairs.length,0,'no duplicate lair allocation remains');
   });
   test('slime trail: reactive splitting never consumes the melee attack cadence', () => {
     const c = { kind: 'split_slime', id: 'reactive-slime' }, roster = EnemyRoster.get(c.kind);

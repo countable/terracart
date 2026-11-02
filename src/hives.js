@@ -68,7 +68,7 @@
             const { tx, ty } = absCellToTile(scene, cell.cellIX, cell.cellIY);
             const entry = W.tileCache.get(W.tileKey(tx, ty));
             if (!entry?.creatures || entry.status !== 'ready' || (entry.depth || 0) !== (scene.depth || 0)
-                || !root.CreatureSpawns.gateAt(scene, x, y, row.enemy, W.spawnOptsOf(entry))
+                || !root.CreatureSpawns.canPlaceAt(scene, entry, x, y, row.enemy, { overrides: W.spawnOptsOf(entry) })
                 || scene._cellBlocked?.(x, y)
                 || Math.hypot(player.x - x, player.y - y) < clearance) continue;
             let blocked = false;
@@ -88,7 +88,7 @@
         });
       },
       onPlaced(child, member, seat) {
-        seat.entry.creatures.push(child);
+        root.CreatureSpawns.register(seat.entry, child);
         persistSave(scene.save);
       },
     }));
