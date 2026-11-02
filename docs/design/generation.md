@@ -85,7 +85,10 @@ access or tile lifecycle mechanics.
   inhabitants stay on dry land. Jellyfish retain their bank-adjacency rule.
   Residual water owns its explicit aquatic edge rows; it does not borrow a
   neighbouring road or Nexus table. Nexus aquatic rows use their own water cells.
-- Fauna may share static interactables; enemies respect their occupancy. All
+- Fauna, enemies and rare monsters may share passable static interactables.
+  Solid blockers (placed rocks and pushable blocks), cave walls and other
+  impassable terrain remain excluded; water still requires an aquatic species.
+  Creature reservations remain separate from prop occupancy. All
   generated creatures reserve seats before capture, defeat, Home, daylight and
   mode filtering. Three-cell Chebyshev fauna spacing rejects crowded density
   candidates without refilling them. Authored inhabitants reserve their own

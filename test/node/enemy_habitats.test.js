@@ -269,14 +269,16 @@ test('enemy habitats: every selected cave theme has an eligible family through d
       for (const c of group) assert.lte(Math.hypot(c.x - group[0].x, c.y - group[0].y), 3 * 7);
     }
   });
-  test('surface encounters: require themed coverage and obey roads, occupied seats, and hard spawn gates', () => {
+  test('surface encounters: require themed coverage and hard spawn gates but share passable occupied seats', () => {
     for (const theme of ['orchard', 'mushroom_grove']) for (const block of ['road', 'occupied', 'restricted', 'coverage']) {
       const e = entry(theme), occupied = new Set();
       if (block === 'road') e.gameplayTiers = new Uint8Array(N * N).fill(4);
       if (block === 'occupied') for (let i = 0; i < N * N; i++) occupied.add(i);
       if (block === 'restricted') e.spawnWhy = new Uint32Array(N * N).fill(WorldGen.SPAWN_WHY.RESTRICTED);
       if (block === 'coverage') e.zone.coverage.fill(0);
-      assert.eq(EnemyHabitats.surfaceEncounters(e, 0, 0, occupied).length, 0, block);
+      const found = EnemyHabitats.surfaceEncounters(e, 0, 0, occupied);
+      if (block === 'occupied') assert.gt(found.length, 0, 'passable prop reservations allow enemies');
+      else assert.eq(found.length, 0, block);
     }
   });
   test('surface encounters: excluded ground removes Nexus candidates without rerolling other cells', () => {

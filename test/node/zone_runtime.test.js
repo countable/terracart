@@ -177,7 +177,7 @@
       'fauna spacing losses are identical with every static cell occupied or none occupied');
   });
 
-  test('fauna overlap: live scenery keeps animals; flooded ground and scenery still remove foes and traps', () => {
+  test('creature overlap: live scenery keeps animals and foes; flooding removes land creatures', () => {
     const N = 4, grid = new Array(N * N).fill(WorldGen.T.GRASS);
     const scene = Object.assign(new SceneCreatures(), { tileEdgeM: N * 10 });
     const creatures = [{ kind: 'crow', x: 5, y: 5 }, { kind: 'slime', x: 5, y: 5 },
@@ -186,10 +186,15 @@
       traps: [{ x: 5, y: 5 }], extraTreasures: [] };
     entry.grid[1] = WorldGen.T.WATER;
     scene._cullOffLiveGround(entry, 0, 0, N, 10, grid, [], creatures);
-    assert.eq(creatures.length, 1);
+    assert.eq(creatures.length, 2);
+    assert.eq(creatures[1].kind, 'slime');
     assert.eq(creatures[0].kind, 'crow');
     assert.eq(creatures[0].x, 5);
     assert.eq(entry.traps.length, 0);
+    entry.cellsPerEdge = N;
+    entry.objects[0].pushable = true;
+    scene._cullOffLiveGround(entry, 0, 0, N, 10, grid, [], creatures);
+    assert.eq(creatures.length, 0, 'solid pushblocks remove both animals and foes');
   });
 
   test('zone runtime: authored coverage keeps ambient rooted enemies and traps out of empty pattern lanes', () => {

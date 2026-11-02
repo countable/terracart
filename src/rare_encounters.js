@@ -98,14 +98,8 @@
     if (!environment(scene, row)) return;
     // Restoring the same seat never finds a substitute or rolls again.
     const overrides = { waterOnly: !!row.water };
-    // Generated occupancy deliberately retains spent plants. A transformed
-    // shrub vacates only its own seat, both now and after cache regeneration.
-    if (seat.bushId && (scene.save.chopped || []).includes(seat.bushId)) {
-      const sameCell = item => item.id !== seat.bushId && Math.floor(item.x / target.cellM) === Math.floor(seat.x / target.cellM) && Math.floor(item.y / target.cellM) === Math.floor(seat.y / target.cellM);
-      if ([...(target.entry.objects || []), ...(target.entry.creatures || []).filter(c => blocksSeat(scene, c)), ...(target.entry.wildplants || []).filter(p => !(scene.save.chopped || []).includes(p.id))].some(sameCell)) return;
-      overrides.occupied = new Set(target.entry._spawnOpts?.occupied || []);
-      overrides.occupied.delete(target.cy * target.entry.cellsPerEdge + target.cx);
-    }
+    // Passable props may share this seat; a living creature still may not.
+    if (creatures.some(c => blocksSeat(scene, c) && Math.hypot(c.x - seat.x, c.y - seat.y) < target.cellM)) return;
     if (!root.CreatureSpawns.gateAtEntry(scene, target.entry, seat.x, seat.y, seat.kind, overrides)) return;
     const extra = { _rareEncounter: { key: at.key, visit: area.visit, suffix: seat.suffix || '' },
       _sharedId: false, depth: at.depth, homeX: seat.x, homeY: seat.y, ...(seat.extra || {}) };
@@ -205,17 +199,11 @@
       const target = locate(scene, bush.x, bush.y), sector = Math.floor((Math.atan2(bush.y - player.y, bush.x - player.x) + Math.PI) / (Math.PI / 2)) % 4;
       if (target?.key !== at.key || used.has(sector)) continue;
       const sharesSeat = item => item.id !== bush.id && Math.floor(item.x / at.cellM) === Math.floor(bush.x / at.cellM) && Math.floor(item.y / at.cellM) === Math.floor(bush.y / at.cellM);
-      if ([...(target.entry.objects || []), ...(target.entry.creatures || []).filter(c => blocksSeat(scene, c))].some(sharesSeat)) continue;
-      const occupied = new Set(target.entry._spawnOpts?.occupied || []);
-      occupied.delete(target.cy * target.entry.cellsPerEdge + target.cx);
-      if (!root.CreatureSpawns.gateAtEntry(scene, target.entry, bush.x, bush.y, row.kind, { occupied })) continue;
+      if ((target.entry.creatures || []).some(c => blocksSeat(scene, c) && sharesSeat(c))) continue;
+      if (!root.CreatureSpawns.gateAtEntry(scene, target.entry, bush.x, bush.y, row.kind)) continue;
       const suffix = ':' + root.EnemySpawns.hash(`${wp.id}:${bush.id}`).toString(36), id = identity(at.key, area.visit, row.kind, suffix);
       const seat = { id, kind: row.kind, suffix, bushId: bush.id, x: bush.x, y: bush.y, behaviour: {}, extra: { _rareSurround: { group: event, x: player.x, y: player.y, cells: 2, ordinal: sector, count: 4 } } };
-      // The transformed bush has vacated this occupied seat.
-      const original = target.entry._spawnOpts?.occupied;
-      if (target.entry._spawnOpts) target.entry._spawnOpts.occupied = occupied;
       area.seats[id] = seat; materialize(scene, at, area, seat);
-      if (target.entry._spawnOpts) target.entry._spawnOpts.occupied = original;
       if ((target.entry.creatures || []).some(c => c.id === id)) { chopped.add(bush.id); used.add(sector); result.push(id); }
       else seat.finished = true;
     }

@@ -2977,8 +2977,12 @@
         if (!habitatSeats.has(sid)) {
           const kind = row.hiddenPets[Math.floor(hash01(`street-pet|${rec.key}`) * row.hiddenPets.length)];
           const petCls = root.creatureSpawnClass ? root.creatureSpawnClass(kind) : 'fauna';
+          const petOpts = root.CreatureSpawns.passableOpts(null,
+            { cellsPerEdge: N, tileEdgeM: ctx.tileEdgeM, objects: [...(ctx.objects || []), ...res.objects] },
+            { ...spawnOpts, waterOnly: !!root.EnemyRoster?.get(kind)?.movement?.waterOnly },
+            new Set(res.guards.map(g => g._iy * N + g._ix)), tx, ty);
           const petOk = (ix, iy) => ix >= 0 && iy >= 0 && ix < N && iy < N
-            && spawnCell(grid, N, N, ix, iy, spawnOpts, petCls)
+            && spawnCell(grid, N, N, ix, iy, petOpts, petCls)
             && (!root.BiomeProfiles || root.BiomeProfiles.faunaAllows(kind, grid[iy * N + ix]));
           const outer = [], inner = [], seen = new Set();
           sampleLine(rec.line, gM, CELL_M, CELL_M / 2, (s, x, y, nx, ny) => {

@@ -236,6 +236,18 @@ class SceneCreatures {
     }
     yield 'spawn scenic dressing';
     const zoneTraps = [], zoneGuards = [], zoneTreasures = [];
+    const authoredCreatureCells = new Set();
+    const layCreature = guard => {
+      const kind = guard.kind;
+      const cells = SpawnOwnership.tileCells(this, entry, guard, tx, ty);
+      const opts = CreatureSpawns.passableOpts(this, entry,
+        { ..._spawnOpts, waterOnly: !!EnemyRoster.get(guard.kind)?.movement?.waterOnly },
+        authoredCreatureCells, tx, ty);
+      if (!cells.length || cells.some(i => !CreatureSpawns.isSpawnCell(genGrid, N, N,
+        i % N, Math.floor(i / N), opts, kind))) return false;
+      for (const i of cells) { authoredCreatureCells.add(i); _occupiedIdx.add(i); }
+      return true;
+    };
     const zDress = entry.zoneDress;
     entry.reefCorals = !testMode ? (zDress?.corals || []).filter(o => {
       const cells = SpawnOwnership.tileCells(this, entry, o, tx, ty);
@@ -270,7 +282,7 @@ class SceneCreatures {
       // Claim every generated seat even after a kill/disarm. Player progress
       // may hide a piece, but must never reveal a different spawn underneath.
       for (const trap of (zDress.traps || [])) if (lay(trap, 'hazard')) zoneTraps.push({ ...trap });
-      for (const guard of (zDress.guards || [])) if (lay(guard, creatureSpawnClass(guard.kind))) zoneGuards.push(guard);
+      for (const guard of (zDress.guards || [])) if (layCreature(guard)) zoneGuards.push(guard);
       for (const treasure of (zDress.treasures || [])) {
         const cells = SpawnOwnership.tileCells(this, entry, treasure, tx, ty);
         const allowed = cells.length && cells.every(i => WorldGen.isSpawnCell(genGrid, N, N, i % N, Math.floor(i / N), { ..._spawnOpts, occupied: null }, 'reward'));
@@ -313,7 +325,7 @@ class SceneCreatures {
       // A street's authored residents (StreetVariants `guards` — the grassy
       // lane's hidden pet) take the zone guards' lane below: the same gate,
       // the same seat reservation, the same shiny, caught and hidden handling.
-      for (const guard of (dressing.guards || [])) if (lay(guard, creatureSpawnClass(guard.kind))) zoneGuards.push(guard);
+      for (const guard of (dressing.guards || [])) if (layCreature(guard)) zoneGuards.push(guard);
       entry.spiderPathWebs = (dressing.webs || []).filter(p => lay(p, 'hazard'));
       entry.pathVents = (dressing.vents || []).filter(p => lay(p, 'hazard'));
       streetTreasures = dressing.treasures.filter(p => lay(p, 'reward'));
@@ -912,10 +924,12 @@ class SceneCreatures {
       if (!SpawnOwnership.isProtected(plant, this.save, savedIds)) continue;
       for (const i of SpawnOwnership.tileCells(this, footprintFrame, plant, tx, ty)) held.set(i, null);
     }
+    const creatureBlockers = CreatureSpawns.passableOpts(this, entry, {}, null, tx, ty).occupied;
     const repainted = grid !== genGrid;
     const off = (t, allowOverlap = false, cls = 'minor') => {
       const i = idxOf(t.x, t.y);
       if (i < 0) return false;
+      if (allowOverlap && creatureBlockers.has(i)) return true;
       if (!allowOverlap && held.has(i)
           && !(t.coverRockId && held.get(i) === t.coverRockId)) return true;
       const waterOnly = EnemyRoster.get(t.kind)?.movement.waterOnly;
@@ -925,13 +939,13 @@ class SceneCreatures {
           roadMask: entry.roadMask, roadClass: entry.roadClass, occupied: null, waterOnly,
         }, cls);
     };
-    if (!held.size && !repainted) return;
+    if (!held.size && !creatureBlockers.size && !repainted) return;
     const keep = (arr, faunaOverlap = false, spawnClass = 'minor') => {
       if (!arr) return arr;
       let w = 0;
       for (const record of arr) {
         const cls = faunaOverlap ? creatureSpawnClass(record.kind) : spawnClass;
-        if (!off(record, cls === 'fauna' || cls === 'fastFauna', cls)) arr[w++] = record;
+        if (!off(record, faunaOverlap && cls !== 'npc', cls)) arr[w++] = record;
       }
       arr.length = w;
       return arr;
@@ -1004,8 +1018,8 @@ class SceneCreatures {
     // up-stair under the starter ladder (both `_synthetic`). Anchoring on, or
     // refusing seats around, a player's own stairs reshuffled the whole cave
     // population everyone else sees (CLAUDE.md "Every player sees the SAME
-    // generated world"). What the live entry holds is a CULL after the draw
-    // (`heldByPlayer` below), never a re-roll.
+    // generated world"). Passable player props do not block creatures; solid
+    // live blockers still reject a seat through the creature gate below.
     const genGrid = entry.baseGrid || entry.grid;
     const genObjects = (entry.genObjects || entry.objects || []).filter(o => !o._synthetic);
     const genWildplants = entry.genWildplants || entry.wildplants || [];
@@ -1016,18 +1030,8 @@ class SceneCreatures {
         liy: Math.floor((s.y - ty * entry.tileEdgeM) / cellSizeM),
       }));
     if (!anchors.length) anchors.push({ lix: Math.floor(N / 2), liy: Math.floor(N / 2) });
-    // Cells an object (rock, staircase, chest…) already sits on. Built ONCE
-    // here and shared by every seat-time check below — monsters,
-    // the coin trickle and the traps — rather than each rescanning
-    // entry.objects for the same thing. This is occupancy governing where a
-    // thing is SEATED, not where it may later walk: a monster is
-    // free to wander onto any cell once it exists (the wander loop in
-    // wanderCreatures doesn't consult this), it just must not be BORN on a
-    // staircase or inside a rock sprite — the same "not under a rock" half of
-    // the spawn rule the cave coins and cave traps just below already enforce
-    // via their own copies of this scan. Terrain (CAVE_FLOOR) alone can't see
-    // an object sitting on top of it, same as the surface roadMask can't see
-    // an object sitting on top of a grass cell.
+    // Props, coins and traps retain their full occupied-cell map. Creatures
+    // share passable props and use a separate solid/creature reservation map.
     const occupiedIdx = new Set();
     for (let i = 0; i < (entry.gameplayTiers?.length || entry.spawnWhy?.length || 0); i++) {
       if ((i & 1023) === 0) yield 'cave geographic occupancy';
@@ -1040,7 +1044,6 @@ class SceneCreatures {
       const oy = Math.floor((o.y - ty * entry.tileEdgeM) / cellSizeM);
       if (ox >= 0 && oy >= 0 && ox < N && oy < N) occupiedIdx.add(oy * N + ox);
     }
-    const authoredBlocked = new Set(occupiedIdx);
     for (const i of entry.undergroundReserved || []) occupiedIdx.add(i);
     for (const resident of entry.undergroundResidents || []) {
       const { x, y, id, culture, dwarf } = resident;
@@ -1051,14 +1054,19 @@ class SceneCreatures {
         ...(dwarf ? { name: 'Dwarf ' + identity.name, role: 'merchant', roleLabel: 'Dwarven Smith', shopTheme: 'supply', artScale: 0.8 } : {}),
       }));
     }
-    // Cave spawners share this generated occupancy because terrain alone
-    // cannot reveal a rock, mushroom or floor torch seated on its floor cell.
+    // Publish full prop occupancy for loot and trap placement.
     entry._spawnOpts = { roadMask: null, spawnWhy: entry.spawnWhy, gameplayTiers: entry.gameplayTiers, occupied: occupiedIdx, pois: [] };
     // The lost miner's one seat on the level under the trailer (LostMiner.seat).
     if (typeof LostMiner !== 'undefined') yield* LostMiner.seatSteps(this, entry, tx, ty, depth, creatures, occupiedIdx);
-    // Cells THIS player's live entry holds that the generated layer doesn't —
-    // their stairs. A seat drawn onto one is dropped (the attempt still ends
-    // exactly where it would for anyone else).
+    const creatureOpts = CreatureSpawns.passableOpts(this, entry, entry._spawnOpts, null, tx, ty);
+    const creatureOccupied = creatureOpts.occupied;
+    for (const c of creatures) {
+      const cx = Math.floor((c.x - tx * entry.tileEdgeM) / cellSizeM);
+      const cy = Math.floor((c.y - ty * entry.tileEdgeM) / cellSizeM);
+      if (cx >= 0 && cy >= 0 && cx < N && cy < N) creatureOccupied.add(cy * N + cx);
+    }
+    // Keep player-owned prop cells unavailable to coins and traps, including
+    // passable stairs that creatures may share.
     const genSet = new Set(genObjects);
     const heldByPlayer = new Set();
     for (const o of (entry.objects || [])) {
@@ -1074,24 +1082,30 @@ class SceneCreatures {
       const cx = Math.floor((seat.x - tx * entry.tileEdgeM) / cellSizeM);
       const cy = Math.floor((seat.y - ty * entry.tileEdgeM) / cellSizeM);
       const idx = cy * N + cx;
+      const cls = creatureSpawnClass(seat.kind);
       if (cx < 0 || cy < 0 || cx >= N || cy >= N || genGrid[idx] !== 24
-          || authoredBlocked.has(idx)) continue;
-      occupiedIdx.add(idx);
+          || creatureOccupied.has(idx)
+          || !WorldGen.isSpawnCell(genGrid, N, N, cx, cy, creatureOpts, cls)) continue;
+      occupiedIdx.add(idx); creatureOccupied.add(idx);
       monsterSeats.add(seat.id);
-      if (caughtSet.has(seat.id) || heldByPlayer.has(idx)) continue;
+      if (caughtSet.has(seat.id)) continue;
       creatures.push(CreatureSpawns.createOwned('cave-finite', seat.caveArea || seat.id, seat.kind, seat.x, seat.y, seat.id, {
         depth, shiny: false, caveArea: seat.caveArea,
         hidden: !!seat.hidden, dormant: !!seat.dormant,
         revealDistanceCells: seat.revealDistanceCells,
       }));
     }
+    for (const i of entry.undergroundReserved || []) creatureOccupied.add(i);
     // A roost owns one fixed dragon seat even after defeat. Reserve before
     // ordinary pools so losing the dragon cannot regenerate another enemy.
-    for (const dragon of EnemyHabitats.caveSites(entry, tx, ty, depth, occupiedIdx)) {
+    for (const dragon of EnemyHabitats.caveSites(entry, tx, ty, depth, creatureOccupied)) {
       const cx = Math.floor((dragon.x - tx * this.tileEdgeM) / cellSizeM);
       const cy = Math.floor((dragon.y - ty * this.tileEdgeM) / cellSizeM);
-      if (!caughtSet.has(dragon.id) && !heldByPlayer.has(cy * N + cx)) creatures.push(dragon);
+      occupiedIdx.add(cy * N + cx);
+      if (!caughtSet.has(dragon.id)) creatures.push(dragon);
     }
+    // This old occupancy is used only to map historical defeat IDs; it does
+    // not place live creatures and must retain the old prop-based geometry.
     const legacyOccupied = new Set(occupiedIdx);
     const legacyPopulation = function* () {
       const creatures = [], monsterSeats = new Set(), caughtSet = new Set(), heldByPlayer = new Set();
@@ -1316,7 +1330,7 @@ class SceneCreatures {
     // Cave habitats provide per-species cell rates. Entrances no longer add
     // fixed packs, and twelve-cell blocks no longer add a second population.
     const density = [], contexts = new Map(), rowsByHabitat = new Map();
-    const eligibleOpts = { ...entry._spawnOpts, occupied: occupiedIdx };
+    const eligibleOpts = { ...creatureOpts, occupied: creatureOccupied };
     for (let index = 0; index < N * N; index++) {
       if ((index & 255) === 0) yield 'cave species rate cells';
       const cx = index % N, cy = Math.floor(index / N);
@@ -1341,7 +1355,7 @@ class SceneCreatures {
         count: group.size,
         member: ordinal => ({ ordinal, index: cells[ordinal], id: HabitatSpawns.packMemberId(group.id, ordinal, false) }),
         seat: member => {
-          if (member.index == null || member.ordinal && !anchorPlaced || occupiedIdx.has(member.index)) return null;
+          if (member.index == null || member.ordinal && !anchorPlaced || creatureOccupied.has(member.index)) return null;
           const cx = member.index % N, cy = Math.floor(member.index / N);
           if (genGrid[member.index] !== WorldGen.T.CAVE_FLOOR || WorldGen.variantOwnerAt(entry, member.index)) return null;
           const habitat = contexts.get(member.index);
@@ -1349,7 +1363,7 @@ class SceneCreatures {
           if (!rowsByHabitat.get(habitat.id)?.some(row => row.kind === group.row.kind)) return null;
           const cls = creatureSpawnClass(group.row.kind);
           if (!WorldGen.isSpawnCell(genGrid, N, N, cx, cy,
-              { ...entry._spawnOpts, occupied: occupiedIdx }, cls)) return null;
+              eligibleOpts, cls)) return null;
           return { ...tileCellCentre(this.tileEdgeM, tx, ty, cellSizeM, cx, cy), cx, cy };
         },
         create: (member, seat) => WorldGen.makeCreature(group.row.kind, seat.x, seat.y, member.id, {
@@ -1363,7 +1377,7 @@ class SceneCreatures {
         }),
         onPlaced: (_, member) => {
           if (!member.ordinal) anchorPlaced = true;
-          occupiedIdx.add(member.index);
+          occupiedIdx.add(member.index); creatureOccupied.add(member.index);
         },
       }));
       yield 'cave creature pack';
@@ -1399,8 +1413,7 @@ class SceneCreatures {
       }
     }
     for (const c of generated) {
-      const cx = Math.floor((c.x - tx * entry.tileEdgeM) / cellSizeM), cy = Math.floor((c.y - ty * entry.tileEdgeM) / cellSizeM);
-      if (!caughtSet.has(c.id) && !c._legacyDefeatIds.some(id => caughtSet.has(id)) && !heldByPlayer.has(cy * N + cx)) creatures.push(c);
+      if (!caughtSet.has(c.id) && !c._legacyDefeatIds.some(id => caughtSet.has(id))) creatures.push(c);
     }
     const cavePopulation = { requested: caveRequested, placed: generated.length,
       shortfall: caveRequested - generated.length, ratePer1000: EnemySpawns.caveDensityRate(depth) };
@@ -1629,7 +1642,7 @@ class SceneCreatures {
               if (!dest.loaded || !BiomeProfiles.faunaAllows('deer', dest.type)) return false;
               const tile = WorldGen.tileCache.get(WorldGen.tileKey(dest.tx, dest.ty));
               if (!tile?.grid) return false;
-              return WorldGen.isSpawnCell(tile.grid, tile.cellsPerEdge, tile.cellsPerEdge, dest.ix, dest.iy, WorldGen.spawnOptsOf(tile, { occupied: null }), creatureSpawnClass('deer'));
+              return CreatureSpawns.gateAtEntry(this, tile, sx, sy, 'deer');
             });
             if (seat) {
               entry.creatures.push(CreatureSpawns.createOwned('crop-pests', `garden:${pc.tx}:${pc.ty}`, 'deer', seat.x, seat.y,

@@ -1092,7 +1092,7 @@
     const WG = root.WorldGen;
     const generated = new Set(entry.genObjects || entry.objects || []);
     return WG.occupiedIndexSet(WG.tileFrame(entry, tx, ty, tileEdgeM),
-      (entry.objects || []).filter((obj) => !generated.has(obj)));
+      (entry.objects || []).filter((obj) => !generated.has(obj) && root.PushBlocks?.isBlock(obj)));
   }
 
   function garrisonFor(entry, cand, opts) {
@@ -1180,9 +1180,10 @@
     // The kerb buffer is read off the spawn options' roadClass (spawnInTile
     // carries entry.roadClass there); an older options object without one
     // reads the entry's own — the same array, never a second derivation.
-    const foeOpts = (spawnOpts && !spawnOpts.roadClass && entry.roadClass)
-      ? Object.assign({}, spawnOpts, { roadClass: entry.roadClass }) : spawnOpts;
-    // The live-ground cull matches SceneCreatures._cullOffLiveGround: objects
+    const foeOpts = root.CreatureSpawns.passableOpts(o.scene,
+      { ...entry, tileEdgeM, objects: genObjects }, { ...spawnOpts, roadClass: spawnOpts?.roadClass || entry.roadClass },
+      null, cand.tx, cand.ty);
+    // The live-ground cull matches SceneCreatures._cullOffLiveGround: solid objects
     // added after generation claim their cell, and a player-repainted cell
     // drops its guard only when the live terrain is no longer walkable.
     const liveOccupied = o.liveOccupied || liveOccupiedFor(entry, cand.tx, cand.ty, tileEdgeM);

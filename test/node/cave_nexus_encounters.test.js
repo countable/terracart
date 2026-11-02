@@ -30,11 +30,23 @@
     assert.falsy(f.entry.creatures.some(c => c.id === f.seat.id));
     assert.truthy(f.entry._spawnOpts.occupied.has(434));
   });
-  test('cave nexus encounters: actual objects, exclusions and player stairs reject seats', () => {
-    for (const blocked of ['object', 'exclusion', 'player']) {
+  test('cave nexus encounters: passable rocks and player stairs can share authored seats', () => {
+    for (const kind of ['mineralrock', 'staircase']) {
       const f = fixture();
-      if (blocked === 'object') f.entry.objects.push({ kind: 'mineralrock', x: 145, y: 145 });
-      if (blocked === 'player') { f.entry.genObjects = []; f.entry.objects.push({ kind: 'staircase', x: 145, y: 145, _synthetic: true }); }
+      f.entry.genObjects = [];
+      f.entry.objects.push({ kind, x: 145, y: 145, _synthetic: kind === 'staircase' });
+      spawn.call(f.scene, f.entry, 0, 0, 1);
+      assert.truthy(f.entry.creatures.some(c => c.id === f.seat.id), kind);
+      assert.eq(f.entry.creatures.filter(c => c.x === 145 && c.y === 145).length, 1);
+    }
+  });
+  test('cave nexus encounters: solid objects, exclusions, walls and water reject seats', () => {
+    for (const blocked of ['pushblock', 'exclusion', 'wall', 'water', 'building']) {
+      const f = fixture();
+      if (blocked === 'pushblock') f.entry.objects.push({ kind: 'mineralrock', pushable: true, x: 145, y: 145 });
+      if (blocked === 'wall') f.entry.grid[434] = WorldGen.T.CAVE_WALL;
+      if (blocked === 'water') f.entry.grid[434] = WorldGen.T.WATER;
+      if (blocked === 'building') f.entry.grid[434] = WorldGen.T.BUILDING;
       if (blocked === 'exclusion') { f.entry.spawnWhy = new Uint16Array(900); f.entry.spawnWhy[434] = WorldGen.SPAWN_WHY_ALL_FLOORS; }
       spawn.call(f.scene, f.entry, 0, 0, 1);
       assert.falsy(f.entry.creatures.some(c => c.id === f.seat.id), blocked);

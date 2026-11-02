@@ -15,6 +15,36 @@
     return root.WorldGen.isSpawnCell(grid, w, h, cx, cy, opts, creatureSpawnClass(kind));
   }
 
+  // Prop reservations prevent two objects sharing a seat; they do not make
+  // that seat impassable to a creature. Keep actual movement blockers and
+  // explicit creature reservations separate from the prop occupancy ledger.
+  function passableOpts(scene, entry, opts = {}, creatureCells = null, tx = null, ty = null) {
+    const occupied = new Set(creatureCells || []);
+    const N = entry?.cellsPerEdge || scene?.cellsPerTile;
+    const edge = entry?.tileEdgeM || scene?.tileEdgeM || N * scene?.cellM;
+    if (N > 0 && edge > 0) {
+      const addPoint = (x, y) => {
+        const tileX = Math.floor(x / edge), tileY = Math.floor(y / edge);
+        if (tx != null && (tileX !== tx || tileY !== ty)) return;
+        const ix = Math.floor((x - tileX * edge) * N / edge);
+        const iy = Math.floor((y - tileY * edge) * N / edge);
+        if (ix >= 0 && iy >= 0 && ix < N && iy < N) occupied.add(iy * N + ix);
+      };
+      for (const object of entry?.objects || entry?.genObjects || [])
+        if (root.PushBlocks?.isBlock(object)) addPoint(object.x, object.y);
+      if (tx != null && scene?.placedRockSet?.size && scene.cellsPerTile > 0
+          && typeof absCellCenterMeters === 'function') {
+        for (const key of scene.placedRockSet) {
+          const parts = key.split('_').map(Number);
+          if (parts.length !== 2 || !parts.every(Number.isFinite)) continue;
+          const point = absCellCenterMeters(scene, parts[0], parts[1]);
+          addPoint(point.x, point.y);
+        }
+      }
+    }
+    return { ...opts, occupied };
+  }
+
   // Runtime events resolve their world point back to the generated tile so
   // summons, raised ghosts and hooked slimes read the same gate as generation.
   function gateAt(scene, x, y, kind, overrides) {
@@ -35,7 +65,7 @@
     const cellM = edge / N;
     const cx = Math.floor((x - tx * edge) / cellM);
     const cy = Math.floor((y - ty * edge) / cellM);
-    const opts = {
+    let opts = {
       ...(entry._spawnOpts || {}),
       ...(entry.roadMask ? { roadMask: entry.roadMask } : {}),
       ...(entry.roadClass ? { roadClass: entry.roadClass } : {}),
@@ -44,6 +74,11 @@
       ...(entry.waterEdges ? { waterEdges: entry.waterEdges } : {}),
       ...(overrides || {}),
     };
+    if (kind !== 'npc') {
+      const row = root.EnemyRoster?.get(kind);
+      const waterOnly = !!(row?.movement?.waterOnly || row?.rareBehaviour?.waterSpawn || row?.rareBehaviour?.amphibious);
+      opts = passableOpts(scene, entry, { ...opts, waterOnly }, overrides?.creatureCells, tx, ty);
+    }
     if (grid) return root.WorldGen.isSpawnCell(grid, N, N, cx, cy, opts, creatureSpawnClass(kind));
 
     // A tile may be present before its generated arrays are attached. Runtime
@@ -196,6 +231,6 @@
   }
 
   root.CreatureSpawns = {
-    isSpawnCell, gateAt, gateAtEntry, frequencyCount, pickWeighted, expandMembers, generateSteps, OWNED_RULES, generateOwnedSteps, createOwned, createRecord,
+    isSpawnCell, passableOpts, gateAt, gateAtEntry, frequencyCount, pickWeighted, expandMembers, generateSteps, OWNED_RULES, generateOwnedSteps, createOwned, createRecord,
   };
 })(globalThis);

@@ -1886,12 +1886,10 @@
     const f = WorldGen.tileFrame(entry, tx, ty, scene.tileEdgeM);   // THIS tile's cells (its row's grid)
     const { N } = f;
     const { ix: ax, iy: ay } = f.cellOf(anchor.x, anchor.y);
-    // Cells already carrying something drawn — a chicken standing inside a
-    // starter crate reads as a bug whichever the renderer draws second.
-    const occupied = WorldGen.occupiedIndexSet(f, entry.objects, entry.wildplants);
-    // The greeter uses its creature profile and live occupancy, just like
-    // other births. A guaranteed request never grants a geographic exception.
-    const opts = WorldGen.spawnOptsOf(entry, { occupied });
+    // Greeters share passable props but retain separate creature seats.
+    const reserved = WorldGen.occupiedIndexSet(f, entry.creatures);
+    const opts = CreatureSpawns.passableOpts(scene, entry, WorldGen.spawnOptsOf(entry), reserved, tx, ty);
+    const occupied = opts.occupied;
     // Even an always-on greeter needs a legal seat. Missing space leaves
     // the request unplaced instead of bypassing Excluded ground.
     const standable = (cx, cy) => f.inTile(cx, cy)

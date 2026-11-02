@@ -81,11 +81,13 @@
     f.entry.genObjects=[];
     const first=wake(f);
     assert.gt(first.length,0);
-    f.entry.objects=first.map(g=>({kind:'rock',x:g.seatX,y:g.seatY}));
+    f.entry.objects=first.map(g=>({kind:'rock',pushable:true,x:g.seatX,y:g.seatY}));
     const liveOccupied=Lairs.liveOccupiedFor(f.entry,0,0,edge);
     const batch=Lairs.garrisonFor(f.entry,f.cand,{tileEdgeM:edge,homeM,liveOccupied});
     assert.eq(batch.length,0,'live objects claim all generated guard seats');
     assert.eq(JSON.stringify(batch),JSON.stringify(wake(f)),'batch snapshot matches ordinary live occupancy checks');
+    f.entry.objects.forEach(o => { o.pushable = false; });
+    assert.eq(JSON.stringify(wake(f)),JSON.stringify(first),'passable scenery preserves the original guard seats');
     f.entry.objects=[];
     assert.eq(JSON.stringify(wake(f)),JSON.stringify(first),'ordinary wake observes removed live objects without rerolling seats');
   });

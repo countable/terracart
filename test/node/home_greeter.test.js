@@ -323,21 +323,25 @@
     assert.gte(seat.cy, ANCHOR, 'on the clear side');
   });
 
-  test('home greeter: it stands on nothing else drawn', () => {
-    // A chicken inside a starter crate reads as a bug whichever the renderer
-    // draws second. Fill the whole ring with objects but one cell.
+  test('home greeter: it shares passable props but avoids solid blocks', () => {
+    // Fill the ring with movable solid blocks except for one legal cell.
     const objects = [];
     const free = { cx: ANCHOR + HOME_GREETER_MIN_CELLS, cy: ANCHOR };
     for (let cy = ANCHOR - HOME_GREETER_MAX_CELLS; cy <= ANCHOR + HOME_GREETER_MAX_CELLS; cy++) {
       for (let cx = ANCHOR - HOME_GREETER_MAX_CELLS; cx <= ANCHOR + HOME_GREETER_MAX_CELLS; cx++) {
         if (cx === free.cx && cy === free.cy) continue;
-        objects.push({ kind: 'chest', x: (cx + 0.5) * CELL_M, y: (cy + 0.5) * CELL_M });
+        objects.push({ kind: 'chest', pushable: true, x: (cx + 0.5) * CELL_M, y: (cy + 0.5) * CELL_M });
       }
     }
     const entry = hgEntry(T.GRASS, { objects });
     hgPlace(hgScene(), entry);
     assert.eq(JSON.stringify(hgCell(hgOf(entry)[0])), JSON.stringify(free),
       'the one cell with nothing on it');
+    objects.forEach(o => { o.pushable = false; });
+    const clear = hgEntry(T.GRASS), dressed = hgEntry(T.GRASS, { objects });
+    hgPlace(hgScene(), clear); hgPlace(hgScene(), dressed);
+    assert.eq(JSON.stringify(hgCell(hgOf(dressed)[0])), JSON.stringify(hgCell(hgOf(clear)[0])),
+      'passable props leave the greeter seat unchanged');
   });
 
   test('home greeter: never on water or inside a building', () => {

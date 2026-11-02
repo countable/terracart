@@ -1625,7 +1625,7 @@ test('hedgerow encounters: one stable post holds two hedge-ambush runts per stre
   assert.eq(wake(new Set(guards.map(g=>g.id))).length,0,'caught ledger spends both guards');
   for(const guard of guards) entry._spawnOpts.occupied.add(Math.floor(guard.y/7)*N+Math.floor(guard.x/7));
   const blockedSeats=wake();
-  assert.truthy(blockedSeats.every(g=>!entry._spawnOpts.occupied.has(Math.floor(g.y/7)*N+Math.floor(g.x/7))),'occupied seats, including lamps, stay clear');
+  assert.eq(JSON.stringify(blockedSeats), JSON.stringify(guards), 'passable lamp reservations preserve guard seats');
   entry._spawnOpts.spawnWhy.fill(WorldGen.SPAWN_WHY.RESTRICTED);
   assert.eq(wake().length,0,'hard spawn reasons prevent the pair');
 });

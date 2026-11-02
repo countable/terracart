@@ -450,7 +450,10 @@
     assert.eq(d1[0].x + ',' + d1[0].y, d2[0].x + ',' + d2[0].y, 'in the same seat');
     assert.includes(Lairs.KIND_ORDER.gate, d1[0].kind, 'a slime or a goblin');
     const c = cellOf(d1[0]);
-    assert.falsy(occupied.has(c.iy * CPE + c.ix), 'never on a post');
+    assert.truthy(WorldGen.isSpawnCell(r.grid, CPE, CPE, c.ix, c.iy,
+      CreatureSpawns.passableOpts(null, { cellsPerEdge: CPE, tileEdgeM: EDGE, objects: r.objects },
+        { roadMask: r.roadMask, occupied }, null, 0, 0), creatureSpawnClass(d1[0].kind)),
+      'a gatepost reservation does not block its passable guard seat');
     // Yesterday's corpse is pruned from save.caught; today's is kept.
     assert.eq(Lairs.dailyGuardDay(d1[0].id), '20260928', 'the day reads back off the id');
     assert.eq(Lairs.dailyGuardDay('lair_wagon_1_2_3_4_0'), null, 'a wagon guard is no daily one');

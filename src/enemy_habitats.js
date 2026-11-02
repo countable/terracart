@@ -196,6 +196,10 @@
       extra(n) {
         const kind = creature.kind;
         const origin = at.cy * N + at.cx;
+        const seatOpts = root.CreatureSpawns.passableOpts(null, entry,
+          { ...entry._spawnOpts, gameplayTiers: entry.gameplayTiers, spawnWhy: entry.spawnWhy,
+            waterOnly: !!root.EnemyRoster.get(creature.kind)?.movement?.waterOnly },
+          occupied, at.tx, at.ty);
         const candidates = [];
         for (let radius = 1; radius <= 6; radius++) {
           for (let cy = Math.max(0, at.cy - radius); cy <= Math.min(N - 1, at.cy + radius); cy++) {
@@ -205,8 +209,7 @@
               if (index === origin || owners[index]?.key !== ownerKey || occupied.has(index) || this.seated.has(index)) continue;
               if (root.HabitatSpawns.resolve(entry, index).key !== creature._habitatSpawn.key) continue;
               if (root.CreatureSpawns.isSpawnCell(entry.baseGrid || entry.grid, N, N, cx, cy,
-                  { ...entry._spawnOpts, gameplayTiers: entry.gameplayTiers, spawnWhy: entry.spawnWhy,
-                    occupied, waterOnly: !!root.EnemyRoster.get(creature.kind)?.movement?.waterOnly }, kind)) candidates.push({ cx, cy, index });
+                  seatOpts, kind)) candidates.push({ cx, cy, index });
             }
           }
           if (candidates.length) break;

@@ -610,14 +610,14 @@
       if(old) WorldGen.tileCache.set(key,old); else WorldGen.tileCache.delete(key);
     }
   });
-  test('enemy AI: summons refuse the shared occupied spawn gate', () => {
+  test('enemy AI: summons share passable prop occupancy', () => {
     const s=scene(),c=foe('necromancer',14,14),n=WorldGen.TILE_PX;
     Object.assign(s,{startWorldM:{x:0,y:0},originPx:{x:0,y:0},mPerPx:7,cellsPerTile:n});
     const key=WorldGen.tileKey(0,0),old=WorldGen.tileCache.get(key),previous=WorldGen.forEachItemNear;
     const entry={cellsPerEdge:n,grid:new Uint8Array(n*n).fill(WorldGen.T.CAVE_FLOOR),
       creatures:[c],_spawnOpts:{occupied:new Set(Array.from({length:n*n},(_,i)=>i))}};
     WorldGen.tileCache.set(key,entry);WorldGen.forEachItemNear=(what,tx,ty,fn)=>entry.creatures.forEach(fn);
-    try { assert.falsy(enemySummon(s,c,EnemyRoster.get(c.kind).ability)); }
+    try { assert.truthy(enemySummon(s,c,EnemyRoster.get(c.kind).ability)); }
     finally { WorldGen.forEachItemNear=previous;if(old)WorldGen.tileCache.set(key,old);else WorldGen.tileCache.delete(key); }
   });
 

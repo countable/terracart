@@ -675,6 +675,9 @@
     }
     spawnOpts.creatureCells = reserved;
     const regions = new Map(), owners = new Array(N * N), habitats = new Array(N * N);
+    // Passable props may share creature seats; preserve the full occupancy
+    // ledger for later prop placement and legacy identity translation.
+    const creatureOpts = root.CreatureSpawns.passableOpts(scene, entry, spawnOpts, reserved, tx, ty);
     for (let index = 0; index < N * N; index++) {
       if ((index & 2047) === 0) yield 'spawn owner coverage';
       const owner = owners[index] = root.SpawnPipeline.ownerAt(entry, index);
@@ -702,7 +705,7 @@
         const movement = root.EnemyRoster.get(row.kind)?.movement;
         const waterOnly = !!movement?.waterOnly;
         if (waterOnly && movement.shoreOnly && !WG.isShoreWaterCell(grid, N, N, cx, cy, spawnOpts)) continue;
-        const gate = { ...spawnOpts, occupied: fauna ? null : originalOccupied, waterOnly };
+        const gate = { ...creatureOpts, waterOnly };
         const cls = root.creatureSpawnClass(row.kind);
         if (!WG.isSpawnCell(grid, N, N, cx, cy, gate, cls)) continue;
         const key = `${tx}|${ty}|${owner.key}|${row.category}|${row.kind}|${index}`;
@@ -737,7 +740,7 @@
         seat: member => {
           if (member.ordinal && !anchorPlaced) return null;
           const legal = i => {
-            if (reserved.has(i) || (!fauna && occupied.has(i))) return false;
+            if (reserved.has(i)) return false;
             if (owners[i]?.key !== owner.key || habitats[i]?.key !== habitat.key) return false;
             if (owner.type === 'road' && sectionAt && sectionAt(i % N, Math.floor(i / N))?.key !== sectionAt(cx, cy)?.key) return false;
             if (!densityRows(owners[i], entry, i).some(candidate => candidate.kind === row.kind
@@ -749,7 +752,7 @@
             if (movement?.waterOnly && movement.shoreOnly && !WG.isShoreWaterCell(grid, N, N, x, y, spawnOpts)) return false;
             const cls = root.creatureSpawnClass(row.kind);
             return WG.isSpawnCell(grid, N, N, x, y,
-              { ...spawnOpts, occupied: fauna ? null : occupied, waterOnly: !!movement?.waterOnly }, cls);
+              { ...creatureOpts, waterOnly: !!movement?.waterOnly }, cls);
           };
           const candidate = candidates[member.ordinal];
           const seatIndex = candidate != null && legal(candidate) ? candidate : undefined;
@@ -818,7 +821,7 @@
         seat: member => {
           const cls = root.creatureSpawnClass(member.kind);
           const index = candidates.find(i => !reserved.has(i) && WG.isSpawnCell(grid, N, N, i % N, Math.floor(i / N),
-            { ...spawnOpts, occupied }, cls));
+            creatureOpts, cls));
           if (index == null) return null;
           return { index, cx: index % N, cy: Math.floor(index / N),
             x: tx * tileM + (index % N + .5) * cellM, y: ty * tileM + (Math.floor(index / N) + .5) * cellM };

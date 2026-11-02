@@ -197,4 +197,18 @@
     assert.truthy(shifted);
     assert.truthy(shifted.x!==baseline.x||shifted.y!==baseline.y,'a living captured pet still occupies its seat');
   }));
+  test('rare encounters: passable prop occupancy does not consume a successful visit', () => fixture((scene, entry) => {
+    let expected;
+    for(let n=0;n<100&&!expected;n++){
+      entry.zone.anchors[0].key='prop_overlap_'+n; scene.save={caught:[]};entry.creatures=[];delete scene._rareTickAt;
+      RareEncounters.tick(scene,1000);expected=entry.creatures[0];
+    }
+    assert.truthy(expected);
+    scene.save={caught:[]};entry.creatures=[];delete scene._rareTickAt;
+    entry.objects=[{id:'passable-chest',kind:'chest',x:expected.x,y:expected.y}];
+    entry._spawnOpts={occupied:new Set(Array.from({length:4096},(_,i)=>i))};
+    RareEncounters.tick(scene,2000);
+    assert.eq(entry.creatures.length,1);assert.eq(entry.creatures[0].id,expected.id);
+    assert.eq(entry.creatures[0].x,expected.x);assert.eq(entry.creatures[0].y,expected.y);
+  }));
 })();

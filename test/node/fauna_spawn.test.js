@@ -46,7 +46,7 @@ test('cave spawn source: spawnCaveCreatures no longer calls save.caught.includes
     'spawnCaveCreatures source still calls save.caught.includes -- regressed back off the Set');
 });
 
-test('cave spawn shares mushroom and floor-torch occupancy with creatures and laid traps', () => {
+test('cave creatures share passable mushroom and floor-torch cells while traps still refuse them', () => {
   const N = 200, EDGE = 1000, CAVE_FLOOR = 24;
   const run = (wildplants = [], genWildplants = wildplants) => {
     const grid = new Array(N * N).fill(CAVE_FLOOR);
@@ -80,9 +80,9 @@ test('cave spawn shares mushroom and floor-torch occupancy with creatures and la
   assert.truthy(blocked._spawnOpts, 'the cave publishes its shared spawn options');
   for (const cell of cells) {
     assert.truthy(blocked._spawnOpts.occupied.has(cell.idx), 'the wildplant cell is occupied');
-    assert.falsy(blocked.creatures.some(c =>
+    assert.truthy(blocked.creatures.some(c =>
       Math.floor(c.x / (EDGE / N)) === cell.ix && Math.floor(c.y / (EDGE / N)) === cell.iy),
-    'a cave creature refuses the wildplant cell');
+    'a cave creature retains its deterministic seat over passable wildplants');
     assert.falsy(Traps.canLay(blocked, cell.ix, cell.iy),
       'a goblin trapper refuses the same wildplant cell');
   }

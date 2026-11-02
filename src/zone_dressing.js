@@ -76,6 +76,7 @@
     // metres, the occupancy this pass claims into, the chest each POI minted.
     const { cellM: step, ox, oy, occ, chestAt: chests, cx, cy } = WG.dressFrame(ctx), opts = ctx.spawnOpts;
     const initialOccupied = new Set(occ);
+    const guardCells = new Set();
     const position = (ix, iy) => [cx(ix), cy(iy)];
     const states = (field.anchors || []).map((a, ai) => {
       const variant = V.pick(a);
@@ -390,6 +391,9 @@
             // the nearest legal seat while the shared engine retains ordinal
             // identities, counts, creature classes and placement lifecycle.
             let ix = -1, iy = -1, bestDistance = Infinity;
+            const guardOpts = root.CreatureSpawns.passableOpts(null,
+              { cellsPerEdge: N, tileEdgeM, objects: [...(ctx.chests || []), ...out.objects] },
+              { ...opts, waterOnly: !!root.EnemyRoster?.get(kind)?.movement?.waterOnly }, guardCells, tx, ty);
             for (let k = 0; k < s.cells.length; k++) {
               if ((k & 255) === 0) yield 'zone guard fallback';
               const at = s.cells[k], x = at % N, y = Math.floor(at / N);
@@ -397,7 +401,7 @@
               if (distance >= bestDistance || !owns(s, x, y)
                   || ctx.tideSeats?.has(at)
                   || (root.BiomeProfiles && !root.BiomeProfiles.faunaAllows(kind, grid[at]))
-                  || !root.CreatureSpawns.isSpawnCell(grid, N, N, x, y, opts, kind)) continue;
+                  || !root.CreatureSpawns.isSpawnCell(grid, N, N, x, y, guardOpts, kind)) continue;
               ix = x; iy = y; bestDistance = distance;
             }
             if (ix < 0) { s.rec.shortfalls.push(`guard:${n}`); return null; }
@@ -411,7 +415,8 @@
               ...(v.guards.proximityCells ? { proximityCells: v.guards.proximityCells } : {}), _ix: ix, _iy: iy };
           },
           onPlaced: record => {
-            out.guards.push(record); occ.add(record._iy * N + record._ix); s.rec.guardsPlaced++;
+            out.guards.push(record); occ.add(record._iy * N + record._ix);
+            guardCells.add(record._iy * N + record._ix); s.rec.guardsPlaced++;
           },
         });
       }

@@ -583,6 +583,7 @@
     function blockedContext() {
       const ctx = context('mushroom_grove'), { _ix: x, _iy: y } = pristine, N = ctx.N;
       ctx.spawnOpts.occupied.add(y * N + x);
+      ctx.grid[y * N + x] = WorldGen.T.EXCLUSION_ROCK;
       ctx.spawnOpts.roadMask[(y - 1) * N + x] = 1;
       ctx.field.coverage[y * N + x - 1] = 0;
       ctx.spawnOpts.spawnWhy[y * N + x + 1] = WorldGen.SPAWN_WHY.SENSITIVE;
@@ -602,14 +603,15 @@
     for (let dy = -2; dy <= 2; dy++) for (let dx = -2; dx <= 2; dx++) {
       if (dx * dx + dy * dy > 4) continue;
       const x = guard._ix + dx, y = guard._iy + dy;
-      if (x === find._ix && y === find._iy) continue; // The find itself occupies this cell.
+      if (x === find._ix && y === find._iy) continue; // Passable finds can share the guard seat.
       ctx.spawnOpts.spawnWhy[y * ctx.N + x] = WorldGen.SPAWN_WHY.SENSITIVE;
     }
     const out = ZoneDressing.dress(ctx);
     assert.eq(finds(out).length, 1); assert.eq(out.guards.length, 1);
     assert.eq(out.guards[0].id, guard.id);
     assert.eq(out.guards[0].homeX, guard.homeX); assert.eq(out.guards[0].homeY, guard.homeY);
-    assert.gt(Math.hypot(out.guards[0]._ix - guard._ix, out.guards[0]._iy - guard._iy), 2);
+    assert.eq(out.guards[0]._ix, find._ix); assert.eq(out.guards[0]._iy, find._iy);
+    assert.eq(ctx.spawnOpts.spawnWhy[out.guards[0]._iy * ctx.N + out.guards[0]._ix], 0);
     assert.eq(out.diagnostics[0].guardsPlaced, 1); assert.eq(out.diagnostics[0].shortfalls.length, 0);
     const exhausted = context('mushroom_grove');
     exhausted.spawnOpts.spawnWhy.fill(WorldGen.SPAWN_WHY.SENSITIVE);
