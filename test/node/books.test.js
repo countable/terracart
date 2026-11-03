@@ -149,7 +149,9 @@ test('course: a page read heads on its volume line, with no title row over it', 
 });
 
 test('course: story topics retain their saved-bookmark positions', () => {
-  assert.eq(PLAY_TIPS.length, 157, 'new guides append after the existing saved bookmarks');
+  assert.eq(PLAY_TIPS.length, 190, 'new guides append after the existing saved bookmarks');
+  assert.truthy(/^The magic shop will brew/.test(PLAY_TIPS[157]), 'the Nov 2026 mechanics pages append after the cot');
+  assert.truthy(/^The egg hatches by walking/.test(PLAY_TIPS[189]), 'and end on the egg');
   assert.eq(PLAY_TIPS[156], ITEM_GUIDE_TIPS.bed_quilted, 'the cot appends after the powders');
   assert.eq(PLAY_TIPS[154], ITEM_GUIDE_TIPS.psychosis_powder, 'flora powder guides append after the workshop');
   assert.eq(PLAY_TIPS[155], ITEM_GUIDE_TIPS.sleep_powder);
