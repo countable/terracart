@@ -347,7 +347,9 @@ mechanics.
   bit; `concealingCellNear`'s `hide` argument, `ambushHide`). Long grass
   conceals nobody, so the snake stays drawn and only the grass's shiver over
   it (`Render.lurkBush`) gives it away; its slow pursuit (under a walk) and
-  poisoning bite (its row's `condition`) are the row's. A CLAY POT can hold a
+  poisoning bite (its row's `condition`) are the row's, as are its size (the
+  coil fills its frame, so the row's `artScale` trims it below its sheet's gremling) and
+  a pool thick enough to reach the player and bite. A CLAY POT can hold a
   snake too (interactables.js `potHidesSnake`: one surface clay pot in five,
   on its own stream): the smash rolls the pot's take as ever and seats the
   snake through the chest mimic's reveal ledger (`_revealMimic(o, 'snake')`,
