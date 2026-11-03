@@ -582,6 +582,14 @@ draw restores its directional/attack frame. Pet and elite recoloring waits for
 the real source so a missing texture cannot become a permanent cached palette.
 The treant’s revealed body uses its roster `artScale`; its hidden bramble keeps
 the surrounding grove’s shrub scale.
+A bigger body steps slower: a roster row’s `art.frameMs` is its walk beat at
+the kind’s base size (heavy walkers are authored slow — the treant at twice
+its sheet’s beat, the 32px brutes at 220 ms), and
+`SpriteLayout.creatureStrideMs` stretches it by how much bigger the creature
+is drawn than its base kind (a Giant variant’s 1.6×, an elite’s 1.15×, an
+enraged rare’s growth); a smaller body never steps faster. Both frame
+steppers (`creatureAppearance`, `legacyCreatureFrame`) read it; a sheet-drawn
+hop (the slimes) keeps its own beat, paced by the sim’s step.
 
 - `Render.drawSpiderWebs` draws cell-sized ground silk below characters and
   a strand from the fixed launch point to the moving projectile tip above
