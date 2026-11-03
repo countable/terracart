@@ -117,7 +117,10 @@ pack, exported by `tools/build_mountain_edges.py` into a 32px atlas with a muted
 olive-grey ramp and transparent source exteriors. `MountainEdges` selects among 256
 neighbour masks and four stable variants from the shared geographic ring. Full
 edge/corner tiles retain their artwork; narrow and complex cells combine quarters.
-Stair and deep-notch variants are excluded. Selection does no runtime image
+Stair and deep-notch variants are excluded. The exporter matches the one-pixel
+shared borders by their surrounding cells across all four variants, including
+four-way vertices; source interiors retain their artwork. The adjacency test
+enumerates every compatible horizontal and vertical neighbour pair. Selection does no runtime image
 processing; collision remains the permanent residential bedrock rule. Trimmed
 building-intersection cells use flat `ROCKY_GROUND` rubble from the transition
 atlas, with the same olive-grey ramp. Solid edges prefer that rubble as their substrate
