@@ -212,7 +212,8 @@ the overlay each frame so collected, covered and out-of-view marks disappear.
 `WorldLayers.forObject` uses the explicit `RENDER_SPEC.layer` for decals and
 `ObstacleStep.profile` with positive lift for step-over props; all other objects are standing props.
 Do not infer a category from image size, shadows, or whether an object is lit.
-Saplings are standing props despite their small size. `ObstacleStep` measures
+Saplings and tree stumps are standing props despite their small size; stumps
+counterrotate with the compass and use upright ground-contact seating. `ObstacleStep` measures
 support continuously from world coordinates, so stopping on a prop keeps the
 player raised; this is not a timed jump. Connected support masks stay in world
 coordinates when the artwork counterrotates.
@@ -1458,14 +1459,21 @@ the reach rim within the existing player-light radius.
   Suppressed roads retain their own turquoise emission even inside a nexus.
   Standing lamps use `StreetLights` to select hanging lanterns, street lanterns,
   fire pedestals, green orbs, paired candles and standing flames by route theme, with native Rogue lit/unlit
-  assets as the fallback. Source art without a dark frame is dimmed until
-  restoration; only restored lamps emit light. `RENDER_SPEC._streetlamp`
+  assets as the fallback. Themed silhouettes bake an unlit texture once at load:
+  lantern glass and orbs darken, and candle/brazier flames disappear while their
+  supports remain. Both states share frame dimensions and ground-contact bounds.
+  Only restored lamps visited within the last 24 real hours emit light. `RENDER_SPEC._streetlamp`
   and `Lighting.collectLamps` share this table's scale and emitter offsets. Their source pixels and contact seating stay in
-  the normal object renderer; there is no alternate foundation painter,
-  per-colour lamp bake or selected-streetlamp derivative. The hanging lantern
+  the normal object renderer; there is no alternate foundation painter
+  or per-colour lamp bake. The hanging lantern
   uses the shared palette bake to colour its bottom contact ink as wood;
   its source alpha and contact bounds stay unchanged. Road restoration
-  and brightness retain their existing site data and gameplay rules.
+  retains its existing site data. `save.lampVisits` stores the last visit time:
+  lamps fade toward half brightness, then switch fully off at 24 hours, including
+  offline time. Missing or pruned visit records mean unlit. Returning on foot
+  relights restored lamps through the existing visit pass and credit rules.
+  The frame cache expires at the earliest visible lamp deadline, so standing
+  still cannot delay extinction until the next minute bucket.
   Variant and Nexus colours tint emitted light through `Lighting`, not the
   lamp image. Screen-space emission anchors use `StreetLights.ART` per silhouette,
   falling back to `RoadOverlay.LAMP_LIGHT_OFFSET_CELLS` and `LAMP_LIGHT_RISE_CELLS`.

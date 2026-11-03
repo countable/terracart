@@ -69,8 +69,8 @@ test('street lamps: the memo key carries Streets.epoch and the anchor cell', () 
   // quantised, so the lightmap moves only on a real step).
   assert.truthy(/const key = `\$\{cellIX\},\$\{cellIY\}\|\$\{Streets\.epoch\(this\.save\)\}\|\$\{this\._lampVisitEpoch \| 0\}`\s*\n\s*\+ `\|\$\{Math\.floor\(now \/ Streets\.LAMP_REFRESH_MS\)\}`;/.test(updateSrc),
     'the key is the anchor cell, Streets.epoch, the visit epoch and the fade bucket — nothing else');
-  assert.truthy(/if \(this\._streetLampKey === key && this\._streetLamps\) return;/.test(updateSrc),
-    'an unchanged key does no work at all');
+  assert.truthy(/if \(this\._streetLampKey === key && this\._streetLamps\s*&& now < this\._streetLampExpiresAt\) return;/.test(updateSrc),
+    'an unchanged key skips work until the next exact expiry');
 });
 
 test('street lamps: _streetLampsForTile caches on the TILE ENTRY, so a rebuilt tile re-derives', () => {
@@ -148,7 +148,7 @@ test('street lamps: the light collector reads the same list and skips the dark o
   // by Streets.covers over the restored intervals; the draw pass and
   // Lighting.collectLamps both read that flag, so a stone can never be drawn
   // lit while throwing no light, or the reverse.
-  assert.truthy(/const isRestored = Streets\.covers\(iv, L\.s\);\s*out\.push\(\{ \.\.\.L, restored: isRestored, lit: isRestored,/.test(updateSrc),
+  assert.truthy(/const lit = isRestored && Streets\.lampIsLit\(lastVisit, now\);/.test(updateSrc),
     'the flag is Streets.covers over the line\'s restored list, on a fresh object (never written onto the tile cache)');
   assert.falsy(/if \(!Streets\.covers\(iv, L\.s\)\) continue;/.test(updateSrc), 'a dark lamp is no longer dropped from the list');
   assert.truthy(/if \(!L\.lit\) continue;/.test(LIGHTING_SRC), 'collectLamps skips a dark lamp');
@@ -368,8 +368,13 @@ const withTile = (entry, fn) => {
 // The lineKey the restored metres are filed under — Streets' own, off the
 // same feature object the pass reads.
 const lineKeyOf = () => Streets.lineKey(mkFeature(), 0);
-const restoreAround = (save, s, halfM) =>
+const restoreAround = (save, s, halfM) => {
   Streets.restore(save, KEY, lineKeyOf(), [[s - halfM, s + halfM]]);
+  // Production restoration also stamps the newly lit sites in _markLampsRestored.
+  for (const lamp of P._streetLampsForTile.call({}, TX, TY, readyEntry())) {
+    if (Math.abs(lamp.s - s) <= halfM) Streets.visitLamp(save, lamp, Date.now(), false);
+  }
+};
 
 test('street lamps: a ready tile stands one lamp per Streets.lampSpacingM() of street', () => {
   const entry = readyEntry();
@@ -469,6 +474,46 @@ test('street lamps: a ready ring memoises, so standing still costs nothing', () 
   });
 });
 
+test('street lamps: expire exactly after 24 hours, survive reload, and relight on a visit', () => {
+  const entry = readyEntry(), scene = lampScene(), realNow = Date.now;
+  const start = 1000000000123;
+  let now = start;
+  Date.now = () => now;
+  try {
+    restoreAround(scene.save, 90, 12);
+    const saved = JSON.stringify(scene.save);
+    withTile(entry, () => {
+      scene._updateStreetLamps();
+      const lamp = litOf(scene)[0];
+      assert.truthy(lamp, 'restoration lights the lamp');
+      now = start + Streets.LAMP_FADE_MS - 1;
+      scene._updateStreetLamps();
+      assert.eq(litOf(scene).length, 1, 'still lit one millisecond before expiry');
+      const key = scene._streetLampKey;
+      now++;
+      scene._updateStreetLamps();
+      assert.eq(scene._streetLampKey, key, 'expiry falls inside the same minute cache bucket');
+      assert.eq(litOf(scene).length, 0, 'stationary view extinguishes at the exact deadline');
+      const expired = scene._streetLamps.find(l => l.id === lamp.id);
+      assert.truthy(expired.restored, 'road restoration is permanent');
+      assert.eq(expired.bright, 0, 'no residual emitted light');
+      const reloaded = lampScene({ save: JSON.parse(saved) });
+      reloaded._updateStreetLamps();
+      assert.eq(litOf(reloaded).length, 0, 'time offline also extinguishes the lamp');
+      Streets.visitLamp(reloaded.save, lamp, now);
+      reloaded._lampVisitEpoch = 1;
+      reloaded._updateStreetLamps();
+      assert.eq(litOf(reloaded).length, 1, 'returning relights it');
+      assert.eq(litOf(reloaded)[0].bright, Streets.LAMP_BRIGHT_PEAK);
+      assert.eq(reloaded._streetLampExpiresAt, now + Streets.LAMP_FADE_MS);
+      delete reloaded.save.lampVisits;
+      reloaded._lampVisitEpoch++;
+      reloaded._updateStreetLamps();
+      assert.eq(litOf(reloaded).length, 0, 'old restored roads without visit records remain unlit');
+    });
+  } finally { Date.now = realNow; }
+});
+
 test('street lamps: a FAR ring tile still loading does not hold the memo open', () => {
   // The ring streams in for seconds after the centre; waiting on all eight
   // rebuilt this list every frame meanwhile. A tile that cannot hold a lamp
@@ -531,7 +576,7 @@ test('street lamps: each lamp carries its street\'s glow — StreetVariants.lamp
   const other = P._streetLampsForTile.call({}, TX, TY, withIndex([{ fi: 0, li: 1, size: v.size, variant: v.id }]));
   assert.eq(other[0].glow, UI_LAMP_GLOW, 'keyed by fi:li — another line\'s theme stays on that line');
   // …and the frame list carries it through untouched.
-  assert.truthy(/out\.push\(\{ \.\.\.L, restored: isRestored, lit:/.test(updateSrc), 'the frame list spreads the tile lamp, glow and all');
+  assert.truthy(/out\.push\(\{ \.\.\.L, restored: isRestored, lit,/.test(updateSrc), 'the frame list spreads the tile lamp, glow and all');
 });
 
 test('street lamps: density and glow stop at the same compact theme intervals', () => {

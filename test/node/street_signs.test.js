@@ -196,10 +196,10 @@ test('street lamps: approved silhouettes retain restoration and suppression rule
   assert.truthy(StreetLights.ART.paired_candles.rise < StreetLights.ART.flame_pillar.rise, 'low candles emit nearer the ground than the standing pillar');
   for(const key of Object.keys(StreetLights.ART)) {
     assert.eq(StreetLights.key({_streetArt:key,lit:true}),'street_decor_'+key);
-    assert.eq(StreetLights.key({_streetArt:key,lit:false}),'street_decor_'+key);
+    assert.eq(StreetLights.key({_streetArt:key,lit:false}),'street_decor_'+key+'_unlit');
     assert.eq(StreetLights.key({_streetArt:key,lit:false,suppressed:true}),'rogue_lamp_unlit');
     let tint=null; StreetLights.after({setTint:n=>tint=n,clearTint:()=>tint=null},{_streetArt:key,lit:false});
-    assert.truthy(tint);StreetLights.after({clearTint:()=>tint=null},{_streetArt:key,lit:true});assert.eq(tint,null);
+    assert.eq(tint,null);StreetLights.after({clearTint:()=>tint=null},{_streetArt:key,lit:true});assert.eq(tint,null);
   }
 });
 })();

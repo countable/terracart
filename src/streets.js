@@ -366,7 +366,7 @@
   // A lit lamp's brightness is a function of ONE stored number: when the
   // player's feet last came into its range (save.lampVisits[id], ms). A visit
   // flares it to LAMP_BRIGHT_PEAK of its row's base; it then fades linearly to
-  // LAMP_DIM_FLOOR over LAMP_FADE_MS and stays there. No record = fully dim —
+  // LAMP_DIM_FLOOR over LAMP_FADE_MS, then goes out. No record = unlit —
   // the default, which is why a record older than the fade is PRUNED
   // (pruneLampVisits): it says nothing the absence doesn't. The save stays a
   // DELTA (what the player did to a generated thing, keyed by the lamp's
@@ -404,8 +404,12 @@
     return LAMP_DIM_FLOOR + Math.round(t * LAMP_BRIGHT_STEPS) / LAMP_BRIGHT_STEPS * span;
   }
   // The lamp's gain on its row's base light, quantised. `lastMs` undefined =
-  // never visited (or pruned) = the floor.
+  // never visited (or pruned) = unlit.
+  function lampIsLit(lastMs, now) {
+    return Number.isFinite(lastMs) && now - lastMs < LAMP_FADE_MS;
+  }
   function lampBrightness(lastMs, now) {
+    if (!lampIsLit(lastMs, now)) return 0;
     const f = lampFade(lastMs, now);
     return quantBrightness(LAMP_BRIGHT_PEAK - (LAMP_BRIGHT_PEAK - LAMP_DIM_FLOOR) * f);
   }
@@ -705,7 +709,7 @@
     LAMP_SPACING_M, LAMP_EDGE_CLEARANCE_M, lampSpacingM, lampsAlong, lampOffsetM, covers,
     LAMP_PATH_SPACING_DIV, LAMP_PATH_SPACING_M, LAMP_PATH_MIN_LEN_M, isWalkingPath, lampLayFor,
     LAMP_DIM_FLOOR, LAMP_BRIGHT_PEAK, LAMP_FADE_MS, LAMP_BRIGHT_STEPS, LAMP_VISITS_MAX, LAMP_REFRESH_MS,
-    LAMP_CREDIT_SHARE, lampFade, quantBrightness, lampBrightness, lampCreditM, lampCredit,
+    LAMP_CREDIT_SHARE, lampFade, quantBrightness, lampIsLit, lampBrightness, lampCreditM, lampCredit,
     lampVisitAt, pruneLampVisits, visitLamp,
     mergeIntervals, intersect, subtract, union, totalM, flatten, unflatten,
     createSight, restoredList, restore, epoch,

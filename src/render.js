@@ -6792,7 +6792,7 @@ const { RENDER_SPEC, resolveAppearance, _houseRole, _houseKey, _houseScale, _hou
   };
 
   const RENDER_SPEC = {
-    tree_stump: { key: 'street_decor_stump', frame: '__BASE', origin: [0.5, 0.5], scale: 1.0, seat: true, layer: WorldLayers.GROUND_DECAL },
+    tree_stump: { key: 'street_decor_stump', frame: '__BASE', origin: [0.5, 0.5], scale: 1.0, seat: true, layer: WorldLayers.STANDING_PROP },
     // Temples use their entire source polygon; no house sprite covers the runes.
     temple: { key: null, layer: WorldLayers.GROUND_DECAL },
     shrine_spirit: {

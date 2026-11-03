@@ -177,12 +177,12 @@ test('heading up: contact shadows rotate about centre and captions keep origin',
     HeadingUp._postRender(scene);
   }
  });
- test('heading up: placed fires, torches and lamps stay upright while dropped items lie flat', () => {
+ test('heading up: stumps, placed fires, torches and lamps stay upright while dropped items lie flat', () => {
   const {RENDER_SPEC:spec}=Render.objectAppearance({},new Map());
-  for(const kind of ['_fire','torch','_streetlamp','_scarecrow']) {
+  for(const kind of ['tree_stump','_fire','torch','_streetlamp','_scarecrow']) {
     assert.truthy(WorldLayers.forObject({kind},spec[kind]) !== WorldLayers.GROUND_DECAL,kind+' stays upright');
     for(const angle of [Math.PI/4,Math.PI/2,Math.PI]) {
-      const scene=huScene(angle),sprite=huSprite({_huAnchor:{x:130,y:130}});
+      const scene=huScene(angle),sprite=huSprite({_huAnchor:{x:130,y:130},_worldLayer:WorldLayers.forObject({kind},spec[kind])});
       scene.worldContainer={list:[sprite]};
       HeadingUp._preRender(scene);
       huNear(sprite.rotation+angle,0);
