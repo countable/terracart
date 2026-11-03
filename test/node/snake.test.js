@@ -49,6 +49,12 @@
     assert.falsy(HabitatSpawns.enemyRows(HabitatSpawns.landProfile('COMMERCIAL'), 'COMMERCIAL', {}).some(x => x.id === 'snake'));
     assert.truthy(Combat.isEnemyKind('snake'));
     assert.truthy(SpriteLayout.creatureWanders('snake'));
+    // Its coil fills the 16px frame: the row trims it below its sheet's gremling
+    // (a pot snake once stood a full cell tall), and its pool outlasts one
+    // swing so a slow biter can reach the player and poison them.
+    assert.lt(SpriteLayout.creatureArt('snake').scale, SpriteLayout.creatureArt('gremling').scale, 'drawn smaller than a gremling of its own sheet');
+    assert.gte(Combat.maxHp({ kind: 'snake' }), EnemyRoster.get('thief').hp, 'as much health as a thief');
+    assert.gte(r.armor, 1, 'a scaled skin');
   });
 
   test('snake: its bite lands poison through the roster attack', () => {
