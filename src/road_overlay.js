@@ -74,8 +74,8 @@
   // street reads as a harder surface than a dirt path, not just a wider band.
   const PATH_COLOR = 0x948b75;
   const ROAD_COLOR = 0x89867c;
-  const ALPHA = 0.61;    // reads as a band without hiding the map
-  const VARIANT_SHADE_ALPHA = 0.20; // effective opacity beneath Small-road/path cobbles
+  const ALPHA = 0.42;    // worn roads recede into the surrounding terrain
+  const VARIANT_SHADE_ALPHA = 0.08; // effective opacity beneath Small-road/path cobbles
   const MVT_EXTENT = 4096;
 
   // WorldGen.PATH_CLASSES itself, so a way that rasterizes as a footpath also
@@ -602,7 +602,7 @@
       const y = row * spacing + (formal ? 0 : jitterY);
       const w = formal ? 7 : randomW, h = formal ? 6 : randomH;
       const cut = formal ? .5 : randomCut;
-      if (keep > (formal ? (restored ? 1 : .88) : (restored ? .97 : .72))) continue;
+      if (keep > (formal ? (restored ? 1 : .50) : (restored ? .97 : .42))) continue;
       const points = [
         [-w/2+cut,-h/2], [w/2-1,-h/2], [w/2,-h/2+cut], [w/2,h/2-1],
         [w/2-cut,h/2], [-w/2+1,h/2], [-w/2,h/2-cut], [-w/2,-h/2+1],
@@ -795,7 +795,7 @@
       for(let channel=0;channel<3;channel++)data[i+channel]=Math.max(0,Math.min(255,stone[channel]+delta));
     }
     // Bake the variant tint once into the base surface. Compensate for the
-    // road image's overall alpha so empty joints show a 20% tint on the map.
+    // road image's overall alpha so empty joints show the faint shared tint on the map.
     // Restored cobbles reveal that same base tint rather than adding it twice.
     // MD/LG rift roads retain their solid bed in both restoration states.
     g.putImageData(pixels,0,0);

@@ -128,7 +128,7 @@ test('road overlay: an MVT line projects to screen at the map scale', () => {
   assert.eq(g.lines[1][3], 240, 'seg1 y2');
 });
 
-test('road overlay: strokes muted, desaturated earth brown at 61% opacity', () => {
+test('road overlay: strokes muted, desaturated earth brown at 42% opacity', () => {
   clearTiles();
   // No class tag → not a path, not rail → falls to the vehicle-road colour.
   putTile(0, 0, [line([{ x: 0, y: 0 }, { x: 16, y: 0 }])]);
@@ -136,7 +136,7 @@ test('road overlay: strokes muted, desaturated earth brown at 61% opacity', () =
   RoadOverlay.draw(scene);
   const style = scene.roadGeomGfx.paths[0].style;
   assert.eq(style.c, 0x89867c, 'colour is the desaturated, darkened road earth');
-  assert.eq(style.a, 0.61, 'alpha is 61%');
+  assert.eq(style.a, 0.42, 'alpha is 42%');
   // Desaturated, not merely darkened: the colour keeps its brightness but its
   // channels sit closer together than a saturated brown's would.
   const r = 0x3a, g = 0x32, b = 0x2c;

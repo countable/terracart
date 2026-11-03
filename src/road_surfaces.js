@@ -172,7 +172,7 @@
           const crossDistance = ((s+phase)%course+course)%course;
           if (crossDistance < 2 || crossDistance > course-2) continue;
           const keep = noise(index,salt);
-          if (!restored && keep < .23) continue;
+          if (!restored && keep < .55) continue;
           const tone = noise(index,salt+1);
           const color = tone < .33 ? 0x938a74 : tone < .7 ? 0xa69b81 : 0xb5a98e;
           const jitter=(noise(index,salt+2)-.5)*1.2;
@@ -186,13 +186,13 @@
         const index = Math.round((s+phase)/course);
         if (s >= lo-band && s <= hi+band) {
           for (let row = -1; row <= 1; row++) {
-            if (!restored && noise(index,row+271)<.25) continue;
+            if (!restored && noise(index,row+271)<.55) continue;
             face(g,m,s,row*width*.29,band,width*.25,0xa79b82,restored?.75:.57,width,index+row);
           }
         }
         for (const side of [-1,1]) {
           if (s+course/2 < lo-course/2 || s+course/2 > hi+course/2) continue;
-          if (!restored && noise(index,side+173)<.3) continue;
+          if (!restored && noise(index,side+173)<.6) continue;
           face(g,m,s+course/2,side*width*.32,course-4,band,0xa89c83,restored?.72:.53,width,index);
         }
       }
@@ -223,7 +223,7 @@
         for (const side of [-1,1]) for (let row=0;row<2;row++) {
           for (let s=firstRepeat(lo-9,19,row*8+side*3,phase);s<hi+9;s+=19) {
             const index=Math.round(s+phase),salt=row*71+side+91;
-            if(noise(index,salt+7)<.13)continue;
+            if(noise(index,salt+7)<.50)continue;
             const center=s+(noise(index,salt+6)-.5)*5;
             const off=side*width*(.18+row*.21)+(noise(index,salt)-.5)*4;
             const length=10+noise(index,salt+1)*6,breadth=7+noise(index,salt+2)*3;

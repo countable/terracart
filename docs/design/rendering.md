@@ -1351,7 +1351,7 @@ the reach rim within the existing player-light radius.
   lists the headings and route names. `RENDER_SPEC.roadsign` keeps the
   contact-shadow flag and the sprite fallback: the post alone, baked from the
   same rows (`makeRoadSignTextures`) where the mesh path is unavailable.
-- Small-road and path vector bands carry a variant-coloured 20% tint beneath
+- Small-road and path vector bands carry a variant-coloured 8% tint beneath
   their cobbles. The base pavement tile compensates for the road image alpha;
   restored tiles add no second tint. It follows exact road widths, larger-road
   occlusion and water/building keep-outs. The cached tint changes vector art
@@ -1360,7 +1360,9 @@ the reach rim within the existing player-light radius.
   joints, the approved study's layout at two-thirds scale (`SPARSE_SCALE`: 8px
   grid, 128px repeat). Each theme has its approved colour (a `ROAD_THEME_MIXES` theme, Way of Variety, gives each cobble one of several theme colours off its layout slot); unrestored stones retain 55% colour
   saturation, while restored stones use 115% of the theme saturation and add
-  missing cobbles at the same positions. Both states keep the approved Promenade light–dark contrast, except Hedged Lane,
+  missing cobbles at the same positions. Unrepaired paving uses 42% overall
+  opacity and a faint 8% theme tint in its joints, with fewer surviving cobbles,
+  medium-road setts/dividers and large-road slate plates. Both states keep the approved Promenade light–dark contrast, except Hedged Lane,
   whose formal setts use a narrower tonal range. Its equal stones follow staggered
   courses with tight transparent joints; repairs fill the missing setts.
   Pottery Road mixes the two shipping clay-pot body colours, terracotta and
