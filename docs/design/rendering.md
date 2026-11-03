@@ -165,7 +165,10 @@ between non-grass materials keep their native shape.
 `tools/round_terrain_corners.py` bakes the block as the exporter's last step;
 run it alone to refresh the rounded rows of the committed atlas. Both rendering backends select these frames without a
 permutation atlas, per-cell canvases or runtime pixel reads. Ground variants
-use stable world-cell hashes; variants within one material share a boundary
+use stable world-cell hashes, finalized before the modulo
+(`TerrainTransitions.cellVariantHash`, `avalanche32` for biome textures): the raw
+lattice hash's low bits are the cell parity and tiled two-variant families as a
+checkerboard. Variants within one material share a boundary
 mask, so concrete grout and rubble do not acquire internal soil cutouts.
 Collision and logical terrain remain unchanged. `GroundMaterials` owns family
 rows, selected crops, terrain mappings and variant groups for both export and

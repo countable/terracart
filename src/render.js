@@ -2986,8 +2986,10 @@ Render.drawCells = function drawCells(scene) {
             if (polyGround >= 0) baseType = polyGround;
             const spec = skyLevel ? null : BIOME_TEX[baseType];
             if (spec) {
-              const variantHash = baseType === 12 ? avalanche32(h) : Math.abs(h);
-              texKey = `biome${baseType}_${variantHash % spec.variants}`;
+              // Mixed before the modulo: the raw lattice hash's low bits are
+              // the cell parity, which tiled every two-variant biome as a
+              // checkerboard (TerrainTransitions.cellVariantHash).
+              texKey = `biome${baseType}_${avalanche32(h) % spec.variants}`;
               // Animated biome (water/pier): pick the pre-baked phase frame from
               // the wall clock. The key is compared every frame anyway, so a
               // time-varying one costs a swap only when the phase turns — the

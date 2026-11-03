@@ -569,7 +569,7 @@ const MapReviewArt = (() => {
           } else {
             const spec=BIOME_TEX[type],h=((e.tx*N+x)*2246822519)^((e.ty*N+y)*3266489917);
             g.fillStyle='#'+(zoneGroundColor(e,x,y,type)??COLORS[type]??0x71845b).toString(16).padStart(6,'0');g.fillRect(a.x+x*dx,a.y+y*dy,dx+.5,dy+.5);
-            if((zoneTexture||spec)&&dx>=4)g.drawImage(textures.get(zoneTexture||`biome${type}_${Math.abs(h)%spec.variants}`).getSourceImage(),a.x+x*dx,a.y+y*dy,dx+.5,dy+.5);
+            if((zoneTexture||spec)&&dx>=4)g.drawImage(textures.get(zoneTexture||`biome${type}_${avalanche32(h)%spec.variants}`).getSourceImage(),a.x+x*dx,a.y+y*dy,dx+.5,dy+.5);
           }
           if(rock&&dx>=4) {
             const texture=textures.get(rock.key),frame=texture?.get(rock.frame);
