@@ -1193,26 +1193,37 @@
   // (repair / kerb) every path; the floor keeps a hairline way from vanishing
   // outright. `css` overrides the recorded colour (the kerb's pale pass).
   function* strokeOpsSteps(ctx, ops, delta, css) {
-    for (const op of ops) {
-      ctx.lineCap = op.cap || 'round';
-      ctx.lineWidth = Math.max(1, op.w + delta);
-      ctx.strokeStyle = css || cssOf(op.c);
-      ctx.beginPath();
-      ctx.moveTo(op.pts[0], op.pts[1]);
-      for (let i = 2; i < op.pts.length; i += 2) ctx.lineTo(op.pts[i], op.pts[i + 1]);
-      ctx.stroke();
-      // A theme cut can be flat at one end while a true source/repair end
-      // stays round. Canvas has one lineCap, so add only the retained caps.
-      if (op.cap === 'butt') {
-        ctx.fillStyle = ctx.strokeStyle;
-        for (const at of [op.startRound ? 0 : -1, op.endRound ? op.pts.length - 2 : -1]) {
-          if (at < 0) continue;
-          ctx.beginPath(); ctx.arc(op.pts[at], op.pts[at + 1], ctx.lineWidth / 2, 0, Math.PI * 2); ctx.fill();
-        }
-      }
-      yield;
-    }
+    for (const op of ops) { strokeOp(ctx, op, delta, css); yield; }
     ctx.lineCap = 'round';
+  }
+  // Punch ops out of a canvas. Each stroke saves and restores its own
+  // composite, so a superseded time-sliced job abandoned between yields
+  // never leaves its canvas erasing: a stuck 'destination-out' turned every
+  // later layer drawn onto that back-buffer into an eraser, and the roads
+  // vanished on alternate walking swaps.
+  function* eraseOpsSteps(ctx, ops) {
+    for (const op of ops) {
+      ctx.save(); ctx.globalCompositeOperation = 'destination-out';
+      strokeOp(ctx, op, 0, '#000'); ctx.restore(); yield;
+    }
+  }
+  function strokeOp(ctx, op, delta, css) {
+    ctx.lineCap = op.cap || 'round';
+    ctx.lineWidth = Math.max(1, op.w + delta);
+    ctx.strokeStyle = css || cssOf(op.c);
+    ctx.beginPath();
+    ctx.moveTo(op.pts[0], op.pts[1]);
+    for (let i = 2; i < op.pts.length; i += 2) ctx.lineTo(op.pts[i], op.pts[i + 1]);
+    ctx.stroke();
+    // A theme cut can be flat at one end while a true source/repair end
+    // stays round. Canvas has one lineCap, so add only the retained caps.
+    if (op.cap === 'butt') {
+      ctx.fillStyle = ctx.strokeStyle;
+      for (const at of [op.startRound ? 0 : -1, op.endRound ? op.pts.length - 2 : -1]) {
+        if (at < 0) continue;
+        ctx.beginPath(); ctx.arc(op.pts[at], op.pts[at + 1], ctx.lineWidth / 2, 0, Math.PI * 2); ctx.fill();
+      }
+    }
   }
   function drainSteps(it) { for (let n = it.next(); !n.done; n = it.next()) {} }
   function strokeOps(ctx, ops, delta, css) { drainSteps(strokeOpsSteps(ctx, ops, delta, css)); }
@@ -1334,18 +1345,10 @@
         erases: [], pats: {}, tex: { refresh() {} } });
       // Small-road and path repairs clear their own width's unrepaired band.
       const repaired = ops.filter(op => op.coverageOnly && !op.surface);
-      if (repaired.length) {
-        layer.ctx.save(); layer.ctx.globalCompositeOperation = 'destination-out';
-        yield* strokeOpsSteps(layer.ctx, repaired, 0, '#000'); layer.ctx.restore();
-      }
+      yield* eraseOpsSteps(layer.ctx, repaired);
       // Restored small roads must also yield to an UNRESTORED larger band.
-      const higher = (pass.occluders || []).filter(op => op.w > width);
-      if (higher.length) {
-        layer.ctx.save(); layer.ctx.globalCompositeOperation = 'destination-out';
-        yield* strokeOpsSteps(layer.ctx, higher, 0, '#000'); layer.ctx.restore();
-      }
-      ctx.save(); ctx.globalCompositeOperation = 'destination-out';
-      yield* strokeOpsSteps(ctx, ops, 0, '#000'); ctx.restore();
+      yield* eraseOpsSteps(layer.ctx, (pass.occluders || []).filter(op => op.w > width));
+      yield* eraseOpsSteps(ctx, ops);
       ctx.drawImage(layer.canvas, 0, 0); yield;
     }
     for (const [x, y, w, h] of pass.erases) { ctx.clearRect(x, y, w, h); yield; }
@@ -2352,5 +2355,5 @@
                          roadMaterialFor, selectedRoadTile, prepareMaterials, LAMP_DRAW_CELLS, LAMP_FOOT_R_CELLS, LAMP_LIGHT_RISE_CELLS, LAMP_LIGHT_OFFSET_CELLS,
                          RESTORED_BLUR_PX, RESTORED_BLUR_FRAC, blurForWidth, softenEdge, paintSurfaceDecorSteps,
                          CLEAN_MORTAR_ALPHA, CLEAN_BEVEL_ALPHA, roundJoinFans,
-                         ROAD_REBUILD_SLICE_MS, runRoadSlice };
+                         ROAD_REBUILD_SLICE_MS, runRoadSlice, commitBaseSteps, commitRestoredSteps };
 })(window);
