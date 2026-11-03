@@ -3,10 +3,11 @@ test('large enemies: authored cardinal walking and attacks resolve without mirro
     const art = SpriteLayout.creatureArt(kind);
     assert.eq(art.fw, 32); assert.eq(art.fh, 32);
     assert.gt(art.fw * art.scale, 32, kind + ' renders larger than a cell');
+    assert.gte(art.frameMs, 220, kind + ' steps at a heavy beat, slower than the common 160');
     for (const [row, facing] of ['up', 'right', 'down', 'left'].entries()) {
       const creature = { kind, _facing: facing, _moveUntil: 1000 };
       for (let phase = 0; phase < 4; phase++) {
-        const view = SpriteLayout.creatureAppearance(creature, phase * 140);
+        const view = SpriteLayout.creatureAppearance(creature, phase * art.frameMs);
         assert.eq(view.frame, row * 8 + phase, kind + ' ' + facing + ' walk');
         assert.falsy(view.flipX);
       }
@@ -75,4 +76,21 @@ test('large enemies: churchyard reapers stay in temples and ambient encounters r
     assert.eq(EnemyHabitats.surfaceEncounters(e, 0, 0, new Set()).length, 0, 'roads remain refused');
   }
   assert.falsy(EnemyRoster.get('giant_serpent'), 'serpent remains a draft');
+});
+
+test('large enemies: a body drawn bigger than its base kind steps slower, a smaller one no faster', () => {
+  const base = { kind: 'skeleton', _facing: 'down', _moveUntil: 1e9 };
+  const giant = { ...base, kind: 'giant_skeleton' };
+  const ms = SpriteLayout.creatureFrameMs('skeleton');
+  assert.eq(SpriteLayout.creatureStrideMs(base), ms, 'the base kind walks at its row beat');
+  const grown = SpriteLayout.creatureArt('giant_skeleton').scale / SpriteLayout.creatureArt('skeleton').scale;
+  assert.gt(grown, 1, 'the giant is drawn bigger than its base');
+  assert.eq(SpriteLayout.creatureStrideMs(giant), ms * grown, 'the giant stretches it by its size over the base');
+  assert.eq(SpriteLayout.creatureStrideMs({ ...base, _artScale: 1.5 }), ms * 1.5, 'an instance grown by the sim steps slower');
+  assert.eq(SpriteLayout.creatureStrideMs({ ...base, _artScale: 0.5 }), ms, 'a shrunken one never flickers faster');
+  // The giant is still on frame 0 of its walk when the base has stepped on.
+  const t = ms + 1; // the base has just stepped; the giant's longer beat has not
+  assert.eq(SpriteLayout.creatureAppearance(giant, t).frame, SpriteLayout.creatureAppearance(giant, 0).frame);
+  assert.truthy(SpriteLayout.creatureAppearance(base, t).frame !== SpriteLayout.creatureAppearance(base, 0).frame);
+  assert.eq(SpriteLayout.creatureStrideMs({ kind: 'unknown' }), 0);
 });
