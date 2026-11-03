@@ -14,10 +14,12 @@
   test('enemy direction: goblins use their different row order, right-facing sides and still idle poses', () => {
     for (const kind of ['goblin', 'goblin_archer', 'goblin_trapper', 'giant_goblin']) {
       const c = { kind, _facing: 'up', _moveUntil: 1000 };
-      assert.eq(SL.creatureAppearance(c, 160).frame, 7, kind + ' back walk');
+      // One step of ITS walk beat (the giant's is stretched by its size).
+      const step = SL.creatureStrideMs(c);
+      assert.eq(SL.creatureAppearance(c, step).frame, 7, kind + ' back walk');
       assert.eq(SL.creatureAppearance(c, 1000).frame, 6, kind + ' back rest');
       c._facing = 'left';
-      assert.eq(SL.creatureAppearance(c, 160).frame, 13);
+      assert.eq(SL.creatureAppearance(c, step).frame, 13);
       assert.truthy(SL.creatureAppearance(c, 160).flipX, 'mirror right-facing goblin art');
       c._facing = 'right'; assert.falsy(SL.creatureAppearance(c, 160).flipX);
       assert.eq(SL.creatureHop(kind), null, 'walking has no code bounce');

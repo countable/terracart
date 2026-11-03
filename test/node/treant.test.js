@@ -34,6 +34,16 @@
     assert.gt(c.x, 0);
   });
 
+  test('treant: a tree lumbers — its walk steps at twice its sheet\'s beat', () => {
+    const row = EnemyRoster.get('treant');
+    assert.eq(row.art.frameMs, 2 * EnemyRoster.get('gremling').art.frameMs, 'half the mini-monster cadence');
+    assert.eq(SpriteLayout.creatureStrideMs(creature()), row.art.frameMs);
+    const c = { ...creature(), _facing: 'down', _moveUntil: 1e9, _disguiseRevealed: true };
+    const first = SpriteLayout.creatureAppearance(c, 0).frame;
+    assert.eq(SpriteLayout.creatureAppearance(c, row.art.frameMs - 1).frame, first, 'holds a frame for the whole beat');
+    assert.truthy(SpriteLayout.creatureAppearance(c, row.art.frameMs).frame !== first);
+  });
+
   test('treant: camouflage uses the surrounding bramble art and visibly wiggles', () => {
     const c = creature();
     const sprite = { anims: { stop() {} },
