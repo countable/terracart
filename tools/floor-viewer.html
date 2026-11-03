@@ -397,7 +397,7 @@
       ctx.fillStyle = color; ctx.fillRect(offX + x * s, offY + y * s, s + .5, s + .5);
       const spec = BIOME_TEX[type];
       if (spec && s >= 8 && !(type === T.CAVE_FLOOR || type === T.CAVE_WALL || type === T.CAVE_LAVA))
-        ctx.drawImage(assets.textures.get('biome' + type + '_' + (Math.abs(h) % spec.variants)).getSourceImage(),
+        ctx.drawImage(assets.textures.get('biome' + type + '_' + (avalanche32(h) % spec.variants)).getSourceImage(),
           offX + x * s, offY + y * s, s + .5, s + .5);
       const channel = FloorWallMaterials.groundTexture(entry, i, type);
       if (channel) ctx.drawImage(assets.textures.get(channel).getSourceImage(),

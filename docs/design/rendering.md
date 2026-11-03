@@ -165,7 +165,10 @@ between non-grass materials keep their native shape.
 `tools/round_terrain_corners.py` bakes the block as the exporter's last step;
 run it alone to refresh the rounded rows of the committed atlas. Both rendering backends select these frames without a
 permutation atlas, per-cell canvases or runtime pixel reads. Ground variants
-use stable world-cell hashes; variants within one material share a boundary
+use stable world-cell hashes, finalized before the modulo
+(`TerrainTransitions.cellVariantHash`, `avalanche32` for biome textures): the raw
+lattice hash's low bits are the cell parity and tiled two-variant families as a
+checkerboard. Variants within one material share a boundary
 mask, so concrete grout and rubble do not acquire internal soil cutouts.
 Collision and logical terrain remain unchanged. `GroundMaterials` owns family
 rows, selected crops, terrain mappings and variant groups for both export and
@@ -582,6 +585,14 @@ draw restores its directional/attack frame. Pet and elite recoloring waits for
 the real source so a missing texture cannot become a permanent cached palette.
 The treant’s revealed body uses its roster `artScale`; its hidden bramble keeps
 the surrounding grove’s shrub scale.
+A bigger body steps slower: a roster row’s `art.frameMs` is its walk beat at
+the kind’s base size (heavy walkers are authored slow — the treant at twice
+its sheet’s beat, the 32px brutes at 220 ms), and
+`SpriteLayout.creatureStrideMs` stretches it by how much bigger the creature
+is drawn than its base kind (a Giant variant’s 1.6×, an elite’s 1.15×, an
+enraged rare’s growth); a smaller body never steps faster. Both frame
+steppers (`creatureAppearance`, `legacyCreatureFrame`) read it; a sheet-drawn
+hop (the slimes) keeps its own beat, paced by the sim’s step.
 
 - `Render.drawSpiderWebs` draws cell-sized ground silk below characters and
   a strand from the fixed launch point to the moving projectile tip above

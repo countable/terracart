@@ -627,6 +627,11 @@
   //             while it sits (creatureHopRow). The slimes.
   //   airborne  it flies: its contact shadow reads smaller and fainter.
   // A row with neither `anim` nor `frameMs` is drawn at rest, on frame 0.
+  // A BIGGER BODY STEPS SLOWER (owner, Nov 2026: the grove's treant and the
+  // big brutes flickered through their walk): `frameMs` is the ms per frame
+  // of the kind drawn at its base size, and creatureStrideMs stretches it by
+  // the body's size over that — a Giant variant's 1.6×, an elite's 1.15×,
+  // an enraged rare's growth — never shortening it for a shrunken one.
   //
   // Two beats are shared: CREATURE_FRAME_MS is what every stepped kind runs at
   // unless it says otherwise, and SLIME_FRAME_MS is HALF that rate (the ooze
@@ -1172,6 +1177,18 @@
   // rest on frame 0).
   function creatureAnim(kind) { return creatureArt(kind)?.anim ?? null; }
   function creatureFrameMs(kind) { return creatureArt(kind)?.frameMs ?? 0; }
+  // The ms per frame THIS creature steps at: its kind's `frameMs`, stretched
+  // by how much bigger than the base kind it is drawn (the variant's scale
+  // over the base's, times the instance's own) — a bigger body steps slower,
+  // and a smaller one no faster. Wall clock for the instance size (a baby
+  // pet's), never the render clock.
+  function creatureStrideMs(c, art = creatureArt(creatureVisualKind(c))) {
+    const frameMs = art?.frameMs ?? 0;
+    if (!frameMs) return 0;
+    const base = creatureArt(baseKind(c.kind));
+    const body = (base?.scale && art.scale ? art.scale / base.scale : 1) * creatureInstScale(c);
+    return frameMs * Math.max(1, body);
+  }
   // A timed attack may select an authored cycle; other creatures keep their
   // existing idle cycle. Both clocks are performance.now() in the sim/render.
   function legacyCreatureFrame(c, now) {
@@ -1181,7 +1198,7 @@
       && (c._targetX !== c._startX || c._targetY !== c._startY);
     if (stepping) return hopRowFrame(hopRow, tStep + (c._hopSeed ?? 0));
     const art = creatureArt(c.kind);
-    const frameMs = art?.frameMs ?? 0;
+    const frameMs = creatureStrideMs(c, art);
     const tick = frameMs ? Math.floor(now / frameMs) : 0;
     const attack = now < (c._attackUntil ?? 0) ? art?.attackFrames : null;
     if (attack && c._attackT0 != null && c._attackUntil > c._attackT0) {
@@ -1250,7 +1267,8 @@
     const frames = (attacking ? directional.attack : moving ? directional.move : null)
       || directional.idle;
     if (!frames?.length) return { frame: legacyCreatureFrame(c, now), flipX: !!c._faceFlip };
-    let index = art.frameMs ? Math.floor(now / art.frameMs) % frames.length : 0;
+    const frameMs = creatureStrideMs(c, art);
+    let index = frameMs ? Math.floor(now / frameMs) % frames.length : 0;
     if (attacking && c._attackT0 != null && c._attackUntil > c._attackT0) {
       const progress = Math.max(0, (now - c._attackT0) / (c._attackUntil - c._attackT0));
       index = Math.min(frames.length - 1, Math.floor(progress * frames.length));
@@ -1396,7 +1414,7 @@
     CREATURE_BEHAVIOUR, ANIMAL_INTERACTION, creatureBehaviour, creatureWanders, creatureHaunts, isPet, isGame, isUntameable,
     creaturePrey, creatureDrop, creatureProduce, creatureFollows, creatureAvoids, isSummoned, preysOnFoes,
     creatureAppearance, creatureVisualKind, faceCreature, CREATURE_FACE_HOLD_MS, CREATURE_MOVE_GRACE_MS, updateCreatureFacing, CREATURE_DIRECTION_LAYOUTS,
-    creatureAnim, creatureFrameMs, creatureCycleFrame, creatureHop, creatureHopRow, hopRowFrame, creatureAirborne,
+    creatureAnim, creatureFrameMs, creatureStrideMs, creatureCycleFrame, creatureHop, creatureHopRow, hopRowFrame, creatureAirborne,
     HOP_MS, HOP_PX, SLIME_HOP_ROW, SLIME_HOP_FRAME_MS, SLIME_HOP_REST_MS,
     HEALTH_BAR_W, HEALTH_BAR_H, HEALTH_BAR_GAP,
     BUTTERFLY_VARIANTS, butterflyKindForTerrain, GIANT_PREFIX, GIANT_ART_SCALE, isGiantKind, baseKind, creatureArt,

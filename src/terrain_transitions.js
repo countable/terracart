@@ -17,8 +17,18 @@ const TerrainTransitions = (() => {
     type = GroundMaterials.backdropTypes[type] ?? type;
     const variants = GroundMaterials.terrainFamilies[type];
     if (!variants) return -1;
-    const hash = Math.abs(Math.imul(x,2246822519) ^ Math.imul(y,3266489917));
-    return variants[hash % variants.length];
+    return variants[cellVariantHash(x, y) % variants.length];
+  }
+  // The lattice hash's low bits are the cell parity (both multipliers are
+  // odd), so taking it modulo a small variant count tiles the two scrub or
+  // concrete materials as a checkerboard. Finalize it (util.js avalanche32,
+  // inlined because this file also runs standalone in the Node suite) so the
+  // pick is stable per world cell but reads as scattered.
+  function cellVariantHash(x, y) {
+    let h = Math.imul(x, 2246822519) ^ Math.imul(y, 3266489917);
+    h = Math.imul(h ^ (h >>> 16), 0x7feb352d);
+    h = Math.imul(h ^ (h >>> 15), 0x846ca68b);
+    return (h ^ (h >>> 16)) >>> 0;
   }
   function maskFor(values, family) {
     let mask = 0;
@@ -69,7 +79,7 @@ const TerrainTransitions = (() => {
       materials:{...scene?._terrainTransitionAudit?.materials}};
   }
   return {families, material,
-    materialForGround, maskFor, transitionValues, layersFor, install, prepare, select, status};
+    materialForGround, cellVariantHash, maskFor, transitionValues, layersFor, install, prepare, select, status};
 })();
 if (typeof ASSETS !== 'undefined') TerrainTransitions.install(ASSETS);
 if (typeof window !== 'undefined') window.TerrainTransitions = TerrainTransitions;

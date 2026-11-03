@@ -37,3 +37,22 @@ test('terrain transitions: placed rocks join the material ring instead of a squa
   assert.truthy(/placedRockSet\?\.has\(cellKeyFromAbsCell\(AX\(c,r\), AY\(c,r\)\)\)\) t = 10;/.test(ring),'placed rock is ring material');
   assert.falsy(/transitionsActive && type === T\(col, row\)/.test(RENDER_SRC),'drawing never bypasses the ring for an overridden type');
 });
+
+// The lattice hash's low bits are the cell parity, so a raw modulo tiled the
+// two scrub (WASTELAND) and concrete (COMMERCIAL) materials as a checkerboard.
+test('terrain transitions: two-material families scatter instead of alternating by cell parity', () => {
+  const art=new Function(ALL_SRC['ground_materials.js']+'\n'+ALL_SRC['terrain_transitions.js']+'\nreturn TerrainTransitions;')();
+  for (const type of [27,16]) {
+    const [a]=GroundMaterials.terrainFamilies[type];
+    let parityMatches=0,first=0,n=0;
+    for (let x=0;x<48;x++) for (let y=0;y<48;y++) {
+      const m=art.materialForGround(type,null,x,y); n++;
+      if (m===a) first++;
+      if ((m===a)===((x+y)%2===0)) parityMatches++;
+    }
+    assert.truthy(parityMatches/n>0.4&&parityMatches/n<0.6,'variant choice is independent of cell parity for terrain '+type);
+    assert.truthy(first/n>0.35&&first/n<0.65,'both materials appear in similar measure for terrain '+type);
+    assert.eq(art.materialForGround(type,null,7,9),art.materialForGround(type,null,7,9),'stable per world cell');
+  }
+  assert.truthy(/avalanche32\(h\) % spec\.variants/.test(RENDER_SRC),'biome texture variants use the mixed hash too');
+});
