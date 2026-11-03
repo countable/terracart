@@ -13,7 +13,7 @@ function scene(id, creatures = []) {
   const s = {
     save: { energy: 50, inv: [{ id, count: 2 }], selSlot: 0, caught: [] },
     startWorldM: { x: 100, y: 200 }, playerM: { x: 0, y: 0 }, depth: 3,
-    facing: { x: 1, y: 0 }, cellM: 7, _shots: [], persisted: 0, rebuilt: 0,
+    facing: { x: 1, y: 0 }, cellM: 7, _shots: [], loosePlayerShot(shot) { this._shots.push(shot); return shot; }, persisted: 0, rebuilt: 0,
     buildInventoryDOM() { this.rebuilt++; }, flash() {}, flashAtPlayer() {}, flashLoot() {},
     playerToWorldCell() { return { tx: 0, ty: 0 }; },
     worldMetersToScreen(x, y) { return { x, y }; },

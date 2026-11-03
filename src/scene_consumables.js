@@ -883,7 +883,7 @@ class SceneConsumables {
     const heading = Combat.shotHeading('bow', x, y, this.facing);
     const shot = Combat.spawnFireball(x, y, heading, this.cellM, CONSUMABLE_SPEC.fireball_scroll);
     if (!shot) return false;
-    this._shots.push(shot);
+    this.loosePlayerShot(shot);
     return this._spendScroll(sel.id);
   }
 
@@ -937,7 +937,7 @@ class SceneConsumables {
     shot.projectile = cfg.projectile;
     if (potion) shot.potionId = id;
     if (cfg.effect) shot.effect = cfg.effect;
-    this._shots.push(shot);
+    this.loosePlayerShot(shot);
     this._throwReadyAt = performance.now() + cfg.throwCooldownMs;
     return this._consumeSelected();
   }

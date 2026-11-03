@@ -103,7 +103,7 @@ test('story splash: bow and staff have independent first-use stories and matchin
   assert.eq(calls[1].key, 'tool:staff', 'staff has its own ledger key');
   assert.eq(calls[1].art, 'tool_staff');
   assert.truthy(calls[0].body !== calls[1].body, 'each weapon tells its own story');
-  assert.truthy(/if \(shot\) \{\s*this\._shots\.push\(shot\);[\s\S]{0,260}this\._toolActionStory\(slot === 'bow' \? 'shoot' : 'staff'\)/.test(app),
+  assert.truthy(/if \(shot\) \{[\s\S]{0,320}this\.loosePlayerShot\(shot,[\s\S]{0,420}this\._toolActionStory\(slot === 'bow' \? 'shoot' : 'staff'\)/.test(app),
     'successful shots choose the story for their weapon');
 });
 
