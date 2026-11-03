@@ -25,9 +25,9 @@
 //
 // The wood price ALSO FOLLOWS A PROGRESSION: the first fort you unseal costs
 // FORT_UNLOCK_WOOD_START (6) wood and each later fort steps up by
-// FORT_UNLOCK_WOOD_STEP (6) — 6, 12, 18, 24, 30 … — capped at FORT_UNLOCK_WOOD
-// (30). The step index is "how many forts already unsealed" (save.unlockedForts).
-const FORT_UNLOCK_WOOD = 30;
+// FORT_UNLOCK_WOOD_STEP (6) — 6, 12, 12 … — capped at FORT_UNLOCK_WOOD
+// (12). The step index is "how many forts already unsealed" (save.unlockedForts).
+const FORT_UNLOCK_WOOD = 12;
 const FORT_UNLOCK_WOOD_START = 6;
 const FORT_UNLOCK_WOOD_STEP = 6;
 
@@ -220,6 +220,42 @@ const FORT_UNLOCK_WOOD_STEP = 6;
     }
     return [...out.values()];
   }
+  const WRECK_OFFER_CHANCE = 0.15;
+  const BLESSED_BONUS_MUL = 1.5;
+  const WRECK_OFFERS = Object.freeze([
+    Object.freeze({ key: 'discount', name: 'Discount Build', blurb: 'Discount Build: half the building materials, rounded down.' }),
+    Object.freeze({ key: 'blessed', name: 'Blessed Site', blurb: 'Blessed Site: 33% cheaper rerolls, +50% luxury for a house, or +50% turret damage. The finished building glows.' }),
+    Object.freeze({ key: 'contract', name: 'Private Contract', reward: 50, blurb: 'Private Contract: earn 50 coins for restoring this site as any building.' }),
+  ]);
+  const wreckSiteKey = house => house?.id;
+  function generatedWreckOffer(house) {
+    const key = wreckSiteKey(house);
+    if (!key || house.kind !== 'house' || house.tier !== 9 || house.castle) return null;
+    const roll = hash01('wreck-offer:' + key);
+    return roll < WRECK_OFFER_CHANCE
+      ? WRECK_OFFERS[Math.min(WRECK_OFFERS.length - 1, Math.floor(roll / WRECK_OFFER_CHANCE * WRECK_OFFERS.length))] : null;
+  }
+  function wreckOffer(save, house) {
+    if (!isBuildingWreck(save, house) || save.wreckOffers?.[wreckSiteKey(house)]) return null;
+    return generatedWreckOffer(house);
+  }
+  function constructionCost(save, house, quantity) {
+    return wreckOffer(save, house)?.key === 'discount' ? Math.floor(quantity / 2) : quantity;
+  }
+  function completeWreckOffer(save, house) {
+    const key = wreckSiteKey(house);
+    if (!key || save.wreckOffers?.[key] || isBuildingWreck(save, house)) return null;
+    const offer = generatedWreckOffer(house);
+    if (!offer) return null;
+    (save.wreckOffers ||= {})[key] = offer.key;
+    if (offer.reward) addMoney(save, offer.reward);
+    return offer;
+  }
+  function isBlessedSite(save, house) {
+    return save?.wreckOffers?.[wreckSiteKey(house)] === 'blessed';
+  }
+  function rerollPriceMul(save, house) { return isBlessedSite(save, house) ? 0.67 : 1; }
+
   // THE MAGIC HAMMER (owner, Oct 2026): a T4 magic item (items.js) spent on a
   // restore. The wreck raised under it is SHINY — it glints and glows like a
   // shiny tree (render.js, Lighting.KINDS.shiny) — and everything its keepers
@@ -314,6 +350,7 @@ const FORT_UNLOCK_WOOD_STEP = 6;
     if (row.role === 'blacksmith' && save.starterBlacksmithId == null) save.starterBlacksmithId = house.id;
     if (row.solo) registerSoloShop(save, house, row.solo);
     if (row.role === 'wizard') registerWizardTower(save, house);
+    completeWreckOffer(save, house);
     return row;
   }
 
@@ -380,12 +417,12 @@ const FORT_UNLOCK_WOOD_STEP = 6;
     return until && now < until ? 0.5 : 1;
   }
 
-  // isHouseWreck routes taps to restoration and is also the display owner's
-  // wreck verdict. Keeping both consumers on this predicate prevents a fort or
-  // castle-shaped house from wearing wreck art.
+  // Ordinary houses use the build-choice restoration flow. Fixed-purpose
+  // forts and castles have their own payment routes; isBuildingWreck unifies
+  // their appearance without changing their interactions.
   function isHouseWreck(save, house) {
     if (!house || house.kind !== 'house') return false;
-    if (house.tier !== 9) return false;   // forts (11) + castles (12) skip wreck
+    if (house.tier !== 9) return false;
     if (save.starterShopId && save.starterShopId === house.id) return false;
     return !save.restoredHouses?.[house.id];
   }
@@ -398,8 +435,8 @@ const FORT_UNLOCK_WOOD_STEP = 6;
     save = save || {};
     if (!house || house.kind !== 'house') return null;
     if (save.starterShopId && save.starterShopId === house.id) return 'trailer';
+    if (isBuildingWreck(save, house)) return 'wreck';
     if (house.tier === 11) return 'fort';
-    if (isHouseWreck(save, house)) return 'wreck';
     return houseShopRole(save, house) || 'plain';
   }
 
@@ -409,7 +446,7 @@ const FORT_UNLOCK_WOOD_STEP = 6;
   // the dialog's quote is the accept's charge. Themed shops and plain
   // residential alike rebuild from the same masonry.
   function wreckRestoreCost(save, house) {
-    return { id: 'rubble', qty: wreckRestoreQty(restoredCount(save)), material: 'stone' };
+    return { id: 'rubble', qty: constructionCost(save, house, wreckRestoreQty(restoredCount(save))), material: 'stone' };
   }
   // WHAT EACH CARD COSTS (owner, Oct 2026). A House — and the wizard's tower,
   // a story building — keeps the ladder above. A shop is priced by the rank
@@ -428,12 +465,13 @@ const FORT_UNLOCK_WOOD_STEP = 6;
   }
   function buildCost(save, house, row, order = restoredCount(save)) {
     if (!row || row.role === 'plain' || row.role === 'wizard') return wreckRestoreCost(save, house);
-    if (row.role === 'turret') return { id: 'rubble', qty: TURRET_ROCKS, material: 'stone' };
+    if (row.role === 'turret') return { id: 'rubble', qty: constructionCost(save, house, TURRET_ROCKS), material: 'stone' };
     const per = BUILD_ROCKS_PER_TIER[row.role];
     if (!per) return wreckRestoreCost(save, house);
     const tier = Math.max(1, (row.tier || 1) | 0);
     const id = buildMaterial(row, tier);
-    return id === 'rubble' ? { id, qty: per * tier, material: 'stone' } : { id, qty: per * tier };
+    const qty = constructionCost(save, house, per * tier);
+    return id === 'rubble' ? { id, qty, material: 'stone' } : { id, qty };
   }
 
   // Wood this fort demands to unseal, following the per-fort progression
@@ -465,6 +503,29 @@ const FORT_UNLOCK_WOOD_STEP = 6;
   // that is the only thing that means "this castle".
   function castleKey(house) {
     return (house && house.castle) || null;
+  }
+
+  const CASTLE_RESTORE_STONE = 9;
+  function isCastleWreck(save, house) {
+    const key = castleKey(house);
+    return !!key && isCastle(house) && !CastleStyles.get(key).guards
+      && !isCastleClaimed(save, house) && !save.restoredCastles?.[key];
+  }
+
+  // Visual ruin state includes the fixed-purpose buildings. Their interactions
+  // keep separate restoration routes; active hives are occupied buildings.
+  function isBuildingWreck(save, house) {
+    if (!house || (save.starterShopId && save.starterShopId === house.id)) return false;
+    if (typeof Hives !== 'undefined' && Hives.isActive(save, house)) return false;
+    return isHouseWreck(save, house) || isFortLocked(save, house) || isCastleWreck(save, house);
+  }
+
+  function restoreCastle(save, house) {
+    const cost = CASTLE_RESTORE_STONE;
+    if (!isCastleWreck(save, house) || Inventory.ownedCount(save, 'rubble') < cost) return false;
+    Inventory.remove(save, 'rubble', cost);
+    (save.restoredCastles ||= {})[castleKey(house)] = true;
+    return true;
   }
 
   // Quest castles open on their assigned job; citadels open when their
@@ -586,6 +647,7 @@ const FORT_UNLOCK_WOOD_STEP = 6;
   }
 
   root.Houses = {
+    WRECK_OFFER_CHANCE, WRECK_OFFERS, BLESSED_BONUS_MUL, wreckOffer, constructionCost, completeWreckOffer, isBlessedSite, rerollPriceMul,
     STORY_RESTORES, BUILD_OPTIONS, buildOption, buildOptions, restoredCount, restoreAs,
     BUILD_ROCKS_PER_TIER, TURRET_ROCKS, buildCost,
     isNewPick, typeKey, buildTypes, ranks, PERMIT_ID, renovateTo, renovate,
@@ -594,7 +656,7 @@ const FORT_UNLOCK_WOOD_STEP = 6;
     wizardTowerIds, wizardTowerIdentity, registerWizardTower, registerSoloShop,
     shopCharmMul,
     guildRole,
-    isHouseWreck, wreckRestoreCost,
+    isHouseWreck, isBuildingWreck, isCastleWreck, restoreCastle, CASTLE_RESTORE_STONE, wreckRestoreCost,
     fortUnlockCost, isFortLocked,
     castleKey, isBuildingSealed, isClaimedKey, isCastleClaimed, claimCastle, citadelBattleActive, startCitadelBattle, expireCitadelBattles, CITADEL_BATTLE_MS,
     CASTLE_KEY_RE, CITADEL_BATTLE_SKEW_MS, isCitadelKey, adoptCitadelBattle,

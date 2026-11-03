@@ -226,7 +226,7 @@ test('map review: building markers identify roles and sit inside concave footpri
   const scene={save:{starterShopId:'home'}};
   assert.eq(art.buildingSymbol({kind:'house',id:'home',tier:12},scene).key,'trailer','Home wins over building tier');
   assert.eq(art.buildingSymbol({kind:'house',id:'ruin',tier:9},scene).key,'wreck');
-  assert.eq(art.buildingSymbol({kind:'house',tier:11},scene).key,'fort','missing IDs do not become Home');
+  assert.eq(art.buildingSymbol({kind:'house',tier:11},scene).key,'wreck','missing IDs do not become Home');
   assert.eq(art.buildingSymbol({kind:'tower',castle:'castle'},scene).key,'castle');
   assert.eq(art.buildingSymbol({kind:'temple'},scene).key,'temple');
   const point=art.footprintPoint([0,0,30,0,30,10,10,10,10,30,0,30]);

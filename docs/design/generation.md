@@ -1630,7 +1630,9 @@ furniture claim. Starter story seating and reward seats also respect saved piece
 
 `Furniture.recompute` is the sole writer of `save.houseLuxury`, a map from
 house key to `{ score, footprintKey }` (the footprint key is Home-only).
-Consumers use `Furniture.luxuryOf`.
+Consumers use `Furniture.luxuryOf`, which adds the Blessed Site’s 50% bonus
+for a plain house or adopted Home. The saved score remains the furniture total,
+so reloads and repeated reconciliation cannot compound the bonus.
 Saved indoor furniture contributes catalog tier squared (1/4/9/16/25), or its
 metadata `luxury` override. Outdoor and cave furniture contributes zero;
 one record counts once even when its future footprint spans several cells.

@@ -15,7 +15,7 @@
     waystoneUntil: {}, waystoneSets: {},
     lastProduce: {}, fruitPicked: {}, chestHold: {}, coinBurstClaimed: {},
     grassRegrowth: {}, trainingDrills: {}, training: {}, quarryMined: {}, npcRestUntil: {}, boonUntil: {},
-    castleServiceClaimed: {}, claimedCastles: {}, shinyHouses: {}, shopLines: {}, shopTiers: {}, dragonStory: {}, tilledQuality: {},
+    castleServiceClaimed: {}, claimedCastles: {}, restoredCastles: {}, wreckOffers: {}, shinyHouses: {}, shopLines: {}, shopTiers: {}, dragonStory: {}, tilledQuality: {},
   });
   function defaults(save) {
     for (const k of Object.keys(SAVE_DEFAULTS)) {
@@ -105,7 +105,8 @@
     // Whole numbers only — heals a bar a pre-fix revive left at a quarter of
     // an odd max (22.25⚡), see Energy.reviveLevel.
     save.energy = Math.round(Math.min(maxE, Math.max(0, save.energy)));
-    // Restored-houses / forts default to empty objects.
+    // Building restoration ledgers default to empty objects.
+    if (!save.restoredCastles || typeof save.restoredCastles !== 'object') save.restoredCastles = {};
     if (!save.restoredHouses || typeof save.restoredHouses !== 'object') save.restoredHouses = {};
     if (!save.unlockedForts || typeof save.unlockedForts !== 'object') save.unlockedForts = {};
     if (!save.temples || typeof save.temples !== 'object' || Array.isArray(save.temples)) save.temples = {};

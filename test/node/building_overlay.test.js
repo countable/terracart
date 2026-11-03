@@ -302,13 +302,14 @@ test('building overlay: restored turret keeps its footprint and gets intact cast
   clearTiles();
 });
 
-test('building overlay: castle floors and ramparts share the tower material in both conditions', () => {
+test('building overlay: restored castle floors and ramparts share the standing material', () => {
   for (const id of CastleStyles.ids) for (const claimed of [true, false]) {
     clearTiles();
     putShapes(0, 0, [rectShape(0, 0, 20, 20, T.BUILDING_LARGE, id)]);
-    const scene = makeScene({ isClaimedKey: () => claimed });
+    const scene = makeScene({ isClaimedKey: () => claimed, save: { restoredCastles: { [id]: true } } });
     BuildingOverlay.draw(scene);
-    const material = buildingBackgroundMaterial(CastleStyles.get(id, claimed)), g = scene.buildingGeomGfx;
+    const material = buildingBackgroundMaterial(CastleStyles.get(id === 'ruin' ? 'bastion' : id,
+      claimed || !CastleStyles.get(id).guards)), g = scene.buildingGeomGfx;
     const fills = g.only('fill');
     assert.eq(fills[0].color, material.stone.FACE, `${id}: stone wall face`);
     assert.eq(fills[1].color, material.floor, `${id}: matching courtyard`);
@@ -316,29 +317,25 @@ test('building overlay: castle floors and ramparts share the tower material in b
     assert.eq(insets[0].color, material.stone.BODY, `${id}: stone wall base`);
     const top = material.rampart.woodTop ? material.wood : material.stone;
     assert.eq(insets[insets.length - 1].color, top.LITE, `${id}: matching crenellations`);
-    if (id === 'archive') assert.eq(insets[1].color, material.wood.BODY, 'archive wood crowns a stone base');
-    if (id === 'ruin') assert.eq(insets[1].dash.length, 4, 'ruin teeth have uneven gaps');
   }
 });
 
-test('building overlay: only ruin floors use the shared damage sheet in both conditions', () => {
-  for (const id of CastleStyles.ids) for (const claimed of [true, false]) {
-    clearTiles();
-    putShapes(0, 0, [rectShape(0, 0, 20, 20, T.BUILDING_LARGE, id)]);
-    const scene = makeScene({ isClaimedKey: () => claimed });
-    const calls = [];
-    scene.buildingGeomGfx.damagePoly = (pts, key, condition, x, y) => {
-      calls.push({ key, condition, x, y }); return true;
-    };
-    BuildingOverlay.draw(scene);
-    assert.eq(calls.length, id === 'ruin' ? 1 : 0);
-    assert.eq(scene.buildingGeomGfx.only('texture').length, id === 'ruin' ? 0 : 1,
-      'ruin replacement includes its paving; other materials keep their existing texture');
-    if (calls.length) {
-      assert.eq(calls[0].key, id); assert.eq(calls[0].condition, claimed);
-      assert.truthy(Number.isFinite(calls[0].x) && Number.isFinite(calls[0].y), 'tile anchor is projected once');
+test('building overlay: legacy quest castle wrecks share the enlarged house artwork', () => {
+  const previous = Render.buildingArtStyle;
+  Render.buildingArtStyle = 'legacy';
+  try {
+    for (const id of ['ruin', 'bastion', 'archive']) {
+      clearTiles();
+      putShapes(0, 0, [rectShape(0, 0, 20, 20, T.BUILDING_LARGE, id)]);
+      const scene = makeScene({ isClaimedKey: () => false });
+      let wreck;
+      scene.buildingGeomGfx.wreckPoly = d => { wreck = d; };
+      BuildingOverlay.draw(scene);
+      assert.eq(wreck.key, id);
+      assert.eq(wreck.right - wreck.left, 20 * PX_PER_M, 'large wreck follows the castle footprint');
+      assert.eq(scene.buildingGeomGfx.only('inset').length, 0, 'no competing ruined ramparts');
     }
-  }
+  } finally { Render.buildingArtStyle = previous; clearTiles(); }
 });
 
 test('building overlay: each floor carries its own tier material', () => {
@@ -880,13 +877,17 @@ test('building overlay: canvas adapter clears and fills the full padded backing 
     CastleStyles.damageTexture = () => 'test_damage';
     target.clear();
     target.texturePoly(points, T.BUILDING_SMALL);
-    assert.truthy(target.damagePoly(points, 'building', false, 0, 0));
+    target.texturePoly(points, T.BUILDING_SMALL);
+    const wreckDraws = [];
+    ctx.drawImage = (...args) => wreckDraws.push(args);
+    target.wreckPoly({ pts: points, left: 0, north: 0, right: 20, south: 20 });
+    assert.eq(wreckDraws[0].slice(-2).join(','), '20,20', 'shared wreck artwork fills its footprint');
     const size = Math.ceil(scene.viewSize + CELL_PX * 4);
     assert.eq(page.w, size);
     assert.eq(JSON.stringify(clears[0]), JSON.stringify([0, 0, size, size]));
     assert.eq(fills[0][2], size, 'material pattern covers padded canvas');
     assert.eq(fills[0][3], size);
-    assert.eq(fills[1][2], size, 'damage pattern covers padded canvas');
+    assert.eq(fills[1][2], size, 'repeated material covers padded canvas');
     assert.eq(fills[1][3], size);
     const scales = [];
     ctx.scale = (...args) => scales.push(args);
@@ -2013,7 +2014,7 @@ test('building overlay: a fort is a palisade rim round its footprint, with its h
     const house = { kind: 'house', id: 'house', tier: 9, x: 25, y: 5 };
     entry.objects = [fort, house];
     const { scene } = makePerspectiveScene();
-    scene.save = { restoredHouses: { house: 'plain' } };
+    scene.save = { restoredHouses: { house: 'plain' }, unlockedForts: { fort: true } };
     BuildingOverlay.draw(scene);
     assert.falsy(scene._proceduralBuildings.has('fort'), 'the fort has no generated body');
     assert.falsy(Render.proceduralHouse(fort, scene), 'so its gambling-hall sprite stays visible');
@@ -2062,7 +2063,7 @@ test('building overlay: the low-poly path gives forts a copper hall and mounted 
     ]);
     entry.objects = [{ kind: 'house', id: 'fort', tier: 11, x: 5, y: 5 }, { kind: 'house', id: 'house', tier: 9, x: 25, y: 5 }];
     const { scene } = makePerspectiveScene();
-    scene.save = { restoredHouses: { house: 'plain' } };
+    scene.save = { restoredHouses: { house: 'plain' }, unlockedForts: { fort: true } };
     BuildingOverlay.draw(scene);
     assert.eq(added.map(a => a.id).sort().join(','), 'fort,house', 'both inhabited buildings become meshes');
     assert.eq(added.find(a => a.id === 'fort').authored.key, 'city_storefront');
@@ -2099,6 +2100,57 @@ test('building overlay: translucent wreck ground has no opaque underpainting', (
     assert.eq(scene.buildingGeomGfx.only('texture').length, 0, 'no opaque paving underneath');
   } finally {
     Object.assign(BuildingLowPoly, saved);
+    Render.buildingArtStyle = previousStyle; clearTiles();
+  }
+});
+
+test('building overlay: houses, forts and castles share wreck geometry; restoration and occupation select standing buildings', () => {
+  const previousStyle = Render.buildingArtStyle;
+  const saved = { active: BuildingLowPoly.active, begin: BuildingLowPoly.begin, add: BuildingLowPoly.add,
+    update: BuildingLowPoly.update, clear: BuildingLowPoly.clear };
+  const drawCastle = FDRCastleGeometry.draw;
+  const added = [], castles = [];
+  Render.buildingArtStyle = 'procedural';
+  BuildingLowPoly.active = () => true;
+  BuildingLowPoly.begin = BuildingLowPoly.update = BuildingLowPoly.clear = () => {};
+  BuildingLowPoly.add = (scene, pts, recipe, variant, id) => {
+    added.push({ id, recipe, width: Math.max(...pts.map(p => p.x)) - Math.min(...pts.map(p => p.x)) });
+    return { faces: [1], height: 14 };
+  };
+  FDRCastleGeometry.draw = (scene, source, pts, options) => {
+    castles.push(options);
+    return { style: { floor: 0, paving: {} }, blocksAdded: 0 };
+  };
+  try {
+    for (const [id, tier, width, hive] of [['house', 9, 10], ['fort', 11, 10], ['bastion', 12, 30], ['archive', 12, 30], ['citadel', 12, 30], ['hive', 9, 10, 'mushroom']]) {
+      clearTiles(); added.length = castles.length = 0;
+      const entry = putShapes(0, 0, [rectShape(0, 0, width, 10, tier, id)]);
+      if (tier !== 12) entry.objects = [{ kind: 'house', id, tier, x: 5, y: 5, hive }];
+      const { scene } = makePerspectiveScene();
+      scene.save = {};
+      scene.isClaimedKey = key => Houses.isClaimedKey(scene.save, key);
+      scene.textures.exists = key => key === 'fdr_castle_atlas';
+      BuildingOverlay.draw(scene);
+      if (id === 'citadel' || hive) {
+        assert.eq(added.length, 0, `${id}: enemy building is not a wreck`);
+        assert.eq(castles.length, id === 'citadel' ? 1 : 0);
+        if (id === 'citadel') assert.truthy(castles[0].active, 'enemy Citadel stands intact');
+        continue;
+      }
+      assert.eq(added.length, 1, `${id}: exactly one shared wreck model`);
+      assert.eq(added[0].recipe.shape, 'wreck');
+      assert.eq(added[0].width, width * PX_PER_M, 'castle wreck retains its larger footprint');
+      assert.eq(castles.length, 0, 'no standing castle behind the wreck');
+      assert.eq(scene.buildingGeomGfx.only('fill').length, 0, 'no opaque legacy wreck underlay');
+      if (tier === 12) {
+        scene.save.restoredCastles = { [id]: true };
+        BuildingOverlay.draw(scene);
+        assert.eq(castles.length, 1, 'restoration alone invalidates the geometry cache');
+        assert.truthy(castles[0].active, 'quest castle stands intact before its quest claim');
+      }
+    }
+  } finally {
+    Object.assign(BuildingLowPoly, saved); FDRCastleGeometry.draw = drawCastle;
     Render.buildingArtStyle = previousStyle; clearTiles();
   }
 });

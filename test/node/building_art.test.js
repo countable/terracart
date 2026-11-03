@@ -42,6 +42,8 @@ test('footprint buildings: every house role and shop line has a distinct materia
   assert.eq(Render.buildingStyleFor(o, scene), 'ruin');
   // A fort is a palisade rim plus its gambling-hall sprite (building_overlay.js),
   // never a footprint style of its own.
+  assert.eq(Houses.displayRole(save, { ...o, tier: 11 }), 'wreck');
+  save.unlockedForts = { [o.id]: true };
   assert.eq(Houses.displayRole(save, { ...o, tier: 11 }), 'fort');
   assert.falsy(Render.BUILDING_STYLE_ROLES.fort, 'forts have no generated-body profile');
 });
