@@ -599,6 +599,14 @@ hop (the slimes) keeps its own beat, paced by the sim’s step.
   the world. It reuses two graphics layers, culls to the viewport and clears
   both each frame, including depth changes; no cell-cache invalidation is needed.
 
+- Shots fly between foot positions and draw lifted to chest height
+  (`SHOT_DRAW_LIFT_PX`). Every player launch goes through
+  `loosePlayerShot`, which starts the lift at the drawn body centre
+  (`playerBodyDy`, so giant, mounted, dragon and flying bodies fire from their
+  own chest) and eases it down over the aim distance, like a turret's
+  `liftFromPx`. A streak is only as long as the distance it has travelled, so it
+  grows out of the shooter's centre.
+
 - Draw from the camera anchor using `coords.js` projection helpers. Reach,
   taps, fog and tile loading use `playerM` / `playerToWorldCell()`.
   Draw player-attached effects at `scene.playerScreen()`, not viewport centre.

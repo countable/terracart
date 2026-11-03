@@ -238,6 +238,25 @@ test('turret: app.js fires the turrets from _combatTick with the SAME enemy list
   assert.truthy(/shot\.liftFromPx = Render\.towerCrownHeight\(this\.textures, shot\.castle\) - CELL_PX \/ 2 - 4;/.test(fire), 'each arrow starts at its own castle variant crown');
   assert.truthy(/if \(s\.liftFromPx != null\)/.test(app), '_drawShots honours the turret lift');
 });
+test('player shots: leave the drawn body centre and grow out of it', () => {
+  // Every player launch site loosens through one helper, which seats the
+  // shot's starting lift on the body as drawn (playerBodyDy — a giant, a
+  // dragon or a flyer fires from their own chest) and eases it over the aim.
+  const m = SCENE_SRC.match(/\n  (loosePlayerShot\(shot, aimDistM = shot\.rangeM\) \{\n[\s\S]*?\n  \})\n/);
+  assert.truthy(m, 'loosePlayerShot is a scene method');
+  const loose = new Function('return ({' + m[1] + '}).loosePlayerShot;')();
+  const scene = { _shots: [], playerBodyDy: () => -21 };
+  const shot = loose.call(scene, { rangeM: 40 });
+  assert.eq(scene._shots[0], shot);
+  assert.eq(shot.liftFromPx, 21, 'starts at the drawn body centre');
+  assert.eq(shot.aimDistM, 40, 'settles over the range unless an aim distance is given');
+  assert.eq(loose.call(scene, { rangeM: 40 }, 12).aimDistM, 12);
+  assert.eq((SCENE_SRC.match(/loosePlayerShot\(shot\b/g) || []).length, 5,
+    'the auto-fire, scroll, throw and flask launches use the helper (with its definition)');
+  assert.truthy(/loosePlayerShot\(shot/.test(DragonStory.tick.toString()), 'dragon breath uses the helper');
+  assert.truthy(/const lenPx = s\.travelledM != null \? Math\.min\(spec\.lenPx, s\.travelledM \* CELL_PX \/ this\.cellM\) : spec\.lenPx;/.test(SCENE_SRC),
+    'a streak is no longer than the ground it has covered');
+});
 test('ranged weapons: wake only for a foe within the reach plus a cell', () => {
   const reach = 2.5, trig = Combat.rangedTriggerM(reach, CELL);
   assert.eq(Combat.RANGED_TRIGGER_PAST_REACH, 1);

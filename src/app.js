@@ -4344,7 +4344,10 @@ class MapScene extends Phaser.Scene {
           }
         }
         if (shot) {
-          this._shots.push(shot);
+          // A nearest-aim heading is the line to the foe, so its length is
+          // the distance the launch lift settles over; a facing shot's is not.
+          this.loosePlayerShot(shot, Combat.SHOT[slot].aim === 'nearest' && !Conditions.active(this.save, 'confused')
+            ? Math.hypot(heading.x, heading.y) : shot.rangeM);
           // Keep the bow's existing ledger key; the staff gets its own first shot.
           // Only a fired projectile tells the story, never equip or a dry cadence.
           if (slot !== 'musket') this._toolActionStory(slot === 'bow' ? 'shoot' : 'staff');
@@ -5020,7 +5023,8 @@ class MapScene extends Phaser.Scene {
       // have them skim under the bodies they're hitting. Lift the streak to
       // roughly chest height so it leaves the archer and crosses the foe.
       // A turret's arrow starts higher — up on the battlements (liftFromPx)
-      // — and comes down to the common chest height over the distance it was
+      // — and the player's leaves their drawn body centre (loosePlayerShot);
+      // either comes down to the common chest height over the distance it was
       // aimed at (aimDistM, stamped by Combat.turretShot), so it reads as
       // loosed from the tower and landing on the foe rather than skimming
       // along the wall's foot.
@@ -5113,7 +5117,11 @@ class MapScene extends Phaser.Scene {
         this._boltGlow(key, Math.round(hx - s.vx * spec.lenPx * 0.5), Math.round(hy - s.vy * spec.lenPx * 0.5),
           SHINY_ARROW_GLOW_PX * 0.6, 0.45);
       }
-      const tailX = Math.round(hx - s.vx * spec.lenPx), tailY = Math.round(hy - s.vy * spec.lenPx);
+      // Fresh off the string the streak is only as long as the ground it has
+      // covered, so it grows out of the shooter's centre instead of poking
+      // out of their back for its first frames.
+      const lenPx = s.travelledM != null ? Math.min(spec.lenPx, s.travelledM * CELL_PX / this.cellM) : spec.lenPx;
+      const tailX = Math.round(hx - s.vx * lenPx), tailY = Math.round(hy - s.vy * lenPx);
       if (spec.inkPx) {
         g.lineStyle(spec.widthPx + 2 * spec.inkPx, spec.inkColor, 0.9);
         g.beginPath(); g.moveTo(tailX, tailY); g.lineTo(hx, hy); g.strokePath();
@@ -5227,8 +5235,8 @@ class MapScene extends Phaser.Scene {
   // dot that grows from a spark to the bolt's own size (Combat.shotDotPx at
   // the staff's tier) over the beat, in the bolt's colour, and pulses once it
   // is full and waiting for a foe to come into range. Drawn AT the player
-  // (playerScreen, the camera rule), at the height a bolt is drawn in flight
-  // (SHOT_DRAW_LIFT_PX) so the loosed bolt leaves from where it charged.
+  // (playerScreen, the camera rule), at the body's drawn centre
+  // (playerBodyDy) — the height a loosed bolt leaves from (loosePlayerShot).
   _drawStaffCharge(g) {
     const f = this._staffCharge;
     const tier = Gear.effectiveRelics(this.save).staff?.tier;
@@ -5236,7 +5244,7 @@ class MapScene extends Phaser.Scene {
     const full = Combat.shotDotPx('staff', tier);
     const p = this.playerScreen();
     const x = Math.round(p.x + STAFF_CHARGE_HAND_DX);
-    const y = Math.round(p.y - SHOT_DRAW_LIFT_PX);
+    const y = Math.round(p.y + this.playerBodyDy());
     const pulse = f >= 1 ? 0.75 + 0.25 * Math.sin(performance.now() / 160) : 1;
     const r = Math.max(1, full * (0.25 + 0.75 * f) * pulse);
     // The same glow as the bolt it becomes (_drawBolt): a soft halo gathering
@@ -6237,6 +6245,18 @@ class MapScene extends Phaser.Scene {
     return this._playerSubmerged ? 0
       : this.playerFeetNudgeY - Math.max(this._obstacleStep?.liftPx || 0,
         Conditions.flying(this.save) ? CONSUMABLE_SPEC.flight_potion.liftPx : 0);
+  }
+
+  // A shot the player looses leaves the BODY's centre as drawn (playerBodyDy,
+  // the seat the sprite itself hangs on — so a giant, a dragon, a rider or a
+  // flyer fires from their own chest, not from a fixed height off the feet)
+  // and settles to the common in-flight lift (SHOT_DRAW_LIFT_PX) over
+  // `aimDistM`: the turret arrow's liftFromPx easing in _drawShots.
+  loosePlayerShot(shot, aimDistM = shot.rangeM) {
+    shot.liftFromPx = -this.playerBodyDy();
+    shot.aimDistM = aimDistM;
+    (this._shots ||= []).push(shot);
+    return shot;
   }
 
   // …and which way up it is. Same read, so the seat and the turn can never
