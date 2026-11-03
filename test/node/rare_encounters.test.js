@@ -13,6 +13,8 @@
     for (const row of RareEncounters.ROWS) {
       assert.truthy(EnemyRoster.get(row.kind)?.rareEncounter, row.kind);
       assert.truthy(row.chance > 0 && row.chance < 1);
+      // Doubled from .15/.35/.6 (owner, Nov 2026); the old .6 rows stop short of certain at .9.
+      assert.includes([.3, .7, .9], row.chance, `${row.kind} rolls a doubled rate`);
       for (let depth = 1; depth <= 8; depth++) assert.eq(RareEncounters.matches(row, {depth}), !!row.floors?.includes(depth), row.kind);
       assert.falsy(RareEncounters.matches(row, { depth: 0, owner: {key: 'Terrain:BUILDING', type: 'terrain'} }));
     }

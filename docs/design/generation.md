@@ -17,8 +17,9 @@ access or tile lifecycle mechanics.
 ## Habitat populations
 
 - `RareEncounters` owns the additional named rare monsters independently of
-  ambient density. Rare visits roll 15%, uncommon visits 35%, and species described
-  as present roll 60%; each species has at most one seat per area visit. Dragons
+  ambient density. Rare visits roll 30%, uncommon visits 70%, and species described
+  as present roll 90% (doubled from 15/35/60; no encounter is ever certain); each
+  species has at most one seat per area visit. Dragons
   each roll independently on L7. These are per-save visit encounters and are never
   broadcast as shared world IDs. Their roster rows have no generic surface/cave pool.
 - Only the player entering a loaded area starts a visit. Area identity follows the
