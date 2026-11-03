@@ -1534,3 +1534,44 @@ test('road overlay: replacing an interrupted detail pass releases its old interv
   assert.eq(ops.filter(op=>op[0]==='save').length,ops.filter(op=>op[0]==='restore').length,
     'superseded jobs do not leak saved canvas states');
 });
+
+test('road overlay: a walking rebuild abandoned at any yield leaves its back-buffer drawing, not erasing', () => {
+  // A superseded time-sliced job is simply dropped (never resumed or closed).
+  // The width knockout once held 'destination-out' on the pass canvas across
+  // its yields, so a job dropped there left that back-buffer erasing every
+  // later layer: the roads vanished on alternate walking swaps.
+  const realCreate = document.createElement;
+  const canvas = () => { const r = roRecorder(); return { width: 0, height: 0, getContext: () => r.ctx }; };
+  document.createElement = canvas;
+  try {
+    for (const commit of [RoadOverlay.commitBaseSteps, RoadOverlay.commitRestoredSteps]) {
+      const run = (main, limit) => {
+        const pass = { ctx: main.ctx, size: 64, phaseX: 0, phaseY: 0, pats: {}, scratch: [], decorOps: [], erases: [],
+          tex: { refresh() {} }, occluders: [{ w: 30, c: 0, pts: [0, 10, 60, 10] }],
+          ops: [{ w: 8, c: 0x888888, pts: [0, 20, 60, 20] }, { w: 8, c: 0x888888, pts: [0, 30, 60, 30], coverageOnly: true },
+            { w: 20, c: 0x888888, surface: 'md', pts: [0, 40, 60, 40] }, { w: 20, c: 0x888888, surface: 'md', pts: [30, 0, 30, 60] }] };
+        const it = commit(pass);
+        let n = 0;
+        while (n < limit && !it.next().done) n++;
+        return n;
+      };
+      const total = run(roRecorder(), Infinity);
+      for (let cut = 1; cut < total; cut++) {
+        const main = roRecorder();
+        run(main, cut);
+        const start = main.ops.length;
+        run(main, Infinity);
+        // Replay the canvas state machine (save/restore stack) over the whole log.
+        let gco = 'source-over'; const stack = [];
+        for (let i = 0; i < main.ops.length; i++) {
+          const [op, v] = main.ops[i];
+          if (op === 'save') stack.push(gco);
+          else if (op === 'restore') gco = stack.length ? stack.pop() : gco;
+          else if (op === 'set:globalCompositeOperation') gco = v;
+          else if (op === 'drawImage' && i >= start)
+            assert.eq(gco, 'source-over', `layer lands drawing after a job abandoned at yield ${cut}`);
+        }
+      }
+    }
+  } finally { document.createElement = realCreate; }
+});

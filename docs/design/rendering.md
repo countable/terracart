@@ -1414,7 +1414,9 @@ the reach rim within the existing player-light radius.
   assign one interior paving owner and open side channels at branch mouths;
   source endpoint caps cannot suppress adjoining paving. The map-review tool
   uses the same detail compositor. Interrupted rebuilds release saved detail
-  clips before reusing their pooled canvases. Restored intervals
+  clips before reusing their pooled canvases, and a back-buffer's own
+  composite mode never stays switched across a slice yield (each knockout
+  stroke restores it), so a dropped job cannot leave the next one erasing. Restored intervals
   remove the old base surface/decor while retaining
   its geometric mask for larger-road occlusion, so the scar and missing pieces
   cannot show through the restored surface. None of this repaints grid terrain.
