@@ -69,7 +69,7 @@
   const ISLANDS = Object.freeze({
     flooded_cistern: Object.freeze({ terrain: 'WATER', islandRadius: 3.2, moatWidth: 2.4, jitter: .7,
       crossings: [[0, -1], [0, 1]], bankJitter: .8, bankRadius: 8,
-      bankArt: { 1: 'green_slick', 5: 'luminous_bulbs' }, bankCrop: { 1: 'slime_slick', 5: 'mushroom_bush' } }),
+      bankArt: { 1: 'green_slick', 5: 'luminous_bulbs' }, bankCrop: { 1: 'slime_slick', 5: 'mushroom' } }),
     magma_atoll: Object.freeze({ terrain: 'CAVE_LAVA', islandRadius: 3.2, moatWidth: 2.4, jitter: 1.2,
       crossings: [[0, -1], [1, 0]], bankJitter: 1, bankRadius: 8,
       bankArt: { 6: 'fire_rock', 7: 'fire_rock' }, bankRock: true })
@@ -596,7 +596,8 @@
           for (const c of open) {
             const r = Math.hypot(c.u, c.v);
             if (r > 9 || Math.abs(c.u * Math.sin(a) - c.v * Math.cos(a)) > .6 || roll('glow', c.u, c.v) < .18) continue;
-            plant(c, 'mushroom_bush', (c.u + c.v) % 7 === 3 && roll('orb', c.u, c.v) < .5 ? 'green_orb' : 'luminous_bulbs');
+            if ((c.u + c.v) % 7 === 3 && roll('orb', c.u, c.v) < .5) plant(c, 'mushroom_bush', 'green_orb');
+            else plant(c, 'mushroom', 'luminous_bulbs');   // a pale cluster picks like a cap
           }
         }
         for (const c of order(open, 'rockC').slice(0, 5)) mineral(c);

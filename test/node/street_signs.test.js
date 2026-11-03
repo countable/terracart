@@ -1,4 +1,20 @@
 (function () {
+test('street signs: at most one board per heading, naming the nearest road', () => {
+  // Two roads leave the corner north-east; the sign hangs one NE board.
+  const index = {mvtToM:1, lines:[
+    {key:'a',variant:'hedgerow',halfW:3.5,line:[{x:100,y:100},{x:300,y:100}]},
+    {key:'b',variant:'thorny',halfW:3.5,line:[{x:100,y:100},{x:300,y:-100}]},
+    {key:'c',variant:'pilgrim',halfW:3.5,line:[{x:102,y:100},{x:302,y:-102}]},
+  ]};
+  for (const sign of StreetSigns.candidates(index)) {
+    const heads = sign.directions.map(d => d.direction);
+    assert.eq(heads.length, new Set(heads).size, `no doubled heading: ${heads.join()}`);
+  }
+  const corner = StreetSigns.candidates(index).find(s => s.x === 100 && s.y === 100);
+  assert.eq(corner.directions.filter(d => d.direction === 'Northeast').length, 1);
+  // A saved sign listing a heading twice still hangs it once.
+  assert.eq(StreetSigns.rows([{ direction: 'Northeast' }, { direction: 'Northeast' }, { direction: 'East' }], 's').length, 2);
+});
 test('street signs: one sign per junction, at either end of a road, and none at a lone road end', () => {
   const index = {mvtToM:1, lines:[
     {key:'a',variant:'hedgerow',halfW:3.5,line:[{x:100,y:100},{x:300,y:100}]},

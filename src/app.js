@@ -4446,6 +4446,16 @@ class MapScene extends Phaser.Scene {
         const d2 = (c.x - px) * (c.x - px) + (c.y - py) * (c.y - py);
         if (d2 < bestD2) { bestD2 = d2; best = c; }
       }
+      // No foe at arm's length: an active hive (a mushroom house) beside the
+      // player takes the swing, measured to its body (Hives.meleeReachPadM).
+      if (!best && typeof Hives !== 'undefined') {
+        for (const house of Hives.nearby(this)) {
+          if (!Combat.inMeleeReach(house.x, house.y, px, py, this.cellM, Gear.activeWeapon(this.save),
+            Hives.meleeReachPadM(house, this.cellM))) continue;
+          const d2 = (house.x - px) * (house.x - px) + (house.y - py) * (house.y - py);
+          if (d2 < bestD2) { bestD2 = d2; best = house; }
+        }
+      }
       if (best) this.startCombat(best, { auto: true });
     }
 
@@ -5442,7 +5452,8 @@ class MapScene extends Phaser.Scene {
     const c = victim;
     const now = performance.now();
     const { x: px, y: py } = playerWorldM(this);
-    const inSwing = Combat.inMeleeReach(c.x, c.y, px, py, this.cellM, Gear.activeWeapon(this.save));
+    const inSwing = Combat.inMeleeReach(c.x, c.y, px, py, this.cellM, Gear.activeWeapon(this.save),
+      hive ? Hives.meleeReachPadM(c, this.cellM) : 0);
     if (inSwing && now >= (this._nextBlowT ?? 0)) {
       this._toolActionStory('sword');
       this._nextBlowT = now + Combat.meleeIntervalMs(Gear.activeWeapon(this.save), isRiding(this.save)) * Combat.playerAttackIntervalMul(this.save);

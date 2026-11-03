@@ -1059,8 +1059,10 @@
   // compares the creature's position against the player's FEET), so the two
   // are symmetric by construction rather than by two similar-looking circles.
   function meleeReachM(cellM, slot) { return MELEE_REACH_CELLS * cellM * (MELEE_WEAPONS[slot]?.reachMul || 1); }
-  function inMeleeReach(ax, ay, bx, by, cellM, slot) {
-    const r = meleeReachM(cellM, slot);
+  // `padM` widens the reach by a large target's own body (Hives
+  // .meleeReachPadM), so the blade is measured to its edge, not its centre.
+  function inMeleeReach(ax, ay, bx, by, cellM, slot, padM = 0) {
+    const r = meleeReachM(cellM, slot) + padM;
     const dx = ax - bx, dy = ay - by;
     return dx * dx + dy * dy <= r * r;
   }

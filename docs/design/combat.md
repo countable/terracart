@@ -57,7 +57,10 @@ mechanics.
   enemy spawn gate and live collision checks, including clearance from the player. Only nearby, loaded
   hives on the current floor advance; changing floors or leaving the area restarts
   the minute, and background time never produces catch-up waves.
-  Player swings use their ordinary weapon damage and cooldown. Damage and
+  Player swings use their ordinary weapon damage and cooldown. Reach is
+  measured to the house's body (`bodyCells`, `Hives.meleeReachPadM`), so any
+  neighbouring cell, diagonals included, can strike it; with no foe at arm's
+  length the auto-melee lane swings at a nearby active hive (`Hives.nearby`). Damage and
   destruction persist in `save.hives`; zero HP reveals the original repairable
   wreck permanently. Existing children remain after the house falls. Claimed,
   restored and player-owned houses cannot activate. Birth serials are saved so

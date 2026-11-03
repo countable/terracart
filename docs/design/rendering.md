@@ -1347,7 +1347,8 @@ the reach rim within the existing player-light radius.
 - Roadside directions are a fingerpost at every junction where two streets
   meet (`StreetSigns.candidates`: either end of a road, one sign per junction
   point, none at a dead end or where a street only meets its own next
-  section), its post planted in the verge cell at the corner between the two
+  section) and at most one board per compass heading (the nearest road that
+  leaves that way), its post planted in the verge cell at the corner between the two
   roads (`StreetSigns.cornerSeats`, stepping outward when that cell is taken).
   It is drawn as retained solids from `StreetSigns.ART`, on the mesh path the crates take
   (`Render.drawRoadSignMeshes`, `WallPerspective.prism`, one group of its own

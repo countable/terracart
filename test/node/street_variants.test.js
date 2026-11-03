@@ -623,11 +623,14 @@ test('toadstool lane: a minor row at 5%, its verge holds glowing mushrooms with 
   for (const w of plants) assert.eq(wildplantSprite(w).sheet,
     w._plantArt === 'ordinary' ? 'selected_mushroom' : w._streetArt === 'red_mushroom' ? 'zone_objects' : 'street_decor_' + w._streetArt, 'selected mushroom art reaches the map');
   const roadside = plants.filter(w => Math.abs(cellOf(w.y, TY) - 20) === 1 && !w.gasEmitter && ['mushroom', 'mushroom_bush'].includes(w.crop));
-  const small = roadside.filter(w => w._plantArt === 'ordinary'), medium = roadside.filter(w => w._streetArt === 'red_mushroom' || w._streetArt === 'toadstool_cluster');
+  const small = roadside.filter(w => w._plantArt === 'ordinary'), medium = roadside.filter(w => w._streetArt === 'red_mushroom');
+  const clusters = roadside.filter(w => w._streetArt === 'toadstool_cluster');
   assert.gt(small.length, 0, 'small mushrooms reach the immediate roadside');
   assert.gt(medium.length, 0, 'medium mushrooms remain mixed into the roadside');
   assert.truthy(medium.every(w => w.crop === 'mushroom_bush'), 'medium caps have bush behavior');
   assert.truthy(small.every(w => w.crop === 'mushroom'), 'small caps remain quick pickups');
+  assert.gt(clusters.length, 0, 'triple toadstool clusters reach the roadside');
+  assert.truthy(clusters.every(w => w.crop === 'mushroom'), 'a triple cluster picks by hand like a cap, not chopped like a bush');
   assert.truthy(plants.filter(w => w.gasEmitter).every(w => w.crop === 'mushroom'), 'healing caps retain their existing crop');
   assert.inRange(small.length / roadside.length, .25, .75, 'small mushrooms are a substantial part of the roadside mix');
   assert.lt(wildplantSprite(small[0]).scale, wildplantSprite(medium[0]).scale, 'small caps use the smaller existing art');
