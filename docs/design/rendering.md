@@ -1384,8 +1384,9 @@ the reach rim within the existing player-light radius.
 - Small-road and path surfaces use sparse, individually shaded cobbles with ground-revealing
   joints, the approved study's layout at two-thirds scale (`SPARSE_SCALE`: 8px
   grid, 128px repeat). Each theme has its approved colour (a `ROAD_THEME_MIXES` theme, Way of Variety, gives each cobble one of several theme colours off its layout slot); unrestored stones retain 55% colour
-  saturation, while restored stones use 115% of the theme saturation and add
-  missing cobbles at the same positions. Unrepaired paving uses 42% overall
+  saturation, while restored stones use 115% of the theme saturation, fill
+  every missing cobble at the same positions, and grow 15% about their centres
+  (`REPAIRED_STONE_GROWTH`; Hedged Lane setts deepen 6→7px) for tighter joints. Unrepaired paving uses 42% overall
   opacity and a faint 8% theme tint in its joints, with fewer surviving cobbles,
   medium-road setts/dividers and large-road slate plates. Both states keep the approved Promenade light–dark contrast, except Hedged Lane,
   whose formal setts use a narrower tonal range. Its equal stones follow staggered
