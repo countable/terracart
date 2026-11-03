@@ -4,7 +4,7 @@ function scene(overrides = {}) {
     save: { energy: 100, inv: [{ id: 'explosive_flask', count: 2 }], selSlot: 0 },
     startWorldM: { x: 0, y: 0 }, playerM: { x: 4, y: 4 },
     originPx: { x: 0, y: 0 }, mPerPx: 1, cellsPerTile: 32, cellM: 8,
-    depth: 0, facing: { x: 0, y: 1 }, _shots: [], inventoryBuilds: 0, burns: 0,
+    depth: 0, facing: { x: 0, y: 1 }, _shots: [], loosePlayerShot(shot) { this._shots.push(shot); return shot; }, inventoryBuilds: 0, burns: 0,
     buildInventoryDOM() { this.inventoryBuilds++; },
     _consumeSelected() { consumeSelected(this.save); this.buildInventoryDOM(); },   // scene_consumables' spend, stubbed
     _ignitePlayer() { this.burns++; },

@@ -23,7 +23,9 @@ const StreetSigns = (() => {
       const p = rec.line[end];
       const key = `${rec.tags?.layer || 0}|${rec.tags?.brunnel || ''}|${Math.round(p.x * 100)},${Math.round(p.y * 100)}`;
       if (seen.has(key)) continue;
-      const directions = [], listed = new Set();
+      // ONE BOARD PER HEADING: two roads leaving the same way would hang two
+      // identical arrows, so a heading names the nearest road that takes it.
+      const listed = new Map();
       let meeting = null;   // the nearest OTHER road at this end
       for (const other of rows) {
         if ((other.tags?.layer || 0) !== (rec.tags?.layer || 0) || (other.tags?.brunnel || '') !== (rec.tags?.brunnel || '')) continue;
@@ -48,11 +50,14 @@ const StreetSigns = (() => {
         for (const target of targets) {
           const dx=target.x-closest.x,dy=target.y-closest.y;
           if (Math.hypot(dx,dy)*scale < cellM*.2) continue;
-          const heading=direction(dx,dy), id=heading+'|'+other.variant;
-          if (listed.has(id)) continue;
-          listed.add(id);directions.push({direction:heading,title:title(other),variant:other.variant});
+          const heading=direction(dx,dy), held=listed.get(heading), name=title(other);
+          // Ties (two roads through the same point) go to the first title, so
+          // the board never depends on the order the map listed its roads.
+          if (held && (held.d2 < d2 || (held.d2 === d2 && String(held.entry.title) <= String(name)))) continue;
+          listed.set(heading,{d2,entry:{direction:heading,title:name,variant:other.variant}});
         }
       }
+      const directions = [...listed.values()].map(v => v.entry);
       if (!meeting || !directions.length) continue;
       seen.add(key);
       const adjacent = rec.line[end ? end - 1 : 1];
@@ -135,7 +140,8 @@ const StreetSigns = (() => {
   // lower (rowTop). Which heading takes the top is drawn from the sign's id,
   // so every junction wears its own arrangement and the same one every time.
   function rows(directions, id = '') {
-    const listed = (directions || []).map(d => vector(d.direction)).filter(Boolean);
+    // A saved sign may predate one-board-per-heading: hang each heading once.
+    const listed = [...new Set((directions || []).map(d => d.direction))].map(vector).filter(Boolean);
     let seed = 2166136261;
     for (const c of String(id)) seed = Math.imul(seed ^ c.charCodeAt(0), 16777619);
     const next = () => { seed ^= seed << 13; seed ^= seed >>> 17; seed ^= seed << 5; return (seed >>> 0) / 4294967296; };

@@ -962,6 +962,9 @@ spawn-rate roll.
   It adds no rocks, grass, ferns or scattered trees.
   Chopped trees leave non-blocking visual stumps, including saved planted-tree
   stumps. Underdark ground cover intersperses pale luminous fungus clusters.
+- Triple-cap clusters (`toadstool_cluster`, `luminous_bulbs`) are ordinary
+  hand-picked `mushroom` plants; only the single big red cap is an axe-worked
+  `mushroom_bush`.
 - Toadstool Lane mixes small pickups and medium mushroom bushes on the road
   and along both two-cell verges, with occasional giants. A stable per-cell roll
   omits 30% of candidate caps. Ordinary surface caps use one art

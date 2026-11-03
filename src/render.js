@@ -6779,8 +6779,11 @@ const { RENDER_SPEC, resolveAppearance, _houseRole, _houseKey, _houseScale, _hou
     const fr = T.get(_houseKey(o, scene, pass)).get(_houseFrame(o, scene, pass));
     return ((fr && fr.height) || 0) * _houseScale(o, scene, pass);
   };
+  // A live hive draws at its own row's `artScale` over the footprint fit
+  // (Hives.KINDS), so its seat, label and tap bounds all follow the art.
   const _houseScale = (o, scene, pass) =>
-    houseArtScale(o.area, _houseFrameW(o, scene, pass), _houseRole(o, scene, pass), scene.cellM, CELL_PX);
+    houseArtScale(o.area, _houseFrameW(o, scene, pass), _houseRole(o, scene, pass), scene.cellM, CELL_PX)
+      * (Render.hiveSpec(o, scene)?.artScale || 1);
   // Where a house's art stands, game px from its anchor cell's centre: the
   // centre of mass of its footprint (worldgen footprintFootOffset, in cells).
   // A house with no recorded footprint stands on its anchor cell's centre.

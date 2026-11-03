@@ -691,7 +691,8 @@ test('road overlay: a restored interval is stroked from the save, in metres', ()
     assert.eq(p.style.w, px(5.5), 'stroked at the way\'s real width');
     assert.eq(p.style.c, RO_ROAD_RESTORED, 'muted restored road');
     assert.eq(p.style.a, 0.92, 'the restored pass is near-opaque');
-    // The dilapidated band is still drawn underneath, in full.
+    // A plain Graphics target keeps the full dilapidated band; only the canvas
+    // pass erases it beneath repairs (see the coverage test below).
     assert.eq(scene.roadGeomGfx.paths.length, 1, 'the base band is untouched');
     assert.eq(scene.roadGeomGfx.paths[0].style.c, 0x89867c, 'still dilapidated earth');
   });
@@ -1361,6 +1362,39 @@ test('road overlay: equal pavement colors retain distinct road and path canvas l
       assert.eq(new Set(path.cx.moves.map(p => p[1])).size, 1, 'path layer contains only its own geometry');
       assert.falsy(road.cx.moves[0][1] === path.cx.moves[0][1], 'matching black palettes do not duplicate each other');
     } finally { StreetVariants.lineStyles = previousStyles; document.createElement = previousCreate; }
+  });
+});
+
+test('road overlay: canvas repairs erase the unrepaired small-road band beneath them', () => {
+  withStreets(() => {
+    clearTiles();
+    putTile(0, 0, [Object.assign(line([{ x: 0, y: 0 }, { x: 16, y: 0 }], { class: 'street' }), { id: 7 })]);
+    const previousCreate = document.createElement;
+    const outs = [];
+    const canvas = () => {
+      const cx = new Proxy({ globalCompositeOperation: 'source-over',
+        stroke() { if (this.globalCompositeOperation === 'destination-out') outs.push(this.lineWidth); },
+        createPattern(tile) { return { tile }; },
+      }, { get(target, key) { return key in target ? target[key] : () => {}; } });
+      return { width: 0, height: 0, cx, getContext: () => cx };
+    };
+    document.createElement = canvas;
+    try {
+      const target = canvas();
+      const image = { setOrigin() { return this; }, setAlpha() { return this; } };
+      const scene = makeOverlayScene({
+        save: roSave(RO_KEY00(), '7:0', [2.5, 7.5]), roadGeomGfx: null,
+        textures: { exists: () => false, createCanvas: () => ({ getContext: () => target.cx, refresh() {} }) },
+        add: { image() { return image; } },
+      });
+      scene.roadGeomContainer.add = () => {};
+      RoadOverlay.draw(scene);
+      const ops = scene._roadGeomTarget._pass.ops;
+      const cover = ops.filter(op => op.coverageOnly);
+      assert.eq(cover.length, 1, 'the repaired metres are recorded as coverage');
+      assert.eq(cover[0].pts[0], ops.find(op => !op.coverageOnly).pts[0] + 16, 'starting at the repair, not the way');
+      assert.gt(outs.length, 0, 'and erased from the unrepaired band');
+    } finally { document.createElement = previousCreate; }
   });
 });
 

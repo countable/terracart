@@ -239,7 +239,7 @@ class SceneFire {
     const shot = Combat.spawnExplosiveFlask(x, y, heading, this.cellM,
       Fog.REVEAL_CELLS * this.cellM, CONSUMABLE_SPEC.explosive_flask);
     if (!shot) return false;
-    this._shots.push(shot);
+    this.loosePlayerShot(shot);
     this._consumeSelected();
     return true;
   }

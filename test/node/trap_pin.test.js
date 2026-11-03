@@ -268,7 +268,7 @@ test('tool stories: interact.js hooks fire at action start, one per call site', 
 });
 
 test('tool stories: the auto-fire hooks the first shot loosed, not the cadence', () => {
-  const push = app.indexOf('this._shots.push(shot);');
+  const push = app.indexOf('this.loosePlayerShot(shot,');
   const call = app.indexOf("this._toolActionStory(slot === 'bow' ? 'shoot' : 'staff');");
   assert.truthy(push > 0 && call > push && call < push + 400,
     "the 'shoot' story fires where the arrow actually flies");

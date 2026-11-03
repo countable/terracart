@@ -4,7 +4,7 @@
   // is asked (Macros.slainByPlayer).
   function scene() {
     return { depth: 9, cellM: 7, save: { energy: 100, memoryStory: { act3Started: true }, caught: ['demon'] },
-      _shots: [], _cellBlocked: () => false, _attackMul: () => 1,
+      _shots: [], loosePlayerShot(shot) { this._shots.push(shot); return shot; }, _cellBlocked: () => false, _attackMul: () => 1,
       showMessageModal(m) { this.modal = m; } };
   }
   function unlock(s) { return DragonStory.defeated(s, { kind: 'red_demon', id: 'demon' }, 'player'); }

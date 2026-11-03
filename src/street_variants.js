@@ -599,11 +599,11 @@
     {"art": "dead_tree", "variants": ["burned", "haunted_forest_path", "spider_path", "thorny"], "extra": {"_streetArt": "dead_tree", "species": "maple", "treeSpeciesFixed": true, "_objectArt": "dead_tree"}, "kind": "tree"},
     {"art": "fire_rock", "variants": ["fire_path", "burned"], "extra": {"_streetArt": "fire_rock", "requiredTier": 1, "yieldTier": 1}, "kind": "mineralrock"},
     {"art": "plank_fragments", "variants": ["barricade", "goblin_gang", "snare", "burned"], "extra": {"_streetArt": "plank_fragments"}, "crop": "driftwood"},
-    {"art": "toadstool_cluster", "variants": ["toadstool", "old_growth_path", "way_of_variety"], "extra": {"_streetArt": "toadstool_cluster"}, "crop": "mushroom_bush"},
+    {"art": "toadstool_cluster", "variants": ["toadstool", "old_growth_path", "way_of_variety"], "extra": {"_streetArt": "toadstool_cluster"}, "crop": "mushroom"},
     {"art": "spotted_mushroom", "variants": ["toadstool"], "extra": {"_streetArt": "spotted_mushroom"}, "crop": "giant_mushroom"},
     {"art": "red_mushroom", "variants": ["toadstool", "poison_path"], "extra": {"_streetArt": "red_mushroom"}, "crop": "mushroom_bush"},
     {"art": "healing_mushrooms", "variants": ["confusion_path", "paralysis_path", "toadstool"], "extra": {"_streetArt": "healing_mushrooms", "gasEmitter": true, "gasKind": "healing"}, "crop": "mushroom", "weight": 0.08},
-    {"art": "luminous_bulbs", "variants": ["toadstool", "old_growth_path", "confusion_path"], "extra": {"_streetArt": "luminous_bulbs"}, "crop": "mushroom_bush"},
+    {"art": "luminous_bulbs", "variants": ["toadstool", "old_growth_path", "confusion_path"], "extra": {"_streetArt": "luminous_bulbs"}, "crop": "mushroom"},
     {"art": "bone_fragments", "variants": ["haunted_forest_path", "spider_path", "snare"], "extra": {"_streetArt": "bone_fragments"}, "crop": "bone_fragments"},
     {"art": "dusty_stones", "variants": ["barricade", "snare"], "extra": {"_streetArt": "dusty_stones", "requiredTier": 1, "yieldTier": 1}, "kind": "mineralrock"},
     {"art": "golden_bowl", "variants": ["golden", "golden_path"], "extra": {"_streetArt": "golden_bowl"}, "crop": "golden_bowl", "weight": 0.3},
@@ -768,7 +768,9 @@
           const look = at.n % 31 === 17 ? { _streetArt:'healing_mushrooms', gasEmitter:true, gasKind:'healing' }
             : (c.ix + c.iy) % 2 === 0 ? { _plantArt: 'ordinary' }
             : { _streetArt: at.n % 2 ? 'toadstool_cluster' : 'red_mushroom' };
-          const crop = look._plantArt || look.gasEmitter ? 'mushroom' : 'mushroom_bush';
+          // A cluster of small caps picks like a single cap; only the big red
+          // one is woody enough to want the axe.
+          const crop = look._streetArt === 'red_mushroom' ? 'mushroom_bush' : 'mushroom';
           D.res.wildplants.push(D.WG.makeWildplant(crop,
             D.cx(c.ix), D.cy(c.iy), D.WG.cellId('wp_ts', D.tx, D.ty, c.ix, c.iy), { _street: D.v, ...look }));
         } }],
