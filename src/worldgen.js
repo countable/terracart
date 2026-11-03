@@ -9331,6 +9331,8 @@
   //     surface bin (loot.js isBarrel — `barrel: true`, no POI behind it; the
   //     stable appearance selects the loot table, barrelProfile; back daily
   //     on the one day ledger).
+  //   vines — wall-hugging runs of static creeping vine on a floor with a
+  //     `vines` profile row (the sewer); see the row.
   const CAVE_SCONCE_PIVOT = 18, CAVE_SCONCE_P = 0.45, CAVE_SCONCE_TRIES = 10;
   const CAVE_COIN_PIVOT = 12, CAVE_COIN_P = 0.35;
   const CAVE_X_MIN = 4, CAVE_X_SPAN = 7;
@@ -9362,6 +9364,7 @@
     [[0,0],[0,1],[0,2],[1,2]],
     [[0,0],[1,0],[1,1],[2,1],[2,2]],
   ];
+  const VINE_STEPS = [[0, -1], [1, 0], [0, 1], [-1, 0]];
   const CAVE_PASSES = [
     { id: 'chasms', spawnClass: 'hazard', salt: 0x43A51F27, when: L => L.depth === 1,
       pivot: 18, from: 4, fire: () => .4,
@@ -9504,6 +9507,47 @@
       },
       emit: (L, c, p) => L.objects.push(makeObject('grove_shrine', p.x, p.y,
         cellId(`cdrill_${L.depth}`, L.tx, L.ty, c.lix, c.liy), { shrineKind: 'drill', depth: L.depth })) },
+    // Creeping vines creep along the walls of a floor with a `vines` row (the
+    // sewer): in some pivot blocks a run starts on a legal free cell, beside
+    // rock where the block has one, and walks to free neighbours, wall-side
+    // ones first, so runs hug the brickwork wherever the hazard tiers allow.
+    // The static cave form of the surface's toxic vine (a walk hazard, cut
+    // for wood; CreepingVines only grows on the surface). After the drills,
+    // so it takes no reward seat.
+    { id: 'vines', spawnClass: 'hazard', salt: 0x2C1B3C6D, when: (L) => !!floorProfile(L.depth).vines,
+      setup: (L) => floorProfile(L.depth).vines,
+      pivot: (L) => floorProfile(L.depth).vines.pivot, from: 0, fire: (L) => floorProfile(L.depth).vines.p,
+      cluster: (rng, px, py, L, V) => {
+        const { grid, N, occupied } = L, opts = { spawnWhy: L.spawnWhy, gameplayTiers: L.gameplayTiers };
+        const free = (x, y) => x >= 0 && y >= 0 && x < N && y < N && grid[y * N + x] === T.CAVE_FLOOR
+          && !occupied.has(y * N + x) && !L.caveAreas?.reserved?.has(y * N + x)
+          && isSpawnCell(grid, N, N, x, y, opts, 'hazard');
+        const walled = (x, y) => VINE_STEPS.some(([dx, dy]) => {
+          const a = x + dx, b = y + dy;
+          return a >= 0 && b >= 0 && a < N && b < N && grid[b * N + a] === T.CAVE_WALL;
+        });
+        // Wall-side cells first; a choice among them is one draw.
+        const choose = cells => {
+          const side = cells.filter(c => walled(c.lix, c.liy)), pool = side.length ? side : cells;
+          return pool.length ? pool[Math.floor(rng() * pool.length)] : null;
+        };
+        const block = [];
+        for (let y = py; y < Math.min(N, py + V.pivot); y++)
+          for (let x = px; x < Math.min(N, px + V.pivot); x++) if (free(x, y)) block.push({ lix: x, liy: y });
+        const at = choose(block);
+        if (!at) return [];
+        const len = V.min + Math.floor(rng() * V.span), out = [at], seen = new Set([at.liy * N + at.lix]);
+        while (out.length < len) {
+          const c = out[out.length - 1];
+          const n = choose(VINE_STEPS.map(([dx, dy]) => ({ lix: c.lix + dx, liy: c.liy + dy }))
+            .filter(n => !seen.has(n.liy * N + n.lix) && free(n.lix, n.liy)));
+          if (!n) break;
+          seen.add(n.liy * N + n.lix); out.push(n);
+        }
+        return out;
+      },
+      emit: (L, c, p) => L.wildplants.push(makeWildplant('creeping_vine', p.x, p.y,
+        cellId(`cvine_${L.depth}`, L.tx, L.ty, c.lix, c.liy), { _ix: c.lix, _iy: c.liy, _cave: true, _plantArt: 'creeping_vine' })) },
     // Last: grass takes only empty floor seats, never displacing cave rewards,
     // authored areas, landings or the existing mushroom/rock population.
     { id: 'grass', when: (L) => !!floorProfile(L.depth).grass, pivot: 1, from: 0, tries: 1,
@@ -9575,10 +9619,11 @@
     const tries = (px, py) => {
       for (let k = 0; k < row.tries; k++) if (seat(row.pick(rng, px, py, L, st))) break;
     };
-    if (row.pivot) {
-      for (let py = row.from; py < N; py += row.pivot) {
+    const pivot = typeof row.pivot === 'function' ? row.pivot(L) : row.pivot;
+    if (pivot) {
+      for (let py = row.from; py < N; py += pivot) {
         yield 'cave feature row';
-        for (let px = row.from; px < N; px += row.pivot) {
+        for (let px = row.from; px < N; px += pivot) {
           if (row.fire && rng() > row.fire(L)) continue;
           if (row.cluster) for (const c of row.cluster(rng, px, py, L, st)) seat(c);
           else tries(px, py);
@@ -9691,6 +9736,13 @@
   //   floorTorches retains natural-cave torch dressing after relocation
   //   barrels      { min, span } generated barrels per tile (caveBarrelBudget);
   //                absent, the floor strews none
+  //   vines        { pivot, p, min, span } wall-hugging creeping-vine runs (the
+  //                `vines` cave pass): a run in a pivot block at odds p, of
+  //                min..min+span-1 cells; absent, none
+  //   enemyHabitat the one EnemyHabitats.FAMILIES theme every region of the
+  //                floor takes (null: the depth's THEME_BANDS)
+  //   creatureRate generated foes per 1000 floor cells (EnemySpawns
+  //                caveDensityRate); absent, the depth formula
   //   channelWater the projected route lanes are drawn as channel water
   //                (FloorWallMaterials.isSewerChannel) and seat nothing
   //   fishPool     the items.js FISH_POOLS table this floor's water (channels
@@ -9722,10 +9774,13 @@
   const FLOOR_PROFILES = Object.freeze([
     // Sewer channels are a visual treatment of open routes, not new hazards:
     // still walkable, but nothing is born or strewn in the water. Barrels
-    // heap up here (the sewer is the town's bin cellar).
+    // heap up here (the sewer is the town's bin cellar), vines creep along
+    // its walls, and its vermin (EnemyHabitats.FAMILIES.sewer: rats, bats and
+    // half a dozen slimes) teem above the depth formula's rate.
     Object.freeze({ depth: 1, trapDensityMul: 1, arrivalStory: 'cave', entryKey: null, vents: Object.freeze(['confusion']),
       pressureTraps: false, caveAreas: caveAreaProfile(GROVE_MENUS[1], false), streetGems: null, biome: 'sewer', terrain: 'city', streetMirror: true,
-      channelWater: true, fishPool: 'sewer', barrels: Object.freeze({ min: 30, span: 12 }),
+      channelWater: true, fishPool: 'sewer', barrels: Object.freeze({ min: 54, span: 20 }),
+      enemyHabitat: 'sewer', creatureRate: 4.4, vines: Object.freeze({ pivot: 12, p: .45, min: 3, span: 4 }),
       fallLandings: false, chestSource: 'above', quarryProvenance: false, lava: false }),
     // The original natural cave geology reads the surface directly, so adding
     // the sewer above cannot change its Small-road/building/water wall mask.

@@ -691,7 +691,8 @@ test('road overlay: a restored interval is stroked from the save, in metres', ()
     assert.eq(p.style.w, px(5.5), 'stroked at the way\'s real width');
     assert.eq(p.style.c, RO_ROAD_RESTORED, 'muted restored road');
     assert.eq(p.style.a, 0.92, 'the restored pass is near-opaque');
-    // The dilapidated band is still drawn underneath, in full.
+    // A plain Graphics target keeps the full dilapidated band; only the canvas
+    // pass erases it beneath repairs (see the coverage test below).
     assert.eq(scene.roadGeomGfx.paths.length, 1, 'the base band is untouched');
     assert.eq(scene.roadGeomGfx.paths[0].style.c, 0x89867c, 'still dilapidated earth');
   });
@@ -1364,6 +1365,39 @@ test('road overlay: equal pavement colors retain distinct road and path canvas l
   });
 });
 
+test('road overlay: canvas repairs erase the unrepaired small-road band beneath them', () => {
+  withStreets(() => {
+    clearTiles();
+    putTile(0, 0, [Object.assign(line([{ x: 0, y: 0 }, { x: 16, y: 0 }], { class: 'street' }), { id: 7 })]);
+    const previousCreate = document.createElement;
+    const outs = [];
+    const canvas = () => {
+      const cx = new Proxy({ globalCompositeOperation: 'source-over',
+        stroke() { if (this.globalCompositeOperation === 'destination-out') outs.push(this.lineWidth); },
+        createPattern(tile) { return { tile }; },
+      }, { get(target, key) { return key in target ? target[key] : () => {}; } });
+      return { width: 0, height: 0, cx, getContext: () => cx };
+    };
+    document.createElement = canvas;
+    try {
+      const target = canvas();
+      const image = { setOrigin() { return this; }, setAlpha() { return this; } };
+      const scene = makeOverlayScene({
+        save: roSave(RO_KEY00(), '7:0', [2.5, 7.5]), roadGeomGfx: null,
+        textures: { exists: () => false, createCanvas: () => ({ getContext: () => target.cx, refresh() {} }) },
+        add: { image() { return image; } },
+      });
+      scene.roadGeomContainer.add = () => {};
+      RoadOverlay.draw(scene);
+      const ops = scene._roadGeomTarget._pass.ops;
+      const cover = ops.filter(op => op.coverageOnly);
+      assert.eq(cover.length, 1, 'the repaired metres are recorded as coverage');
+      assert.eq(cover[0].pts[0], ops.find(op => !op.coverageOnly).pts[0] + 16, 'starting at the repair, not the way');
+      assert.gt(outs.length, 0, 'and erased from the unrepaired band');
+    } finally { document.createElement = previousCreate; }
+  });
+});
+
 test('street variants draw pavement without decorative verge strips', () => withStreets(() => {
   const previousStyles=StreetVariants.lineStyles;
   try {
@@ -1499,4 +1533,45 @@ test('road overlay: replacing an interrupted detail pass releases its old interv
   assert.eq(ops[start][0],'restore','old clipping is removed before replacement ink');
   assert.eq(ops.filter(op=>op[0]==='save').length,ops.filter(op=>op[0]==='restore').length,
     'superseded jobs do not leak saved canvas states');
+});
+
+test('road overlay: a walking rebuild abandoned at any yield leaves its back-buffer drawing, not erasing', () => {
+  // A superseded time-sliced job is simply dropped (never resumed or closed).
+  // The width knockout once held 'destination-out' on the pass canvas across
+  // its yields, so a job dropped there left that back-buffer erasing every
+  // later layer: the roads vanished on alternate walking swaps.
+  const realCreate = document.createElement;
+  const canvas = () => { const r = roRecorder(); return { width: 0, height: 0, getContext: () => r.ctx }; };
+  document.createElement = canvas;
+  try {
+    for (const commit of [RoadOverlay.commitBaseSteps, RoadOverlay.commitRestoredSteps]) {
+      const run = (main, limit) => {
+        const pass = { ctx: main.ctx, size: 64, phaseX: 0, phaseY: 0, pats: {}, scratch: [], decorOps: [], erases: [],
+          tex: { refresh() {} }, occluders: [{ w: 30, c: 0, pts: [0, 10, 60, 10] }],
+          ops: [{ w: 8, c: 0x888888, pts: [0, 20, 60, 20] }, { w: 8, c: 0x888888, pts: [0, 30, 60, 30], coverageOnly: true },
+            { w: 20, c: 0x888888, surface: 'md', pts: [0, 40, 60, 40] }, { w: 20, c: 0x888888, surface: 'md', pts: [30, 0, 30, 60] }] };
+        const it = commit(pass);
+        let n = 0;
+        while (n < limit && !it.next().done) n++;
+        return n;
+      };
+      const total = run(roRecorder(), Infinity);
+      for (let cut = 1; cut < total; cut++) {
+        const main = roRecorder();
+        run(main, cut);
+        const start = main.ops.length;
+        run(main, Infinity);
+        // Replay the canvas state machine (save/restore stack) over the whole log.
+        let gco = 'source-over'; const stack = [];
+        for (let i = 0; i < main.ops.length; i++) {
+          const [op, v] = main.ops[i];
+          if (op === 'save') stack.push(gco);
+          else if (op === 'restore') gco = stack.length ? stack.pop() : gco;
+          else if (op === 'set:globalCompositeOperation') gco = v;
+          else if (op === 'drawImage' && i >= start)
+            assert.eq(gco, 'source-over', `layer lands drawing after a job abandoned at yield ${cut}`);
+        }
+      }
+    }
+  } finally { document.createElement = realCreate; }
 });

@@ -2179,7 +2179,7 @@ const ITEM_GUIDE_TIPS = {
   crow_feather: 'My legs failed on the long road. I pressed the black feather to my lips. Just enough strength to rise. Sometimes that is all a mercy needs to be.',
   scarecrow: 'The deer have kept to the tree line since I dressed the scarecrow in your father’s coat. Even empty, it can still look cross.',
   trap_disarm_kit: 'I laid snares here when the orders came. Today I returned with my tools. No one thanked me. The iron jaws are slack. That will have to be enough.',
-  torch: 'Light a torch before descending. By its flame, my hand could reach farther into the dark.',
+  torch: 'Light a torch before descending. By its flame the dark drew back, and the goblin I struck with it caught fire.',
   throwing_spear: 'At the workshop I lash a sharp stone to a straight branch and call it a spear. It flies once. I carry a second.',
   sugar_potion: 'I simmered the berries into a potion and left a little by the gate. The hens followed its scent home.',
   rope: 'Grass rope, coiled and ready. Its fibres bore my weight on the return toward daylight. I checked them again before the next descent.',

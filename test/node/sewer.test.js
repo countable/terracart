@@ -2,8 +2,9 @@
 // (FloorWallMaterials.isSewerChannel, the profile's `channelWater`), so
 // worldgen reserves them before any pass and nothing — barrel, rock, torch,
 // coin, X, creature — is born in the water; its barrels heap up on a
-// `barrels` profile row of their own; and its vermin are the sewer rats, the
-// heaviest draw of the first floor's natural regions.
+// `barrels` profile row of their own; creeping vines run along its walls;
+// and its vermin (its own `sewer` habitat family, at the row's creatureRate)
+// are rats, the heaviest draw, with bats and half a dozen slimes.
 (() => {
   const W = WorldGen, T = W.T;
   const spawn = new Function('entry', 'tx', 'ty', 'depth', SPAWN_CAVE_SRC.replace(/\n\s*\}\s*$/, ''));
@@ -61,7 +62,8 @@
     assert.truthy(l1.some(r => r.id === 'rat'), 'in the sewer');
     assert.truthy(EnemySpawns.caveRows(2).some(r => r.id === 'rat'), 'and the natural cave below');
     assert.falsy(EnemySpawns.caveRows(3).some(r => r.id === 'rat'), 'never the warrens');
-    for (const row of l1) if (row.id !== 'rat') assert.gt(rat.cave.weight, row.cave.weight, `outweighs ${row.id}`);
+    const l1Rates = Object.fromEntries(EnemySpawns.caveDensityRows(1).map(r => [r.kind, r.per1000]));
+    for (const row of l1) if (row.id !== 'rat') assert.gt(l1Rates.rat, l1Rates[row.id], `outweighs ${row.id}`);
     // Its own generated sheet: three 16px frames by four rows (down, left, right, up).
     assert.eq(rat.art.path, 'assets/Enemy/Rat.png');
     const frames = Object.values(rat.art.directions).flatMap(d => [...d.idle, ...d.move]);
@@ -73,6 +75,63 @@
     assert.truthy(art.directions && art.directionSideFacing === 'right');
     assert.truthy(SpriteLayout.creatureWanders('rat'));
     assert.truthy(Combat.isEnemy({ kind: 'rat' }));
+  });
+
+  test('sewer: its own vermin family teems above the depth formula, bats and six slimes beside the rats', () => {
+    const row = W.floorProfile(1);
+    assert.eq(row.enemyHabitat, 'sewer', 'the sewer row names its habitat');
+    for (let y = 0; y < 64; y += 8) for (let x = 0; x < 64; x += 8)
+      assert.eq(EnemyHabitats.caveAt({ cellsPerEdge: 64 }, 3, 4, x, y, 1).theme, 'sewer', 'every region of the floor');
+    const kinds = EnemySpawns.caveRows(1).map(r => r.id).sort();
+    assert.eq(kinds.join(), [...EnemyHabitats.FAMILIES.sewer].sort().join(), 'the bag is exactly the family');
+    const slimes = kinds.filter(k => /slime/.test(k));
+    assert.gte(slimes.length, 6, 'slimes of several kinds');
+    assert.includes(kinds, 'bat');
+    const rate = EnemySpawns.caveDensityRate(1);
+    assert.eq(rate, row.creatureRate, 'the row owns its rate');
+    assert.gt(rate, 1.4 * 2.94, 'well above the depth formula\'s first-floor rate');
+    assert.gt(rate, EnemySpawns.caveDensityRate(2), 'busier than the natural cave below');
+    assert.falsy(W.floorProfile(2).creatureRate, 'the floors below keep the formula');
+    // The surface signature-only slimes reach no other cave bag.
+    for (let depth = 2; depth <= 6; depth++) for (const k of ['moss_slime', 'mini_slime'])
+      assert.falsy(EnemySpawns.caveRows(depth).some(r => r.id === k), `${k} stays out of depth ${depth}`);
+  });
+
+  test('sewer: creeping vines run along the brickwork, deterministic, off Passing ground', () => {
+    const N = 60, grid = new Uint8Array(N * N).fill(T.CAVE_FLOOR);
+    // A grid of 4x4 "buildings" with three-cell passages between them.
+    for (let y = 0; y < N; y++) for (let x = 0; x < N; x++) if (x % 7 >= 3 && y % 7 >= 3) grid[y * N + x] = T.CAVE_WALL;
+    // The left third is Passing ground (tier 3): hazards never seat there.
+    const gameplayTiers = new Uint8Array(N * N).fill(1);
+    for (let i = 0; i < N * N; i++) if (i % N < 20) gameplayTiers[i] = 3;
+    const run = () => {
+      const L = W.cavePassLevel(grid, N, 3, 4, N * W.CELL_M, 1, new Set(), { gameplayTiers });
+      W.runCavePass(W.CAVE_PASSES.find(r => r.id === 'vines'), L);
+      return L.wildplants;
+    };
+    const vines = run();
+    assert.gt(vines.length, 15, 'the sewer row strews vines');
+    assert.eq(JSON.stringify(run()), JSON.stringify(vines), 'deterministic');
+    const walled = i => [[0, -1], [1, 0], [0, 1], [-1, 0]].some(([dx, dy]) => {
+      const x = i % N + dx, y = Math.floor(i / N) + dy;
+      return x >= 0 && y >= 0 && x < N && y < N && grid[y * N + x] === T.CAVE_WALL; });
+    const cells = new Set();
+    for (const v of vines) {
+      assert.eq(v.crop, 'creeping_vine'); assert.truthy(v._cave && v._plantArt === 'creeping_vine');
+      assert.truthy(/^cvine_1_3_4_\d+_\d+$/.test(v.id), `positional id ${v.id}`);
+      const i = v._iy * N + v._ix;
+      assert.eq(grid[i], T.CAVE_FLOOR); assert.falsy(cells.has(i)); cells.add(i);
+      assert.gte(v._ix, 20, 'never on Passing ground');
+    }
+    assert.gt(vines.filter(v => walled(v._iy * N + v._ix)).length, 2 / 3 * vines.length, 'they mostly hug the walls');
+    assert.truthy(vines.some(v => cells.has(v._iy * N + v._ix + 1) || cells.has((v._iy + 1) * N + v._ix)), 'they grow in runs');
+    assert.truthy(isWalkHazard(vines[0]), 'the toxic vine\'s walk hazard');
+    const L2 = W.cavePassLevel(grid, N, 3, 4, N * W.CELL_M, 2, new Set());
+    W.runCavePass(W.CAVE_PASSES.find(r => r.id === 'vines'), L2);
+    assert.eq(L2.wildplants.length, 0, 'only a floor with a vines row');
+    const order = W.CAVE_PASSES.map(r => r.id);
+    assert.gt(order.indexOf('vines'), order.indexOf('drills'), 'after the reward seats');
+    assert.lt(order.indexOf('vines'), order.indexOf('grass'));
   });
 
   test('sewer: channel water is fished from the sewer\'s own narrow pool, with two fish found nowhere else', () => {

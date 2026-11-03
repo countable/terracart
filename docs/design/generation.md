@@ -17,8 +17,9 @@ access or tile lifecycle mechanics.
 ## Habitat populations
 
 - `RareEncounters` owns the additional named rare monsters independently of
-  ambient density. Rare visits roll 15%, uncommon visits 35%, and species described
-  as present roll 60%; each species has at most one seat per area visit. Dragons
+  ambient density. Rare visits roll 30%, uncommon visits 70%, and species described
+  as present roll 90% (doubled from 15/35/60; no encounter is ever certain); each
+  species has at most one seat per area visit. Dragons
   each roll independently on L7. These are per-save visit encounters and are never
   broadcast as shared world IDs. Their roster rows have no generic surface/cave pool.
 - Only the player entering a loaded area starts a visit. Area identity follows the
@@ -150,8 +151,12 @@ access or tile lifecycle mechanics.
   The former species-first RNG stream is replayed to preserve unrelated legacy
   draws; its counts are compatibility inputs, not live tuning.
 - Cave ambient rows use `EnemySpawns.caveDensityRows`: total candidate rate
-  `min(7.84, 2.94 + 0.49 × (depth − 1))` per 1,000 eligible floor cells, split
-  by declared habitat/floor weights with the existing 5% giant share. Depth,
+  `min(7.84, 2.94 + 0.49 × (depth − 1))` per 1,000 eligible floor cells (a
+  floor row's own `creatureRate` replaces the formula: the sewer's teeming
+  vermin), split by declared habitat/floor weights with the existing 5% giant
+  share. A floor row's `enemyHabitat` gives every region one family (the
+  sewer's rats, bats and six slimes; L7's dragons); only such a named family
+  admits a surface signature-only row (the moss and mini slimes). Depth,
   even-floor and lava gates still apply. Entrance packs and twelve-cell roamer
   budgets are retired except for saved-ID translation. Finite cave encounters,
   reserved floor layouts and dragon roosts remain separate; L7 keeps its four-to-one
@@ -490,7 +495,9 @@ spawn-rate roll.
   probabilities, flint-bearing rock frequency, authored cave-area weights/carving/garrisons, pressure traps,
   the vent kinds a floor erupts, the generated barrel allocation (`barrels`
   `{ min, span }`, read by `caveBarrelBudget` and the shared container budget;
-  the sewer's heap, the natural cave's dozen-odd, none elsewhere), whether the
+  the sewer's heap, the natural cave's dozen-odd, none elsewhere), wall-hugging
+  static creeping-vine runs (`vines`, the sewer; the `vines` cave pass, after
+  the drills so it takes no reward seat), whether the
   projected route lanes are channel water that seats nothing (`channelWater`,
   the sewer: the lanes join `occupied` before any pass and reach the runtime
   draws as `undergroundReserved`), which catch pool its water is fished from
@@ -962,6 +969,9 @@ spawn-rate roll.
   It adds no rocks, grass, ferns or scattered trees.
   Chopped trees leave non-blocking visual stumps, including saved planted-tree
   stumps. Underdark ground cover intersperses pale luminous fungus clusters.
+- Triple-cap clusters (`toadstool_cluster`, `luminous_bulbs`) are ordinary
+  hand-picked `mushroom` plants; only the single big red cap is an axe-worked
+  `mushroom_bush`.
 - Toadstool Lane mixes small pickups and medium mushroom bushes on the road
   and along both two-cell verges, with occasional giants. A stable per-cell roll
   omits 30% of candidate caps. Ordinary surface caps use one art

@@ -53,7 +53,7 @@ const DragonStory = (() => {
     shot.pierce = false; // Flame stops in rock and timber, like an arrow.
     shot.source = 'player';
     shot.fireBreath = true;
-    (scene._shots ||= []).push(shot);
+    scene.loosePlayerShot(shot, Math.sqrt(best2));
     scene._fireBreathNextT = now + dragon.damageIntervalSeconds * 1000;
     return shot;
   }

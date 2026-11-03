@@ -239,7 +239,11 @@ class SceneShops {
     if (document.getElementById('offer-modal') || document.getElementById('slots-modal')) return;
     if (typeof Hives !== 'undefined' && Hives.active(this.save, house)) {
       if (!Gear.meleeActive(this.save)) this.flash('Equip a melee weapon.', sx, sy);
-      else this.startCombat(house);
+      else if (!this.startCombat(house)) {
+        const { x, y } = playerWorldM(this);
+        if (!Combat.inMeleeReach(house.x, house.y, x, y, this.cellM, Gear.activeWeapon(this.save),
+          Hives.meleeReachPadM(house, this.cellM))) this.flash(`Step up to the ${Hives.KINDS[house.hive].name} to strike it.`, sx, sy);
+      }
       return;
     }
     // Fort and castle wrecks keep their fixed destination and material price.

@@ -5,6 +5,10 @@
   const EXT = 4096, REGION = 1024;
   const FAMILIES = {
     natural: ['rat', 'slime', 'cave_slime', 'split_slime', 'bat', 'spider', 'purple_slime', 'gelatinous_cube', 'troll'],
+    // The sewer's own vermin (its floor row's enemyHabitat): rats, bats and
+    // six slimes, the moss and mini slimes (signature-only on the surface)
+    // admitted because this family names them.
+    sewer: ['rat', 'bat', 'slime', 'cave_slime', 'moss_slime', 'mini_slime', 'split_slime', 'purple_slime'],
     roots: ['plant', 'spider', 'poison_spider', 'dryad', 'bone_plant'],
     warren: ['club_goblin', 'spear_goblin', 'archer_goblin', 'goblin_trapper', 'bomb_goblin', 'orc'],
     crypt: ['zombie', 'skeleton', 'skeleton_soldier', 'necromancer', 'lich', 'bone_plant', 'vampire_bat', 'sword_spirit'],
@@ -13,7 +17,9 @@
     roost: ['red_demon', 'armoured_demon'],
     dragon: ['red_dragon', 'red_demon'],
   };
-  const FAMILY_WEIGHTS = { dragon: { red_dragon: 4, red_demon: 1 } };
+  const FAMILY_WEIGHTS = { dragon: { red_dragon: 4, red_demon: 1 },
+    // Rats stay the heaviest draw; bats and the slimes share the rest.
+    sewer: { rat: 9, bat: 6, cave_slime: 5, slime: 3, moss_slime: 3, mini_slime: 3, purple_slime: 3, split_slime: 2 } };
   // Floor 1 is slime country: one region in eight is a goblin warren.
   const THEME_BANDS = [
     // L1 is all natural: no goblin walks the first level (owner, Oct 2026;

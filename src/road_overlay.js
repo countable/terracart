@@ -426,7 +426,7 @@
   const CLEAN_PATH_MORTAR_MUL = 0.5;
   const CLEAN_COLS = 6, CLEAN_ROWS = 8;   // 6 setts across, 8 courses down
   const CLEAN_SETT_R = 1.6;          // corner radius
-  const CLEAN_GAP_X = 1.5, CLEAN_GAP_Y = 1.2;   // mortar gaps between setts, px
+  const CLEAN_GAP_X = 1.1, CLEAN_GAP_Y = 0.9;   // mortar gaps between setts, px
   const CLEAN_TONE_MIN = 0.025, CLEAN_TONE_MAX = 0.055;  // per-stone tone
   // A small polished catch-light; Burned Row retains its original contrast.
   const CLEAN_BEVEL_ALPHA = 0.20;
@@ -577,6 +577,10 @@
   // The study's 16×16 layout is drawn at two-thirds scale (8px grid, 128px
   // repeat): full-size stones read too large against 7m cells.
   const SPARSE_SCALE = 2 / 3;
+  // Repaired stones grow about their unchanged centres so the restored band
+  // reads denser, with narrower joints; every slot is filled. Formal setts
+  // only deepen, since their courses already sit 1px apart across.
+  const REPAIRED_STONE_GROWTH = 1.15, REPAIRED_FORMAL_H = 7;
   function sparseRoadTile(source, restored, formal = false) {
     const S = SPARSE_SCALE, size = 192 * S, spacing = 12 * S;
     const tile = document.createElement('canvas');
@@ -600,9 +604,11 @@
       // fills missing stones without shifting their shared world-space grid.
       const x = col * spacing + (row % 2) * spacing / 2 + (formal ? 0 : jitterX);
       const y = row * spacing + (formal ? 0 : jitterY);
-      const w = formal ? 7 : randomW, h = formal ? 6 : randomH;
+      const grow = restored ? REPAIRED_STONE_GROWTH : 1;
+      const w = formal ? 7 : randomW * grow;
+      const h = formal ? (restored ? REPAIRED_FORMAL_H : 6) : randomH * grow;
       const cut = formal ? .5 : randomCut;
-      if (keep > (formal ? (restored ? 1 : .50) : (restored ? .97 : .42))) continue;
+      if (keep > (formal ? (restored ? 1 : .50) : (restored ? 1 : .42))) continue;
       const points = [
         [-w/2+cut,-h/2], [w/2-1,-h/2], [w/2,-h/2+cut], [w/2,h/2-1],
         [w/2-cut,h/2], [-w/2+1,h/2], [-w/2,h/2-cut], [-w/2,-h/2+1],
@@ -796,7 +802,8 @@
     }
     // Bake the variant tint once into the base surface. Compensate for the
     // road image's overall alpha so empty joints show the faint shared tint on the map.
-    // Restored cobbles reveal that same base tint rather than adding it twice.
+    // Restored tiles carry no tint: the base band is erased beneath repairs,
+    // so their joints show bare ground.
     // MD/LG rift roads retain their solid bed in both restoration states.
     g.putImageData(pixels,0,0);
     if (variant === 'suppressed' || !restored) {
@@ -1186,26 +1193,37 @@
   // (repair / kerb) every path; the floor keeps a hairline way from vanishing
   // outright. `css` overrides the recorded colour (the kerb's pale pass).
   function* strokeOpsSteps(ctx, ops, delta, css) {
-    for (const op of ops) {
-      ctx.lineCap = op.cap || 'round';
-      ctx.lineWidth = Math.max(1, op.w + delta);
-      ctx.strokeStyle = css || cssOf(op.c);
-      ctx.beginPath();
-      ctx.moveTo(op.pts[0], op.pts[1]);
-      for (let i = 2; i < op.pts.length; i += 2) ctx.lineTo(op.pts[i], op.pts[i + 1]);
-      ctx.stroke();
-      // A theme cut can be flat at one end while a true source/repair end
-      // stays round. Canvas has one lineCap, so add only the retained caps.
-      if (op.cap === 'butt') {
-        ctx.fillStyle = ctx.strokeStyle;
-        for (const at of [op.startRound ? 0 : -1, op.endRound ? op.pts.length - 2 : -1]) {
-          if (at < 0) continue;
-          ctx.beginPath(); ctx.arc(op.pts[at], op.pts[at + 1], ctx.lineWidth / 2, 0, Math.PI * 2); ctx.fill();
-        }
-      }
-      yield;
-    }
+    for (const op of ops) { strokeOp(ctx, op, delta, css); yield; }
     ctx.lineCap = 'round';
+  }
+  // Punch ops out of a canvas. Each stroke saves and restores its own
+  // composite, so a superseded time-sliced job abandoned between yields
+  // never leaves its canvas erasing: a stuck 'destination-out' turned every
+  // later layer drawn onto that back-buffer into an eraser, and the roads
+  // vanished on alternate walking swaps.
+  function* eraseOpsSteps(ctx, ops) {
+    for (const op of ops) {
+      ctx.save(); ctx.globalCompositeOperation = 'destination-out';
+      strokeOp(ctx, op, 0, '#000'); ctx.restore(); yield;
+    }
+  }
+  function strokeOp(ctx, op, delta, css) {
+    ctx.lineCap = op.cap || 'round';
+    ctx.lineWidth = Math.max(1, op.w + delta);
+    ctx.strokeStyle = css || cssOf(op.c);
+    ctx.beginPath();
+    ctx.moveTo(op.pts[0], op.pts[1]);
+    for (let i = 2; i < op.pts.length; i += 2) ctx.lineTo(op.pts[i], op.pts[i + 1]);
+    ctx.stroke();
+    // A theme cut can be flat at one end while a true source/repair end
+    // stays round. Canvas has one lineCap, so add only the retained caps.
+    if (op.cap === 'butt') {
+      ctx.fillStyle = ctx.strokeStyle;
+      for (const at of [op.startRound ? 0 : -1, op.endRound ? op.pts.length - 2 : -1]) {
+        if (at < 0) continue;
+        ctx.beginPath(); ctx.arc(op.pts[at], op.pts[at + 1], ctx.lineWidth / 2, 0, Math.PI * 2); ctx.fill();
+      }
+    }
   }
   function drainSteps(it) { for (let n = it.next(); !n.done; n = it.next()) {} }
   function strokeOps(ctx, ops, delta, css) { drainSteps(strokeOpsSteps(ctx, ops, delta, css)); }
@@ -1325,14 +1343,12 @@
         ops: ops.filter(op => !op.coverageOnly),
         decorOps: pass.decorOps.filter(op => op.roadWidth === width),
         erases: [], pats: {}, tex: { refresh() {} } });
+      // Small-road and path repairs clear their own width's unrepaired band.
+      const repaired = ops.filter(op => op.coverageOnly && !op.surface);
+      yield* eraseOpsSteps(layer.ctx, repaired);
       // Restored small roads must also yield to an UNRESTORED larger band.
-      const higher = (pass.occluders || []).filter(op => op.w > width);
-      if (higher.length) {
-        layer.ctx.save(); layer.ctx.globalCompositeOperation = 'destination-out';
-        yield* strokeOpsSteps(layer.ctx, higher, 0, '#000'); layer.ctx.restore();
-      }
-      ctx.save(); ctx.globalCompositeOperation = 'destination-out';
-      yield* strokeOpsSteps(ctx, ops, 0, '#000'); ctx.restore();
+      yield* eraseOpsSteps(layer.ctx, (pass.occluders || []).filter(op => op.w > width));
+      yield* eraseOpsSteps(ctx, ops);
       ctx.drawImage(layer.canvas, 0, 0); yield;
     }
     for (const [x, y, w, h] of pass.erases) { ctx.clearRect(x, y, w, h); yield; }
@@ -2117,6 +2133,18 @@
 
       }
       emitVariantSeams(scene, g, line, mvtToM, styles, originMx, originMy, widthPx, proj);
+      // Repaired metres: coverage only. The composite erases the unrepaired
+      // band (its faint stones and joint tint) beneath them, so a repair's
+      // joints show the ground, not a translucent bed under the new stones.
+      const repaired = g._pass && !isRail && styles && scene.save
+        ? Streets.restoredList(scene.save, r.tileKey, Streets.lineKey(f, i)) : null;
+      for (const [a, b] of repaired || []) {
+        const sub = Streets.subLineM(line, mvtToM, a, b);
+        if (!sub || sub.length < 2) continue;
+        const pts = sub.map((p) => ({ x: originMx + p.x, y: originMy + p.y }));
+        emitRuns(pts, proj, (run) => addRun(widthPx, color, run, false, null, false,
+          false, false, null, true));
+      }
       yield;
     }
 
@@ -2327,5 +2355,5 @@
                          roadMaterialFor, selectedRoadTile, prepareMaterials, LAMP_DRAW_CELLS, LAMP_FOOT_R_CELLS, LAMP_LIGHT_RISE_CELLS, LAMP_LIGHT_OFFSET_CELLS,
                          RESTORED_BLUR_PX, RESTORED_BLUR_FRAC, blurForWidth, softenEdge, paintSurfaceDecorSteps,
                          CLEAN_MORTAR_ALPHA, CLEAN_BEVEL_ALPHA, roundJoinFans,
-                         ROAD_REBUILD_SLICE_MS, runRoadSlice };
+                         ROAD_REBUILD_SLICE_MS, runRoadSlice, commitBaseSteps, commitRestoredSteps };
 })(window);

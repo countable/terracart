@@ -2,11 +2,16 @@
 // and birth serials survive reloads; clocks advance while nearby in play.
 (function (root) {
   'use strict';
+  // `bodyCells`: how far the house's body reaches out from its centre cell.
+  // A blade measures to that body, not the centre (meleeReachPadM), so a
+  // swing from any neighbouring cell, diagonals included, lands. `artScale`
+  // multiplies the drawn size over the house's footprint fit (render.js
+  // _houseScale).
   const KINDS = Object.freeze({
     mushroom: Object.freeze({ name: 'Mushroom House', texture: 'hive_mushroom', frame: 0,
-      hp: 120, enemy: 'mushroom_monster', intervalMs: 60000, maxAlive: 4 }),
+      hp: 120, enemy: 'mushroom_monster', intervalMs: 60000, maxAlive: 4, bodyCells: 1, artScale: 1.3 }),
     goblin: Object.freeze({ name: 'Goblin Hive', texture: 'house', frame: 'front',
-      hp: 120, enemy: 'goblin_runt', intervalMs: 60000, maxAlive: 4 }),
+      hp: 120, enemy: 'goblin_runt', intervalMs: 60000, maxAlive: 4, bodyCells: 1 }),
   });
   const CONFIG = Object.freeze({ activeCells: 24, spawnRadiusCells: 4, spawnClearanceCells: .7, observeMs: 1000, maxFrameMs: 100 });
   function isActive(save, house) {
@@ -19,6 +24,12 @@
     const max = KINDS[house?.hive]?.hp || 0;
     const hp = save?.hives?.[house?.id]?.hp;
     return Number.isFinite(hp) ? Math.max(0, Math.min(max, hp)) : max;
+  }
+  function meleeReachPadM(house, cellM) { return (KINDS[house?.hive]?.bodyCells || 0) * cellM; }
+  // The active hives the last observation found near the player: what the
+  // auto-melee lane may swing at when no foe stands in reach.
+  function nearby(scene) {
+    return (scene._hives?.near || []).filter(house => isActive(scene.save, house));
   }
   function record(save, house) {
     return (save.hives ||= {})[house.id] ||= { hp: KINDS[house.hive].hp, serial: 0 };
@@ -110,6 +121,7 @@
     const p = playerWorldM(scene), edge = scene.tileEdgeM || scene.cellsPerTile * scene.cellM;
     if (!(edge > 0)) return;
     const { tx, ty } = worldMetersToTileCell(scene, p.x, p.y), seen = new Set();
+    state.near = [];
     root.WorldGen.forEachItemNear('objects', tx, ty, (house, entry) => {
       if (seen.has(house.id) || entry.status !== 'ready' || (entry.depth || 0) !== depth
           || (house.depth || 0) !== depth || !isActive(scene.save, house)
@@ -117,6 +129,7 @@
           || root.HomeVariant?.discardedAt(scene, house.x, house.y)
           || Math.hypot(house.x - p.x, house.y - p.y) > CONFIG.activeCells * scene.cellM) return;
       seen.add(house.id);
+      state.near.push(house);
       let remaining = state.clocks.get(house.id);
       remaining = remaining == null ? KINDS[house.hive].intervalMs : remaining - elapsed;
       if (remaining <= 0) { spawn(scene, house); remaining = KINDS[house.hive].intervalMs; }
@@ -125,5 +138,5 @@
     // Unloaded and distant hives start a fresh minute when visited again.
     for (const id of state.clocks.keys()) if (!seen.has(id)) state.clocks.delete(id);
   }
-  root.Hives = { KINDS, CONFIG, isActive, active: isActive, health, damage, living, spawn, tick };
+  root.Hives = { KINDS, CONFIG, isActive, active: isActive, health, damage, living, spawn, tick, meleeReachPadM, nearby };
 })(globalThis);

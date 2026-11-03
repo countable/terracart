@@ -5,7 +5,7 @@ function throwScene(overrides = {}) {
   const scene = {
     save: { energy: 50, inv: [{ id: 'throwing_spear', count: 2 }], selSlot: 0, relics: {} },
     startWorldM: { x: 100, y: 200 }, playerM: { x: 3, y: 4 },
-    facing: { x: 3, y: 0 }, cellM: CELL, _shots: [], now: 1000,
+    facing: { x: 3, y: 0 }, cellM: CELL, _shots: [], now: 1000, loosePlayerShot(shot) { this._shots.push(shot); return shot; },
     _dragonUntil: Date.now() + 60000,
     persisted: 0, rebuilt: 0,
     buildInventoryDOM() { this.rebuilt++; },

@@ -150,7 +150,7 @@
   test('player potions: throwing launches an effect flask, spends on a miss and respects the shared cooldown', () => clock(() => {
     const s = Object.assign(scene('protection_potion'), {
       startWorldM: { x: 0, y: 0 }, playerM: { x: 0, y: 0 }, facing: { x: 1, y: 0 },
-      cellM: 10, _shots: [], isShadowActive: () => false,
+      cellM: 10, _shots: [], loosePlayerShot(shot) { this._shots.push(shot); return shot; }, isShadowActive: () => false,
       throwCooldownLeft: method('throwCooldownLeft'), canThrowItem: method('canThrowItem'),
     });
     const launch = method('_throwItem');
