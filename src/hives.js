@@ -4,10 +4,12 @@
   'use strict';
   // `bodyCells`: how far the house's body reaches out from its centre cell.
   // A blade measures to that body, not the centre (meleeReachPadM), so a
-  // swing from any neighbouring cell, diagonals included, lands.
+  // swing from any neighbouring cell, diagonals included, lands. `artScale`
+  // multiplies the drawn size over the house's footprint fit (render.js
+  // _houseScale).
   const KINDS = Object.freeze({
     mushroom: Object.freeze({ name: 'Mushroom House', texture: 'hive_mushroom', frame: 0,
-      hp: 120, enemy: 'mushroom_monster', intervalMs: 60000, maxAlive: 4, bodyCells: 1 }),
+      hp: 120, enemy: 'mushroom_monster', intervalMs: 60000, maxAlive: 4, bodyCells: 1, artScale: 1.3 }),
     goblin: Object.freeze({ name: 'Goblin Hive', texture: 'house', frame: 'front',
       hp: 120, enemy: 'goblin_runt', intervalMs: 60000, maxAlive: 4, bodyCells: 1 }),
   });

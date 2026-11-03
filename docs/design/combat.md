@@ -50,7 +50,7 @@ mechanics.
   zone rolls for these encounters.
 
 - Hives are wrecks occupied by a hostile building. `Hives.KINDS`
-  owns their HP, sprite and spawning rules. The Mushroom House has 120 HP
+  owns their HP, sprite (with its `artScale` over the footprint fit) and spawning rules. The Mushroom House has 120 HP
   and births one Mushroom Monster per foreground minute, up to four living
   children per house. L3 Goblin Hives use the same health, interval and cap,
   emitting the weak Goblin Runt used by street grunt gangs. Births obey the ordinary

@@ -47,6 +47,8 @@
     now += 10000; at = { x: 0, y: 2.5 * cellM };
     assert.falsy(strike.call(scene, house, {}), 'two cells off is out of reach');
     for (const row of Object.values(Hives.KINDS)) assert.gt(row.bodyCells, 0);
+    assert.eq(Hives.KINDS.mushroom.artScale, 1.3, 'the mushroom house draws 30% over its footprint fit');
+    assert.truthy(/\* \(Render\.hiveSpec\(o, scene\)\?\.artScale \|\| 1\)/.test(RENDER_SRC), 'the house scale applies it');
   });
   test('hives: auto-melee swings at an active hive in reach when no foe is closer', () => {
     assert.truthy(/for \(const house of Hives\.nearby\(this\)\)/.test(SCENE_SRC), 'the auto-engage lane reads the nearby hives');
