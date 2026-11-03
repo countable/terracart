@@ -1872,7 +1872,11 @@ atlas and retained geometry.
 ### Approved roadside art
 
 `assets/StreetDecorations/sources.json` records reviewed tileset crops and every
-suggested route. `tools/build_street_decoration_art.py` exports exact pixels and
+suggested route. The conifer uses a custom Rogue-style redraw from
+`assets/Objects/Approved/conifer_tree.png`, with clustered olive foliage and
+warm exposed roots; its source is the native export rather than the former
+Sunnyside crop. The standard pine sheet shares that foliage treatment across
+its seedling, young and mature frames. `tools/build_street_decoration_art.py` exports exact pixels and
 `STREET_DECORATION_ART` bounds. `_streetArt` changes presentation without changing
 pickup, container, mining or hazard behavior. Ground slicks, loose planks and
 fragments remain ground decals. Pottery stacks use the shared terracotta ground

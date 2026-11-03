@@ -1,7 +1,7 @@
 // Content-addressed resources survive deployments. HTML stays network-first;
 // tiles retain their independent offline cache. Keep two shell generations so
 // old tabs can still request their exact script URLs after a worker update.
-const SHELL_VERSION = 'shell-fd8ae870';
+const SHELL_VERSION = 'shell-7ab7534d';
 
 const RESOURCE_CACHE = 'terracart-resources-v1';
 const RESOURCE_MANIFEST = './__terracart_resource_manifest__';
@@ -358,6 +358,7 @@ const ASSET_HASHES = {
   "assets/Objects/Approved/coin_pile_51.png": "5fcc7904",
   "assets/Objects/Approved/coin_pile_6_10.png": "8c9883da",
   "assets/Objects/Approved/coin_single_ground.png": "191424c1",
+  "assets/Objects/Approved/conifer_tree.png": "dee7154c",
   "assets/Objects/Approved/crops.png": "00d16bdc",
   "assets/Objects/Approved/driftwood.png": "e0999ae0",
   "assets/Objects/Approved/gas-mushroom-large.png": "d85b5a66",
@@ -371,7 +372,7 @@ const ASSET_HASHES = {
   "assets/Objects/Approved/mineralrock.png": "f2aeac90",
   "assets/Objects/Approved/peach_tree.png": "a3e2afea",
   "assets/Objects/Approved/pier.png": "e6dd0763",
-  "assets/Objects/Approved/pine_tree.png": "f88156f7",
+  "assets/Objects/Approved/pine_tree.png": "6bc0423f",
   "assets/Objects/Approved/props.png": "7157df1d",
   "assets/Objects/Approved/scarecrow.png": "952c9882",
   "assets/Objects/Approved/shrine.png": "eccf0591",
@@ -488,7 +489,7 @@ const ASSET_HASHES = {
   "assets/Objects/ZoneVariants/approved-24.png": "679c3d66",
   "assets/Objects/ZoneVariants/tall_pillar.png": "19238fcb",
   "assets/StreetDecorations/bone_fragments.png": "073bb18d",
-  "assets/StreetDecorations/conifer_tree.png": "f802886b",
+  "assets/StreetDecorations/conifer_tree.png": "f5e91a06",
   "assets/StreetDecorations/dark_rubble.png": "42d8a060",
   "assets/StreetDecorations/dark_urn.png": "aa7aabe3",
   "assets/StreetDecorations/dead_tree.png": "785521a4",

@@ -120,19 +120,20 @@
   },
   "conifer_tree": {
     "scoutId": "T6-22",
-    "source": "extra_assets/Sunnyside_World_Assets/Elements/Plants/spr_deco_tree_02_strip4.png",
+    "source": "assets/Objects/Approved/conifer_tree.png",
     "crop": [
       0,
       0,
       28,
       43
     ],
-    "title": "Small conifer",
+    "title": "Rogue-style redrawn pine",
     "suggestedVariants": [
       "old_growth_path",
       "overgrown"
     ],
-    "license": null
+    "license": null,
+    "provenance": "Generated with built-in imagegen from the original conifer and installed Rogue Adventure tree references; native sprite export."
   },
   "mossy_rock": {
     "scoutId": "T5-22",

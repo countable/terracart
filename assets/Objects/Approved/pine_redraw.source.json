@@ -1,0 +1,23 @@
+{
+  "generator": "built-in imagegen",
+  "references": [
+    "assets/ArtTrials/RogueObjects/tree-rounded-2.png",
+    "assets/ArtTrials/RogueObjects/tree-wide-a.png"
+  ],
+  "prompt": "Redraw the existing pine sprites in the Rogue Adventure tree style: broad irregular pixel foliage clusters, restrained warm olive highlights and deep olive shadows, warm bark and roots, elevated three-quarter viewpoint, transparent background, existing growth stages and ground anchors.",
+  "masters": [
+    "http://localhost:8765/pine-redraw/pine-sheet-master.png",
+    "http://localhost:8765/pine-redraw/conifer-master.png"
+  ],
+  "exports": [
+    {
+      "path": "assets/Objects/Approved/pine_tree.png",
+      "sha256": "6bc0423ffc933349388433d28385fc4bbbd71f23ee6f65fd43d0bd4ac2fceb95"
+    },
+    {
+      "path": "assets/Objects/Approved/conifer_tree.png",
+      "sha256": "dee7154cee984587df1c16b10ea46e27be5c23c02ac2eed65b0861c52c090239"
+    }
+  ],
+  "packing": "Nearest-neighbor canvas export. Pine sheet replaces only row 1 frames 1, 2, 3; other cells retain their original pixels. Roadside conifer uses a 28x43 native export and its existing 30px mature display width."
+}
