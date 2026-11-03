@@ -41,7 +41,13 @@
   test('density tuning: only approved retired signatures reactivate and stay out of generic cave replay', () => {
     for(const kind of ['mini_slime','moss_slime','sand_skeleton']) {
       assert.falsy(EnemyRoster.get(kind).retired);assert.truthy(EnemyRoster.get(kind).signatureOnly);
-      for(let depth=1;depth<=10;depth++) assert.falsy(EnemySpawns.caveRows(depth).some(r=>r.id===kind));
+      // Only a floor whose own habitat family names the kind (the sewer's
+      // moss and mini slimes) draws it; no generic cave bag ever does.
+      for(let depth=1;depth<=10;depth++) {
+        const family=EnemyHabitats.FAMILIES[WorldGen.floorProfile(depth).enemyHabitat];
+        assert.eq(EnemySpawns.caveRows(depth).some(r=>r.id===kind),!!family?.includes(kind)&&!!EnemyRoster.get(kind).cave,`${kind} at depth ${depth}`);
+        for(const theme of ['natural','roots','crypt']) assert.falsy(EnemySpawns.caveRows(Math.max(2,depth),{kinds:EnemyHabitats.FAMILIES[theme]}).some(r=>r.id===kind));
+      }
     }
     for(const kind of ['mini_spider','giant_slime','copper_plant','obsidian_brute']) assert.truthy(EnemyRoster.get(kind).retired);
   });

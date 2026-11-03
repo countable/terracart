@@ -2,34 +2,36 @@
 (function (root) {
   'use strict';
   const rows = [];
-  const add = (kind, owners, extra = {}) => rows.push(Object.freeze({ kind, owners, chance: .15, ...extra }));
+  // Per-visit odds (owner, Nov 2026: every rate doubled from .15/.35/.6). A
+  // rare encounter is never certain, so the former .6 rows stop at .9.
+  const add = (kind, owners, extra = {}) => rows.push(Object.freeze({ kind, owners, chance: .3, ...extra }));
   add('thorn_ball', ['Roads and paths:berry'], { trigger: true });
   add('dire_toad', ['Roads and paths:causeway'], { water: true });
   add('sproutling', ['Roads and paths:overgrown']);
   add('wolfling', ['Nexus:meadow']);
-  add('butterfairy', ['Terrain:SCHOOL'], { chance: .6 });
+  add('butterfairy', ['Terrain:SCHOOL'], { chance: .9 });
   add('nighthop', ['tar'], { night: true });
   add('fungusaur', ['Terrain:WETLAND']);
   add('corrupticore', ['Terrain:RESIDENTIAL']);
   add('tidal_force', ['Nexus:mystic_reef'], { water: true });
-  add('leviathan', ['Nexus:pirate_cove'], { water: true, chance: .35 });
-  add('lichling', ['stones'], { chance: .6 });
+  add('leviathan', ['Nexus:pirate_cove'], { water: true, chance: .7 });
+  add('lichling', ['stones'], { chance: .9 });
   add('velox', ['Terrain:FOREST', 'Nexus:ancient_grove']);
   add('watcher', ['Roads and paths:promenade']);
   add('gremling', ['Terrain:COMMERCIAL']);
   add('tortadon', ['Roads and paths:pottery']);
   add('swordasaurus', ['Nexus:quarry-stronghold']);
-  add('spectrus', ['Terrain:RESIDENTIAL'], { rain: true, chance: .6 });
+  add('spectrus', ['Terrain:RESIDENTIAL'], { rain: true, chance: .9 });
   add('roc', ['Nexus:marine_meadow']);
   add('judge', ['tar']);
   for (const [kind, floors, chance, water] of [
-    ['giant_rat', [1], .6], ['locylady', [1], .35, true], ['beheld', [5]],
-    ['cockathrice', [4]], ['craggan', [6]], ['shadow_scorpion', [3], .35],
-    ['gargirl', [3]], ['infernal', [6]], ['stirgling', [4, 5], .35],
-    ['ifrit', [6]], ['darkling', [2]], ['spook', [1], .6], ['nocturnus', [2]],
+    ['giant_rat', [1], .9], ['locylady', [1], .7, true], ['beheld', [5]],
+    ['cockathrice', [4]], ['craggan', [6]], ['shadow_scorpion', [3], .7],
+    ['gargirl', [3]], ['infernal', [6]], ['stirgling', [4, 5], .7],
+    ['ifrit', [6]], ['darkling', [2]], ['spook', [1], .9], ['nocturnus', [2]],
     ['grey_mage', [5]], ['portacular', [2]], ['black_dragon', [7]],
     ['blue_dragon', [7]], ['white_dragon', [7]], ['yellow_dragon', [7]],
-  ]) add(kind, [], { floors, chance: chance ?? .15, water: !!water });
+  ]) add(kind, [], { floors, chance: chance ?? .3, water: !!water });
   const ROWS = Object.freeze(rows), BY_KIND = Object.fromEntries(rows.map(r => [r.kind, r]));
   const familyVariants = {
     tar: ['flint_field', 'broken_depot', 'seep', 'work_yard', 'black_ring'],
