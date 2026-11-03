@@ -1377,8 +1377,10 @@ the reach rim within the existing player-light radius.
   contact-shadow flag and the sprite fallback: the post alone, baked from the
   same rows (`makeRoadSignTextures`) where the mesh path is unavailable.
 - Small-road and path vector bands carry a variant-coloured 8% tint beneath
-  their cobbles. The base pavement tile compensates for the road image alpha;
-  restored tiles add no second tint. It follows exact road widths, larger-road
+  their cobbles. The base pavement tile compensates for the road image alpha.
+  Repaired metres record coverage-only base bands that erase the unrepaired
+  band of their own width, so restored joints show bare ground with no
+  translucent bed or tint beneath the stones. It follows exact road widths, larger-road
   occlusion and water/building keep-outs. The cached tint changes vector art
   only; the surrounding influence ground is untinted.
 - Small-road and path surfaces use sparse, individually shaded cobbles with ground-revealing

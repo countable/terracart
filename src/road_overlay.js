@@ -802,7 +802,8 @@
     }
     // Bake the variant tint once into the base surface. Compensate for the
     // road image's overall alpha so empty joints show the faint shared tint on the map.
-    // Restored cobbles reveal that same base tint rather than adding it twice.
+    // Restored tiles carry no tint: the base band is erased beneath repairs,
+    // so their joints show bare ground.
     // MD/LG rift roads retain their solid bed in both restoration states.
     g.putImageData(pixels,0,0);
     if (variant === 'suppressed' || !restored) {
@@ -1331,6 +1332,12 @@
         ops: ops.filter(op => !op.coverageOnly),
         decorOps: pass.decorOps.filter(op => op.roadWidth === width),
         erases: [], pats: {}, tex: { refresh() {} } });
+      // Small-road and path repairs clear their own width's unrepaired band.
+      const repaired = ops.filter(op => op.coverageOnly && !op.surface);
+      if (repaired.length) {
+        layer.ctx.save(); layer.ctx.globalCompositeOperation = 'destination-out';
+        yield* strokeOpsSteps(layer.ctx, repaired, 0, '#000'); layer.ctx.restore();
+      }
       // Restored small roads must also yield to an UNRESTORED larger band.
       const higher = (pass.occluders || []).filter(op => op.w > width);
       if (higher.length) {
@@ -2123,6 +2130,18 @@
 
       }
       emitVariantSeams(scene, g, line, mvtToM, styles, originMx, originMy, widthPx, proj);
+      // Repaired metres: coverage only. The composite erases the unrepaired
+      // band (its faint stones and joint tint) beneath them, so a repair's
+      // joints show the ground, not a translucent bed under the new stones.
+      const repaired = g._pass && !isRail && styles && scene.save
+        ? Streets.restoredList(scene.save, r.tileKey, Streets.lineKey(f, i)) : null;
+      for (const [a, b] of repaired || []) {
+        const sub = Streets.subLineM(line, mvtToM, a, b);
+        if (!sub || sub.length < 2) continue;
+        const pts = sub.map((p) => ({ x: originMx + p.x, y: originMy + p.y }));
+        emitRuns(pts, proj, (run) => addRun(widthPx, color, run, false, null, false,
+          false, false, null, true));
+      }
       yield;
     }
 
