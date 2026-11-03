@@ -141,6 +141,7 @@ class SceneCreatures {
   // draw, the path / sand / pier scan and surface/shore treasure selection)
   // is done ahead, before the flag.
   *spawnInTileSteps(entry, tx, ty) {
+    let homePlan;
     // Shared draws must read generated ownership, even when replaying a live tile.
     entry._homeVariantGenerating = true;
     try {
@@ -488,6 +489,8 @@ class SceneCreatures {
     // (NPC.arrivals below, and NPC.tickArrivals as the ledger grows).
     const residents = NPC.spawn(this, entry, tx, ty, _spawnOpts);
     yield 'spawn residents';
+    homePlan = yield* HomeVariant.prepareSteps(this, entry, tx, ty);
+    yield 'spawn home ownership ready';
     const profile = window.__boot;
     let stageAt = profile ? performance.now() : 0;
     const stage = name => {
@@ -599,7 +602,7 @@ class SceneCreatures {
     const isStarterTile = !!_trailAnchor &&
       _trailAnchor.x >= tx0 && _trailAnchor.x < tx0 + this.tileEdgeM &&
       _trailAnchor.y >= ty0 && _trailAnchor.y < ty0 + this.tileEdgeM;
-    HomeVariant.apply(this, entry, tx, ty, { phase: 'prepare' });
+    HomeVariant.apply(this, entry, tx, ty, { phase: 'prepare', prepared: homePlan });
     if (isStarterTile) {
       this._placeStarterTrail(entry, tx, ty);
       this._stripStarterCrates(entry);      // hard mode: no supply handout
@@ -682,7 +685,7 @@ class SceneCreatures {
       delete entry._homeVariantGenerating;
     }
     const finalAt = window.__boot ? performance.now() : 0;
-    HomeVariant.apply(this, entry, tx, ty);
+    HomeVariant.apply(this, entry, tx, ty, { prepared: homePlan });
     EnemySpawns.refreshHomeFauna(this);
     window.__boot?.tick?.('spawn commit home finalization', performance.now() - finalAt);
   }

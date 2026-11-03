@@ -58,6 +58,7 @@
       }
       assert.truthy(phases.has('spawn treasure candidates'), 'treasure eligibility finishes before publication');
       assert.truthy(phases.has('spawn residents'), 'resident work ends its own slice before publication');
+      assert.truthy(phases.has('spawn home ownership ready'), 'Home ownership preparation precedes publication');
       assert.gt(yields, 10, `the pass yields between its phases (${yields})`);
       assert.truthy(a._spawned && b._spawned, 'both passes finished');
       assert.gt(a.creatures.length, 50, 'the fixture spawns a real population');

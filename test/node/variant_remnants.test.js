@@ -49,6 +49,77 @@
     rect(e.zone.coverage, 5, 5, 2, 3); e.depth = 2;
     assert.eq(WorldGen.smallVariantMask(e).reduce((a, b) => a + b, 0), 0);
   });
+  test('variant remnants: sliced numeric components match reference ownership across mixed fields', () => {
+    // Independent string-key traversal retains the original owner/code identity
+    // rule, including equal numeric codes belonging to different owners.
+    const reference = e => {
+      const n = e.cellsPerEdge, out = new Uint8Array(n * n), seen = new Set();
+      if ((e.depth || 0) !== 0) return out;
+      const view = { ...e, _homeVariantGenerating: false, variantDiscarded: null };
+      const coverage = e.zone?.coverage || e.zone?.idx;
+      const codes = e.streetAreaVariants || e.streetArea?.variants;
+      const key = i => {
+        const owner = WorldGen.variantOwnerAt(view, i);
+        return owner === 'zone' ? `zone:${coverage[i]}`
+          : owner === 'road' ? `road:${codes?.[i] || 0}` : null;
+      };
+      for (let start = 0; start < out.length; start++) {
+        const k = key(start);
+        if (!k || seen.has(start)) continue;
+        const cells = [start]; seen.add(start);
+        let edge = false;
+        for (let at = 0; at < cells.length; at++) {
+          const i = cells[at], x = i % n, y = Math.floor(i / n);
+          if (!x || !y || x === n - 1 || y === n - 1) edge = true;
+          for (const next of [x ? i - 1 : -1, x < n - 1 ? i + 1 : -1,
+            y ? i - n : -1, y < n - 1 ? i + n : -1]) {
+            if (next >= 0 && !seen.has(next) && key(next) === k) {
+              seen.add(next); cells.push(next);
+            }
+          }
+        }
+        if (!edge && cells.length < 16) for (const i of cells) out[i] = 1;
+      }
+      return out;
+    };
+    for (let seed = 1; seed <= 12; seed++) {
+      const e = entry(), rng = WorldGen.makeRng(seed);
+      e.homeVariant = new Uint8Array(size);
+      e.variantDiscarded = new Uint8Array(size).fill(1); // Must be ignored.
+      e.caveAreas = { reserved: new Set() };
+      e._homeVariantGenerating = true; // Home still cuts live remnants.
+      for (let i = 0; i < size; i++) {
+        e.zone.coverage[i] = Math.floor(rng() * 4);
+        e.streetArea[i] = rng() < .8 ? 1 : 0;
+        e.streetAreaVariants[i] = Math.floor(rng() * 3);
+        e.homeVariant[i] = rng() < .15 ? 1 : 0;
+        if (rng() < .1) e.caveAreas.reserved.add(i);
+      }
+      if (seed % 2) { e.zone.idx = e.zone.coverage; delete e.zone.coverage; }
+      if (seed % 3) { e.streetArea.variants = e.streetAreaVariants; delete e.streetAreaVariants; }
+      if (seed === 12) e.depth = 1;
+      const expected = reference(e).join(',');
+      assert.eq(WorldGen.smallVariantMask(e).join(','), expected, `sync seed ${seed}`);
+      assert.eq(WorldGen.runSteps(WorldGen.smallVariantMaskSteps(e)).join(','), expected, `sliced seed ${seed}`);
+    }
+  });
+  test('variant remnants: a large single component and an empty field yield bounded work', () => {
+    for (const occupied of [false, true]) {
+      const n = 128, e = { cellsPerEdge: n, zone: { coverage: new Uint8Array(n * n).fill(occupied ? 1 : 0) } };
+      const it = WorldGen.smallVariantMaskSteps(e), counts = {};
+      let result = it.next();
+      while (!result.done) {
+        counts[result.value] = (counts[result.value] || 0) + 1;
+        assert.eq(e.variantDiscarded, undefined, 'preparation does not publish a partial result');
+        result = it.next();
+      }
+      assert.eq(counts['variant remnant owners'], 16);
+      assert.eq(counts['variant remnant scan'], 16);
+      assert.eq(counts['variant remnant components'] || 0, occupied ? 16 : 0,
+        'one large component yields internally');
+      assert.eq(result.value.reduce((sum, v) => sum + v, 0), 0, 'edge component and empty field both survive');
+    }
+  });
   test('variant remnants: live content, terrain and road themes clear while saved content and sources survive', () => {
     const e = entry(), i = 2 * N + 2; rect(e.zone.coverage, 2, 2, 3, 3);
     rect(e.streetArea, 2, 2, 3, 3);

@@ -1248,8 +1248,10 @@ spawn-rate roll.
   Surface spawn passes select shore and surface treasure from the generated
   grid in bounded chunks before Home/starter overlays. The seeded draw order
   stays shared; the live-ground cull removes records displaced by those
-  overlays. The pass yields after resident generation before publishing
-  `_spawned`. The final live-state commit remains atomic;
+  overlays. Home circle, small-component masks and the live street index are
+  also prepared with bounded yields before publishing `_spawned`; preparation
+  changes no live terrain or content. Both atomic Home passes reuse that plan,
+  with a fresh synchronous plan if Home moved while preparation waited. The final live-state commit remains atomic;
   `spawn commit …` profile counters split its NPC, starter, treasure, saved
   object, fauna, cull and Home work so a remaining stall names its owner.
 - Park and beach coverage unions scan conservative polygon bounds including

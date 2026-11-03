@@ -1011,7 +1011,9 @@ the surrounding grove’s shrub scale.
   paint and teleports remain synchronous because no retained picture can cover
   them. A changed frame key or movement beyond the retained pad cancels an
   unpainted plan, so claims, tile replacements and same-tile teleports cannot
-  land stale geometry. The road overlay
+  land stale geometry. Polygon, castle and Home wall groups finalize together
+  through one `WallPerspective.finish` update, so each rebuilt group projects
+  and paints only once. The road overlay
   retains its visible base/restored pair while it paints a hidden pair in 2 ms
   slices, then swaps both atomically; each pass reuses its full-size scratch
   layers between rebuilds. Measured: one read-back per building per crossing
@@ -1031,7 +1033,10 @@ the surrounding grove’s shrub scale.
   cannot retriangulate unchanged geometry while walking. Local eave/atlas splits
   and per-wall part lists are retained with those meshes as well. Each rebuild
   clones the mutable face/UV/projection state, so a palette or facade treatment
-  cannot leak into another building or a later camera crossing.
+  cannot leak into another building or a later camera crossing. Prepared
+  authored skins also retain a bounded set of facade/roof meshes by local
+  footprint, entrance, facade height and emblem identity. Their texture owner
+  holds the skin; weak cache ownership releases the geometry with that owner.
 
 Tests: `peek_drag`, `feet_anchor`, `shell_variants`, `rock_yield`, `health_bar`,
 `tilled_bed`, `still_frames`, `chunk_index`, `building_overlay`; also

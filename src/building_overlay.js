@@ -1975,9 +1975,12 @@
       stage('building wall atlas upload');
     } else stage('building overlay finalize');
     if (lowpoly) BuildingLowPoly.update(scene);
-    if (perspective) WallPerspective.finish(scene, 'polygon');
-    if (fdrCastles) { scene._wallPerspective.castles.building = null; WallPerspective.finish(scene, 'castles'); }
-    if (homeBegun) WallPerspective.finish(scene, 'home');
+    if (fdrCastles) scene._wallPerspective.castles.building = null;
+    const wallSources = [];
+    if (perspective) wallSources.push('polygon');
+    if (fdrCastles) wallSources.push('castles');
+    if (homeBegun) wallSources.push('home');
+    if (wallSources.length) WallPerspective.finish(scene, wallSources);
     stage('building geometry finalize');
     if (g.commit) {
       g.commit();

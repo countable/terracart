@@ -182,8 +182,14 @@
       }
     },
     finish(scene, source) {
-      const group = scene._wallPerspective?.[source];
-      if (group) group.angle = NaN;
+      // One overlay can rebuild polygon, castle and Home groups together.
+      // Invalidate them all before the shared update; finishing separately
+      // would project every group on the first call, then project each later
+      // group again when its own finish invalidated it.
+      for (const name of Array.isArray(source) ? source : [source]) {
+        const group = scene._wallPerspective?.[name];
+        if (group) group.angle = NaN;
+      }
       this.update(scene);
     },
     offset(scene, source, x, y) {

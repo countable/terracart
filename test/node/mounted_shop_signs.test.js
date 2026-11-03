@@ -4,6 +4,17 @@
     door:{u:30,v:50,w:20,h:26,bottom:0},wall:[16,80],recolor(faces){for(const f of faces)f.texture='wall';}});
   const lot=[{x:0,y:0},{x:70,y:0},{x:70,y:60},{x:0,y:60}];
   const textures={sign:{key:'sign'},roof:{key:'relief'},signUV:[0,0,32/512,32/1024],roofUV:[0,0,32/512,32/1024],signSideUV:[40/512,1/1024],roofSideUV:[41/512,1/1024]};
+  test('mounted shop signs: retained outlines keep emblem identities separate',()=>{
+    const facade=skin();
+    const first=BuildingLowPoly.authoredOutline(facade,lot,0,null,textures);
+    assert.eq(BuildingLowPoly.authoredOutline(facade,lot,0,null,textures),first);
+    const other={...textures,sign:{key:'other-sign'},roof:{key:'other-relief'}};
+    const second=BuildingLowPoly.authoredOutline(facade,lot,0,null,other);
+    assert.truthy(second!==first);
+    assert.truthy(second.faces.filter(f=>f.feature==='shop-sign').every(f=>f.texture===other.sign));
+    assert.truthy(first.faces.filter(f=>f.feature==='shop-sign').every(f=>f.texture===textures.sign));
+    assert.falsy(BuildingLowPoly.authoredOutline(facade,lot,0).mountedSign);
+  });
   const outwardSides=(top,sides)=>{
     const points=top.flatMap(f=>f.points),center={x:0,y:0,z:0};
     for(const p of points)for(const k of ['x','y','z'])center[k]+=p[k]/points.length;

@@ -67,8 +67,11 @@
     }
     return false;
   }
-  function apply(scene, entry, tx, ty, { phase = 'final' } = {}) {
-    const home = anchor(scene);
+  // Prepare only derived ownership data; live terrain and content stay untouched
+  // until the spawn pass commits. One plan serves both sides of starter paint.
+  function* prepareSteps(scene, entry, tx, ty) {
+    const at = anchor(scene);
+    const home = at && { x: at.x, y: at.y };
     if (!home || !entry?.grid || (entry.depth != null && entry.depth !== 0)) return false;
     const N = entry.cellsPerEdge, unit = scene.tileEdgeM / N;
     if (!(N > 0) || !(unit > 0)) return false;
@@ -77,17 +80,40 @@
     const intersects = (nearestX - home.x) ** 2 + (nearestY - home.y) ** 2 <= RADIUS_M ** 2;
     const mask = new Uint8Array(intersects ? N * N : 0);
     for (let i = 0; i < mask.length; i++) {
-      mask[i] = contains(scene, (tx * N + i % N + .5) * unit,
-        (ty * N + Math.floor(i / N) + .5) * unit) ? 1 : 0;
+      const x = (tx * N + i % N + .5) * unit - home.x;
+      const y = (ty * N + Math.floor(i / N) + .5) * unit - home.y;
+      mask[i] = x * x + y * y <= RADIUS_M ** 2 ? 1 : 0;
+      if ((i & 2047) === 2047) yield 'spawn home circle';
     }
-    entry.homeVariant = mask;
-    entry.variantDiscarded = root.WorldGen.smallVariantMask(entry);
-    const hasDiscarded = entry.variantDiscarded.some(Boolean);
+    const discarded = yield* root.WorldGen.smallVariantMaskSteps({ ...entry, homeVariant: mask });
     const cleared = new Uint8Array(N * N);
-    for (let i = 0; i < cleared.length; i++) cleared[i] = mask[i] || entry.variantDiscarded[i];
-    const hasCleared = cleared.some(Boolean);
-    entry.homeStreetIndex = hasCleared && entry.streetIndex
-      ? root.WorldGen.runSteps(root.StreetVariants.homeIndexSteps(entry.streetIndex, cleared, N)) : null;
+    const clearedCells = [];
+    let hasDiscarded = false, hasCleared = false;
+    for (let i = 0; i < cleared.length; i++) {
+      cleared[i] = mask[i] || discarded[i];
+      hasDiscarded ||= !!discarded[i];
+      hasCleared ||= !!cleared[i];
+      if (cleared[i]) clearedCells.push(i);
+      if ((i & 2047) === 2047) yield 'spawn home cleared cells';
+    }
+    const streetIndex = hasCleared && entry.streetIndex
+      ? yield* root.StreetVariants.homeIndexSteps(entry.streetIndex, cleared, N) : null;
+    return { entry, tx, ty, x: home.x, y: home.y, N, unit,
+      mask, discarded, clearedCells, hasDiscarded, hasCleared, streetIndex };
+  }
+  function apply(scene, entry, tx, ty, { phase = 'final', prepared = null } = {}) {
+    const home = anchor(scene);
+    if (!home || !entry?.grid || (entry.depth != null && entry.depth !== 0)) return false;
+    // A Home move while sliced preparation waited must not publish the old circle.
+    const plan = prepared && prepared.entry === entry && prepared.tx === tx && prepared.ty === ty
+      && prepared.x === home.x && prepared.y === home.y
+      && prepared.N === entry.cellsPerEdge && prepared.unit === scene.tileEdgeM / entry.cellsPerEdge
+      ? prepared : root.WorldGen.runSteps(prepareSteps(scene, entry, tx, ty));
+    if (!plan) return false;
+    const { N, unit, mask, discarded, clearedCells, hasDiscarded, hasCleared, streetIndex } = plan;
+    entry.homeVariant = mask;
+    entry.variantDiscarded = discarded;
+    entry.homeStreetIndex = streetIndex;
     // Keep original generated arrays intact: caves, shared spawn draws and
     // rebuilds all need the original world, regardless of whose Home this is.
     const source = entry._homeVariantSource || (entry._homeVariantSource = {
@@ -97,11 +123,11 @@
       if (!hasCleared || !entry[key]) continue;
       if (!source[key]) source[key] = entry[key];
       entry[key] = entry[key].slice();
-      for (let i = 0; i < cleared.length; i++) if (cleared[i]) entry[key][i] = 0;
+      for (const i of clearedCells) entry[key][i] = 0;
     }
     if (hasCleared && entry.slowCells) {
       entry.slowCells = new Map(entry.slowCells);
-      for (let i = 0; i < cleared.length; i++) if (cleared[i]) entry.slowCells.delete(i);
+      for (const i of clearedCells) entry.slowCells.delete(i);
     }
     // Swap each cell's variant ground back once. The 'prepare' pass runs
     // before the starter pass paints Home's own ground, and a later pass must
@@ -110,8 +136,8 @@
     // back into the lot under it, leaving the tutorial dot on bare ground.
     if (entry.variantBaseGrid && entry.baseGrid) {
       const restored = entry._homeGroundRestored || (entry._homeGroundRestored = new Uint8Array(N * N));
-      for (let i = 0; i < cleared.length; i++) {
-        if (!cleared[i] || restored[i] || entry.grid[i] !== entry.baseGrid[i]) continue;
+      for (const i of clearedCells) {
+        if (restored[i] || entry.grid[i] !== entry.baseGrid[i]) continue;
         entry.grid[i] = entry.variantBaseGrid[i];
         restored[i] = 1;
       }
@@ -151,5 +177,5 @@
       if (Number.isFinite(tx) && Number.isFinite(ty)) apply(scene, entry, tx, ty);
     }
   }
-  root.HomeVariant = { RADIUS_M, anchor, contains, discardedAt, isCurated, allows, apply, refresh };
+  root.HomeVariant = { RADIUS_M, anchor, contains, discardedAt, isCurated, allows, prepareSteps, apply, refresh };
 })(typeof window !== 'undefined' ? window : globalThis);

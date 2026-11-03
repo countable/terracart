@@ -239,31 +239,52 @@
   // Count four-connected surviving footprints, not spawned objects. A tile-edge
   // component may continue outside this entry, so its partial count cannot veto it.
   function smallVariantMask(entry) {
+    return runSteps(smallVariantMaskSteps(entry));
+  }
+  function* smallVariantMaskSteps(entry) {
     const N = entry.cellsPerEdge, size = N * N, discarded = new Uint8Array(size);
     if ((entry.depth || 0) !== 0) return discarded;
     const view = { ...entry, _homeVariantGenerating: false, variantDiscarded: null };
     const coverage = entry.zone?.coverage || entry.zone?.idx;
     const codes = entry.streetAreaVariants || entry.streetArea?.variants;
-    const keys = new Array(size), seen = new Uint8Array(size);
+    // Coverage and variant codes are numeric fields. Positive keys are Nexus
+    // anchors; negative keys are roads (including variant code zero). Keeping
+    // them separate preserves ownership without allocating a string per cell.
+    const keys = new Float64Array(size), seen = new Uint8Array(size);
     for (let i = 0; i < size; i++) {
       const owner = variantOwnerAt(view, i);
-      keys[i] = owner === 'zone' ? `zone:${coverage[i]}`
-        : owner === 'road' ? `road:${codes?.[i] || 0}` : null;
+      keys[i] = owner === 'zone' ? coverage[i]
+        : owner === 'road' ? -(1 + (codes?.[i] || 0)) : 0;
+      if ((i & 1023) === 1023) yield 'variant remnant owners';
     }
+    // Reuse one queue for every component; neighbour traversal allocates no
+    // arrays. A large connected district must yield inside its flood fill,
+    // not just between districts.
+    const cells = new Uint32Array(size);
+    let count = 0, componentKey = 0, visited = 0;
+    const append = next => {
+      if (seen[next] || keys[next] !== componentKey) return;
+      seen[next] = 1;
+      cells[count++] = next;
+    };
     for (let start = 0; start < size; start++) {
+      if ((start & 1023) === 1023) yield 'variant remnant scan';
       if (seen[start] || !keys[start]) continue;
-      const cells = [start]; seen[start] = 1;
+      componentKey = keys[start];
+      cells[0] = start; count = 1; seen[start] = 1;
       let edge = false;
-      for (let at = 0; at < cells.length; at++) {
+      for (let at = 0; at < count; at++) {
         const i = cells[at], x = i % N, y = Math.floor(i / N);
         if (x === 0 || y === 0 || x === N - 1 || y === N - 1) edge = true;
-        for (const next of [x > 0 ? i - 1 : -1, x < N - 1 ? i + 1 : -1,
-          y > 0 ? i - N : -1, y < N - 1 ? i + N : -1]) {
-          if (next < 0 || seen[next] || keys[next] !== keys[start]) continue;
-          seen[next] = 1; cells.push(next);
-        }
+        if (x > 0) append(i - 1);
+        if (x < N - 1) append(i + 1);
+        if (y > 0) append(i - N);
+        if (y < N - 1) append(i + N);
+        if ((++visited & 1023) === 0) yield 'variant remnant components';
       }
-      if (!edge && cells.length < MIN_VARIANT_CELLS) for (const i of cells) discarded[i] = 1;
+      if (!edge && count < MIN_VARIANT_CELLS) {
+        for (let at = 0; at < count; at++) discarded[cells[at]] = 1;
+      }
     }
     return discarded;
   }
@@ -10334,6 +10355,6 @@
     // all of them.
     makeWildplant, makeCreature, makeObject,
     spawnForestHives, HIVE_SPEC, clearZoneAmbientSteps,
-    clearStreetAmbientSteps, variantOwnerAt, zoneAnchorAt, smallVariantMask, MIN_VARIANT_CELLS, getTileBin, warmGeometry,
+    clearStreetAmbientSteps, variantOwnerAt, zoneAnchorAt, smallVariantMask, smallVariantMaskSteps, MIN_VARIANT_CELLS, getTileBin, warmGeometry,
   };
 })(window);

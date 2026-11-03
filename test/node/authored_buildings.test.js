@@ -61,6 +61,16 @@
       assert.truthy(p.tu >= 0 && p.tu <= 1 && p.tv >= 0 && p.tv <= 1, 'every texel lies on the sheet');
     }
     assert.eq(seen.length, 1, 'the roof palette is applied once');
+    const shiftedPrecision = lot.map(p => ({ x: p.x + 1e-9, y: p.y - 1e-9 }));
+    assert.eq(BuildingLowPoly.authoredOutline(skin, shiftedPrecision), mesh,
+      'camera subtraction noise retains all facade and roof triangles');
+    assert.eq(seen.length, 1, 'retained facades do not repeat palette preparation');
+    assert.truthy(BuildingLowPoly.authoredOutline(skin, lot, 2) !== mesh,
+      'changing the entrance rebuilds the facade');
+    assert.truthy(BuildingLowPoly.authoredOutline(skin, lot, null, skin.facade.rows - 4) !== mesh,
+      'changing facade height rebuilds the walls');
+    assert.truthy(BuildingLowPoly.authoredOutline({ ...skin }, lot) !== mesh,
+      'a new prepared skin cannot borrow another texture owner’s faces');
   });
   test('authored buildings: Home\'s room keeps its skin on the walls, cut at the eaves', () => {
     const spec = AuthoredBuildings.SPECS.pp_cabin;

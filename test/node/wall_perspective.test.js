@@ -19,6 +19,27 @@
   }
   function close(a, b, message) { assert.lt(Math.abs(a - b), 1e-8, message); }
 
+  test('wall perspective: batched finalization paints each rebuilt group once', () => {
+    const s = scene(), sources = ['polygon', 'castles', 'home'];
+    const groups = sources.map(source => {
+      const group = WallPerspective.begin(s, source);
+      WallPerspective.addSegment(s, source, segment);
+      return group;
+    });
+    WallPerspective.finish(s, sources);
+    for (const group of groups) {
+      assert.eq(group.gfx.clears, 1, 'one projection and command-buffer paint per group');
+      assert.gt(group.gfx.triangles.length, 0, 'all groups published together');
+    }
+    const expected = JSON.stringify(groups.map(group => group.gfx.triangles));
+    WallPerspective.update(s);
+    assert.eq(JSON.stringify(groups.map(group => group.gfx.triangles)), expected);
+    for (const group of groups) assert.eq(group.gfx.clears, 1, 'the next unchanged frame retains the paint');
+    WallPerspective.finish(s, 'home');
+    assert.eq(groups[2].gfx.clears, 2, 'single-source callers still invalidate their own geometry');
+    assert.eq(groups[0].gfx.clears, 1, 'unrelated geometry stays retained');
+  });
+
   test('render prism group pass seats a new group and scrolls retained geometry', () => {
     const s = scene(), points = [{ x: 0, y: 0 }, { x: 8, y: 0 }, { x: 8, y: 8 }, { x: 0, y: 8 }];
     let paints = 0;

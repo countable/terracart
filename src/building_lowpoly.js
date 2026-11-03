@@ -1555,7 +1555,16 @@
   // once on the entrance wall; roofs repeat the skin's tiled roof in roof
   // space; gables use native infill where supplied, while fascia and beams take source texels. `shade` is
   // the depth renderer's only lighting, for slopes the art did not paint.
+  // Facade slicing and roof tiling are local geometry, just like geometry().
+  // Keep a bounded set per prepared skin; weak ownership releases its textures
+  // with the scene. Placement still clones faces before tint/UV/projection work.
+  const outlineCache = new WeakMap();
   function authoredOutline(skin,ring,entrance=null,facadeRows=null,emblem=null){
+    let entries = outlineCache.get(skin);
+    if (!entries) outlineCache.set(skin, entries = []);
+    const key = [entrance, facadeRows, ring.map(p => p.x.toFixed(4)+','+p.y.toFixed(4)).join(';')].join('|');
+    const retained = entries.find(entry => entry.key === key && entry.emblem === emblem);
+    if (retained) return retained.mesh;
     // Shorter facades keep the ground-floor pixels and the original door scale.
     const rows=facadeRows??skin.facade.rows;
     const F={...skin.facade,v:skin.facade.v+skin.facade.rows-rows,rows};
@@ -1738,7 +1747,10 @@
       }
     }
     faces.push(...decorations);
-    return {mountedSign,ring:g.ring,faces,chimneyMouths:skin.chimneys?g.chimneyMouths:[],height:Math.max(...faces.flatMap(f=>f.points.map(p=>p.z))),eaveHeight:H,noInk:true,authored:true,authoredKey:skin.key,entranceEdge:g.entranceEdge};
+    const mesh = {mountedSign,ring:g.ring,faces,chimneyMouths:skin.chimneys?g.chimneyMouths:[],height:Math.max(...faces.flatMap(f=>f.points.map(p=>p.z))),eaveHeight:H,noInk:true,authored:true,authoredKey:skin.key,entranceEdge:g.entranceEdge};
+    if (entries.length >= 96) entries.shift();
+    entries.push({ key, emblem, mesh });
+    return mesh;
   }
   // THE FORT HALL'S SIZE (owner, Oct 2026): the copper hall stands at a fixed
   // size whatever the fort's lot — three cells across (21 m) and `depthRatio`

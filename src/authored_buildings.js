@@ -403,9 +403,10 @@ let source=uv.map(([u,v])=>[u,v+(['market','trader'].includes(key)?800:16)]);
  function skin(scene,key,palette){
   const native=caches.get(scene.textures)?.get(key+':'+palette),a=SPECS[key];
   if(!native||!a||OUTLINE_EXEMPT.has(key))return null;
+  if(native.skin)return native.skin;
   const o=SKIN_OVERRIDES[key]||{},period=roofTilePeriod(key)||[240,240];
   const [du,dv,dw,dh]=specialBuilder(key)||a.flatRoof?a.door:facadeDoorRect(a,key);
-  return {key,spec:a,texture:native.texture,template:native.faces[0],texel:DOOR_HEIGHT/dh,
+  return native.skin={key,spec:a,texture:native.texture,template:native.faces[0],texel:DOOR_HEIGHT/dh,
    flat:!!a.flatRoof||(!!a.city&&!a.gabled),
    // The native blacksmith ridge rises half its depth (24 source texels).
    roofRise:key==='fdr'?a.depth/2*DOOR_HEIGHT/dh:undefined,

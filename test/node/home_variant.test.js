@@ -108,6 +108,44 @@
     HomeVariant.apply(s, e, 0, 0);
     assert.eq(e.grid[index], 1); assert.eq(e.grid[index + 1], 9);
   });
+  test('Home variant: sliced ownership preparation is private and reused through starter paint', () => {
+    const s = scene(), e = entry(), index = 10 * 20 + 10;
+    e.objects = [object('wild')];
+    e.creatures = [object('wild_creature')];
+    e.zone = { coverage: new Uint8Array(400).fill(1) };
+    const before = Array.from(e.grid).join(',');
+    const steps = HomeVariant.prepareSteps(s, e, 0, 0);
+    let r;
+    do {
+      r = steps.next();
+      assert.eq(e.homeVariant, undefined, 'preparation never publishes ownership');
+      assert.eq(e.variantDiscarded, undefined);
+      assert.eq(Array.from(e.grid).join(','), before);
+      assert.eq(e.objects.length, 1);
+    } while (!r.done);
+    const prepared = r.value;
+    HomeVariant.apply(s, e, 0, 0, { phase: 'prepare', prepared });
+    assert.eq(e.homeVariant, prepared.mask);
+    assert.eq(e.variantDiscarded, prepared.discarded);
+    assert.eq(e.objects.length, 0);
+    assert.eq(e.creatures.length, 1);
+    e.grid[index] = e.baseGrid[index];
+    e.objects.push(object('chest_start_0_0_1'));
+    HomeVariant.apply(s, e, 0, 0, { prepared });
+    assert.eq(e.homeVariant, prepared.mask, 'finalization reuses the prepared circle');
+    assert.eq(e.variantDiscarded, prepared.discarded, 'no second component scan');
+    assert.eq(e.grid[index], e.baseGrid[index], 'starter terrain survives');
+    assert.eq(e.objects.length, 1);
+    assert.eq(e.creatures.length, 0);
+  });
+  test('Home variant: a Home move invalidates ownership prepared between slices', () => {
+    const s = scene(), e = entry();
+    const prepared = WorldGen.runSteps(HomeVariant.prepareSteps(s, e, 0, 0));
+    s.save.starterCratesAt.x = 1000;
+    HomeVariant.apply(s, e, 0, 0, { prepared });
+    assert.falsy(e.homeVariant.some(Boolean), 'old Home circle is not committed');
+    assert.truthy(e.homeVariant !== prepared.mask);
+  });
   test('Home variant: ground painted after prepare survives the final pass, even when it matches the variant', () => {
     // The starter plot paints GRASS between the two passes; where the street
     // variant had already made that cell GRASS the paint equals baseGrid.
