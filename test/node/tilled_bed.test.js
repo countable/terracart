@@ -108,8 +108,10 @@ test('tilled bed: the watered tint rides the pad sprite, on every frame', () => 
     'native-ground beds are tinted from isWatered, and cleared when not');
   const tint = src.match(/const WATERED_TINT = (0x[0-9a-f]{6});/);
   assert.truthy(tint, 'WATERED_TINT is a module constant');
-  // The old wash was 22% black: a multiply of ~0.78 per channel.
+  // Dry beds are baked pale (TILLED_DRY_LIFT); the tint must be clearly
+  // darker than the old 0.78 wash so a watered bed keeps its damp mean
+  // (measured pad mean: dry ~133,102,75 → wet ~72,55,40).
   const ch = parseInt(tint[1], 16) & 255;
-  assert.truthy(Math.abs(ch / 255 - 0.78) < 0.02, 'the tint matches the 22% black wash it replaced');
+  assert.truthy(Math.abs(ch / 255 - 0.54) < 0.02, 'the tint restores the damp colour under the dry lift');
 });
 })();

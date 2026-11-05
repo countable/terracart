@@ -2,7 +2,7 @@
 //
 //   · brightness: Streets.lampBrightness off save.lampVisits[id] — a visit
 //     flares it to LAMP_BRIGHT_PEAK, it fades linearly to LAMP_DIM_FLOOR over
-//     LAMP_FADE_MS, quantised to LAMP_BRIGHT_STEPS (what the lightmap keys on);
+//     LAMP_FADE_MS, then goes out; quantised steps keep the lightmap stable;
 //   · the credit: Streets.lampCredit — the lamp's metres x min(1, since / fade),
 //     banked through app.js _bankStreetMetres (the restore sweep's own lane);
 //   · walking paths lay lamps at LAMP_PATH_SPACING_M, each worth the street gap;
@@ -17,15 +17,15 @@ const S = Streets;
 const H = 3600 * 1000;
 const T0 = 1e12;
 
-test('living lamps: the dim curve — peak on a visit, floor after a day, floor by default', () => {
+test('living lamps: the dim curve — peak on a visit, off after a day, off by default', () => {
   assert.eq(S.LAMP_DIM_FLOOR, 0.5, 'dims toward 50% of base');
   assert.eq(S.LAMP_BRIGHT_PEAK, 1.5, 'a visit flares it to 150% of base');
   assert.eq(S.LAMP_FADE_MS, 24 * H, 'over 24 h');
-  assert.eq(S.lampBrightness(undefined, T0), 0.5, 'never visited (or pruned) = fully dim');
+  assert.eq(S.lampBrightness(undefined, T0), 0, 'never visited (or pruned) = unlit');
   assert.eq(S.lampBrightness(T0, T0), 1.5, 'just visited = 150%');
   assert.eq(S.lampBrightness(T0 - 12 * H, T0), 1.0, 'half a day on it is back at base');
-  assert.eq(S.lampBrightness(T0 - 24 * H, T0), 0.5, 'a day on, fully dim');
-  assert.eq(S.lampBrightness(T0 - 72 * H, T0), 0.5, 'and it stays there');
+  assert.eq(S.lampBrightness(T0 - 24 * H, T0), 0, 'a day on, extinguished');
+  assert.eq(S.lampBrightness(T0 - 72 * H, T0), 0, 'and it stays there');
   let prev = Infinity;
   for (let h = 0; h <= 24; h += 0.25) {
     const b = S.lampBrightness(T0 - h * H, T0);
@@ -258,7 +258,7 @@ test('living lamps: the frame list carries each lamp\'s brightness', () => {
     assert.inRange(lamps[0].creditM, 2 * lamps[0].spacingM - 1e-9, 2 * lamps[0].spacingM + 1e-9, 'each worth the street gap');
   });
   const updateSrc = SCENE_SRC.slice(SCENE_SRC.indexOf('  _updateStreetLamps() {'), SCENE_SRC.indexOf('  // THE RIPEN PASS.'));
-  assert.truthy(/bright: Streets\.lampBrightness\(Streets\.lampVisitAt\(this\.save, L\.id\), now\)/.test(updateSrc),
+  assert.truthy(/bright: lit \? Streets\.lampBrightness\(lastVisit, now\) : 0/.test(updateSrc),
     'the one list carries `bright`, read by collectLamps');
 });
 

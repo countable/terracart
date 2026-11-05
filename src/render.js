@@ -1486,9 +1486,12 @@ Render.announceElites = function announceElites(scene, list, project) {
 // Terrain transitions use native atlas masks, never colour ramps.
 const mixHex = BiomeProfiles.mixHex;
 
-// Watered tilled soil: the old 22%-black wash over the cell, as a sprite tint
-// (multiply by 0.78 per channel). Applied to the `tilled_N` pad sprite.
-const WATERED_TINT = 0xc7c7c7;
+// Watered tilled soil: a sprite tint on the `tilled_N` pad sprite (multiply
+// by 0.54 per channel). The pad is baked at the pale dry look
+// (textures.js TILLED_DRY_LIFT); this brings a watered bed back to the dark
+// damp mean it had before the lift (the old 22%-black wash, ~0.78 of the
+// unlifted pad).
+const WATERED_TINT = 0x8a8a8a;
 // Fog of war — the wash over land the player has never visited.
 //
 // Neutral grey separates unexplored land from night and cave darkness.
@@ -1964,6 +1967,13 @@ Render.hiveLabel = (o, scene) => {
   const spec = Render.hiveSpec(o, scene);
   return spec ? `${spec.name} · ${Math.ceil(Hives.health(scene.save, o))}/${spec.hp} HP` : null;
 };
+// Site offers and blessed restorations share the shiny visual cue without
+// acquiring the Magic Hammer's trade discount or turret damage bonus.
+Render.buildingShines = (save, o) => !!o && o.kind === 'house'
+  && !!(Houses.isShinyHouse(save, o) || Houses.wreckOffer?.(save, o) || Houses.isBlessedSite?.(save, o));
+Render.buildingSparkItems = (scene, items) => items
+  .filter(item => Render.buildingShines(scene.save, item.o))
+  .map(item => ({ id: item.o.id, dx: item.dx, dy: item.dy, building: true }));
 Render.proceduralHouse = (o, scene) => !Render.hiveSpec(o, scene) && Render.proceduralBuildings()
   && typeof BuildingOverlay !== 'undefined' && BuildingOverlay.enabled()
   && (scene.depth ?? 0) === 0 && scene._proceduralBuildings?.has(o.id);
@@ -1988,8 +1998,6 @@ Render.houseTextureKey = (role, o, scene) => {
   if (role === 'workshop') return 'house_blacksmith';
   if (role === 'wizard') return 'shrine';
   if (role === 'turret') return 'tower';
-  if (role === 'fort' && scene.isClaimedKey && !scene.isClaimedKey(o.id)
-      && typeof ASSETS !== 'undefined' && ASSETS.house_fort_unclaimed) return 'house_fort_unclaimed';
   return `house_${role}`;
 };
 
@@ -5316,9 +5324,9 @@ Render.drawObjects = function drawObjects(scene) {
     const { o, dx, dy } = item;
     const { x: sx, y: sy } = chasmAt.get(o) || project(dx, dy);
     setWorldDepth(s, item._z ?? 0);    // screen-row z-order (see the z-order pass)
-    // A shiny tree, or a building raised under the Magic Hammer (Houses.isShinyHouse).
+    // Shiny trees, marked wrecks, blessed sites and Magic Hammer buildings.
     Render.setShine(s, (isTreeLike(o.kind) && isShiny(o.id, SHINY_RATE.tree))
-      || (o.kind === 'house' && Houses.isShinyHouse(scene.save, o)), o.id);
+      || Render.buildingShines(scene.save, o), o.id);
     // No art (a kind with no RENDER_SPEC row) hides the slot too: a pooled
     // sprite keeps its last texture, so returning early drew whatever the
     // slot held before — surface houses floating in a cave after a descent.
@@ -6526,10 +6534,10 @@ Render.drawObjects = function drawObjects(scene) {
   // Iterate filteredObj, NOT objList: a chopped shiny tree stays in objList (it
   // depth-sorts / tracks state) but renders no sprite, and would leave a sparkle
   // over the empty cell.
+  sparkList.push(...Render.buildingSparkItems(scene, filteredObj));
   const _sparkNow = Date.now();
   for (const it of filteredObj) {
-    if ((isTreeLike(it.o.kind) && isShiny(it.o.id, SHINY_RATE.tree))
-        || (it.o.kind === 'house' && Houses.isShinyHouse(scene.save, it.o))) {
+    if (isTreeLike(it.o.kind) && isShiny(it.o.id, SHINY_RATE.tree)) {
       pushSpark(it, it.o.id);
     }
     // The GLINT ROCK (interactables.js isGlintRock — the one predicate the
@@ -6572,9 +6580,9 @@ Render.drawObjects = function drawObjects(scene) {
   }
   // A glint rock throws no light: its cue is the glint alone.
   if (LIGHTS) for (const it of sparkList) if (it.glint == null) LIGHTS.offerShiny(scene, it.id, it.dx, it.dy, halfM);
-  // Under WebGL the shine sweep replaces the shinies' stars; the rock's
-  // glint has no sweep, so it is drawn on every renderer.
-  const sparkDrawn = Render.canShine(scene) ? sparkList.filter(it => it.glint != null) : sparkList;
+  // Procedural buildings have no billboard for the WebGL shine sweep; keep
+  // their star on every renderer, alongside the shared warm shiny light.
+  const sparkDrawn = Render.canShine(scene) ? sparkList.filter(it => it.glint != null || it.building) : sparkList;
   Render.renderPool(scene, scene.sparkPool, scene.sparkContainer, sparkDrawn, (s, item) => {
     setTextureIfDifferent(s, 'shiny_spark');
     const { x: sx, y: sy } = project(item.dx, item.dy);
@@ -6795,7 +6803,7 @@ const { RENDER_SPEC, resolveAppearance, _houseRole, _houseKey, _houseScale, _hou
   };
 
   const RENDER_SPEC = {
-    tree_stump: { key: 'street_decor_stump', frame: '__BASE', origin: [0.5, 0.5], scale: 1.0, seat: true, layer: WorldLayers.GROUND_DECAL },
+    tree_stump: { key: 'street_decor_stump', frame: '__BASE', origin: [0.5, 0.5], scale: 1.0, seat: true, layer: WorldLayers.STANDING_PROP },
     // Temples use their entire source polygon; no house sprite covers the runes.
     temple: { key: null, layer: WorldLayers.GROUND_DECAL },
     shrine_spirit: {

@@ -133,4 +133,25 @@
     assert.falsy(SceneFurniture.prototype.pickupHouseFurniture.call(scene,house,record));
     assert.eq(Inventory.count(scene.save,'lamp_floor'),1);
   }));
+  test('luxury: Blessed Site boosts plain houses and adopted Home once across reloads', () => world(({scene}) => {
+    scene.save.restoredHouses = { neighbour: 'plain', shop: 'shop' };
+    scene.save.wreckOffers = { neighbour: 'blessed', shop: 'blessed', home: 'blessed' };
+    scene.save.houseFurniture = {
+      neighbour: [{ id: 'cot', itemId: 'bed_quilted' }],
+      shop: [{ id: 'shop-cot', itemId: 'bed_quilted' }],
+    };
+    Furniture.recompute(scene);
+    assert.eq(scene.save.houseLuxury.neighbour.score, 1, 'cache retains unmodified furniture sum');
+    assert.eq(Furniture.luxuryOf(scene.save, 'neighbour'), 1.5, 'fractional half point is preserved');
+    assert.eq(Furniture.luxuryOf(scene.save, 'shop'), 1, 'shop blessing has its own benefit');
+    assert.eq(Furniture.luxuryOf(scene.save), 21, 'adopted Home retains site blessing');
+    scene.save = JSON.parse(JSON.stringify(scene.save));
+    Furniture.recompute(scene);
+    Furniture.recompute(scene);
+    assert.eq(Furniture.luxuryOf(scene.save, 'neighbour'), 1.5, 'reconciliation never compounds');
+    assert.eq(Furniture.luxuryOf(scene.save), 21);
+    scene.save.houseFurniture.neighbour = [];
+    Furniture.recompute(scene);
+    assert.eq(Furniture.luxuryOf(scene.save, 'neighbour'), 0, 'blessing does not grant free furnishings');
+  }));
 })();

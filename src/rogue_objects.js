@@ -105,11 +105,19 @@ const RogueObjects = (() => {
     if (typeof STREET_DECORATION_ART === 'undefined') return;
     for (const [name, row] of Object.entries(STREET_DECORATION_ART)) {
       const key = 'street_decor_' + name;
+      const lamp = typeof StreetLights !== 'undefined' && StreetLights.ART[name];
       assets[key] = {kind:'spritesheet', path:row.path,
         frameWidth:row.bounds.fw, frameHeight:row.bounds.fh,
-        ...(streetPalette(name) ? {onLoad:scene => bakeStreetPalette(scene,name)} : {})};
+        ...((streetPalette(name) || lamp) ? {onLoad:scene => {
+          bakeStreetPalette(scene,name);
+          if (lamp) StreetLights.bake(scene,name);
+        }} : {})};
       SpriteLayout.ART_BOUNDS[key + ':0'] = {...row.bounds};
       SpriteLayout.ART_BOUNDS[key + ':__BASE'] = {...row.bounds};
+      if (lamp) {
+        SpriteLayout.ART_BOUNDS[key + '_unlit:0'] = {...row.bounds};
+        SpriteLayout.ART_BOUNDS[key + '_unlit:__BASE'] = {...row.bounds};
+      }
     }
   }
   function streetSpec(o, original) {

@@ -174,6 +174,11 @@ const TILLED_VARIANTS = 2;
 // phone, 2 reads as a real edge.
 const TILLED_INSET_PX = 2;
 const TILLED_CORNER_PX = 4;
+// Dry soil reads pale and dusty; watering darkens it. The bed is baked at the
+// DRY look: this warm additive lift ('lighter', so furrow contrast survives)
+// is the last stroke inside the pad clip. render.js WATERED_TINT is sized
+// against it so a watered bed keeps its earlier dark, damp colour.
+const TILLED_DRY_LIFT = 'rgb(40,32,24)';
 
 // Tiny deterministic RNG factory so each texture variant is stable across reloads.
 // NOT road_overlay.js' lcg(): this one divides by 0xffffffff (so it can return
@@ -501,6 +506,9 @@ function drawTilledTex(ctx, size, rng) {
   // face here: this is a shallow depression, with crops anchored as before.
   ctx.fillStyle = 'rgba(209,181,137,0.28)';
   ctx.fillRect(x0, y0 + h - 1, w, 1);
+  ctx.globalCompositeOperation = 'lighter';
+  ctx.fillStyle = TILLED_DRY_LIFT;
+  ctx.fillRect(x0, y0, w, h);
   ctx.restore();
 }
 

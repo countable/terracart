@@ -39,7 +39,8 @@ test('displayRole: one verdict covers Home, forts, wrecks and frozen shops', () 
   const cases = [
     ['unrestored tier-9 house', {}, { kind: 'house', tier: 9, id: 'h' }, 'wreck'],
     ['restored plain house', { restoredHouses: { h: 'plain' } }, { kind: 'house', tier: 9, id: 'h' }, 'plain'],
-    ['fort', {}, { kind: 'house', tier: 11, id: 'f' }, 'fort'],
+    ['fort wreck', {}, { kind: 'house', tier: 11, id: 'f' }, 'wreck'],
+    ['restored fort', { unlockedForts: { f: true } }, { kind: 'house', tier: 11, id: 'f' }, 'fort'],
     ['Home trailer', { starterShopId: 'home' }, { kind: 'house', tier: 9, id: 'home' }, 'trailer'],
     ['non-house', {}, { kind: 'tower', tier: 9, id: 't' }, null],
   ];
@@ -327,7 +328,7 @@ test('wreckRestoreCost: rockfruit, stepping with how many houses are already res
 test('fortUnlockCost: START + STEP per fort already unsealed, capped at the ceiling', () => {
   assert.eq(Houses.fortUnlockCost({}), FORT_UNLOCK_WOOD_START, 'the first fort');
   assert.eq(Houses.fortUnlockCost({ unlockedForts: { a: true } }), FORT_UNLOCK_WOOD_START + FORT_UNLOCK_WOOD_STEP);
-  assert.eq(Houses.fortUnlockCost({ unlockedForts: { a: true, b: true } }), FORT_UNLOCK_WOOD_START + 2 * FORT_UNLOCK_WOOD_STEP);
+  assert.eq(Houses.fortUnlockCost({ unlockedForts: { a: true, b: true } }), 12);
   // Enough already-unsealed forts to blow past the ceiling.
   const many = {};
   for (let i = 0; i < 20; i++) many['f' + i] = true;
@@ -435,4 +436,33 @@ test('workshop restoration persists its role and uses the ordinary wreck price',
   assert.eq(Houses.houseShopRole(save, workshop), 'workshop');
   assert.eq(Shops.roleLabel('workshop'), 'Workshop');
   assert.eq(Houses.restoreAs(save, workshop, 'plain'), null, 'restored workshop cannot be relabelled');
+});
+
+test('castle restoration: nine stone repairs the whole footprint without claiming the quest', () => {
+  const key = Array.from({ length: 100 }, (_, i) => `b_${i}_0`).find(k => !Houses.isCitadelKey(k));
+  const a = { kind: 'tower', id: 'a', castle: key }, b = { ...a, id: 'b' };
+  const save = SaveState.defaults({});
+  Inventory.add(save, 'rubble', 8);
+  assert.truthy(Houses.isBuildingWreck(save, a));
+  assert.falsy(Houses.restoreCastle(save, a));
+  assert.eq(Inventory.count(save, 'rubble'), 8);
+  Inventory.add(save, 'rubble', 1);
+  assert.truthy(Houses.restoreCastle(save, a));
+  assert.eq(Inventory.count(save, 'rubble'), 0);
+  assert.falsy(Houses.isBuildingWreck(save, b));
+  assert.falsy(Houses.isCastleClaimed(save, b));
+  assert.truthy(Houses.isBuildingSealed(save, b));
+  Inventory.add(save, 'rubble', 9);
+  assert.falsy(Houses.restoreCastle(save, b));
+  assert.eq(Inventory.count(save, 'rubble'), 9);
+});
+
+test('castle restoration: occupied citadels and legacy claims never require materials', () => {
+  const key = Array.from({ length: 100 }, (_, i) => `b_${i}_0`).find(k => Houses.isCitadelKey(k));
+  assert.truthy(key);
+  const citadel = { kind: 'tower', castle: key };
+  assert.falsy(Houses.isBuildingWreck({}, citadel));
+  assert.falsy(Houses.restoreCastle({}, citadel));
+  const castle = { kind: 'tower', castle: 'b_999_0' };
+  assert.falsy(Houses.isCastleWreck({ claimedCastles: { b_999_0: 0 } }, castle));
 });

@@ -269,4 +269,17 @@ test('ranged weapons: wake only for a foe within the reach plus a cell', () => {
     'the auto-fire loop is gated on it (and holds its fire under a Shadow Powder or mid-catch)');
 });
 
+test('turret damage: Blessed Site adds half damage independently of the magic hammer', () => {
+  const foe = goblin('foe', CELL, 0);
+  const plain = Combat.turretShot(0, 0, [foe], CELL);
+  const blessed = Combat.turretShot(0, 0, [foe], CELL, false, true);
+  const both = Combat.turretShot(0, 0, [foe], CELL, true, true);
+  assert.eq(blessed.damage, plain.damage * 1.5);
+  assert.falsy(blessed.shiny, 'blessing alone does not grant hammer arrows');
+  assert.eq(both.damage, plain.damage * 3, 'hammer and site bonuses multiply independently');
+  const shots = Combat.turretTick([{ id: 'blessed', x: 0, y: 0, blessed: true }],
+    { blessed: 0 }, 1, [foe], CELL);
+  assert.eq(shots.length, 1);
+  assert.eq(shots[0].damage, blessed.damage, 'scan descriptor reaches live shot');
+});
 })();

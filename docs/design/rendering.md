@@ -117,7 +117,10 @@ pack, exported by `tools/build_mountain_edges.py` into a 32px atlas with a muted
 olive-grey ramp and transparent source exteriors. `MountainEdges` selects among 256
 neighbour masks and four stable variants from the shared geographic ring. Full
 edge/corner tiles retain their artwork; narrow and complex cells combine quarters.
-Stair and deep-notch variants are excluded. Selection does no runtime image
+Stair and deep-notch variants are excluded. The exporter matches the one-pixel
+shared borders by their surrounding cells across all four variants, including
+four-way vertices; source interiors retain their artwork. The adjacency test
+enumerates every compatible horizontal and vertical neighbour pair. Selection does no runtime image
 processing; collision remains the permanent residential bedrock rule. Trimmed
 building-intersection cells use flat `ROCKY_GROUND` rubble from the transition
 atlas, with the same olive-grey ramp. Solid edges prefer that rubble as their substrate
@@ -209,7 +212,8 @@ the overlay each frame so collected, covered and out-of-view marks disappear.
 `WorldLayers.forObject` uses the explicit `RENDER_SPEC.layer` for decals and
 `ObstacleStep.profile` with positive lift for step-over props; all other objects are standing props.
 Do not infer a category from image size, shadows, or whether an object is lit.
-Saplings are standing props despite their small size. `ObstacleStep` measures
+Saplings and tree stumps are standing props despite their small size; stumps
+counterrotate with the compass and use upright ground-contact seating. `ObstacleStep` measures
 support continuously from world coordinates, so stopping on a prop keeps the
 player raised; this is not a timed jump. Connected support masks stay in world
 coordinates when the artwork counterrotates.
@@ -409,6 +413,16 @@ cover flag on its own live state (`scene._objectsCoverPlayer`, a wall group's
 or `scene._lowpoly`'s `coversPlayer`), so a torn-down pass cannot leave a
 stale ghost. The checks update without rebuilding geometry
 or reading pixels. Home keeps its separate indoor roof-cutaway behavior.
+All building wrecks share the house's broken masonry display, including locked forts
+and quest castles. Castles retain their larger source footprint. `Houses.isBuildingWreck`
+owns the display verdict; active Hives and Citadels remain enemy-controlled buildings.
+House, fort and castle restoration retain separate gameplay routes.
+`Render.buildingShines` adds the existing warm shiny light and twinkle to sites
+with a `Houses.wreckOffer`; completed Blessed sites keep this glow. These visual
+marks apply only to house wrecks, never forts or castles, and never write Magic
+Hammer state or grant its price/damage effects. Procedural buildings keep their
+twinkle under WebGL because they have no billboard for the
+pre-FX shine sweep.
 Wrecks follow option B of the October 23 “Broken walls. Open ground” study.
 Individual 3D blocks extend inward from the old wall line, with eight-unit
 thickness, half-unit joints and one-unit clipped corners. Bays are clipped to
@@ -454,7 +468,11 @@ rotation; rebuilding does not bake textures or read pixels.
 Canvas procedural wrecks keep their low broken perimeter walls through
 `BuildingStyles.emit`; their cached floor must not suppress that geometry.
 Legacy wreck sprites use the ground layer and
-a flattened vertical scale; restoring a wreck returns it to standing architecture.
+a flattened vertical scale; shape-only castles use that same artwork enlarged to
+their source footprint. There is no separate ruined-fort sprite selection or ruined-castle
+floor/rampart pass. Restoring a wreck returns it to standing architecture. The overlay's
+cache includes `restoredCastles`, so paying the restoration cost immediately raises
+the castle while its quest and claim remain pending.
 
 [Low-poly building styles](../art/lowpoly-building-styles.md) owns the detail.
 `WallPerspective` prisms (castle ramparts, Canvas fallback) read the same
@@ -1414,7 +1432,9 @@ the reach rim within the existing player-light radius.
   assign one interior paving owner and open side channels at branch mouths;
   source endpoint caps cannot suppress adjoining paving. The map-review tool
   uses the same detail compositor. Interrupted rebuilds release saved detail
-  clips before reusing their pooled canvases. Restored intervals
+  clips before reusing their pooled canvases, and a back-buffer's own
+  composite mode never stays switched across a slice yield (each knockout
+  stroke restores it), so a dropped job cannot leave the next one erasing. Restored intervals
   remove the old base surface/decor while retaining
   its geometric mask for larger-road occlusion, so the scar and missing pieces
   cannot show through the restored surface. None of this repaints grid terrain.
@@ -1467,14 +1487,21 @@ the reach rim within the existing player-light radius.
   Suppressed roads retain their own turquoise emission even inside a nexus.
   Standing lamps use `StreetLights` to select hanging lanterns, street lanterns,
   fire pedestals, green orbs, paired candles and standing flames by route theme, with native Rogue lit/unlit
-  assets as the fallback. Source art without a dark frame is dimmed until
-  restoration; only restored lamps emit light. `RENDER_SPEC._streetlamp`
+  assets as the fallback. Themed silhouettes bake an unlit texture once at load:
+  lantern glass and orbs darken, and candle/brazier flames disappear while their
+  supports remain. Both states share frame dimensions and ground-contact bounds.
+  Only restored lamps visited within the last 24 real hours emit light. `RENDER_SPEC._streetlamp`
   and `Lighting.collectLamps` share this table's scale and emitter offsets. Their source pixels and contact seating stay in
-  the normal object renderer; there is no alternate foundation painter,
-  per-colour lamp bake or selected-streetlamp derivative. The hanging lantern
+  the normal object renderer; there is no alternate foundation painter
+  or per-colour lamp bake. The hanging lantern
   uses the shared palette bake to colour its bottom contact ink as wood;
   its source alpha and contact bounds stay unchanged. Road restoration
-  and brightness retain their existing site data and gameplay rules.
+  retains its existing site data. `save.lampVisits` stores the last visit time:
+  lamps fade toward half brightness, then switch fully off at 24 hours, including
+  offline time. Missing or pruned visit records mean unlit. Returning on foot
+  relights restored lamps through the existing visit pass and credit rules.
+  The frame cache expires at the earliest visible lamp deadline, so standing
+  still cannot delay extinction until the next minute bucket.
   Variant and Nexus colours tint emitted light through `Lighting`, not the
   lamp image. Screen-space emission anchors use `StreetLights.ART` per silhouette,
   falling back to `RoadOverlay.LAMP_LIGHT_OFFSET_CELLS` and `LAMP_LIGHT_RISE_CELLS`.
@@ -1649,10 +1676,12 @@ and `FDRCastleGeometry`. `CastleStyles.renderStyle` owns three visual families:
 slate Citadel, warm sandstone Bastion, and pale stone Archive with teal pyramidal
 roofs. The historical four-way castle hash and quest assignments remain stable;
 the legacy ruin slot uses Bastion architecture instead of a separate ruin family.
-`BuildingOverlay` passes the castle key and claim state to the renderer and uses
-the same profile for its courtyard floor. Citadel wrecks are dark and foreboding;
-conquest repairs and lightens them. Bastion and Archive damage is a condition
-of the same complete architecture, expressed through weathered materials.
+`BuildingOverlay` draws intact architecture for standing castles and uses the same
+profile for their courtyard floor. Unrestored quest castles use the shared house
+wreck renderer instead. Citadels stand intact while enemy controlled; their skull
+flags convey ownership. Castle restoration reveals the quest, and completing it
+unlocks the usual daily tithe. Claiming changes ownership flags independently of
+the architecture's restored condition.
 
 Square towers align with the longer adjoining curtain, then shift eight game
 pixels outward along the corner bisector. Their original seated base must fit
@@ -1727,19 +1756,12 @@ Cloth and emblem retain their existing decal triangles. The cloth tile leaves
 its bottom fifth outside banner sampling. A separate opaque coping patch in
 that tail gives raised battlement caps their bevels, with clamped gutters clear
 of the shared white patch. Canvas treats only that subregion as opaque, keeping
-banner cutouts exact. Military decks have their own tint so Citadel wrecks
-retain warm sandstone beneath grey coping.
-Courtyard paving and wreck grass repeat on the existing cached ground canvas;
-they add no ground or castle triangles. The style's paving descriptor selects
-Citadel's existing small pavers, Bastion's quiet sandy slabs, or Archive's fine
-cream paving; family overlays are preloaded once and share the pattern cache.
-Ground vegetation uses deterministic, bounded contact masks around the courtyard,
-towers and keep. A same-winding union prevents overlapping contacts from
-darkening; its leaf pattern retains world phase. Bastion has broad visible
-overgrowth, Archive narrower edge growth, and Citadel sparse patches. The masks
-reuse the existing ground canvas without readback, additional textures or
-rotation-time repaint. Masonry weathering is strongest on Bastion and Archive;
-Citadel retains distinctly dark stone and oxblood banners.
+banner cutouts exact. Military decks have their own tint.
+Courtyard paving repeats on the existing cached ground canvas without adding
+triangles. The style's paving descriptor selects Citadel's existing small pavers,
+Bastion's quiet sandy slabs, or Archive's fine cream paving; family overlays are
+preloaded once and share the pattern cache. Standing castles use intact materials;
+the runtime no longer paints separate ruined-castle vegetation or damage floors.
 The existing courtyard canvas also paints short world-fixed shadows from the
 retained opaque stone and roof faces, plus narrow contact rims. A single
 same-winding fill unions overlaps and clips to the courtyard; it adds no GPU
@@ -1751,8 +1773,7 @@ is no upper shoulder shadow or projecting crown shelf. Military keeps reuse
 their two entrance-decal triangles for a door and two flanking banners, with
 transparent gaps keeping the entrance clear. Four padded family/condition
 frames use palettes read from `CastleStyles` by the offline builder. Citadel
-shows a closed wrecked iron grille or restored timber double doors; Bastion
-also uses closed timber double doors. Seams and
+uses timber double doors, as does Bastion. Seams and
 hardware remain flat decals; the facade does not cut a hole in the wall or
 change collision. Canvas joins each alpha facade's internal diagonal through
 its exact quad, isolating subframes and preserving exterior transparency.
@@ -1761,7 +1782,7 @@ towers sample one arch from that shared tile. Archive towers and keeps use a
 broader, quieter ashlar tile than their curtains, and flush dark double doors.
 Their fully opaque tower tiles also participate in Canvas seam coverage.
 Archive towers and keeps have four roof triangles over a closed flat cap in both
-restored and wrecked states. Archive has no wood, galleries,
+preview conditions. Runtime standing castles use the intact condition. Archive has no wood, galleries,
 modeled roof framing or book banner. Four restrained teal face values reveal
 each Archive pyramid peak without increasing its four-triangle roof. A shared
 opaque ridge/eave tile adds restrained edge detail; keep roof rise scales with

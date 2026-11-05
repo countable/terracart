@@ -326,7 +326,8 @@ class SceneStreets {
   // Measured from the CAMERA ANCHOR, not the feet: this asks "what do I DRAW",
   // and a peek drag has to bring the lamps at the peeked edge with it (the
   // camera rule in CLAUDE.md). Rebuilt only when the anchor CELL moves or a
-  // stretch is restored (Streets.epoch) — standing still changes nothing, and
+  // stretch is restored (Streets.epoch), brightness changes, or a lamp expires.
+  // The next expiry bypasses the minute memo even while standing still, and
   // the epoch is exactly the integer the restored canvas repaints on.
   //
   // Surface only: the world is GPS-mirrored, and a cave has no streets to
@@ -350,7 +351,8 @@ class SceneStreets {
     const now = Date.now();
     const key = `${cellIX},${cellIY}|${Streets.epoch(this.save)}|${this._lampVisitEpoch | 0}`
       + `|${Math.floor(now / Streets.LAMP_REFRESH_MS)}`;
-    if (this._streetLampKey === key && this._streetLamps) return;
+    if (this._streetLampKey === key && this._streetLamps
+        && now < this._streetLampExpiresAt) return;
     const c = absCellCenterMeters(this, cellIX, cellIY);
     // Reach of the pass: the furthest a lamp can be and still show. The
     // viewport's half-diagonal plus the lamp's own light radius, so one a cell
@@ -361,6 +363,7 @@ class SceneStreets {
     const pad = (Math.hypot(VIEW_CELLS, VIEW_CELLS) / 2 + lampR + PEEK_MAX_CELLS) * this.cellM;
     const ptx = a.tx, pty = a.ty;
     const out = [];
+    let expiresAt = Infinity;
     // Set by any tile of the ring that has no data yet — the answer is then
     // provisional, so it is used for this frame but not memoised.
     let pending = false;
@@ -400,11 +403,15 @@ class SceneStreets {
         // `bright`: the living lamp's gain on the cobble row (Streets
         // .lampBrightness off save.lampVisits) — read by collectLamps.
         const isRestored = Streets.covers(iv, L.s);
-        out.push({ ...L, restored: isRestored, lit: isRestored,
-                   bright: Streets.lampBrightness(Streets.lampVisitAt(this.save, L.id), now) });
+        const lastVisit = Streets.lampVisitAt(this.save, L.id);
+        const lit = isRestored && Streets.lampIsLit(lastVisit, now);
+        if (lit) expiresAt = Math.min(expiresAt, lastVisit + Streets.LAMP_FADE_MS);
+        out.push({ ...L, restored: isRestored, lit,
+                   bright: lit ? Streets.lampBrightness(lastVisit, now) : 0 });
       }
     });
     this._streetLamps = out;
+    this._streetLampExpiresAt = expiresAt;
     this._streetLampKey = pending ? null : key;
   }
 

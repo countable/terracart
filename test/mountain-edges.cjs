@@ -74,4 +74,28 @@ for(let variant=0;variant<4;variant++){
   for(let y=0;y<32;y++)for(let x=0;x<32;x++)
     assert.equal(pixel(variant*256+255,x,y)[3],255,'fully enclosed rock has no terrain-shaped holes');
 }
-console.log('Mountain edges: masks, ring seams, terrain gating, transparent narrow exteriors and opaque native rock bodies passed.');
+// Enumerate actual neighbouring cells, not arbitrary pairs of masks: the
+// overlapping six-cell neighbourhood must agree. Test every art variant pair
+// so a different geographic phase cannot reopen the seam.
+const borders = Array.from({length:1024},(_,frame) => ({
+  left:Buffer.concat(Array.from({length:32},(_,i)=>pixel(frame,0,i))),
+  right:Buffer.concat(Array.from({length:32},(_,i)=>pixel(frame,31,i))),
+  top:Buffer.concat(Array.from({length:32},(_,i)=>pixel(frame,i,0))),
+  bottom:Buffer.concat(Array.from({length:32},(_,i)=>pixel(frame,i,31))),
+}));
+for(const vertical of [false,true]) {
+  const width=vertical?3:4, height=vertical?4:3;
+  const bx=vertical?1:2, by=vertical?2:1;
+  for(let cells=0;cells<(1<<(width*height));cells++) {
+    const has=(x,y)=>!!(cells&(1<<(y*width+x)));
+    if(!has(1,1)||!has(bx,by))continue;
+    const maskAt=(x,y)=>offsets.reduce((mask,[dx,dy],bit)=>mask|(has(x+dx,y+dy)?1<<bit:0),0);
+    const a=maskAt(1,1),b=maskAt(bx,by);
+    for(let va=0;va<4;va++)for(let vb=0;vb<4;vb++) {
+      const first=borders[va*256+a][vertical?'bottom':'right'];
+      const second=borders[vb*256+b][vertical?'top':'left'];
+      assert(first.equals(second),`shared ${vertical?'horizontal':'vertical'} border: masks ${a}/${b}, variants ${va}/${vb}`);
+    }
+  }
+}
+console.log('Mountain edges: masks, ring seams, terrain gating, transparent exteriors, opaque bodies and all adjacent variant borders passed.');

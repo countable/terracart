@@ -42,6 +42,25 @@ pixels and decorative details do not define additional tap cells.
   and its Restored card. Scene shutdown, depth changes or being downed cancel
   the work without charging; effects and listeners are removed on every exit.
 
+- A quest castle starts as a large house wreck. Its Restore offer costs 9 stone;
+  the same three-second work sequence rechecks stock before charging and saves
+  restoration by castle footprint. Restoration opens the existing quest, whose
+  completion unlocks the castellan’s usual recurring tithe/rest service. Already
+  claimed castles keep their service. Citadels retain their enemy building and
+  guard battle; active Hives retain their enemy building until defeated. Forts
+  use the house wreck display and keep their wood unlock, capped at 12 wood.
+
+- Fifteen percent of ordinary house wrecks carry a deterministic shine offer,
+  keyed by the house identity. Fort and castle wrecks never receive these offers. The three
+  offers have equal probability: Discount Build halves material costs, rounded
+  down; Blessed Site gives 33% cheaper rerolls, +50% house luxury or +50% turret
+  damage; Private Contract pays $50 once when the site is restored. Home, active
+  Hives and Citadels have no construction offer. House restore screens show the
+  offer, and completed Blessed Sites keep their glow. `save.wreckOffers` records
+  completion separately from Magic Hammer shine; bonuses survive reloads and
+  contracts cannot be collected twice. Reroll prices round up to whole coins,
+  with the existing one-coin minimum.
+
 - DOM inventory, shop, toast and gear icons share `assets/Icons/dom-atlas.png`.
   `renderItemIcon` and `gearIconHTML` retain the original sheet/frame selection,
   adding the atlas offset; baked `ITEM_DATA_URLS` still take priority. The atlas

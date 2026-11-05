@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """Bake purchased mountain boundaries at game scale; no source pack at runtime."""
 from pathlib import Path
+from collections import Counter, defaultdict
 import hashlib
 import json
 from PIL import Image
@@ -57,9 +58,45 @@ def pieces(mask, variant):
         result.append((key,(x*16,y*16,x*16+16,y*16+16)))
     return result
 
+def joined_borders(mask):
+    """A shared edge is owned by its six surrounding cells, not either tile."""
+    has = lambda dx,dy: bool(mask & (1 << OFFSETS.index((dx,dy))))
+    if has(-1,0):
+        yield ('vertical', has(-1,-1), has(0,-1), has(-1,1), has(0,1)), [(0,y) for y in range(32)]
+    if has(1,0):
+        yield ('vertical', has(0,-1), has(1,-1), has(0,1), has(1,1)), [(31,y) for y in range(32)]
+    if has(0,-1):
+        yield ('horizontal', has(-1,-1), has(-1,0), has(1,-1), has(1,0)), [(x,0) for x in range(32)]
+    if has(0,1):
+        yield ('horizontal', has(-1,0), has(-1,1), has(1,0), has(1,1)), [(x,31) for x in range(32)]
+
+def match_borders(tiles):
+    # Independently resized source edges/corners disagree by a pixel at some
+    # joins. Keep their interiors; bake the most common native border pixel
+    # for each shared neighbourhood so every variant has the same connector.
+    profiles = defaultdict(lambda: [Counter() for _ in range(32)])
+    for frame, tile in enumerate(tiles):
+        for key, points in joined_borders(frame % 256):
+            for i, point in enumerate(points):
+                pixel = tile.getpixel(point)
+                profiles[key][i][pixel if pixel[3] else (0,0,0,0)] += 1
+    profiles = {key: [max(counts, key=lambda p: (counts[p], p)) for counts in row]
+                for key, row in profiles.items()}
+    # Four tiles meeting at a vertex must also share that pixel, regardless
+    # of which of their two borders was written last.
+    inside = source('fill_var_01').getpixel((0,0))
+    for frame, tile in enumerate(tiles):
+        mask = frame % 256
+        for key, points in joined_borders(mask):
+            for i in range(1,31): tile.putpixel(points[i], profiles[key][i])
+        has = lambda dx,dy: bool(mask & (1 << OFFSETS.index((dx,dy))))
+        for x,y,dx,dy,_,_ in QUADS:
+            tile.putpixel((x*31,y*31), inside if has(dx,0) and has(0,dy) and has(dx,dy) else (0,0,0,0))
+
 def main():
     OUT.mkdir(parents=True,exist_ok=True)
     atlas=Image.new('RGBA',(1024,1024))
+    tiles=[]
     for variant in range(4):
         for mask in range(256):
             # TerrainTransitions supplies the live neighbouring ground below.
@@ -67,9 +104,11 @@ def main():
             # unrelated square of soil over that substrate.
             tile=Image.new('RGBA',(32,32))
             for key,box in pieces(mask,variant): tile.alpha_composite(source(key).crop(box),(box[0],box[1]))
-            frame=variant*256+mask
-            atlas.paste(tile,(frame%32*32,frame//32*32))
+            tiles.append(tile)
+    match_borders(tiles)
+    for frame,tile in enumerate(tiles):
+        atlas.paste(tile,(frame%32*32,frame//32*32))
     atlas.save(OUT/'mountain-edges.png',optimize=True)
-    (OUT/'mountain-edges.json').write_text(json.dumps(dict(source=str(SOURCE.relative_to(ROOT)),frameSize=32,columns=32,frames=1024,variants=4,neighbours=OFFSETS,palette=RAMP,sourceSHA256=sources,notes='Purchased pack; RA olive-grey palette. Transparent source exteriors reveal the runtime ground substrate. No stair or deep-notch edges. Full cells where possible, quarter corners for narrow/complex boundaries.'),indent=2)+'\n')
+    (OUT/'mountain-edges.json').write_text(json.dumps(dict(source=str(SOURCE.relative_to(ROOT)),frameSize=32,columns=32,frames=1024,variants=4,neighbours=OFFSETS,palette=RAMP,sourceSHA256=sources,notes='Purchased pack; RA olive-grey palette. Transparent source exteriors reveal the runtime ground substrate. No stair or deep-notch edges. Full cells where possible, quarter corners for narrow/complex boundaries. Shared one-pixel borders are matched by neighbourhood across all variants; four-way vertices share the native fill ink.'),indent=2)+'\n')
     print('Exported 1024 mountain edge frames')
 if __name__ == '__main__': main()

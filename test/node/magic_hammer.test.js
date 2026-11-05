@@ -79,7 +79,7 @@ test('magic hammer: a shiny turret shoots double, in arrows of light', () => {
   const fired = Combat.turretTick([t], clocks, clocks.t + 1, [foe], CELL);
   assert.eq(first.length + fired.length, 1);
   assert.truthy((first[0] || fired[0]).shiny, 'the scan row\'s shine reaches the arrow');
-  assert.truthy(/list\.push\(\{ id: o\.id, x: o\.x, y: o\.y, castle: o\.id, shiny: Houses\.isShinyHouse\(this\.save, o\) \}\);/.test(SCENE_SRC), 'the scan reads the ledger');
+  assert.truthy(/list\.push\(\{ id: o\.id, x: o\.x, y: o\.y, castle: o\.id, shiny: Houses\.isShinyHouse\(this\.save, o\),\s*blessed: Houses\.isBlessedSite\(this\.save, o\) \}\);/.test(SCENE_SRC), 'the scan reads the ledger');
   // The arrow is a light on the bolt lane, at the shiny row's reach and peak.
   const sc = { cellM: CELL, _shots: [shiny, plain], _lights: [] };
   assert.eq(Lighting.collectBolts(sc, 0, 0, 100), 1, 'the shiny arrow lights, the plain one does not');
@@ -106,7 +106,18 @@ test('magic hammer: the restore dialog offers it beside Restore, spends it only 
   assert.truthy(/const row = Houses\.restoreAs\(this\.save, house, key, \{ hammer \}\);/.test(src), 'the shine is stamped with the pick');
   assert.truthy(/if \(hammer\) Inventory\.remove\(this\.save, Houses\.HAMMER_ID, 1\);/.test(src), 'and the hammer is spent after the pick is accepted');
   assert.truthy(src.indexOf('Houses.restoreAs(') < src.indexOf('Inventory.remove(this.save, Houses.HAMMER_ID'), 'never before');
-  assert.truthy(/\|\| \(o\.kind === 'house' && Houses\.isShinyHouse\(scene\.save, o\)\), o\.id\);/.test(RENDER_SRC), 'the sprite glints');
-  assert.truthy(/\|\| \(it\.o\.kind === 'house' && Houses\.isShinyHouse\(scene\.save, it\.o\)\)\) \{/.test(RENDER_SRC), 'and lights like a shiny tree');
+  const house = h('hammer-glow');
+  const save = { restoredHouses: { [house.id]: 'shop' }, shinyHouses: { [house.id]: true } };
+  assert.truthy(Render.buildingShines(save, house), 'the hammer building retains its sprite glint');
+  const sparks = Render.buildingSparkItems({ save }, [{ o: house, dx: 3, dy: 4 }]);
+  assert.eq(sparks.length, 1, 'the hammer building retains its shiny light and sparkle');
+  assert.eq(sparks[0].id, house.id);
+  assert.eq(sparks[0].dx, 3);
+  assert.eq(sparks[0].dy, 4);
+  assert.truthy(sparks[0].building, 'procedural hammer buildings keep their visible twinkle');
+  delete save.shinyHouses[house.id];
+  assert.falsy(Render.buildingShines(save, house), 'an ordinary restored building has no glint');
+  assert.eq(Render.buildingSparkItems({ save }, [{ o: house, dx: 3, dy: 4 }]).length, 0);
+
 });
 })();

@@ -48,7 +48,9 @@ const Furniture = (() => {
   }
   function luxuryOf(save, houseKey = save?.starterShopId) {
     const score = save?.houseLuxury?.[houseKey]?.score;
-    return Number.isFinite(score) ? Math.max(0, score) : 0;
+    const house = save?.restoredHouses?.[houseKey] === 'plain' || houseKey === save?.starterShopId;
+    const bonus = house && Houses.isBlessedSite(save, { id: houseKey }) ? Houses.BLESSED_BONUS_MUL : 1;
+    return Number.isFinite(score) ? Math.max(0, score) * bonus : 0;
   }
   function restBonus(luxury, elapsedS, rng = Math.random) {
     const mean = Math.max(0, luxury) * ENERGY_PER_LUXURY_S * Math.max(0, elapsedS);
