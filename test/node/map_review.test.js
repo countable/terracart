@@ -86,7 +86,8 @@ test('map review: winning Nexus texture replaces the ordinary biome', () => {
 test('map review: spawn overlays derive verdicts from tier permissions, not legacy source flags', () => {
   const review=new Function('WorldGen','GameplayTiers',MAP_REVIEW_GROUND_SRC+'\nreturn MapReviewGround;')(WorldGen,GameplayTiers);
   assert.eq(review.spawnVerdict(GameplayTiers.CORE),WorldGen.SPAWN_OPEN);
-  assert.eq(review.spawnVerdict(GameplayTiers.CALM),WorldGen.SPAWN_SUPPRESSED);
+  // Calm admits every class, fast movers included.
+  assert.eq(review.spawnVerdict(GameplayTiers.CALM),WorldGen.SPAWN_OPEN);
   assert.eq(review.spawnVerdict(GameplayTiers.PASSING),WorldGen.SPAWN_SUPPRESSED);
   assert.eq(review.spawnVerdict(GameplayTiers.EXCLUDED),WorldGen.SPAWN_INVALID);
   assert.eq(review.spawnVerdict(0),WorldGen.SPAWN_INVALID);
