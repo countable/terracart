@@ -739,7 +739,8 @@ spawn-rate roll.
 - `WorldGen.isSpawnCell` is the sole placement gate. On classified tiles it
   checks the tier policy before live terrain, occupancy and building clearance.
   Excluded refuses every spawn. Passing refuses fast creatures and hazards;
-  Calm and Core use the shared class policy. A small street or path no longer
+  Calm and Core accept every class, fast movers included (`CLASS_TIERS`), so
+  Small-road residents seat beside ordinary small streets. A small street or path no longer
   fails solely because the old road footprint covered its cell. The source
   `spawnWhy` bits retain access evidence and diagnostics rather than acting as
   a second geographic policy on classified tiles. Synthetic fixtures without
@@ -1322,9 +1323,9 @@ eligibility gate, not a universal subtraction from variant area.
 A prop whose interaction births creatures is placed only where those births can
 succeed: the prop's cell must pass the creatures' own spawn class, with enough
 free seats in the reach its runtime planner searches. Forest hives
-(`WorldGen.HIVE_SPEC`) therefore stand only on tier-1 forest, because their bees
-are `fastEnemy` and calm woodland refuses them. A hive placed on calm woodland
-could never seat its swarm, so every tap would answer "No room around the hive."
+(`WorldGen.HIVE_SPEC`) therefore stand only on Core or Calm forest, because
+their bees are `fastEnemy` and Passing woodland refuses them. A hive placed
+there could never seat its swarm, so every tap would answer "No room around the hive."
 
 Higher-priority placements and their access space take precedence in this order:
 
@@ -1472,7 +1473,7 @@ Higher-priority placements and their access space take precedence in this order:
    gate) and requests a thief and two runts through
    `StreetVariants.CREATURE_REQUEST_RULES` every 25 m (`TRADE_GRUNT_STEP_M`), two thirds of them
    held (`TRADE_GRUNT_CHANCE`), a cell behind the barrel row on the fast-foe
-   gate.
+   gate (Core or Calm ground).
    Overgrown forest roads add extra encounters beside the usual plant guard,
    each a row of the variant's `extraEncounters` rolled from the stable street
    key: a sounder of two wild boars on every overgrown street, and a Giant
