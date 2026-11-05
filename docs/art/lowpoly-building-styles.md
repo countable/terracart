@@ -22,6 +22,10 @@ Tier-one traders and shops, including generic shops,
 use the Pixel Plains white plaster cottage (`pp_plaster`). Their existing roof
 colors and role symbols distinguish the trades. Generic shops use blue. Higher
 tiers retain their commercial models; upgrades preserve each trade’s roof color.
+Restored houses and Home always wear broad roof boards, never small shingles:
+the plaster cottage's lot roof repeats the timber cabin's board courses in its
+own palette (`prepareFootprintMaterial`), and the procedural two-storey Home
+paints the `boards` roof kind (`BuildingLowPoly.PAINTED_ROOFS`).
 Blacksmiths use their dedicated masonry workshop at every tier and a broad,
 flared stone chimney with smoke anchored at its dark mouth.
 Each cottage entrance carries a small wooden sign beside its door, and its roof

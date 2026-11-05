@@ -24,7 +24,7 @@
     for (const [role, spec] of Object.entries(api.ROLES)) {
       if (spec.sprite) continue;
       assert.truthy(SHEET_SRC.walls[spec.material], role + ' wall ' + spec.material);
-      assert.truthy(spec.roofMaterial === 'flat' || SHEET_SRC.roofs[spec.roofMaterial], role + ' roof ' + spec.roofMaterial);
+      assert.truthy(api.PAINTED_ROOFS.includes(spec.roofMaterial) || SHEET_SRC.roofs[spec.roofMaterial], role + ' roof ' + spec.roofMaterial);
     }
     for (const [role, spec] of Object.entries(api.RESTORED_ROLES)) {
       for(const variant of ['A','B']) {
