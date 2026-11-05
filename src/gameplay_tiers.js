@@ -31,8 +31,8 @@
   const ROAD_BUFFER_CELLS=3, PATH_BUFFER_CELLS=1, JUNCTION_BUFFER_CELLS=5;
   const CLASS_TIERS=Object.freeze({
     minor:[1,2,3], headstone:[1,2,3], cave:[1,2,3], fauna:[1,2,3],
-    fastFauna:[1], npc:[1,2,3], attractor:[1,2,3], enemy:[1,2,3],
-    hazard:[1,2], fastEnemy:[1], reward:[1,2,3], streetObstacle:[1,2],
+    fastFauna:[1,2], npc:[1,2,3], attractor:[1,2,3], enemy:[1,2,3],
+    hazard:[1,2], fastEnemy:[1,2], reward:[1,2,3], streetObstacle:[1,2],
   });
   const allowed=(tier,cls)=>!!CLASS_TIERS[cls]?.includes(tier);
   const RECORD_CLASSES=Object.freeze({ground_hole:'hazard',pressure_plate:'hazard',stakes:'streetObstacle',tar:'streetObstacle'});

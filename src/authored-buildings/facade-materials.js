@@ -1,6 +1,6 @@
 /* Native facade sampling and validation shared by the closed building shells. */
 (function(root){
- const roofSamples={dreamland_corner:[8,32,16,16],dreamland_wide:[8,32,16,16],dreamland_house:[8,36,16,16],com:[168,32,16,16],fdr:[128,25,16,16],market:[20,19,32,12],trader:[16,56,16,7],pp_brick:[8,16,16,24],pp_plaster:[8,16,32,24],pp_cabin:[12,40,16,16]};
+ const roofSamples={dreamland_corner:[8,32,16,16],dreamland_wide:[8,32,16,16],dreamland_house:[8,36,16,16],com:[168,32,16,16],fdr:[128,25,16,16],market:[20,19,32,12],trader:[16,56,16,7],pp_brick:[8,16,16,24],pp_plaster:[8,16,16,16],pp_cabin:[12,40,16,16]};
  function sourceFacadeSlices(spec,length){
   const W=spec.right-spec.left,edge=Math.min(spec.posts[1]-spec.left+4,W/4,length/4);
   if(Math.abs(length-W)<1)return {parts:[[0,length,W,0]],center:length/2};
@@ -25,6 +25,17 @@
   const shear=({com:-.5,trader:-20/38,pp_cabin:-.5})[key]||0;
   c.setTransform(1,-shear,0,1,-r[0],-r[1]+shear*r[0]);c.drawImage(image,0,0);c.setTransform(1,0,0,1,0,0);const pixels=c.getImageData(0,0,r[2],r[3]).data;let color=[100,70,50];for(let i=0;i<pixels.length;i+=4)if(pixels[i+3]===255){color=[pixels[i],pixels[i+1],pixels[i+2]];break;}
   ctx.save();ctx.beginPath();ctx.rect(256,616,256,256);ctx.clip();ctx.fillStyle='rgb('+color.join(',')+')';ctx.fillRect(256,616,256,256);for(let y=616;y<872;y+=r[3])for(let x=256;x<512;x+=r[2])ctx.drawImage(scratch,x,y);ctx.restore();
+  if(key==='pp_plaster'){
+   // Restored cottages wear the cabin's broad roof boards, never the
+   // source's small shingles. Courses keep the cabin's 16-texel rhythm and
+   // take the cottage's own roof base, seam and highlight pixels.
+   const px=(sx,sy)=>{c.setTransform(1,0,0,1,0,0);c.clearRect(0,0,1,1);c.drawImage(image,sx,sy,1,1,0,0,1,1);return 'rgb('+[...c.getImageData(0,0,1,1).data].slice(0,3).join(',')+')';};
+   const base=px(20,20),seam=px(20,15),light=px(20,8);
+   ctx.save();ctx.fillStyle=base;ctx.fillRect(256,616,256,256);
+   for(let y=616;y<872;y+=16){ctx.fillStyle=seam;ctx.fillRect(256,y+2,256,1);ctx.fillStyle=light;ctx.fillRect(256,y+3,256,1);
+    ctx.fillStyle=seam;ctx.fillRect(256,y+11,256,1);ctx.fillStyle=light;ctx.fillRect(256,y+12,256,1);}
+   ctx.restore();
+  }
   if(key==='fdr'){
    // Timber studs support the gables, as on the brick cottage. Sample the
    // blacksmith's own post and infill so the added supports share its palette.
