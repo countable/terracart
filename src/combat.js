@@ -1733,11 +1733,13 @@
   // none. `aimDistM` is stamped on for the draw — the arrow leaves the
   // battlements and comes down to chest height over that distance.
   // `shiny` (the turret's, see shinyTurretDamage) doubles the blow and
-  // lights the arrow.
-  function turretShot(x, y, enemies, cellM, shiny = false) {
+  // lights the arrow. Blessed sites separately add 50% damage; this stacks
+  // with the hammer without granting its arrow-light or trading bonuses.
+  function turretShot(x, y, enemies, cellM, shiny = false, blessed = false) {
     const heading = aimAtNearest(x, y, enemies, TURRET.rangeCells * cellM);
     if (!heading) return null;
-    const dmg = shiny ? shinyTurretDamage() : turretShotDamage();
+    const dmg = (shiny ? shinyTurretDamage() : turretShotDamage())
+      * (blessed ? Houses.BLESSED_BONUS_MUL : 1);
     const shot = spawnShot(TURRET.slot, x, y, heading, cellM, dmg, TURRET.tier, null, TURRET.rangeCells);
     if (!shot) return null;
     shot.source = 'turret';   // not the player's: see isPlayerKill
@@ -1758,7 +1760,7 @@
       let due = clocks[t.id];
       if (due == null) due = clocks[t.id] = now + turretPhaseMs(t.id);
       if (now < due) continue;
-      const shot = turretShot(t.x, t.y, enemies, cellM, !!t.shiny);
+      const shot = turretShot(t.x, t.y, enemies, cellM, !!t.shiny, !!t.blessed);
       if (!shot) continue;
       clocks[t.id] = now + TURRET.fireIntervalMs;
       shot.castle = t.castle;

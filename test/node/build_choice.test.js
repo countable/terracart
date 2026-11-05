@@ -34,6 +34,7 @@ test('build choice: the type first, then the rank where more than one is open, e
   const stock = { rubble: 100, wood: 100, magic_hammer: 1 };
   const inventory = {
     count: (save, id) => stock[id] || 0,
+    ownedCount: (save, id) => stock[id] || 0,
     remove: (save, id, qty) => { stock[id] -= qty; },
   };
   const present = new Function('Houses', 'Shops', 'Inventory', 'ITEM_BY_ID', 'Render',
@@ -239,7 +240,7 @@ test('turret: a restored turret wears the castle tower and fires on the castle l
   const fire = SCENE_SRC.slice(SCENE_SRC.indexOf('  _turretFire(now, px, py, halfSpanM, enemies, pc) {'));
   const body = fire.slice(0, fire.indexOf('\n  }\n'));
   assert.truthy(/this\._forEachHouseNear\(pc, \(o\) => \{\s*if \(Houses\.displayRole\(this\.save, o\) !== 'turret'\) return;/.test(body), 'turret houses join the scan');
-  assert.truthy(/list\.push\(\{ id: o\.id, x: o\.x, y: o\.y, castle: o\.id, shiny: Houses\.isShinyHouse\(this\.save, o\) \}\);/.test(body), 'with their own id as the style key the arrow reads, and the hammer\'s shine');
+  assert.truthy(/list\.push\(\{ id: o\.id, x: o\.x, y: o\.y, castle: o\.id, shiny: Houses\.isShinyHouse\(this\.save, o\),\s*blessed: Houses\.isBlessedSite\(this\.save, o\) \}\);/.test(body), 'with their own id as the style key the arrow reads, the hammer\'s shine and the site blessing');
   assert.truthy(/if \(shopType === 'turret'\) \{/.test(SCENE_SRC), 'a tap trades nothing');
   assert.eq(Houses.displayRole({ restoredHouses: { h: 'turret' } }, { kind: 'house', tier: 9, id: 'h' }), 'turret');
 });

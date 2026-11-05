@@ -76,3 +76,18 @@
     assert.eq(first, 1); assert.eq(second, 0);
   });
 })();
+
+test('wreck repair: castle work uses the entire footprint rather than a turret cell', () => {
+  const geometry = liftSceneMethod('_houseBlastGeometry', { BLAST_HOUSE_PAD_CELLS: 2 });
+  const old = WorldGen.tileCache;
+  WorldGen.tileCache = new Map([['16/2/3', { tileEdgeM: 100, buildingShapes: [
+    { key: 'b_42_8', ring: [0, 0, 40, 0, 40, 60, 0, 60] },
+  ] }]]);
+  try {
+    const a = geometry.call({ cellM: 5 }, { id: 'tower-a', castle: 'b_42_8', x: 1, y: 2 });
+    const b = geometry.call({ cellM: 5 }, { id: 'tower-b', castle: 'b_42_8', x: 3, y: 4 });
+    assert.eq(a.x, 220); assert.eq(a.y, 330);
+    assert.eq(a.halfW, 20); assert.eq(a.halfH, 30);
+    assert.eq(JSON.stringify(a), JSON.stringify(b));
+  } finally { WorldGen.tileCache = old; }
+});

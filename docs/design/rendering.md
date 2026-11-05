@@ -413,6 +413,16 @@ cover flag on its own live state (`scene._objectsCoverPlayer`, a wall group's
 or `scene._lowpoly`'s `coversPlayer`), so a torn-down pass cannot leave a
 stale ghost. The checks update without rebuilding geometry
 or reading pixels. Home keeps its separate indoor roof-cutaway behavior.
+All building wrecks share the house's broken masonry display, including locked forts
+and quest castles. Castles retain their larger source footprint. `Houses.isBuildingWreck`
+owns the display verdict; active Hives and Citadels remain enemy-controlled buildings.
+House, fort and castle restoration retain separate gameplay routes.
+`Render.buildingShines` adds the existing warm shiny light and twinkle to sites
+with a `Houses.wreckOffer`; completed Blessed sites keep this glow. These visual
+marks apply only to house wrecks, never forts or castles, and never write Magic
+Hammer state or grant its price/damage effects. Procedural buildings keep their
+twinkle under WebGL because they have no billboard for the
+pre-FX shine sweep.
 Wrecks follow option B of the October 23 “Broken walls. Open ground” study.
 Individual 3D blocks extend inward from the old wall line, with eight-unit
 thickness, half-unit joints and one-unit clipped corners. Bays are clipped to
@@ -458,7 +468,11 @@ rotation; rebuilding does not bake textures or read pixels.
 Canvas procedural wrecks keep their low broken perimeter walls through
 `BuildingStyles.emit`; their cached floor must not suppress that geometry.
 Legacy wreck sprites use the ground layer and
-a flattened vertical scale; restoring a wreck returns it to standing architecture.
+a flattened vertical scale; shape-only castles use that same artwork enlarged to
+their source footprint. There is no separate ruined-fort sprite selection or ruined-castle
+floor/rampart pass. Restoring a wreck returns it to standing architecture. The overlay's
+cache includes `restoredCastles`, so paying the restoration cost immediately raises
+the castle while its quest and claim remain pending.
 
 [Low-poly building styles](../art/lowpoly-building-styles.md) owns the detail.
 `WallPerspective` prisms (castle ramparts, Canvas fallback) read the same
@@ -1662,10 +1676,12 @@ and `FDRCastleGeometry`. `CastleStyles.renderStyle` owns three visual families:
 slate Citadel, warm sandstone Bastion, and pale stone Archive with teal pyramidal
 roofs. The historical four-way castle hash and quest assignments remain stable;
 the legacy ruin slot uses Bastion architecture instead of a separate ruin family.
-`BuildingOverlay` passes the castle key and claim state to the renderer and uses
-the same profile for its courtyard floor. Citadel wrecks are dark and foreboding;
-conquest repairs and lightens them. Bastion and Archive damage is a condition
-of the same complete architecture, expressed through weathered materials.
+`BuildingOverlay` draws intact architecture for standing castles and uses the same
+profile for their courtyard floor. Unrestored quest castles use the shared house
+wreck renderer instead. Citadels stand intact while enemy controlled; their skull
+flags convey ownership. Castle restoration reveals the quest, and completing it
+unlocks the usual daily tithe. Claiming changes ownership flags independently of
+the architecture's restored condition.
 
 Square towers align with the longer adjoining curtain, then shift eight game
 pixels outward along the corner bisector. Their original seated base must fit
@@ -1740,19 +1756,12 @@ Cloth and emblem retain their existing decal triangles. The cloth tile leaves
 its bottom fifth outside banner sampling. A separate opaque coping patch in
 that tail gives raised battlement caps their bevels, with clamped gutters clear
 of the shared white patch. Canvas treats only that subregion as opaque, keeping
-banner cutouts exact. Military decks have their own tint so Citadel wrecks
-retain warm sandstone beneath grey coping.
-Courtyard paving and wreck grass repeat on the existing cached ground canvas;
-they add no ground or castle triangles. The style's paving descriptor selects
-Citadel's existing small pavers, Bastion's quiet sandy slabs, or Archive's fine
-cream paving; family overlays are preloaded once and share the pattern cache.
-Ground vegetation uses deterministic, bounded contact masks around the courtyard,
-towers and keep. A same-winding union prevents overlapping contacts from
-darkening; its leaf pattern retains world phase. Bastion has broad visible
-overgrowth, Archive narrower edge growth, and Citadel sparse patches. The masks
-reuse the existing ground canvas without readback, additional textures or
-rotation-time repaint. Masonry weathering is strongest on Bastion and Archive;
-Citadel retains distinctly dark stone and oxblood banners.
+banner cutouts exact. Military decks have their own tint.
+Courtyard paving repeats on the existing cached ground canvas without adding
+triangles. The style's paving descriptor selects Citadel's existing small pavers,
+Bastion's quiet sandy slabs, or Archive's fine cream paving; family overlays are
+preloaded once and share the pattern cache. Standing castles use intact materials;
+the runtime no longer paints separate ruined-castle vegetation or damage floors.
 The existing courtyard canvas also paints short world-fixed shadows from the
 retained opaque stone and roof faces, plus narrow contact rims. A single
 same-winding fill unions overlaps and clips to the courtyard; it adds no GPU
@@ -1764,8 +1773,7 @@ is no upper shoulder shadow or projecting crown shelf. Military keeps reuse
 their two entrance-decal triangles for a door and two flanking banners, with
 transparent gaps keeping the entrance clear. Four padded family/condition
 frames use palettes read from `CastleStyles` by the offline builder. Citadel
-shows a closed wrecked iron grille or restored timber double doors; Bastion
-also uses closed timber double doors. Seams and
+uses timber double doors, as does Bastion. Seams and
 hardware remain flat decals; the facade does not cut a hole in the wall or
 change collision. Canvas joins each alpha facade's internal diagonal through
 its exact quad, isolating subframes and preserving exterior transparency.
@@ -1774,7 +1782,7 @@ towers sample one arch from that shared tile. Archive towers and keeps use a
 broader, quieter ashlar tile than their curtains, and flush dark double doors.
 Their fully opaque tower tiles also participate in Canvas seam coverage.
 Archive towers and keeps have four roof triangles over a closed flat cap in both
-restored and wrecked states. Archive has no wood, galleries,
+preview conditions. Runtime standing castles use the intact condition. Archive has no wood, galleries,
 modeled roof framing or book banner. Four restrained teal face values reveal
 each Archive pyramid peak without increasing its four-triangle roof. A shared
 opaque ridge/eave tile adds restrained edge detail; keep roof rise scales with

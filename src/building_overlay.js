@@ -847,33 +847,19 @@
         ctx.fillRect(-x / scale, -y / scale, size / scale, size / scale);
         ctx.restore();
       },
+      wreckPoly(d) {
+        if (!scene.textures.exists('house_wreck')) return;
+        const source = scene.textures.get('house_wreck').getSourceImage();
+        // Legacy mode uses the house fallback artwork enlarged to this lot.
+        ctx.save(); trace(d.pts); ctx.clip();
+        ctx.drawImage(source, d.left - originX, d.north - originY,
+          d.right - d.left, d.south - d.north);
+        ctx.restore();
+      },
       castleCarpet(pts, holes, key, active) {
         const local = ring => ring.map(p => ({ x: p.x - originX, y: p.y - originY }));
         CastleStyles.paintInteriorCarpet(ctx, local(pts), (holes || []).map(local),
           key, active, phaseX, phaseY);
-      },
-      castleGrowth(model,key) {
-        const patches=CastleStyles.growthPatches(key,model.layout);
-        if(!patches.length)return;
-        ctx.save();trace(model.footprint);ctx.clip();ctx.beginPath();
-        for(const patch of patches){
-          let area=0;
-          for(let i=0;i<patch.length;i++)area+=patch[i].x*patch[(i+1)%patch.length].y-patch[(i+1)%patch.length].x*patch[i].y;
-          const points=area<0?patch.slice().reverse():patch;
-          ctx.moveTo(points[0].x-originX,points[0].y-originY);
-          for(let i=1;i<points.length;i++)ctx.lineTo(points[i].x-originX,points[i].y-originY);
-          ctx.closePath();
-        }
-        // One union fill prevents overlapping wall/keep contacts darkening.
-        ctx.fillStyle='#829050';ctx.globalAlpha=model.family==='citadel'?.12:model.family==='bastion'?.72:.24;ctx.fill();
-        ctx.clip();
-        const p=patternFor('fdr-wreck');
-        if(p){
-          ctx.fillStyle=p.fill;ctx.globalAlpha=model.family==='bastion'?.8:.65;
-          const x=wrap(phaseX,p.width),y=wrap(phaseY,p.height);
-          ctx.translate(x,y);ctx.fillRect(-x,-y,size,size);
-        }
-        ctx.restore();
       },
       // Ground shadows reuse the existing cached courtyard canvas. Project
       // retained opaque faces along a short, world-fixed southward light axis;
@@ -913,18 +899,6 @@
         }
         ctx.fillStyle = '#30382f'; ctx.globalAlpha = .22;
         ctx.fill(); ctx.restore();
-      },
-      damagePoly(pts, key, claimed, anchorX, anchorY) {
-        const texture = CastleStyles.damageTexture(scene, key, claimed);
-        if (!texture) return false;
-        if (!patterns.has(texture)) patterns.set(texture,
-          ctx.createPattern(scene.textures.get(texture).getSourceImage(), 'repeat'));
-        ctx.save(); trace(pts); ctx.clip();
-        ctx.translate(anchorX - originX, anchorY - originY);
-        ctx.fillStyle = patterns.get(texture);
-        ctx.fillRect(originX - anchorX, originY - anchorY, size, size);
-        ctx.restore();
-        return true;
       },
       columnsPoly(pts, columns, claimed) {
         if (!columns.length) return;
@@ -1497,7 +1471,7 @@
     const s = scene.save || {};
     const n = (o) => (o ? (Array.isArray(o) ? o.length : Object.keys(o).length) : 0);
     return [!!scene._headingUp,scene.game?.renderer?.type,Render.buildingArtStyle,scene.buildingRoofVariant,scene.buildingRoofDetail,scene.buildingStoreys].join(':') + ',' + n(s.restoredHouses) + ',' + n(s.unlockedForts) + ',' + n(s.claimedCastles)
-      + ',' + JSON.stringify([s.restoredHouses, s.shopLines, s.shopTiers, s.bookshopId, s.petshopId, s.starterBlacksmithId])
+      + ',' + JSON.stringify([s.restoredHouses, s.restoredCastles, s.shopLines, s.shopTiers, s.bookshopId, s.petshopId, s.starterBlacksmithId])
       + ',' + Object.keys(s.hives || {}).filter(id => s.hives[id].hp === 0).sort().join('|')
       + ',' + (s.starterShopId || '') + ',' + HomeArea.storeys(s) + ',' + Object.values(s.temples || {}).filter(r => r.active).length
       // Home's roof comes off while the player is inside (drawHome).
@@ -1619,7 +1593,7 @@
       // Objects without a source polygon (Home and authored sandbox fixtures)
       // still get a footprint-derived building, without changing world data.
       if (procedural) for (const o of objects) {
-        if (matched.has(o.id) || o.tier === CASTLE) continue;
+        if (matched.has(o.id) || (o.tier === CASTLE && !Houses.isBuildingWreck(scene.save, o))) continue;
         const x = projX(o.x) + (o.footDx || 0) * CELL_PX;
         const y = projY(o.y) + (o.footDy || 0) * CELL_PX;
         const size = Math.max(CELL_PX, Math.min(CELL_PX * 3,
@@ -1704,8 +1678,8 @@
     if (g.texturePhase) g.texturePhase(projX(0), projY(0));
 
     for (const d of draws) {
-      // Active road hives stand as camera-facing sprites; destruction restores
-      // this same footprint's ordinary wreck geometry on the next rebuild.
+      // Active road hives stand as enemy buildings; destruction reveals the
+      // shared house wreck geometry on the next rebuild.
       if (d.object && Render.hiveSpec(d.object, scene)) continue;
       if (perspective) scene._wallPerspective.polygon.building = {
         key: d.key, footprint: d.pts,
@@ -1731,7 +1705,7 @@
         else { g.fillPoly(d.pts, palette.floor); g.strokePoly(d.pts, OUTLINE_PX, palette.outline); }
         continue;
       }
-      const isMine = claimed(d.object?.id || d.key);
+      let isMine = claimed(d.object?.id || d.key);
       if (d.castleInterior) {
         const style = CastleStyles.renderStyle(d.key, isMine);
         g.fillPoly(d.pts, style.floor, undefined, d.holes);
@@ -1752,18 +1726,55 @@
         }
         continue;
       }
+      const object = d.object || { kind: 'house', id: d.key, tier: d.tier,
+        ...(d.tier === CASTLE ? { castle: d.key } : {}) };
+      const role = !d.object && d.tier === CASTLE && isMine ? null : Houses.displayRole(scene.save, object);
+      // Every ruined building uses the house's broken masonry at its actual
+      // footprint size. Castles and forts never reach their standing renderers
+      // until restored; active Hives and Citadels are enemy-held architecture.
+      if (role === 'wreck' && !d.shared && !d.retail && (d.object || procedural || d.tier === CASTLE)) {
+        if (procedural) {
+          let model;
+          if (lowpoly) {
+            const profile = Render.buildingProfileFor(object, scene);
+            const palette = { ...BuildingStyles.STYLES[profile.style], ...profile.palette };
+            const paint = c => tuneOf(false)(shadeOf(false)(c));
+            const recipe = BuildingLowPoly.recipeFor('wreck', {
+              wall: paint(palette.wall), roof: paint(palette.roof) });
+            if (typeof RogueObjects !== 'undefined' && RogueObjects.enabled) recipe.artProfile = 'rogue';
+            model = BuildingLowPoly.add(scene, d.pts, recipe, 'ridge', object.id, doorStreets);
+          } else {
+            const floor = tuneOf(false)(shadeOf(false)(floorColor(9, false)));
+            g.fillPoly(d.pts, floor);
+            g.texturePoly?.(d.pts, 9);
+            g.blobsPoly?.(d.pts, slimeBlobs(d), d.left, d.north,
+              slimeColor(floor, shadeOf(false)), SLIME_ALPHA);
+            model = BuildingStyles.emit(scene, 'polygon', d.pts, 'ruin', { claimed: false });
+          }
+          if (model && (model.faces?.length || model.prisms?.length)) {
+            scene._proceduralBuildings.set(object.id, {
+              height: model.height * (lowpoly ? BuildingLowPoly.LOOK.heightScale : 1) });
+          }
+        } else if (!d.object) g.wreckPoly?.(d);
+        continue;
+      }
+      if (d.tier === CASTLE && !CastleStyles.get(d.key).guards) {
+        // Restoration raises the architecture; the quest still owns its claim.
+        isMine = true;
+        if (CastleStyles.get(d.key).id === 'ruin') d.castleStyle = 'bastion';
+      }
       if (fdrCastles && d.tier === CASTLE && d.key !== scene.save?.starterShopId) {
         const group = scene._wallPerspective.castles;
         group.building = { key: d.key, footprint: d.pts,
           anchor: { x: (d.left + d.right) / 2, y: (d.north + d.south) / 2 } };
-        const model = FDRCastleGeometry.draw(scene, 'castles', d.pts, { family: d.key, active: isMine, keep: true });
+        const active = true; // Enemy ownership is shown by flags, never ruined architecture.
+        const model = FDRCastleGeometry.draw(scene, 'castles', d.pts, { family: d.key, active, keep: true });
         if (model) {
           scene._fdrCastleLayouts.set(d.key, { ...model, source: 'castles' });
           g.fillPoly(d.pts, model.style.floor);
           // Reuse the ground canvas: quiet paving adds no castle triangles.
           const paving=model.style.paving;
           g.texturePoly?.(d.pts, paving.key, [], paving.scale, paving.alpha);
-          if(!isMine)g.castleGrowth?.(model,d.key);
           g.castleShadow?.(model, group.blocks.slice(-model.blocksAdded));
           continue;
         }
@@ -1835,7 +1846,6 @@
         continue;
       }
       // Wizard retains its shrine sprite above a plain footprint.
-      const role = d.object && Houses.displayRole(scene.save, d.object);
       if(role === 'wizard' && !lowpoly){
         g.fillPoly(d.pts,tuneOf(isMine)(shadeOf(isMine)(floorColor(d.tier,isMine))));continue;
       }
@@ -1851,18 +1861,6 @@
         const object = d.object || { kind: 'house', id: d.key, tier: d.tier };
         const profile = Render.buildingProfileFor(object, scene);
         const styleId = profile.style;
-        // The WebGL wreck atlas owns its translucent ground; an opaque
-        // underpainting here would hide the terrain beneath its stains.
-        if (styleId === 'ruin' && !lowpoly) {
-          const floor = tuneOf(isMine)(shadeOf(isMine)(floorColor(d.tier, isMine)));
-          g.fillPoly(d.pts, floor);
-          if (g.texturePoly) g.texturePoly(d.pts, d.tier);
-          if (g.blobsPoly) g.blobsPoly(d.pts, slimeBlobs(d), d.left, d.north,
-            slimeColor(floor, shadeOf(false)), SLIME_ALPHA);
-          // Canvas uses BuildingStyles' broken-wall prisms below. Marking
-          // this footprint covered here would suppress its sprite while
-          // leaving only the floor, with no wreck walls at all.
-        }
         let model;
         if (lowpoly) {
           const role = specialtyFor(scene.save, object);
@@ -1870,9 +1868,7 @@
           const paint = c => tuneOf(isMine)(shadeOf(isMine)(c));
           const recipe = BuildingLowPoly.recipeFor(role,{wall:paint(palette.wall),roof:paint(palette.roof),
                 trim:role==='turret'?paint(palette.wall):undefined},Render.buildingStoreysFor(object, scene),isMine);
-          if(typeof RogueObjects!=='undefined'&&RogueObjects.enabled
-              &&role==='wreck'&&object.tier===9&&!object.castle)recipe.artProfile='rogue';
-          recipe.authored = styleId==='ruin'?null:authoredRecipe(scene,object,role);
+          recipe.authored = authoredRecipe(scene,object,role);
           // Restored recipes own their brass/copper palette; apply the same
           // background treatment after selection, including the recipe trim.
           if(recipe.facadeTrim==='brass')for(const key of ['body','roof','trim'])recipe[key]=paint(recipe[key]);
@@ -1919,9 +1915,7 @@
       // south-facing edges, at any angle, with no per-edge normal test.
       if (!separateUprights || (d.tier === 9 && !perspective)) g.fillPoly(d.pts.map((p) => ({ x: p.x, y: p.y + depth })), (style ? style.stone.FACE : tune(shade(faceColor(d.tier, isMine)))));
       g.fillPoly(d.pts, floor);
-      const damagedFloor = style?.id === 'ruin' && g.damagePoly
-        && g.damagePoly(d.pts, d.key, isMine, d.damageOriginX, d.damageOriginY);
-      if (!damagedFloor && g.texturePoly) g.texturePoly(d.pts, d.tier);
+      if (g.texturePoly) g.texturePoly(d.pts, d.tier);
       // Dilapidated: the slime, over the floor and its material (it is growing
       // on them) but under the lattice, the rampart and the outline — the
       // building's own lines stay clean, only its floor is overgrown.

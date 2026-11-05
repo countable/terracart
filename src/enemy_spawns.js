@@ -300,7 +300,9 @@
   function caveRows(depth, context) {
     const floorHabitat = root.WorldGen.floorProfile(depth).enemyHabitat;
     if (floorHabitat) context = { kinds: root.EnemyHabitats.FAMILIES[floorHabitat] };
-    return rows().filter(row => !row.retired && !row.signatureOnly && row.cave && row.attackType !== 'touch'
+    // A signature-only row joins a cave bag only where the floor's own
+    // habitat family names it (the sewer's moss and mini slimes).
+    return rows().filter(row => !row.retired && (!row.signatureOnly || !!floorHabitat) && row.cave && row.attackType !== 'touch'
       && depth >= row.cave.minDepth && (row.cave.maxDepth == null || depth <= row.cave.maxDepth)
       && (row.cave.depthRule !== 'even' || depth % 2 === 0)
       && (!context || context.kinds.includes(row.id))
@@ -320,7 +322,10 @@
     const local = giant ? r / giantChance : (r - giantChance) / (1 - giantChance);
     return pick(pool.map(row => ({ row, weight: weights?.[row.id] ?? row.cave.weight })), local)?.id || null;
   }
-  const caveDensityRate = depth => Math.min(7.84, 2.94 + .49 * Math.max(0, depth - 1));
+  // A floor row's own creatureRate (the sewer's teeming vermin) wins over
+  // the depth formula.
+  const caveDensityRate = depth => root.WorldGen.floorProfile(depth).creatureRate
+    ?? Math.min(7.84, 2.94 + .49 * Math.max(0, depth - 1));
   function caveDensityRows(depth, context) {
     const eligible = caveRows(depth, context), habitat = root.WorldGen.floorProfile(depth).enemyHabitat;
     const weights = root.EnemyHabitats.FAMILY_WEIGHTS[habitat];

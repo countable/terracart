@@ -3,13 +3,21 @@
   const start = SCENE_SRC.indexOf('\n  showQuestBoard(sx, sy, house) {');
   const end = SCENE_SRC.indexOf('\n  }\n', start);
   const methods = (0, eval)('({' + SCENE_SRC.slice(start + 1, end + 4) + '})');
+  const restoreStart = SCENE_SRC.indexOf('\n  presentCastleRestoreModal(sx, sy, house) {');
+  const restoreEnd = SCENE_SRC.indexOf('\n  }\n', restoreStart);
+  Object.assign(methods, (0, eval)('({' + SCENE_SRC.slice(restoreStart + 1, restoreEnd + 4) + '})'));
   const expiryStart = SCENE_SRC.indexOf('\n  _expireCitadelBattles(now = Date.now()) {');
   const expiryEnd = SCENE_SRC.indexOf('\n  }\n', expiryStart);
   Object.assign(methods, (0, eval)('({' + SCENE_SRC.slice(expiryStart + 1, expiryEnd + 4) + '})'));
   const house = key => ({ id: 'tower:' + key, kind: 'tower', castle: key });
   const scene = () => Object.assign(Object.create(methods), {
-    save: { money: 0, claimedCastles: {} }, offers: [], guardChecks: 0,
+    save: { money: 0, claimedCastles: {}, restoredCastles: {}, inv: [] }, offers: [], guardChecks: 0,
     _castleKey: Houses.castleKey,
+    talkRestored(x, y, h) { this.save.restoredCastles[h.castle] = true; this.showQuestBoard(x, y, h); },
+    _afterWreckGather(fn) { this.finishWork = fn; },
+    _clampSelSlot() {},
+    _houseBlastGeometry() { return { x: 0, y: 0 }; },
+    _blastAt() {}, flash() {},
     isCastleClaimed(h) { return Houses.isCastleClaimed(this.save, h); },
     _claimCastle(h) { return Houses.claimCastle(this.save, h); },
     _checkCitadelClaims() { this.guardChecks++; },
@@ -33,11 +41,121 @@
     return Quests.onEvent(save, 'deliver');
   };
 
+
+  test('fort restoration: a stale accepted offer cannot spend wood twice', () => {
+    const start = SCENE_SRC.indexOf('\n  presentFortUnlockModal(sx, sy, house) {');
+    const end = SCENE_SRC.indexOf('\n  }\n', start);
+    const fortMethods = new Function('Rewards', 'return ({' + SCENE_SRC.slice(start + 1, end + 4) + '});')({ itemTapHTML: () => 'Wood' });
+    const s = Object.assign(scene(), fortMethods, {
+      _fortUnlockCost() { return Houses.fortUnlockCost(this.save); },
+      showChestRewardModal() {},
+    });
+    const fort = { kind: 'house', id: 'fort', tier: 11 };
+    s.save.relics = { bag: { tier: 7 } };
+    Inventory.add(s.save, 'wood', 30);
+    const need = s._fortUnlockCost();
+    s.presentFortUnlockModal(0, 0, fort);
+    s.offers[0].onAccept();
+    s.offers[0].onAccept();
+    assert.eq(Inventory.count(s.save, 'wood'), 30 - need);
+    assert.truthy(s.save.unlockedForts.fort);
+    const other = { ...fort, id: 'other-fort' };
+    s.save.scholarLoans = { wood: 24 };
+    s.presentFortUnlockModal(0, 0, other);
+    assert.falsy(s.offers[1].canAfford, 'loaned wood cannot pay');
+    s.offers[1].onAccept();
+    assert.falsy(s.save.unlockedForts['other-fort']);
+    assert.eq(Inventory.count(s.save, 'wood'), 30 - need);
+
+  });
+
+  test('castle restoration: 9 stone precedes quest assignment and never grants the tithe', () => {
+    const s = scene(), h = house('archive');
+    Inventory.add(s.save, 'rubble', 9);
+    s.showQuestBoard(0, 0, h);
+    assert.eq(s.offers[0].acceptLabel, 'Restore');
+    assert.truthy(s.offers[0].canAfford);
+    assert.falsy(Quests.get(s.save, h.castle));
+    s.offers[0].onAccept();
+    assert.eq(Inventory.count(s.save, 'rubble'), 9, 'work charges only on completion');
+    assert.falsy(Quests.get(s.save, h.castle));
+    s.finishWork();
+    assert.eq(Inventory.count(s.save, 'rubble'), 0);
+    assert.truthy(s.save.restoredCastles.archive);
+    assert.truthy(Quests.get(s.save, h.castle));
+    assert.falsy(s.isCastleClaimed(h), 'restoration is not quest completion');
+    s.offers[0].onAccept();
+    assert.eq(Inventory.count(s.save, 'rubble'), 0, 'stale accept cannot charge twice');
+    deliver(s.save);
+    s.showQuestBoard(0, 0, h);
+    s.offers[s.offers.length - 1].onAccept();
+    assert.truthy(s.isCastleClaimed(h), 'usual quest unlocks castle service');
+  });
+
+  test('castle restoration: a reload preserves restoration and still requires the quest', () => {
+    const s = scene(), h = house('archive');
+    Inventory.add(s.save, 'rubble', 9);
+    s.showQuestBoard(0, 0, h);
+    s.offers[0].onAccept();
+    s.finishWork();
+    const reloaded = scene();
+    reloaded.save = SaveState.defaults(JSON.parse(JSON.stringify(s.save)));
+    reloaded.showQuestBoard(0, 0, { ...h, id: 'other-tower' });
+    assert.eq(reloaded.offers[0].acceptLabel, 'Locked');
+    assert.eq(Inventory.count(reloaded.save, 'rubble'), 0);
+    assert.falsy(reloaded.isCastleClaimed(h));
+    const taxStart = SCENE_SRC.indexOf('\n  _castleTax(sx, sy, house) {');
+    const taxEnd = SCENE_SRC.indexOf('\n  }\n', taxStart);
+    const tax = (0, eval)('({' + SCENE_SRC.slice(taxStart + 1, taxEnd + 4) + '})')._castleTax;
+    tax.call(reloaded, 0, 0, h);
+    assert.eq(reloaded.save.money, 0, 'restored but unclaimed castles pay no tithe');
+    deliver(reloaded.save);
+    reloaded.showQuestBoard(0, 0, h);
+    reloaded.offers[1].onAccept();
+    assert.truthy(reloaded.isCastleClaimed(h));
+    const claimed = SaveState.defaults(JSON.parse(JSON.stringify(reloaded.save)));
+    assert.truthy(Houses.isCastleClaimed(claimed, h));
+    assert.falsy(Houses.isCastleWreck(claimed, h));
+  });
+
+  test('castle restoration: borrowed stone cannot pay, including a loan made during work', () => {
+    const s = scene(), h = house('archive');
+    Inventory.add(s.save, 'rubble', 9);
+    s.save.scholarLoans = { rubble: 1 };
+    s.showQuestBoard(0, 0, h);
+    assert.falsy(s.offers[0].canAfford);
+    s.offers[0].onAccept();
+    assert.falsy(s.finishWork);
+    s.save.scholarLoans = {};
+    s.showQuestBoard(0, 0, h);
+    s.offers[1].onAccept();
+    s.save.scholarLoans.rubble = 1;
+    s.finishWork();
+    assert.falsy(s.save.restoredCastles.archive);
+    assert.eq(Inventory.count(s.save, 'rubble'), 9);
+  });
+
+  test('castle restoration: insufficient or spent stone cannot restore or assign a quest', () => {
+    const s = scene(), h = house('archive');
+    s.showQuestBoard(0, 0, h);
+    assert.falsy(s.offers[0].canAfford);
+    s.offers[0].onAccept();
+    assert.falsy(s.finishWork);
+    Inventory.add(s.save, 'rubble', 9);
+    s.showQuestBoard(0, 0, h);
+    s.offers[1].onAccept();
+    Inventory.remove(s.save, 'rubble', 1);
+    s.finishWork();
+    assert.falsy(s.save.restoredCastles.archive);
+    assert.falsy(Quests.get(s.save, h.castle));
+    assert.eq(Inventory.count(s.save, 'rubble'), 8);
+  });
+
   test('castle conversation: first talk assigns the variant job and reopening preserves progress', () => {
     for (const [variant, verb] of [['bastion', 'kill'], ['archive', 'deliver'], ['ruin', 'hunt']]) {
       const s = scene(), h = house(variant);
       assert.eq(Quests.get(s.save, variant), null);
-      s.showQuestBoard(0, 0, h);
+      s.talkRestored(0, 0, h);
       const q = Quests.get(s.save, variant);
       assert.eq(q.verb, verb);
       assert.eq(s.offers[0].canAfford, false);
@@ -48,7 +166,7 @@
       assert.falsy(s.isCastleClaimed(h));
       if (verb === 'deliver') deliver(s.save);
       else Quests.onKill(s.save, q.target);
-      s.showQuestBoard(0, 0, { ...h, id: 'another-tower' });
+      s.talkRestored(0, 0, { ...h, id: 'another-tower' });
       assert.eq(Quests.get(s.save, variant), q);
       assert.eq(q.have, 1);
       assert.eq(s.save.quests.assigned[verb], 1);
@@ -59,8 +177,8 @@
 
   test('castle conversation: claims only the visited castle and pays exactly once', () => {
     const s = scene(), first = house('archive'), second = house(nextKey('archive'));
-    s.showQuestBoard(0, 0, first);
-    s.showQuestBoard(0, 0, second);
+    s.talkRestored(0, 0, first);
+    s.talkRestored(0, 0, second);
     const firstQuest = Quests.get(s.save, first.castle);
     const secondQuest = Quests.get(s.save, second.castle);
     assert.eq(firstQuest.need, 1);
@@ -70,7 +188,7 @@
     assert.eq(secondQuest.have, 0, 'one delivery counts at one castle');
     deliver(s.save);
     assert.eq(secondQuest.have, secondQuest.need, 'the next delivery fills the next Archive');
-    s.showQuestBoard(0, 0, first);
+    s.talkRestored(0, 0, first);
     const ready = s.offers[s.offers.length - 1];
     assert.truthy(ready.canAfford);
     ready.onAccept();
@@ -81,7 +199,7 @@
     assert.eq(s.save.money, firstQuest.reward, 'repeated callback cannot pay twice');
     assert.eq(Quests.completedCount(s.save), 1);
     const offersBefore = s.offers.length;
-    s.showQuestBoard(0, 0, first);
+    s.talkRestored(0, 0, first);
     assert.eq(s.offers.length, offersBefore);
     assert.eq(Quests.get(s.save, first.castle), firstQuest);
     assert.eq(Quests.get(s.save, second.castle), secondQuest);
@@ -90,12 +208,12 @@
   test('castle conversation: deliveries made before an Archive is visited count there, once each', () => {
     const s = scene(), first = house('archive'), second = house(nextKey('archive'));
     s.save.deliveryCount = 2;               // two deliveries before any Archive
-    s.showQuestBoard(0, 0, first);
+    s.talkRestored(0, 0, first);
     assert.truthy(s.offers[0].canAfford, 'an earlier delivery completes the first Archive');
-    s.showQuestBoard(0, 0, second);
+    s.talkRestored(0, 0, second);
     assert.truthy(s.offers[1].canAfford, 'the second earlier delivery completes the second');
-    s.showQuestBoard(0, 0, first);
-    s.showQuestBoard(0, 0, second);
+    s.talkRestored(0, 0, first);
+    s.talkRestored(0, 0, second);
     assert.eq(s.save.quests.deliveriesSpent, 2, 'reopening credits nothing twice');
     const otherKey = (() => {
       for (let i = 0; i < 400; i++) {
@@ -104,7 +222,7 @@
       }
       throw new Error('No third archive key');
     })();
-    s.showQuestBoard(0, 0, house(otherKey));
+    s.talkRestored(0, 0, house(otherKey));
     const q = Quests.get(s.save, otherKey);
     assert.eq(q.have, 0, 'the pool is spent: a third Archive waits for a new delivery');
     deliver(s.save);
@@ -113,8 +231,8 @@
 
   test('castle conversation: a save from before the pool keeps its Archives and spends nothing twice', () => {
     const s = scene(), first = house('archive'), second = house(nextKey('archive'));
-    s.showQuestBoard(0, 0, first);
-    s.showQuestBoard(0, 0, second);
+    s.talkRestored(0, 0, first);
+    s.talkRestored(0, 0, second);
     // The old rule: one delivery filled both, and no spent count was kept.
     s.save.deliveryCount = 1;
     delete s.save.quests.deliveriesSpent;
@@ -126,7 +244,7 @@
   test('castle conversation: an older three-kill or two-hunt quest asks for one', () => {
     for (const [variant, need] of [['bastion', 3], ['ruin', 2]]) {
       const s = scene(), h = house(variant);
-      s.showQuestBoard(0, 0, h);
+      s.talkRestored(0, 0, h);
       const q = Quests.get(s.save, variant);
       Object.assign(q, { need, have: 0, body: 'old copy' });
       Quests.onKill(s.save, q.target);
@@ -134,7 +252,7 @@
       assert.eq(q.have, 1, `${variant} one kill completes it`);
       assert.falsy(/old copy|\d/.test(q.body), `${variant} objective names one target: ${q.body}`);
       Object.assign(q, { need, have: 2 });
-      s.showQuestBoard(0, 0, h);
+      s.talkRestored(0, 0, h);
       assert.eq(q.have, 1, 'progress already made carries over, capped at one');
     }
   });
@@ -179,7 +297,7 @@
   test('castle conversation: newly cleared citadel opens without a guarded offer', () => {
     const s = scene(), h = house('citadel');
     s._checkCitadelClaims = () => Houses.claimCastle(s.save, h);
-    s.showQuestBoard(0, 0, h);
+    s.talkRestored(0, 0, h);
     assert.truthy(s.isCastleClaimed(h));
     assert.eq(s.offers.length, 0);
     assert.falsy(s.save.quests);
@@ -197,7 +315,7 @@
     const s = scene(), h = house(nextKey('archive', 'luxury'));
     s.save.starterShopId = 'home';
     s.save.houseLuxury = { home: { score: 3, footprintKey: 'room' } };
-    s.showQuestBoard(0, 0, h);
+    s.talkRestored(0, 0, h);
     const card = s.offers[0];
     assert.eq(card.get, 'A respectable address');
     assert.truthy(card.blurb.includes("We don't admit rabble here!"));
@@ -206,14 +324,14 @@
     s.save.houseLuxury.home.score = 2;
     card.onAccept();
     assert.falsy(s.isCastleClaimed(h)); assert.eq(s.save.money, 0);
-    s.showQuestBoard(0, 0, h);
+    s.talkRestored(0, 0, h);
     assert.falsy(s.offers[1].canAfford); assert.truthy(s.offers[1].blurb.includes('2 / 3'));
     s.save.houseLuxury.home.score = 3;
-    s.showQuestBoard(0, 0, h);
+    s.talkRestored(0, 0, h);
     s.offers[2].onAccept(); s.offers[2].onAccept();
     assert.truthy(s.isCastleClaimed(h)); assert.eq(s.save.money, 60);
     s.save.houseLuxury.home.score = 0;
-    s.showQuestBoard(0, 0, h);
+    s.talkRestored(0, 0, h);
     assert.eq(s.offers.length, 3, 'pickup never removes claimed ownership');
   });
 })();
