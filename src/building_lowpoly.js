@@ -38,12 +38,15 @@
   const mix=(a,b,t)=>{const c=i=>Math.round(((a>>i)&255)*(1-t)+((b>>i)&255)*t);return (c(16)<<16)|(c(8)<<8)|c(0);};
   const hash=(x,y)=>{let h=(x*374761393+y*668265263)|0;h=(h^(h>>>13))*1274126177;return ((h^(h>>>16))>>>0)/4294967296;};
   // Cell order of assets/Objects/BuildingMaterials/reference-materials-v3.png.
+  // Roof kinds the cel sheet paints itself, with no approved-sheet crop.
+  const PAINTED_ROOFS=['flat','boards'];
   const MATERIAL_TILE=96,MATERIAL_CELLS=['clay','slate','thatch','shingle','glazed','plaster','boards','rubble','brick','clapboard','flagstone','moss'];
   const ROLES={
     plain:{window:'casement',material:'plaster',finish:'cottage',roofMaterial:'clay',stories:1,style:'multistorey'},
     // Home — the player's house (building_overlay.js drawHome): one storey of
-    // plaster under a clay ridge, and the one role with an `interior` recipe.
-    home:{window:'casement',material:'plaster',finish:'cottage',roofMaterial:'clay',stories:1,style:'multistorey',variant:'ridge'},
+    // plaster under a broad-board ridge (the authored cabin's roof, which the
+    // two-storey procedural Home keeps), and the one role with an `interior` recipe.
+    home:{window:'casement',material:'plaster',finish:'cottage',roofMaterial:'boards',stories:1,style:'multistorey',variant:'ridge'},
     workshop:{window:'woodShutters',material:'timber',finish:'siding',roofMaterial:'slate',stories:1,style:'whitewash',variant:'ridge'},
     blacksmith:{window:'woodShutters',material:'stone',finish:'workshop',roofMaterial:'slate',stories:1,style:'brick',smoke:true,chimneyFlare:1.12},
     trader:{window:'slateShutters',material:'plaster',finish:'plaster',roofMaterial:'flat',stories:2,style:'multistorey',terraced:true},
@@ -1045,6 +1048,8 @@
     }else if(kind==='thatch'){ // tidy bands with sparse bright straws
       for(let y=128,row=0;y<512;y+=12,row++){px(0,y+11,512,1,roof.shade);px(0,y+10,512,1,roof.shade);px(0,y,512,1,roof.light);
         for(let x=(row%2)*8;x<512;x+=16){if(hash(x,y)>.45)px(x+3,y+2,1,6,roof.light);if(hash(y,x)>.75)px(x+9,y+4,1,5,roof.shade);}}
+    }else if(kind==='boards'){ // long overlapping roof boards, 18-texel courses with no butt joints
+      for(let y=128;y<512;y+=18){px(0,y,512,1,mix(roof.shade,ink,.35));px(0,y+1,512,1,roof.light);px(0,y+16,512,1,roof.shade);}
     }else if(kind==='slate'){ // broad rectangular slates 18x9
       for(let y=128,row=0;y<512;y+=9,row++)for(let x=-(row%2)*9;x<512;x+=18){px(x,y+8,18,1,roof.shade);px(x+17,y,1,9,roof.shade);px(x+1,y,15,1,roof.light);}
     }else{ // clay / red tile / shingle: scalloped 12x8 courses, one highlight per tile
@@ -2106,5 +2111,5 @@
     for(const obj of state.pool){obj.visible=false;obj._lowpolyFaces=[];}
   }
   const covers=(scene,o)=>active(scene)&&(scene.depth??0)===0&&scene._lowpoly?.enabled&&!!scene._lowpoly?.keys.has(o.id);
-  global.BuildingLowPoly={prepareRogueWreck,authoredGeometry,FORT_HALL,authoredOutline,LOOK,DOOR,streetDoor,edgeDoor,ringEdgeNearest,doorFaces,atlasFaces,ROLES,RESTORED_ROLES,recipeFor,specialGeometry,styleGeometry,interiorGeometry,geometry,triangulate,active,begin,add,update,offset,worldPieces,smokeMouths,clear,covers};
+  global.BuildingLowPoly={prepareRogueWreck,authoredGeometry,FORT_HALL,authoredOutline,LOOK,DOOR,streetDoor,edgeDoor,ringEdgeNearest,doorFaces,atlasFaces,ROLES,RESTORED_ROLES,PAINTED_ROOFS,recipeFor,specialGeometry,styleGeometry,interiorGeometry,geometry,triangulate,active,begin,add,update,offset,worldPieces,smokeMouths,clear,covers};
 })(window);

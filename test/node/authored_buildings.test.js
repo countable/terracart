@@ -24,6 +24,11 @@
     assert.eq(recipe('home', 'player').key, 'pp_cabin');
     assert.eq(recipe('home', 'player').palette, 'orange');
     assert.eq(AuthoredBuildings.RESIDENCES.join(','), 'pp_plaster,pp_cabin');
+    // Restored houses and Home share broad roof boards, never small shingles:
+    // the cottage's lot roof repeats the cabin's 16-texel board course, and
+    // the procedural (two-storey) Home paints boards too.
+    assert.eq(roofTilePeriod('pp_plaster').join(','), roofTilePeriod('pp_cabin').join(','));
+    assert.eq(BuildingLowPoly.ROLES.home.roofMaterial, 'boards');
     for (const role of [...Shops.THEMES, ...Object.keys(Shops.SOLO_LINES), 'blacksmith', 'trader', 'wizard', 'fort'])
       assert.falsy(recipe(role, 'x').palette === 'orange', role);
     const seen = new Set();
