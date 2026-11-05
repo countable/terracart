@@ -158,7 +158,7 @@ body.compass-hud #money .coin-ico {width:calc(35 * var(--compass-header-unit));h
    keep their places beneath it. */
 body.compass-hud #objective {top:calc(6px + env(safe-area-inset-top,0px));}
 .compass-round .compass-aperture {outline:3px ridge #d2d0c4;box-shadow:inset 0 0 0 3px #33382f,0 0 0 1px #151c15,0 0 0 5px #9c9f95;}
-body.compass-hud #move-pad {right:calc(var(--phone-right,0px) + 13 * var(--compass-unit));bottom:auto;top:calc(var(--compass-map-top) + var(--compass-map-size) - 93 * var(--compass-unit));width:calc(125 * var(--compass-unit));height:calc(125 * var(--compass-unit));border:3px ridge #c5c5b9;background:#303832 url('../assets/ui/compass/joystick.webp') center/cover;box-shadow:0 0 0 2px #222922,0 0 0 5px #b0b3a5,0 3px 6px #132017;backdrop-filter:none;}
+body.compass-hud #move-pad {right:calc(var(--phone-right,0px) + 13 * var(--compass-unit));bottom:auto;top:calc(var(--compass-map-top) + var(--compass-map-size) - 93 * var(--compass-unit));width:var(--compass-stick-size);height:var(--compass-stick-size);border:3px ridge #c5c5b9;background:#303832 url('../assets/ui/compass/joystick.webp') center/cover;box-shadow:0 0 0 2px #222922,0 0 0 5px #b0b3a5,0 3px 6px #132017;backdrop-filter:none;}
 body.compass-hud #move-pad::before {inset:13%;opacity:1;background:radial-gradient(circle,#202722 50%,#303a32 65%,#9ca091 69%,#30372c 73%,transparent 75%);}
 body.compass-hud #move-pad .nub {width:44%;height:44%;left:28%;top:28%;background:radial-gradient(circle at 35% 26%,#fff5af,#ffd35a 35%,#d79618 72%,#a56709);border:3px ridge #f5d46c;}
 .compass-stick-directions {position:absolute;inset:14%;pointer-events:none;color:#f9d363;font:21px var(--font-ui);text-shadow:0 2px 2px #2c2b1a;}
@@ -187,7 +187,9 @@ body.compass-hud #move-pad.compass-closed {background-image:url('../assets/ui/co
 /* The lower shoulder reaches the inventory deck at its native aspect ratio;
    its cutout is the map aperture, never a stretched background rectangle. */
 body.compass-hud {--compass-deck-top:calc(100dvh - var(--inventory-floor,24px) - var(--inventory-name-height,44px) - var(--inventory-slot-height,70px) - var(--inventory-tab-height,68px) - 8px);}
-body.compass-hud #move-pad {top:calc(var(--compass-deck-top) - 125 * var(--compass-unit) - 16px);}
+/* The stick keeps its bottom 16px above the deck; its size alone sets how far it climbs over the map. */
+body.compass-hud {--compass-stick-size:calc(110 * var(--compass-unit));}
+body.compass-hud #move-pad {top:calc(var(--compass-deck-top) - var(--compass-stick-size) - 16px);}
 /* Sprite icons keep their original atlas coordinates; scale the whole clipped
    icon rather than changing its sprite-sheet dimensions. */
 body.compass-hud #memories .mem-ico,body.compass-hud #bookchip .book-ico {transform:scale(1.5);margin:0 5px;flex-shrink:0;}
