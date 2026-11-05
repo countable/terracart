@@ -201,6 +201,10 @@ mechanics.
   at half the drop's list price, checked again when a unique is awarded.
   Drops never reroll or climb above the authored tier. Depth and luck do not
   change signature odds or tiers. The ordinary kill bounty is separate.
+- Blessed Site turrets deal 50% more damage, multiplying the existing Magic
+  Hammer damage bonus independently. Blessing alone does not grant the
+  hammer’s arrow light or shop discounts.
+
 - `combat.js` owns foe HP for melee, projectiles and pets. Damage derives from
   `TOOL_DURATION_MS`; tune that or monster HP, not an extra combat multiplier.
   What a weapon or armour piece says of itself (the inventory detail dialog,

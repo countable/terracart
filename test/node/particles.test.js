@@ -488,8 +488,8 @@ test('particles: a wreck completes its repair before the footprint pop and card'
   // …and the footprint geometry has a floor: an unknown one is a cell.
   const g = app.indexOf('  _houseBlastGeometry(house) {');
   const gbody = app.slice(g, app.indexOf('\n  }\n', g));
-  assert.truthy(/sh\.key !== house\.id/.test(gbody),
-    'the footprint is the building shape keyed by the house\'s own id');
+  assert.truthy(/sh\.key !== buildingKey/.test(gbody),
+    'the footprint is the building shape keyed by the building identity');
   assert.truthy(/Math\.sqrt\(house\.area\) \/ 2/.test(gbody), 'falling back to its polygon area');
   assert.truthy(/halfW = halfH = cellM \/ 2;/.test(gbody), 'and to one cell');
   assert.truthy(/Math\.hypot\(halfW, halfH\) \/ cellM/.test(gbody), 'the radius is the half-diagonal');

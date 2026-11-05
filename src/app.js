@@ -5002,7 +5002,8 @@ class MapScene extends Phaser.Scene {
       this._forEachHouseNear(pc, (o) => {
         if (Houses.displayRole(this.save, o) !== 'turret') return;
         if (Math.abs(o.x - px) > halfSpanM || Math.abs(o.y - py) > halfSpanM) return;
-        list.push({ id: o.id, x: o.x, y: o.y, castle: o.id, shiny: Houses.isShinyHouse(this.save, o) });
+        list.push({ id: o.id, x: o.x, y: o.y, castle: o.id, shiny: Houses.isShinyHouse(this.save, o),
+          blessed: Houses.isBlessedSite(this.save, o) });
       });
       scan = this._turretScan = { t: now, list };
     }
@@ -8427,10 +8428,11 @@ class MapScene extends Phaser.Scene {
   // half-extent, in px — the wall the sparks come off).
   _houseBlastGeometry(house) {
     const cellM = this.cellM || 1;
+    const buildingKey = house?.castle || house?.id;
     let cx = house?.x, cy = house?.y;
     let halfW = null, halfH = null;
     try {
-      if (house && house.id && typeof WorldGen !== 'undefined' && WorldGen.tileCache) {
+      if (buildingKey && typeof WorldGen !== 'undefined' && WorldGen.tileCache) {
         for (const [tkey, e] of WorldGen.tileCache) {
           if (!e || !e.buildingShapes || !e.tileEdgeM) continue;
           // The tile's own origin, off its cache key (`Z/tx/ty`) — never off
@@ -8440,7 +8442,7 @@ class MapScene extends Phaser.Scene {
           const ox = (+kp[1]) * e.tileEdgeM, oy = (+kp[2]) * e.tileEdgeM;
           if (!Number.isFinite(ox) || !Number.isFinite(oy)) continue;
           for (const sh of e.buildingShapes) {
-            if (!sh || sh.key !== house.id || !sh.ring || sh.ring.length < 6) continue;
+            if (!sh || sh.key !== buildingKey || !sh.ring || sh.ring.length < 6) continue;
             let x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity;
             for (let i = 0; i < sh.ring.length; i += 2) {
               const rx = sh.ring[i], ry = sh.ring[i + 1];
@@ -10110,6 +10112,7 @@ class MapScene extends Phaser.Scene {
     // the type screen. Each card is named the way its sign will be
     // (Shops.roleLabel — a Shop card for its line); a rank card wears its
     // badge. restoreAs re-checks the catalogue at accept.
+    const siteOffer = Houses.wreckOffer(this.save, house);
     const options = Houses.buildOptions(this.save, house);
     const types = Houses.buildTypes(this.save, house);
     const typeByKey = (key) => types.find((t) => t.key === key) || null;
@@ -10124,7 +10127,7 @@ class MapScene extends Phaser.Scene {
       const it = ITEM_BY_ID[c.id];
       return `${c.qty}× ${this.iconSpanHTML(c.id)} ${it?.name || c.id}`;
     };
-    const affords = (c) => Inventory.count(this.save, c.id) >= c.qty;
+    const affords = (c) => Inventory.ownedCount(this.save, c.id) >= c.qty;
     // A Shop card is named for the line it would open (its variant's theme).
     const labelFor = (row, theme) => row.name
       || Shops.roleLabel(row.role, row.role === 'shop' ? (row.theme || theme) : null) || 'House';
@@ -10153,6 +10156,7 @@ class MapScene extends Phaser.Scene {
     const showTypes = (choice = null) => this.showOfferModal({
       kind: 'build',
       title: 'Building type',
+      blurb: siteOffer?.blurb,
       choices: types.map((t) => {
         const row = t.ranks[0], sole = soleRank(t);
         const c = sole ? costFor(sole) : null;
@@ -10214,9 +10218,9 @@ class MapScene extends Phaser.Scene {
         acceptLabel: 'Restore',
         cancelLabel: 'Back',
         onCancel: () => showTypes(typeKey),
-        blurb: hasHammer
+        blurb: [siteOffer?.blurb, hasHammer
           ? `${this.iconSpanHTML(Houses.HAMMER_ID)} With the ${hammer?.name || 'Magic Hammer'} it gleams: folk deal kindly, archers strike hard.`
-          : undefined,
+          : null].filter(Boolean).join('<br>') || undefined,
         secondary: hammerSecondary((key) => options.find((r) => r.key === key), (key) => restore(key, true)),
         onAccept: (key) => restore(key, false),
       });
@@ -10226,7 +10230,7 @@ class MapScene extends Phaser.Scene {
       const picked = options.find((r) => r.key === key);
       const cost = picked ? costFor(picked) : null;
       const item = cost && ITEM_BY_ID[cost.id];
-      if (!cost || Inventory.count(this.save, cost.id) < cost.qty) {
+      if (!cost || Inventory.ownedCount(this.save, cost.id) < cost.qty) {
         if (cost) this.flash(`need ${cost.qty} ${item?.name || cost.id}`, sx, sy);
         return;
       }
@@ -10250,6 +10254,7 @@ class MapScene extends Phaser.Scene {
       persistSave(this.save);
       const bg = this._houseBlastGeometry(house);
       this.buildInventoryDOM();
+      if (siteOffer?.reward) this.flashLoot(`+${siteOffer.reward} contract`, UI_GOLD, 1.25, null, this.coinIconEl?.());
       this.questEvent('restore');
       // The finished building and its celebratory pop appear together.
       this._blastAt(bg.x, bg.y, {

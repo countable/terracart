@@ -246,19 +246,18 @@ class SceneShops {
       }
       return;
     }
-    // Wreck → restoration modal (the player picks what it becomes —
-    // Houses.BUILD_OPTIONS). Every tier-9 small house starts as a wreck (see
-    // save.restoredHouses); the trailer is exempt and forts / castles never
-    // wreck. Every pick costs the same stone (Houses.wreckRestoreCost).
-    if (house && this._isHouseWreck && this._isHouseWreck(house)) {
-      this.presentWreckRestoreModal(sx, sy, house);
-      return;
-    }
-    // Fort → sealed until unsealed with a one-time wood payment, just like a
-    // wreck house pays masonry. Pay FORT_UNLOCK_WOOD and the quartermaster
-    // opens for good (recorded in save.unlockedForts).
+    // Fort and castle wrecks keep their fixed destination and material price.
     if (house && this._isFortLocked && this._isFortLocked(house)) {
       this.presentFortUnlockModal(sx, sy, house);
+      return;
+    }
+    if (Houses.isCastleWreck(this.save, house)) {
+      this.presentCastleRestoreModal(sx, sy, house);
+      return;
+    }
+    // Ordinary house wrecks let the player choose what to build.
+    if (house && this._isHouseWreck && this._isHouseWreck(house)) {
+      this.presentWreckRestoreModal(sx, sy, house);
       return;
     }
     // Quest castles stay sealed until their job is claimed; citadels open
@@ -959,7 +958,7 @@ class SceneShops {
   // climbs only when that peek produces an offer.
   _makeRerollSecondary(house, sx, sy, emptyMsg, present, opts) {
     const curState = house?.id ? this.shopBucketState(house) : null;
-    const rerollCost = opts.cost(curState?.rerolls || 0);
+    const rerollCost = Math.max(1, Math.ceil(opts.cost(curState?.rerolls || 0) * Houses.rerollPriceMul(this.save, house)));
     const peek = opts.peek || (() => this.peekOrBuildRelicOffer(house));
     return {
       label: `Re-roll<br><span style="font-weight:400;font-size:10px;opacity:.85">${this.moneyHTML(rerollCost, 12)}</span>`,
@@ -1777,11 +1776,44 @@ class SceneShops {
     });
   }
 
+  presentCastleRestoreModal(sx, sy, house) {
+    if (!Houses.isCastleWreck(this.save, house)) return;
+    const need = Houses.CASTLE_RESTORE_STONE;
+    const have = Inventory.ownedCount(this.save, 'rubble');
+    this.showOfferModal({
+      kind: 'build', title: 'Restore this castle?', get: CastleStyles.get(this._castleKey(house)).name,
+      blurb: 'Rebuild the castle, then complete its quest to unlock the castellan’s tithe.',
+      cost: `${need} stone` + (have < need ? ` (have ${have})` : ''),
+      canAfford: have >= need, acceptLabel: 'Restore', cancelLabel: 'Later',
+      onAccept: () => {
+        if (!Houses.isCastleWreck(this.save, house) || this._wreckRepair) return;
+        const missing = need - Inventory.ownedCount(this.save, 'rubble');
+        if (missing > 0) { this.flash(`Need ${missing} more stone`, sx, sy); return; }
+        this._afterWreckGather(() => {
+          if (!Houses.restoreCastle(this.save, house)) return;
+          this._clampSelSlot();
+          persistSave(this.save);
+          this.buildInventoryDOM();
+          const bg = this._houseBlastGeometry(house);
+          this._blastAt(bg.x, bg.y, {
+            radiusCells: bg.radiusCells, ringPx: bg.ringPx,
+            chips: 'timber', sparks: 'greenspark',
+          });
+          this.showQuestBoard(sx, sy, house);
+        }, house);
+      },
+    });
+  }
+
   // A castle keeps the job assigned on its first conversation. Citadels open
   // through their garrison instead and never enter the quest ledger.
   showQuestBoard(sx, sy, house) {
     const key = this._castleKey(house);
     if (!key || this.isCastleClaimed(house)) return;
+    if (Houses.isCastleWreck(this.save, house)) {
+      this.presentCastleRestoreModal(sx, sy, house);
+      return;
+    }
     const style = CastleStyles.get(key);
     if (style.guards) {
       this._expireCitadelBattles();
@@ -1876,7 +1908,7 @@ class SceneShops {
   // the same restoration fanfare.
   presentFortUnlockModal(sx, sy, house) {
     const need = this._fortUnlockCost();
-    const heldCount = Inventory.count(this.save, 'wood');
+    const heldCount = Inventory.ownedCount(this.save, 'wood');
     const canAfford = heldCount >= need;
     this.showOfferModal({
       kind: 'build',
@@ -1889,9 +1921,10 @@ class SceneShops {
       canAfford,
       acceptLabel: 'Unseal',
       onAccept: () => {
+        if (!Houses.isFortLocked(this.save, house)) return;
         // Re-check stock at accept time — the player might have spent the wood
         // elsewhere while the modal was open.
-        const have = Inventory.count(this.save, 'wood');
+        const have = Inventory.ownedCount(this.save, 'wood');
         if (have < need) { this.flash(`Need ${need - have} more ${itemName('wood')}`, sx, sy); return; }
         Inventory.remove(this.save, 'wood', need);
         this._clampSelSlot();
