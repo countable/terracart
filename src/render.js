@@ -1486,9 +1486,12 @@ Render.announceElites = function announceElites(scene, list, project) {
 // Terrain transitions use native atlas masks, never colour ramps.
 const mixHex = BiomeProfiles.mixHex;
 
-// Watered tilled soil: the old 22%-black wash over the cell, as a sprite tint
-// (multiply by 0.78 per channel). Applied to the `tilled_N` pad sprite.
-const WATERED_TINT = 0xc7c7c7;
+// Watered tilled soil: a sprite tint on the `tilled_N` pad sprite (multiply
+// by 0.54 per channel). The pad is baked at the pale dry look
+// (textures.js TILLED_DRY_LIFT); this brings a watered bed back to the dark
+// damp mean it had before the lift (the old 22%-black wash, ~0.78 of the
+// unlifted pad).
+const WATERED_TINT = 0x8a8a8a;
 // Fog of war — the wash over land the player has never visited.
 //
 // Neutral grey separates unexplored land from night and cave darkness.
