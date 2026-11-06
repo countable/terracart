@@ -953,6 +953,55 @@
     return false;
   }
 
+  // A starter chest (`chest_start_*`: the supply crates and the relic chest)
+  // standing where Home's footing sweep (scene_venues.js clearHomeFooting)
+  // would clear it moves to the nearest legal cell instead of being swept
+  // with its loot. The trail is laid before Home exists, and Home turns its
+  // footing into the first compass heading (HomeArea.placementOffsets), so
+  // the trail's own moat (HomeArea.inFooting, north-up) cannot know where the
+  // house and pit will land: at most headings the doorstep potato crate sat
+  // on the turned house's sweep or the pit's cell and was deleted on every
+  // build. `swept(cellIX, cellIY)` is the sweep's own footing test. Seats
+  // obey the trail's rules — the spawn gate on live occupancy, no way, water,
+  // building, default footing or starter plot — and prefer the doorstep
+  // radius, then the cell nearest the old one, so a rebuild (which lays the
+  // crate on its default seat again) lands on the same cell. Same id and
+  // loot. Returns whether the chest moved.
+  function reseatStarterChest(scene, entry, tx, ty, chest, swept) {
+    if (!entry?.grid || !chest || !String(chest.id || '').startsWith('chest_start_')) return false;
+    const anchor = scene.save?.starterCratesAt;
+    if (!anchor) return false;
+    const f = WorldGen.tileFrame(entry, tx, ty, scene.tileEdgeM);
+    const { N } = f;
+    const from = f.cellOf(chest.x, chest.y), home = f.cellOf(anchor.x, anchor.y);
+    const occupied = WorldGen.occupiedIndexSet(f, entry.objects, entry.wildplants);
+    const spawnOpts = WorldGen.spawnOptsOf(entry, { occupied });
+    const doorstep = /_1$/.test(chest.id) && !/_relic_/.test(chest.id);
+    const R = 4;
+    let best = null, bestKey = null;
+    for (let dy = -R; dy <= R; dy++) for (let dx = -R; dx <= R; dx++) {
+      if (!dx && !dy) continue;
+      const cx = from.ix + dx, cy = from.iy + dy;
+      if (!f.inTile(cx, cy) || occupied.has(cy * N + cx)) continue;
+      const t = entry.grid[cy * N + cx];
+      if (t === WorldGen.T.WATER || WorldGen.isBuildingTerrain(t) || WorldGen.isCobbleTerrain(t)) continue;
+      if (HomeArea.inFooting(cx - home.ix, cy - home.iy)) continue;
+      if (!WorldGen.isSpawnCell(entry.grid, N, N, cx, cy, spawnOpts, 'minor')) continue;
+      const raw = f.centre(cx, cy);
+      const { cellIX, cellIY } = worldMetersToAbsCell(scene, raw.x, raw.y);
+      if (swept(cellIX, cellIY)) continue;
+      const m = absCellCenterMeters(scene, cellIX, cellIY);
+      if (onStarterPlot(scene, m.x, m.y)) continue;
+      const far = doorstep && Math.max(Math.abs(cx - home.ix), Math.abs(cy - home.iy)) > STARTER_DOORSTEP_CELLS ? 1 : 0;
+      const key = [far, dx * dx + dy * dy, cy, cx];
+      const i = bestKey ? key.findIndex((v, j) => v !== bestKey[j]) : -1;
+      if (!bestKey || (i >= 0 && key[i] < bestKey[i])) { best = m; bestKey = key; }
+    }
+    if (!best) return false;
+    chest.x = best.x; chest.y = best.y;
+    return true;
+  }
+
   // ── The fishing pond ────────────────────────────────────────────────────
   // Fishing is a tap on a WATER cell (interact.js 'fishing'), and nothing
   // about a new player's neighbourhood promises one: a suburban spawn can be
@@ -2466,6 +2515,7 @@
     placeStarterRelicChest,
     carveStarterPlot,
     onStarterPlot,
+    reseatStarterChest,
     carveStarterPond,
     paintPond,
     carveStarterPondAround,

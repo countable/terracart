@@ -1374,7 +1374,13 @@ Higher-priority placements and their access space take precedence in this order:
    legal ground is available, so Tori can point out repair supplies onscreen.
    A farther route seat moves to the closest eligible nearby cell without
    changing its id or remaining contents. All seats
-   use the spawn gate and avoid Home's footing. The soil plot
+   use the spawn gate and avoid Home's default footing. The trail is laid
+   before Home exists and Home turns its footing into the first compass
+   heading, so a starter chest that ends up on the swept footing (the turned
+   house's sweep or the firepit) is moved, not swept: `clearHomeFooting`
+   hands it to `Starter.reseatStarterChest`, which picks the nearest legal
+   cell (doorstep radius first for the potato crate) and lands on the same
+   cell after every rebuild (`starter_doorstep_crate.test.js`). The soil plot
    (`Starter.carveStarterPlot`, frozen in `save.starterPlotAt`) is a 2x2 of
    tillable grass chosen nearest the anchor through the same gate, off Home's
    footing, the saved wagon's house and the firepit (read from the save: a

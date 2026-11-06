@@ -1637,12 +1637,17 @@ class SceneVenues {
     if (pc) for (let dy = 1; dy <= HomeArea.FIREPIT_CANOPY_CELLS; dy++) canopy.add(key(absCellOffset(this, pc.cellIX, pc.cellIY, 0, dy)));
     const savedOwnerIds = SpawnOwnership.savedIds(this.save);
     const tag = stamp;
-    const sweep = (o) => {
+    // A starter chest on the footing moves off it with its loot
+    // (Starter.reseatStarterChest); only when no cell takes it is it swept.
+    const swept = (cellIX, cellIY) => onFooting.has(cellIX + ',' + cellIY);
+    const sweep = (o, entry, tx, ty) => {
       if (o === this._starterTrailerObj || o.id === home.id) return false;
       if (isBuilding(o.kind) || SpawnOwnership.isProtected(o, this.save, savedOwnerIds)) return false;
       const at = o._footprintCells || o.footprintCells
         ? SpawnOwnership.footprintCells(this, o).map(key) : [key(worldMetersToAbsCell(this, o.x, o.y))];
-      if (at.some(k => onFooting.has(k))) return true;
+      if (at.some(k => onFooting.has(k))) {
+        return !(typeof Starter !== 'undefined' && Starter.reseatStarterChest?.(this, entry, tx, ty, o, swept));
+      }
       return (isTreeLike(o.kind) || o.crop === 'palm') && at.some(k => canopy.has(k));
     };
     // Only Home's own tile and its 8 neighbours can hold a cell of a building
@@ -1656,7 +1661,7 @@ class SceneVenues {
       const seen = entry._homeFootingSeen;
       if (entry._homeFooting === tag && seen && seen.objects === entry.objects && seen.n === entry.objects.length
           && seen.plants === entry.wildplants && seen.plantN === (entry.wildplants || []).length) continue;
-      for (let i = entry.objects.length - 1; i >= 0; i--) if (sweep(entry.objects[i])) entry.objects.splice(i, 1);
+      for (let i = entry.objects.length - 1; i >= 0; i--) if (sweep(entry.objects[i], entry, +parts[1], +parts[2])) entry.objects.splice(i, 1);
       if (entry.wildplants) {
         for (let i = entry.wildplants.length - 1; i >= 0; i--) if (sweep(entry.wildplants[i])) entry.wildplants.splice(i, 1);
       }
