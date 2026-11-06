@@ -3,7 +3,7 @@
 (function (root) {
   const TIERS = [
     { id: 1, label: 'Tier 1 · core', color: '#21c8aa', description: 'Daily value, fast/ranged enemies and elites, butterflies, easily extracted resources.' },
-    { id: 2, label: 'Tier 2 · calm', color: '#f4bf54', description: 'Resources, slow creatures, NPCs and hazards; fast movers cannot spawn.' },
+    { id: 2, label: 'Tier 2 · calm', color: '#f4bf54', description: 'Resources, creatures (fast movers included), NPCs and hazards.' },
     { id: 3, label: 'Tier 3 · passing', color: '#e77d76', description: 'Ordinary finds, slow creatures and passive walking; hazards and fast movers cannot spawn.' },
     { id: 4, label: 'Excluded', color: '#69647c', description: 'Buildings, deep water, restricted/private ground, other existing access exclusions, or no qualifying mapped evidence.' },
   ];

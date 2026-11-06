@@ -64,17 +64,50 @@
     entry.zone.anchors[0].key = 'rare_test'; scene.playerM.x -= 100;
     RareEncounters.tick(scene, 36000); assert.eq(scene.save.rareEncounters.areas[key].visit, 2);
   }));
-  test('rare encounters: placement respects terrain and Home safety without rerolling blocked seats', () => fixture((scene, entry) => {
+  test('rare encounters: placement respects terrain without rerolling blocked seats', () => fixture((scene, entry) => {
     entry.grid.fill(WorldGen.T.BUILDING);
     for (let n=0;n<30;n++) {
       entry.zone.anchors[0].key='blocked_'+n; RareEncounters.tick(scene, n*1000);
       assert.eq(entry.creatures.length, 0);
     }
-    entry.grid.fill(WorldGen.T.GRASS); scene.startWorldM.x = 0; scene.playerM.x=325;
-    for (let n=30;n<60;n++) {
-      entry.zone.anchors[0].key='home_'+n; RareEncounters.tick(scene, n*1000);
-      assert.eq(entry.creatures.length, 0);
+  }));
+  // Owner, Nov 2026: Home bands never hide a rare. The wolfling is tier 5,
+  // which the ordinary bands keep beyond 1.5 km; here it stands 325 m out.
+  test('rare encounters: a high-tier rare seats and stays visible near Home', () => fixture((scene, entry) => {
+    scene.startWorldM.x = 0; scene.playerM.x = 325;
+    let seen = 0;
+    for (let n = 0; n < 40; n++) {
+      entry.zone.anchors[0].key = 'home_' + n; scene.save = { caught: [], starterCratesAt: { x: 0, y: 0 } };
+      delete scene._rareTickAt; entry.creatures = [];
+      for (let t = 0; t < 200 && !entry.creatures.length; t++) RareEncounters.tick(scene, 1000 + t * 300);
+      const area = scene.save.rareEncounters.areas[scene.save.rareEncounters.active];
+      if (!Object.values(area.rolls)[0]) continue;
+      assert.eq(entry.creatures.length, 1, 'a rolled visit seats near Home');
+      assert.falsy(EnemySpawns.homeAllows('wolfling', 325), 'the ordinary band would refuse this distance');
+      assert.truthy(EnemySpawns.surfaceActive(scene, entry.creatures[0]), 'and the rare is not hidden');
+      seen++;
     }
+    assert.truthy(seen > 0);
+  }));
+  // The near ring alone often held no eligible cell on real maps, silently
+  // ending the visit; the seat search falls back to the whole area.
+  test('rare encounters: a blocked near ring falls back to a farther seat in the same area', () => fixture((scene, entry) => {
+    const N = entry.cellsPerEdge, px = 32, py = 32;
+    for (let y = 0; y < N; y++) for (let x = 0; x < N; x++)
+      if (Math.max(Math.abs(x - px), Math.abs(y - py)) <= 8) entry.grid[y * N + x] = WorldGen.T.BUILDING;
+    let seated = 0;
+    for (let n = 0; n < 40; n++) {
+      entry.zone.anchors[0].key = 'far_' + n; scene.save = { caught: [] }; delete scene._rareTickAt; entry.creatures = [];
+      // The far search is budgeted per tick; give it the ticks it needs.
+      for (let t = 0; t < 200 && !entry.creatures.length; t++) RareEncounters.tick(scene, 1000 + t * 300);
+      const area = scene.save.rareEncounters.areas[scene.save.rareEncounters.active];
+      if (!Object.values(area.rolls)[0]) continue;
+      assert.eq(entry.creatures.length, 1, 'a rolled visit still seats its monster');
+      const c = entry.creatures[0], ring = Math.max(Math.abs(Math.floor(c.x / 10) - px), Math.abs(Math.floor(c.y / 10) - py));
+      assert.truthy(ring > 8, `seat ring ${ring} lies beyond the blocked near ring`);
+      seated++;
+    }
+    assert.truthy(seated > 0);
   }));
   test('rare encounters: water encounters occupy shore water and never use dry fallback seats', () => fixture((scene, entry) => {
     entry.zone.anchors[0].variant = 'mystic_reef';

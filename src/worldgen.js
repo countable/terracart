@@ -127,7 +127,7 @@
 
   const HIVE_SPEC = { cellChance: 1 / 192, syrup: 3, bees: 3, beeKind: 'bee', beeReachCells: 2 };
   // A hive stands only where its tap can succeed: on ground that admits its
-  // defenders' own spawn class (bees are fast, so tier 1 — not calm woodland),
+  // defenders' own spawn class (bees are fast: Core or Calm, never Passing),
   // with seats for the whole swarm within the reach planHiveBees searches.
   function spawnForestHives(grid, w, h, tx, ty, tileEdgeM, opts = {}, entry = { grid }) {
     const out = [], cls = creatureSpawnClass(HIVE_SPEC.beeKind), R = HIVE_SPEC.beeReachCells;

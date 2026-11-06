@@ -2752,7 +2752,7 @@
       && spawnCell(grid, N, N, ix, iy, spawnOpts, 'attractor');
     // Reserve a possible encounter point using the ordinary enemy profile.
     // Lairs gates each actual member with its roster-derived profile, so a
-    // slow guard can inhabit Calm without granting access to a fast guard.
+    // slow guard can inhabit Passing without granting access to a fast guard.
     const rc = spawnOpts.roadClass || idx.roadClass || null;
     const foeOpts = rc && !spawnOpts.roadClass ? Object.assign({}, spawnOpts, { roadClass: rc }) : spawnOpts;
     const foeOk = (ix, iy) => spawnCell(grid, N, N, ix, iy, foeOpts, 'enemy');
