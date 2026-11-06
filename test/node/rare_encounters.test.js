@@ -76,6 +76,25 @@
       assert.eq(entry.creatures.length, 0);
     }
   }));
+  // The near ring alone often held no eligible cell on real maps, silently
+  // ending the visit; the seat search falls back to the rest of the area.
+  test('rare encounters: a blocked near ring falls back to a farther seat in the same area', () => fixture((scene, entry) => {
+    const N = entry.cellsPerEdge, px = 32, py = 32;
+    for (let y = 0; y < N; y++) for (let x = 0; x < N; x++)
+      if (Math.max(Math.abs(x - px), Math.abs(y - py)) <= 8) entry.grid[y * N + x] = WorldGen.T.BUILDING;
+    let seated = 0;
+    for (let n = 0; n < 40; n++) {
+      entry.zone.anchors[0].key = 'far_' + n; scene.save = { caught: [] }; delete scene._rareTickAt; entry.creatures = [];
+      RareEncounters.tick(scene, 1000);
+      const area = scene.save.rareEncounters.areas[scene.save.rareEncounters.active];
+      if (!Object.values(area.rolls)[0]) continue;
+      assert.eq(entry.creatures.length, 1, 'a rolled visit still seats its monster');
+      const c = entry.creatures[0], ring = Math.max(Math.abs(Math.floor(c.x / 10) - px), Math.abs(Math.floor(c.y / 10) - py));
+      assert.truthy(ring > 8 && ring <= 16, `seat ring ${ring} lies beyond the blocked near ring`);
+      seated++;
+    }
+    assert.truthy(seated > 0);
+  }));
   test('rare encounters: water encounters occupy shore water and never use dry fallback seats', () => fixture((scene, entry) => {
     entry.zone.anchors[0].variant = 'mystic_reef';
     entry.gameplayTiers = new Uint8Array(4096).fill(1);

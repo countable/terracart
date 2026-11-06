@@ -111,14 +111,19 @@
     const c = root.CreatureSpawns.createOwned('rare-encounters', at.key, seat.kind, seat.x, seat.y, seat.id, extra);
     if (root.CreatureSpawns.register(target.entry, c)) { root.EnemySpawns.surfaceActive(scene, c); (scene._rareBodies ||= new Map()).set(c, target.entry); }
   }
+  const SEAT_NEAR_CELLS = 8, SEAT_FAR_CELLS = 16;
   function chooseSeat(scene, at, row, id, player) {
+    // Near ring first (3-8 cells from the entry point), then the rest of the
+    // area out to SEAT_FAR_CELLS — a full residual block from any edge. The
+    // near ring alone often held no eligible cell, silently ending the visit.
     const candidates = [];
-    for (let dy = -8; dy <= 8; dy++) for (let dx = -8; dx <= 8; dx++) {
-      if (Math.max(Math.abs(dx), Math.abs(dy)) < 3) continue;
+    for (let dy = -SEAT_FAR_CELLS; dy <= SEAT_FAR_CELLS; dy++) for (let dx = -SEAT_FAR_CELLS; dx <= SEAT_FAR_CELLS; dx++) {
+      const ring = Math.max(Math.abs(dx), Math.abs(dy));
+      if (ring < 3) continue;
       const x = (Math.floor(player.x / at.cellM) + dx + .5) * at.cellM, y = (Math.floor(player.y / at.cellM) + dy + .5) * at.cellM;
-      candidates.push({ x, y, rank: root.EnemySpawns.hash(`${id}:${dx}:${dy}`) >>> 0 });
+      candidates.push({ x, y, far: ring > SEAT_NEAR_CELLS ? 1 : 0, rank: root.EnemySpawns.hash(`${id}:${dx}:${dy}`) >>> 0 });
     }
-    candidates.sort((a, b) => a.rank - b.rank);
+    candidates.sort((a, b) => a.far - b.far || a.rank - b.rank);
     for (const point of candidates) {
       const target = locate(scene, point.x, point.y);
       if (!target || target.key !== at.key || !matches(row, target)) continue;

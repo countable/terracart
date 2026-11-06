@@ -3,7 +3,7 @@
 (function (root) {
   const TIERS = [
     { id: 1, label: 'Tier 1 · core', color: '#21c8aa', description: 'Daily value, fast/ranged enemies and elites, butterflies, easily extracted resources.' },
-    { id: 2, label: 'Tier 2 · calm', color: '#f4bf54', description: 'Resources, slow creatures, NPCs and hazards; fast movers cannot spawn.' },
+    { id: 2, label: 'Tier 2 · calm', color: '#f4bf54', description: 'Resources, creatures (fast movers included), NPCs and hazards.' },
     { id: 3, label: 'Tier 3 · passing', color: '#e77d76', description: 'Ordinary finds, slow creatures and passive walking; hazards and fast movers cannot spawn.' },
     { id: 4, label: 'Excluded', color: '#69647c', description: 'Buildings, deep water, restricted/private ground, other existing access exclusions, or no qualifying mapped evidence.' },
   ];
@@ -31,8 +31,8 @@
   const ROAD_BUFFER_CELLS=3, PATH_BUFFER_CELLS=1, JUNCTION_BUFFER_CELLS=5;
   const CLASS_TIERS=Object.freeze({
     minor:[1,2,3], headstone:[1,2,3], cave:[1,2,3], fauna:[1,2,3],
-    fastFauna:[1], npc:[1,2,3], attractor:[1,2,3], enemy:[1,2,3],
-    hazard:[1,2], fastEnemy:[1], reward:[1,2,3], streetObstacle:[1,2],
+    fastFauna:[1,2], npc:[1,2,3], attractor:[1,2,3], enemy:[1,2,3],
+    hazard:[1,2], fastEnemy:[1,2], reward:[1,2,3], streetObstacle:[1,2],
   });
   const allowed=(tier,cls)=>!!CLASS_TIERS[cls]?.includes(tier);
   const RECORD_CLASSES=Object.freeze({ground_hole:'hazard',pressure_plate:'hazard',stakes:'streetObstacle',tar:'streetObstacle'});

@@ -30,7 +30,9 @@ access or tile lifecycle mechanics.
   reloads and tile eviction never give a second draw. Defeat/capture IDs remain final
   within the visit. Pets are exempt from encounter departure and time visibility.
 - Rare seats use the shared spawn gate, exact owner, water restrictions, occupancy
-  and Home bands. Declared rare encounters gain the existing signature tier exception
+  and Home bands. A seat is sought 3-8 cells from the entry point first, then out
+  to 16 cells (a whole residual block); only when neither holds an eligible cell
+  does the visit end without its monster. Declared rare encounters gain the existing signature tier exception
   only beyond the final Home band. Night-only Nighthops and rainy Spectrus also need
   their live weather/time condition; those gates never reroll a visit. Hidden Dire
   Toads and Sproutlings use the ordinary adjacent-reveal mechanism.
@@ -739,7 +741,7 @@ spawn-rate roll.
 - `WorldGen.isSpawnCell` is the sole placement gate. On classified tiles it
   checks the tier policy before live terrain, occupancy and building clearance.
   Excluded refuses every spawn. Passing refuses fast creatures and hazards;
-  Calm and Core use the shared class policy. A small street or path no longer
+  Calm and Core admit every class, fast movers included. A small street or path no longer
   fails solely because the old road footprint covered its cell. The source
   `spawnWhy` bits retain access evidence and diagnostics rather than acting as
   a second geographic policy on classified tiles. Synthetic fixtures without
@@ -1322,9 +1324,9 @@ eligibility gate, not a universal subtraction from variant area.
 A prop whose interaction births creatures is placed only where those births can
 succeed: the prop's cell must pass the creatures' own spawn class, with enough
 free seats in the reach its runtime planner searches. Forest hives
-(`WorldGen.HIVE_SPEC`) therefore stand only on tier-1 forest, because their bees
-are `fastEnemy` and calm woodland refuses them. A hive placed on calm woodland
-could never seat its swarm, so every tap would answer "No room around the hive."
+(`WorldGen.HIVE_SPEC`) therefore stand only on Core or Calm forest, because their
+bees are `fastEnemy` and Passing ground refuses them. A hive placed on Passing
+ground could never seat its swarm, so every tap would answer "No room around the hive."
 
 Higher-priority placements and their access space take precedence in this order:
 
