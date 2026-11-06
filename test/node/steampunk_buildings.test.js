@@ -6,7 +6,7 @@
 // no cel hash; its own test below pins the tower shape.
 (() => {
   const legacyDraw = {
-    plain:'dc07bb39', home:'dc07bb39', blacksmith:'9ac6f375', trader:'2decdc36',
+    plain:'dc07bb39', home:'3ab487e5', blacksmith:'9ac6f375', trader:'2decdc36',
     shop:'fb351d54', seed:'9726ff68', supply:'3e8d8cc2', potion:'ff5c4622',
     relic:'585f4c84', pet:'12302f53', book:'b1d1cfe1',
     turret:'96256447', wreck:'e847be0c',

@@ -193,7 +193,8 @@
       assert.eq(GameplayTiers.allowed(4,cls),false,cls+' forbidden in Excluded');
     }
     assert.eq(GameplayTiers.allowed(1,'unregistered'),false);
-    assert.eq(GameplayTiers.allowed(2,'fastEnemy'),false);
+    // Calm (an ordinary small street's surroundings) admits fast movers.
+    for(const cls of ['fastEnemy','fastFauna']) assert.eq(GameplayTiers.allowed(2,cls),true,cls+' allowed in calm');
   });
   test('gameplay tiers: replay and cleanup retain authored record spawn classes',()=>{
     assert.eq(GameplayTiers.classForRecord({kind:'pressure_plate'}),'hazard');
