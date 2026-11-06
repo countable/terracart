@@ -79,7 +79,7 @@
     for (let n = 0; n < 40; n++) {
       entry.zone.anchors[0].key = 'home_' + n; scene.save = { caught: [], starterCratesAt: { x: 0, y: 0 } };
       delete scene._rareTickAt; entry.creatures = [];
-      RareEncounters.tick(scene, 1000);
+      for (let t = 0; t < 200 && !entry.creatures.length; t++) RareEncounters.tick(scene, 1000 + t * 300);
       const area = scene.save.rareEncounters.areas[scene.save.rareEncounters.active];
       if (!Object.values(area.rolls)[0]) continue;
       assert.eq(entry.creatures.length, 1, 'a rolled visit seats near Home');
@@ -98,7 +98,8 @@
     let seated = 0;
     for (let n = 0; n < 40; n++) {
       entry.zone.anchors[0].key = 'far_' + n; scene.save = { caught: [] }; delete scene._rareTickAt; entry.creatures = [];
-      RareEncounters.tick(scene, 1000);
+      // The far search is budgeted per tick; give it the ticks it needs.
+      for (let t = 0; t < 200 && !entry.creatures.length; t++) RareEncounters.tick(scene, 1000 + t * 300);
       const area = scene.save.rareEncounters.areas[scene.save.rareEncounters.active];
       if (!Object.values(area.rolls)[0]) continue;
       assert.eq(entry.creatures.length, 1, 'a rolled visit still seats its monster');

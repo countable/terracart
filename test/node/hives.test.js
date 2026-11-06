@@ -15,9 +15,11 @@
     assert.eq(WorldGen.spawnForestHives(grid, N, N, 4, 5, 1000, {}, roadEntry).length, 0, 'road-owned forest cannot borrow basic forest hives');
     const roadMask = new Uint8Array(N * N).fill(1);
     assert.eq(make({ roadMask }).length, 0);
-    // Calm woodland (tier 2) refuses the fast bees, so it hosts no hive: a
+    // Passing woodland (tier 3) refuses the fast bees, so it hosts no hive: a
     // hive there could never seat its swarm ("No room around the hive").
-    assert.eq(make({ gameplayTiers: new Uint8Array(N * N).fill(2) }).length, 0);
+    // Calm (tier 2) admits fast movers, so it hosts hives like Core.
+    assert.eq(make({ gameplayTiers: new Uint8Array(N * N).fill(3) }).length, 0);
+    assert.gt(make({ gameplayTiers: new Uint8Array(N * N).fill(2) }).length, 10);
     const core = make({ gameplayTiers: new Uint8Array(N * N).fill(1) });
     assert.gt(core.length, 10);
     // Room for the swarm: a hive ringed by occupied cells is not placed.
