@@ -100,7 +100,7 @@
   }
   function homeFaunaAllows(scene, c, x = c?.x, y = c?.y) {
     if (root.HomeVariant && !root.HomeVariant.allows(scene, c, x, y)) return false;
-    if (!homeFaunaSubject(c)) return true;
+    if (!homeFaunaSubject(c) || root.RareEncounters?.isEncounter(c)) return true;
     const anchor = homeFaunaAnchor(scene);
     if (!inHomeFaunaCircle(anchor, x, y)) return true;
     const kind = root.SpriteLayout.baseKind(c.kind);
@@ -174,11 +174,14 @@
   // Permanent player-geography eligibility, separate from temporary daylight
   // and pest-amnesty visibility. Temple census reads this before activation.
   function creatureHomeAllows(creature, distance) {
+    // A rare visit encounter ignores the Home bands (owner, Nov 2026): it is
+    // a once-per-visit event, so hiding it near Home meant never seeing it.
+    if (root.RareEncounters?.isEncounter(creature)) return true;
     const row = root.EnemyRoster.get(creature.kind);
     const declaration = root.HabitatSpawns?.enemyDeclaration(creature);
     const lastBand = root.EnemyRoster.SURFACE_TIERS[root.EnemyRoster.SURFACE_TIERS.length - 1];
     // This exception belongs to a declared signature, not the enemy kind.
-    const distantSignature = (declaration?.signature || root.RareEncounters?.isEncounter(creature)) && !row?.retired && distance >= lastBand.minDistance;
+    const distantSignature = declaration?.signature && !row?.retired && distance >= lastBand.minDistance;
     return distantSignature ? distance >= (row?.surface?.minDistance || 0) : homeAllows(creature.kind, distance);
   }
   // Feature populations retain their original Home policy independently of

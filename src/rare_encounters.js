@@ -38,6 +38,17 @@
     stones: ['stone_garden', 'ordered_graves', 'overgrown_graves', 'broken_masonry', 'silent_circle'],
   };
   function position(scene) { return { x: (scene.startWorldM?.x || 0) + (scene.playerM?.x || 0), y: (scene.startWorldM?.y || 0) + (scene.playerM?.y || 0) }; }
+  // variantOwner builds a segment index per call; the seat search asks for
+  // thousands of cells, so keep one per tile entry (rebuilt entries are new).
+  const sectionOwners = new WeakMap();
+  function sectionOwner(entry, N) {
+    let fn = sectionOwners.get(entry);
+    if (!fn || fn.index !== entry.streetIndex) {
+      fn = root.StreetVariants.variantOwner(entry.streetIndex, N, Infinity, true);
+      fn.index = entry.streetIndex; sectionOwners.set(entry, fn);
+    }
+    return fn;
+  }
   function locate(scene, x, y) {
     const WG = root.WorldGen, edge = scene.tileEdgeM || scene.cellsPerTile * scene.cellM;
     if (!(edge > 0)) return null;
@@ -51,7 +62,7 @@
     else if (owner?.anchor) area = owner.key + ':' + (owner.anchor.key || owner.anchor.id || `${owner.anchor.x},${owner.anchor.y}`);
     else {
       let section;
-      if (owner?.type === 'road' && entry.streetIndex) section = root.StreetVariants.variantOwner(entry.streetIndex, N, Infinity, true)(cx, cy)?.key;
+      if (owner?.type === 'road' && entry.streetIndex) section = sectionOwner(entry, N)(cx, cy)?.key;
       area = `${owner?.key}:${section || `${Math.floor(x / (cellM * 16))},${Math.floor(y / (cellM * 16))}`}`;
     }
     return { key: `${depth}:${area}`, owner, entry, tx, ty, cx, cy, cellM, depth };
@@ -111,29 +122,63 @@
     const c = root.CreatureSpawns.createOwned('rare-encounters', at.key, seat.kind, seat.x, seat.y, seat.id, extra);
     if (root.CreatureSpawns.register(target.entry, c)) { root.EnemySpawns.surfaceActive(scene, c); (scene._rareBodies ||= new Map()).set(c, target.entry); }
   }
-  const SEAT_NEAR_CELLS = 8, SEAT_FAR_CELLS = 16;
-  function chooseSeat(scene, at, row, id, player) {
-    // Near ring first (3-8 cells from the entry point), then the rest of the
-    // area out to SEAT_FAR_CELLS — a full residual block from any edge. The
-    // near ring alone often held no eligible cell, silently ending the visit.
-    const candidates = [];
-    for (let dy = -SEAT_FAR_CELLS; dy <= SEAT_FAR_CELLS; dy++) for (let dx = -SEAT_FAR_CELLS; dx <= SEAT_FAR_CELLS; dx++) {
-      const ring = Math.max(Math.abs(dx), Math.abs(dy));
-      if (ring < 3) continue;
-      const x = (Math.floor(player.x / at.cellM) + dx + .5) * at.cellM, y = (Math.floor(player.y / at.cellM) + dy + .5) * at.cellM;
-      candidates.push({ x, y, far: ring > SEAT_NEAR_CELLS ? 1 : 0, rank: root.EnemySpawns.hash(`${id}:${dx}:${dy}`) >>> 0 });
-    }
-    candidates.sort((a, b) => a.far - b.far || a.rank - b.rank);
-    for (const point of candidates) {
-      const target = locate(scene, point.x, point.y);
-      if (!target || target.key !== at.key || !matches(row, target)) continue;
-      if (!root.CreatureSpawns.canPlaceAt(scene, target.entry, point.x, point.y, row.kind,
-        { id, clearance: at.cellM, blocks: c => blocksSeat(scene, c), overrides: { waterOnly: !!row.water } })) continue;
-      const probe = { kind: row.kind, id, _rareEncounter: { key: at.key, visit: data(scene).areas[at.key].visit }, _surfaceSpawn: { x: point.x, y: point.y } };
-      if (!at.depth && !root.EnemySpawns.homeEligible(scene, probe)) continue;
-      return { id, kind: row.kind, x: point.x, y: point.y, behaviour: {} };
+  // The near ring (3-8 cells from the entry point) is tried first, then the
+  // rest of the area ring by ring across the loaded 3x3 tiles around the
+  // entry, so any eligible cell of the whole area can hold the seat. Each
+  // ring is ordered by a stable per-encounter hash; the first fit wins. A
+  // generator, so tick() can spread a large area over frames: the outcome
+  // depends only on the cells, never on how many steps a frame allowed.
+  const SEAT_NEAR_CELLS = 8, SEAT_STEP_CELLS = 128, SEAT_BUDGET_MS = 4;
+  function* chooseSeatSteps(scene, at, row, id, player) {
+    const ox = Math.floor(player.x / at.cellM), oy = Math.floor(player.y / at.cellM);
+    const N = at.entry.cellsPerEdge, lx = ox - at.tx * N, ly = oy - at.ty * N;
+    const maxRing = Math.max(lx + N, 2 * N - 1 - lx, ly + N, 2 * N - 1 - ly);
+    const fits = (dx, dy) => {
+      const x = (ox + dx + .5) * at.cellM, y = (oy + dy + .5) * at.cellM;
+      const target = locate(scene, x, y);
+      if (!target || target.key !== at.key || !matches(row, target)) return null;
+      if (!root.CreatureSpawns.canPlaceAt(scene, target.entry, x, y, row.kind,
+        { id, clearance: at.cellM, blocks: c => blocksSeat(scene, c), overrides: { waterOnly: !!row.water } })) return null;
+      return { id, kind: row.kind, x, y, behaviour: {} };
+    };
+    // One string hash per encounter, then an integer mix per cell: a string
+    // hash per cell dominated a whole-area scan.
+    const seed = root.EnemySpawns.hash(id) >>> 0;
+    const mix = (dx, dy) => {
+      let h = (seed ^ Math.imul(dx, 0x9e3779b1) ^ Math.imul(dy, 0x85ebca77)) >>> 0;
+      h = Math.imul(h ^ (h >>> 16), 0x7feb352d); h = Math.imul(h ^ (h >>> 15), 0x846ca68b);
+      return (h ^ (h >>> 16)) >>> 0;
+    };
+    const ranked = cells => cells.map(([dx, dy]) => ({ dx, dy, rank: mix(dx, dy) })).sort((a, b) => a.rank - b.rank);
+    const near = [];
+    for (let dy = -SEAT_NEAR_CELLS; dy <= SEAT_NEAR_CELLS; dy++) for (let dx = -SEAT_NEAR_CELLS; dx <= SEAT_NEAR_CELLS; dx++)
+      if (Math.max(Math.abs(dx), Math.abs(dy)) >= 3) near.push([dx, dy]);
+    let n = 0;
+    for (const c of ranked(near)) { const seat = fits(c.dx, c.dy); if (seat) return seat; if (++n % SEAT_STEP_CELLS === 0) yield; }
+    for (let r = SEAT_NEAR_CELLS + 1; r <= maxRing; r++) {
+      const ring = [];
+      for (let d = -r; d < r; d++) ring.push([d, -r], [r, d], [-d, r], [-r, -d]);
+      for (const c of ranked(ring)) { const seat = fits(c.dx, c.dy); if (seat) return seat; if (++n % SEAT_STEP_CELLS === 0) yield; }
     }
     return { id, kind: row.kind, finished: true };
+  }
+  // Advance a pending seat search within this tick's budget; null while it
+  // is still running. The search lives on the scene, never in the save: a
+  // reload restarts it and reaches the same seat.
+  function seatSearch(scene, at, area, row, id) {
+    const searches = scene._rareSeatSearches ||= new Map();
+    let job = searches.get(id);
+    if (!job || job.visit !== area.visit) {
+      job = { visit: area.visit, steps: chooseSeatSteps(scene, at, row, id, { x: area.originX, y: area.originY }) };
+      searches.set(id, job);
+    }
+    const clock = () => (typeof performance !== 'undefined' ? performance.now() : Date.now());
+    const until = clock() + SEAT_BUDGET_MS;
+    for (;;) {
+      const step = job.steps.next();
+      if (step.done) { searches.delete(id); return step.value; }
+      if (clock() >= until) return null;
+    }
   }
   function tick(scene, now = 0, force = false) {
     if (!scene.save || !scene.playerM) return;
@@ -174,7 +219,11 @@
       const id = identity(at.key, area.visit, row.kind);
       if (!(id in area.rolls)) { area.rolls[id] = root.SpawnPipeline.roll(id, row.chance); changed = true; }
       if (!area.rolls[id] || !environment(scene, row)) continue;
-      if (!area.seats[id]) { area.seats[id] = chooseSeat(scene, at, row, id, { x: area.originX, y: area.originY }); changed = true; }
+      if (!area.seats[id]) {
+        const seat = seatSearch(scene, at, area, row, id);
+        if (!seat) continue;
+        area.seats[id] = seat; changed = true;
+      }
       materialize(scene, at, area, area.seats[id]);
     }
     for (const seat of Object.values(area?.seats || {})) if (seat.kind === 'thorn_ball') materialize(scene, at, area, seat);
