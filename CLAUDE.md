@@ -58,7 +58,11 @@ implementation rationale lives beside the code.
   plus the relevant simulation/stress files, for example
   `npm test -- --file tile_build_blocks.test.js`. Use `--match` to narrow a
   specific regression; a filtered pass is not a full-suite pass.
-- Before publishing a code change, run `npm test` (the complete suite).
+- Before publishing a small patch (a bug fix or tweak confined to one
+  system), run `npm run test:fast` plus the test files that cover the
+  touched code and any new regression test; the full suite is not required.
+  Before publishing a substantive feature, a change spanning systems, or a
+  change to a shared helper, run `npm test` (the complete suite).
   After merging concurrent changes, rerun affected files and cache checks;
   repeat the full suite when merge conflicts change behavior or the scope
   of the affected tests is unclear. Test-runner changes also require
