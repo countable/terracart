@@ -11,7 +11,7 @@
   add('wolfling', ['Nexus:meadow']);
   add('butterfairy', ['Terrain:SCHOOL'], { chance: .9 });
   add('nighthop', ['tar'], { night: true });
-  add('fungusaur', ['Terrain:WETLAND']);
+  add('fungusaur', ['Terrain:WETLAND'], { water: true });
   add('corrupticore', ['Terrain:RESIDENTIAL']);
   add('tidal_force', ['Nexus:mystic_reef'], { water: true });
   add('leviathan', ['Nexus:pirate_cove'], { water: true, chance: .7 });
@@ -97,17 +97,38 @@
     // eligibility rather than waiting for the old body's inactive stamp.
     return !isEncounter(creature) || eligible(scene, creature);
   }
+  // A water rare's habitat zone (a reef, a cove, a causeway) maps the beach
+  // or the road; the water beside it belongs to the plain water owner. So a
+  // water row also owns water within SHORE_REACH_CELLS of its area: the
+  // shoreline it swims. The spawn gate still keeps it off open water.
+  const SHORE_REACH_CELLS = 3;
+  const isWaterAt = target => target.entry.grid?.[target.cy * target.entry.cellsPerEdge + target.cx] === root.WorldGen.T.WATER;
+  function inArea(at, row, target) { return !!target && target.key === at.key && matches(row, target); }
+  function besideArea(scene, at, row, x, y) {
+    for (let dy = -SHORE_REACH_CELLS; dy <= SHORE_REACH_CELLS; dy++) for (let dx = -SHORE_REACH_CELLS; dx <= SHORE_REACH_CELLS; dx++)
+      if ((dx || dy) && inArea(at, row, locate(scene, x + dx * at.cellM, y + dy * at.cellM))) return true;
+    return false;
+  }
+  // `placeable` runs the spawn gate between the cheap own-area test and the
+  // shoreline scan, so open water never pays for the neighbourhood search.
+  function seatTarget(scene, at, row, x, y, placeable) {
+    const target = locate(scene, x, y);
+    if (!target) return null;
+    if (inArea(at, row, target)) return placeable(target) ? target : null;
+    if (!row.water || !isWaterAt(target) || !placeable(target)) return null;
+    return besideArea(scene, at, row, x, y) ? target : null;
+  }
   function materialize(scene, at, area, seat) {
     if (seat.finished || (scene.save.caught || []).includes(seat.id)) return;
-    const target = locate(scene, seat.x, seat.y);
-    if (!target || target.key !== at.key) return;
+    const row = BY_KIND[seat.kind];
+    const target = seatTarget(scene, at, row, seat.x, seat.y, () => true);
+    if (!target) return;
     const creatures = target.entry.creatures ||= [];
     for (const [body, entry] of scene._rareBodies || []) if (body.id === seat.id && scene._rareLoadedEntries?.has(entry) && entry.creatures?.includes(body)) return;
     for (const entry of root.WorldGen.tileCacheFor(at.depth).values()) {
       const existing = (entry.creatures || []).find(c => c.id === seat.id);
       if (existing) { (scene._rareBodies ||= new Map()).set(existing, entry); return; }
     }
-    const row = BY_KIND[seat.kind];
     if (!environment(scene, row)) return;
     // Restoring the same seat never finds a substitute or rolls again.
     const overrides = { waterOnly: !!row.water };
@@ -135,11 +156,9 @@
     const maxRing = Math.max(lx + N, 2 * N - 1 - lx, ly + N, 2 * N - 1 - ly);
     const fits = (dx, dy) => {
       const x = (ox + dx + .5) * at.cellM, y = (oy + dy + .5) * at.cellM;
-      const target = locate(scene, x, y);
-      if (!target || target.key !== at.key || !matches(row, target)) return null;
-      if (!root.CreatureSpawns.canPlaceAt(scene, target.entry, x, y, row.kind,
-        { id, clearance: at.cellM, blocks: c => blocksSeat(scene, c), overrides: { waterOnly: !!row.water } })) return null;
-      return { id, kind: row.kind, x, y, behaviour: {} };
+      const placeable = target => root.CreatureSpawns.canPlaceAt(scene, target.entry, x, y, row.kind,
+        { id, clearance: at.cellM, blocks: c => blocksSeat(scene, c), overrides: { waterOnly: !!row.water } });
+      return seatTarget(scene, at, row, x, y, placeable) ? { id, kind: row.kind, x, y, behaviour: {} } : null;
     };
     // One string hash per encounter, then an integer mix per cell: a string
     // hash per cell dominated a whole-area scan.
