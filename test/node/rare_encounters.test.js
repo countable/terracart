@@ -129,6 +129,33 @@
       assert.eq(entry.creatures.length,0);
     }
   }));
+  // On real maps a reef or cove zone covers only the beach; the water beside
+  // it belongs to the plain water owner (Kelowna: 0 of 307 Pirate Cove cells
+  // were water). A water rare owns the shoreline next to its area.
+  test('rare encounters: water rares seat in shoreline water beside a beach-only zone', () => fixture((scene, entry) => {
+    entry.zone.anchors[0].variant = 'mystic_reef';
+    entry.gameplayTiers = new Uint8Array(4096).fill(1);
+    for (let y = 0; y < 64; y++) for (let x = 0; x < 64; x++) {
+      const i = y * 64 + x;
+      if (x >= 34 && x <= 36) { entry.grid[i] = WorldGen.T.WATER; entry.zone.coverage[i] = 0; }
+      else if (x > 36) { entry.grid[i] = WorldGen.T.GRASS; entry.zone.coverage[i] = 0; }
+      else entry.grid[i] = WorldGen.T.SAND;
+    }
+    let found = 0;
+    for (let n = 0; n < 80 && !found; n++) {
+      entry.zone.anchors[0].key = 'cove_' + n; scene.save = { caught: [] }; delete scene._rareTickAt; entry.creatures = [];
+      for (let t = 0; t < 200 && !entry.creatures.length; t++) RareEncounters.tick(scene, 1000 + t * 300);
+      for (const c of entry.creatures) {
+        assert.eq(c.kind, 'tidal_force');
+        const cx = Math.floor(c.x / 10), cy = Math.floor(c.y / 10);
+        assert.eq(entry.grid[cy * 64 + cx], WorldGen.T.WATER, 'seated in the water');
+        assert.eq(entry.zone.coverage[cy * 64 + cx], 0, 'outside the zone, on its shoreline');
+        assert.truthy(EnemySpawns.surfaceActive(scene, c), 'and visible while the player is in the zone');
+        found++;
+      }
+    }
+    assert.truthy(found > 0);
+  }));
   test('rare encounters: saved expiry hides cave encounters while captured pets stay available', () => fixture((scene, entry) => {
     const key='2:habitat_2_0_0', visit=1;
     const c={kind:'darkling',id:`rare:${EnemySpawns.hash(key).toString(36)}:1:darkling`,_rareEncounter:{key,visit}};

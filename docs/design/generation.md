@@ -29,9 +29,19 @@ access or tile lifecycle mechanics.
   retains rolls, seats, visit counters, departure progress and behavior clocks;
   reloads and tile eviction never give a second draw. Defeat/capture IDs remain final
   within the visit. Pets are exempt from encounter departure and time visibility.
-- Rare seats use the shared spawn gate, exact owner, water restrictions, occupancy
-  and Home bands. Declared rare encounters gain the existing signature tier exception
-  only beyond the final Home band. Night-only Nighthops and rainy Spectrus also need
+- Rare seats use the shared spawn gate, exact owner, water restrictions and
+  occupancy. Home bands and the Home fauna circle never hide a rare encounter
+  (`EnemySpawns.creatureHomeAllows`): it is a once-per-visit event, so the safe
+  area made it unseeable for a player who stays near Home. A seat is sought 3-8
+  cells from the entry point first, then ring by ring over the whole area across
+  the loaded 3x3 tiles, as a search budgeted per tick; only when no cell of the
+  area is eligible does the visit end without its monster.
+- Water rows (`water: true`: Dire Toad, Tidal Force, Leviathan, Fungusaur,
+  Locylady) seat only in water, and also own the water within three cells of
+  their area. A reef, cove, causeway or wetland maps the beach, road or marsh;
+  the water beside it belongs to the plain water owner, so without that
+  shoreline reach Leviathan had no seat on the Kelowna fixtures. The spawn gate
+  still keeps every seat off open water. Night-only Nighthops and rainy Spectrus also need
   their live weather/time condition; those gates never reroll a visit. Hidden Dire
   Toads and Sproutlings use the ordinary adjacent-reveal mechanism.
 - Goldenberry harvesting on Berry Lane rolls a separate 15% trigger once per bush
