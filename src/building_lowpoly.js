@@ -1352,6 +1352,23 @@
     }
     return renderer.pipelines.get(key);
   }
+  // The overlay retains every building of the loaded window, several times
+  // the turned map's visible square. `update` keeps each mesh's projected box
+  // (`_cull`, its own px space); a mesh whose box lands wholly outside the
+  // camera's viewport submits nothing. A camera without a viewport (the
+  // standalone viewers' stubs) culls nothing.
+  const CULL_PAD_PX=4; // the ink pass's upward offset, plus rounding
+  function offCamera(src,camera,matrix){
+    const b=src._cull;
+    if(!b||!(camera.width>0)||!(camera.height>0))return false;
+    let l=Infinity,t=Infinity,r=-Infinity,d=-Infinity;
+    for(let i=0;i<4;i++){
+      const px=i&1?b.right:b.left,py=i&2?b.bottom:b.top,x=matrix.getX(px,py),y=matrix.getY(px,py);
+      if(x<l)l=x;if(x>r)r=x;if(y<t)t=y;if(y>d)d=y;
+    }
+    const pad=CULL_PAD_PX*Math.max(1,camera.zoom||1),cx=camera.x||0,cy=camera.y||0;
+    return r<cx-pad||d<cy-pad||l>cx+camera.width+pad||t>cy+camera.height+pad;
+  }
   function renderObject(scene){
       const obj=scene.add.graphics();
       (scene.worldContainer||scene.buildingWallContainer).add(obj);
@@ -1360,6 +1377,7 @@
       obj.renderWebGL=function(renderer,src,camera,parentMatrix){
         camera.addToRenderList(src);
         const matrix=Phaser.GameObjects.GetCalcMatrix(src,camera,parentMatrix).calc;
+        if(offCamera(src,camera,matrix))return;
         if(src._lowpolyFaces[0]?.sourceArt&&typeof AuthoredBuildingRenderer!=='undefined'){
           AuthoredBuildingRenderer.draw(scene,renderer,src,camera,matrix);return;
         }
@@ -1369,40 +1387,52 @@
         // One upward-offset silhouette behind the whole building leaves ink
         // only on its upper outer edge. All faces cover it together, including
         // decks, chimneys and wreck floors, so their joins never receive ink.
-        const ink=(faces)=>{
-          const tint=Phaser.Renderer.WebGL.Utils.getTintAppendFloatAlpha(src._wreck?LOOK.wreck.ink:LOOK.ink,camera.alpha*src.alpha);
+        // Both passes run for every building on every frame: no per-face
+        // closures or arrays here. A face's three vertex tints depend only on
+        // its light (re-derived when the heading turns) and the mesh's alpha,
+        // so they are kept on the face until either changes.
+        const toTint=Phaser.Renderer.WebGL.Utils.getTintAppendFloatAlpha,faces=src._lowpolyFaces;
+        const baseAlpha=camera.alpha*src.alpha,wreck=src._wreck;
+        // A filled ink pass would show through translucent faces; translucent
+        // meshes and indoor wall parts omit it.
+        if(LOOK.inkPx>0&&src.alpha===1&&!src._noInk){
+          const tint=toTint(wreck?LOOK.wreck.ink:LOOK.ink,baseAlpha);
           for(const f of faces){
+            if(!f.visible)continue;
             if(pipeline.shouldFlush(3))pipeline.flush();
             const unit=pipeline.setTexture2D(f.texture.source[0].glTexture);
             for(let i=0;i<3;i++){const p=f.projected[i];pipeline.batchVert(matrix.getX(p.x,p.y),matrix.getY(p.x,p.y)-px,tu,tv,unit,0,tint);}
           }
-        };
-        const paint=(group)=>{for(const f of group){
+        }
+        for(const f of faces){
+          if(!f.visible)continue;
           if(pipeline.shouldFlush(3))pipeline.flush();
           const unit=pipeline.setTexture2D(f.texture.source[0].glTexture);
-          // Restrained three-step lighting keeps the wreck in the same cel palette.
-          let shade=f.sourceArt?255:src._wreck?(f.light<.65?196:f.light<.88?225:255):f.light<.65?140:f.light<.88?199:255;
-          if(f.eaveShadow)shade=Math.round(shade*LOOK.eaveShade);
+          const alpha=baseAlpha*(f.opacity??1);
+          let tints=f._tints;
+          if(!tints||f._tintAlpha!==alpha||f._tintLight!==f.light||f._tintTextured!==LOOK.textured){
+            // Restrained three-step lighting keeps the wreck in the same cel palette.
+            let shade=f.sourceArt?255:wreck?(f.light<.65?196:f.light<.88?225:255):f.light<.65?140:f.light<.88?199:255;
+            if(f.eaveShadow)shade=Math.round(shade*LOOK.eaveShade);
+            const color=LOOK.textured?(f.color??0xffffff):f.flat??f.color??0xffffff;
+            const lit=k=>(Math.round((color>>16)*k)<<16)|(Math.round(((color>>8)&255)*k)<<8)|Math.round((color&255)*k);
+            const tint=toTint(lit(shade/255),alpha);
+            // Keep cel brick bevels crisp beneath broad ground-to-top shading.
+            const baseShade=wreck?.52:.72;
+            tints=f._tints||(f._tints=[0,0,0]);
+            for(let i=0;i<3;i++){
+              const contact=f.rubbleHeight?.65+.35*Math.min(1,f.points[i].z/f.rubbleHeight):
+                f.kind==='wall'&&!f.preserveWalls?baseShade+(1-baseShade)*Math.min(1,f.points[i].z/Math.max(1,f.eaveHeight)):1;
+              tints[i]=contact===1?tint:toTint(lit(shade*contact/255),alpha);
+            }
+            f._tintAlpha=alpha;f._tintLight=f.light;f._tintTextured=LOOK.textured;
+          }
           const textured=LOOK.textured||f.solid||f.kind==='trim';
-          const color=LOOK.textured?(f.color??0xffffff):f.flat??f.color??0xffffff;
-          const lit=k=>(Math.round((color>>16)*k)<<16)|(Math.round(((color>>8)&255)*k)<<8)|Math.round((color&255)*k);
-          const alpha=camera.alpha*src.alpha*(f.opacity??1);
-          const tint=Phaser.Renderer.WebGL.Utils.getTintAppendFloatAlpha(lit(shade/255),alpha);
           for(let i=0;i<3;i++){
             const p=f.projected[i];
-            // Keep cel brick bevels crisp beneath broad ground-to-top shading.
-            const baseShade=src._wreck?.52:.72;
-            const contact=f.rubbleHeight?.65+.35*Math.min(1,f.points[i].z/f.rubbleHeight):
-              f.kind==='wall'&&!f.preserveWalls?baseShade+(1-baseShade)*Math.min(1,f.points[i].z/Math.max(1,f.eaveHeight)):1;
-            const wallTint=contact===1?tint:Phaser.Renderer.WebGL.Utils.getTintAppendFloatAlpha(lit(shade*contact/255),alpha);
-            pipeline.batchVert(matrix.getX(p.x,p.y),matrix.getY(p.x,p.y),textured?p.u:tu,textured?p.v:tv,unit,0,wallTint);
+            pipeline.batchVert(matrix.getX(p.x,p.y),matrix.getY(p.x,p.y),textured?p.u:tu,textured?p.v:tv,unit,0,tints[i]);
           }
-        }};
-        const faces=src._lowpolyFaces.filter(f=>f.visible);
-        // A filled ink pass would show through translucent faces; translucent
-        // meshes and indoor wall parts omit it.
-        if(LOOK.inkPx>0&&src.alpha===1&&!src._noInk)ink(faces);
-        paint(faces);
+        }
         renderer.pipelines.postBatch(src);
       };
       return obj;
@@ -1413,7 +1443,9 @@
       scene.events?.once('shutdown',()=>{for(const key of state.textures||[])scene.textures.remove(key);scene._lowpoly=null;});
     }
     const state=scene._lowpoly;
-    for(const obj of state.pool){obj.visible=false;obj._lowpolyFaces=[];}
+    for(const obj of state.pool){obj.visible=false;obj._lowpolyFaces=[];obj._cull=null;}
+    // Last build's placed meshes, for `add` to take back (see retainSignature).
+    state.kept=state.keeping||null;state.keeping=new Map();
     state.buildings=[];state.faces=[];state.keys=new Set();state.angle=NaN;state.builds++;
     state.enabled=true;return state;
   }
@@ -1893,6 +1925,22 @@
     const faces=model.faces.map(f=>({...f,sourceArt:true,rawUV:true,preserveWalls:true,points:f.points.map(move)}));
     return {...model,faces,ring,center:{x:best.x,y:best.y},height:Math.max(...faces.flatMap(f=>f.points.map(p=>p.z))),noInk:true,authored:true};
   }
+  // What a placed building depends on besides where the frame put it: the
+  // lot's own shape, its recipe, roof variant, named doorway wall and the
+  // street segments near enough to choose a door (already cut to DOOR.reach).
+  // Coordinates are taken relative to the lot and rounded, so the same lot a
+  // few cells over signs the same. Recipes are plain data (colours, names,
+  // counts); one that is not simply never matches.
+  function retainSignature(local,recipe,variant,streets,left,top,entrance){
+    const r=v=>Math.round(v*64);
+    let sig;
+    try{sig=JSON.stringify(recipe);}catch(error){return null;}
+    sig+='|'+variant+'|'+entrance+'|'+(typeof RogueObjects!=='undefined'&&!!RogueObjects.enabled)+'|';
+    for(const p of local)sig+=r(p.x)+','+r(p.y)+';';
+    sig+='|';
+    for(const line of streets){for(const p of line)sig+=r(p.x-left)+','+r(p.y-top)+';';sig+='/';}
+    return sig;
+  }
   function add(scene,pts,recipe,variant,key,streets=[],entrance=null){
     const state=scene._lowpoly,left=Math.min(...pts.map(p=>p.x)),top=Math.min(...pts.map(p=>p.y));
     const local=pts.map(p=>({x:p.x-left,y:p.y-top}));
@@ -1910,6 +1958,13 @@
     // `entrance`) AND carries the plank door panel (doorFaces). Inside, the
     // bay stays on that wall and the panel is left off with the rest of the
     // outside.
+    // THE SAME BUILDING, ONE REBUILD LATER. A cell crossing rebuilds the whole
+    // window, and nearly every building in it is the one the last build
+    // placed, moved by whole cells. Its placed meshes are taken back as they
+    // are and only re-seated (reseat); `update` then slides their projection.
+    const sig=key!=null?retainSignature(local,recipe,variant,streets,left,top,entrance):null;
+    const kept=sig!=null?state.kept?.get(key):null;
+    if(kept&&kept.sig===sig){state.kept.delete(key);return reseat(kept);}
     const useAuthored=recipe.authored&&typeof AuthoredBuildings!=='undefined';
     // A reviewed skin goes on the lot's own walls; only the exempt landmarks
     // (AuthoredBuildings.skin) keep a whole shell fit inside their lot. A room
@@ -1934,16 +1989,39 @@
     // `edge`), each sorted at its own wall — see place(). Wreck plinths
     // likewise split raised sections from their ground decal.
     const parts=preparedParts(cached,texture.roofPeriod);
-    let first=null;const placed=[];
-    for(const part of parts){const mesh=place(part);placed.push(mesh);first=first||mesh;}
+    const placed=[];
+    for(const part of parts)placed.push(place(part));
     // NO INK INSIDE (owner, Oct 2026): the walls, drawn as parts of their
     // own, each inked their own outline over the neighbour's fill (black
     // seams between the walls); inside, no part inks at all (`noInk`) — the
     // dark mask outside the room (lighting.js paintIndoorMask) is the room's
     // edge.
+    const first=placed[0]||null;let whole=null;
     if(cached.pieces){const faces=placed.flatMap(p=>p.faces);
-      return {...first,faces,roofTriangles:faces.filter(f=>f.kind==='roof').length,wallTriangles:faces.filter(f=>f.kind==='wall').length,trimTriangles:faces.filter(f=>f.kind==='trim').length};}
-    return first;
+      whole={faces,roofTriangles:faces.filter(f=>f.kind==='roof').length,wallTriangles:faces.filter(f=>f.kind==='wall').length,trimTriangles:faces.filter(f=>f.kind==='trim').length};}
+    // Two buildings never share a key within one build; a repeated key simply
+    // keeps the later one.
+    if(sig!=null)state.keeping?.set(key,{sig,left,top,placed,whole});
+    return whole?{...first,...whole}:first;
+    // Everything `place` derives from the frame position, redone for a kept
+    // entry: the mesh origin, wall baseline, sort point, pool slot and each
+    // face's origin. Face tints, UVs and local points are position-free.
+    function reseat(entry){
+      const dx=left-entry.left,dy=top-entry.top;
+      for(const mesh of entry.placed){
+        mesh.x=left;mesh.y=top;mesh.footprint=pts;
+        if(mesh.edge){mesh.edge.a.x+=dx;mesh.edge.a.y+=dy;mesh.edge.b.x+=dx;mesh.edge.b.y+=dy;}
+        state.buildings.push(mesh);if(mesh.faces.length)state.keys.add(key);
+        mesh.support.x+=dx;mesh.support.y+=dy;mesh.support.order=state.buildings.length;
+        const index=state.buildings.length-1,obj=state.pool[index]||(state.pool[index]=renderObject(scene)),flags=mesh.objFlags;
+        mesh.obj=obj;obj._lowpolyFaces=mesh.faces;obj._cull=null;
+        obj._noInk=flags.noInk;obj._wreck=flags.wreck;obj._roguePalette=flags.roguePalette;
+        for(const face of mesh.faces){face.x=left;face.y=top;state.faces.push(face);}
+      }
+      entry.left=left;entry.top=top;state.keeping.set(key,entry);
+      const first=entry.placed[0]||null;
+      return entry.whole?{...first,...entry.whole}:first;
+    }
     function place(prepared){
     const cached=prepared.part;
     const mesh={...cached,faces:prepared.faces.map(face=>({...face,points:face.points.map(p=>({...p}))}))};
@@ -1961,11 +2039,12 @@
       :{x:left+(cached.center?.x??local.reduce((s,p)=>s+p.x,0)/local.length),y:top+(cached.center?.y??local.reduce((s,p)=>s+p.y,0)/local.length),order:state.buildings.length};
     const index=state.buildings.length-1;
     const obj=state.pool[index]||(state.pool[index]=renderObject(scene));
-    mesh.obj=obj;mesh.support=support;obj._lowpolyFaces=mesh.faces;
+    mesh.obj=obj;mesh.support=support;obj._lowpolyFaces=mesh.faces;obj._cull=null;
     obj._noInk=!!cached.noInk;obj._wreck=recipe.shape==='wreck';
     // Reused render objects must reset this in baseline/Dreamland. Wrecks already use their separately prepared RA atlas.
     obj._roguePalette=recipe.shape!=='wreck'
       &&typeof RogueObjects!=='undefined'&&RogueObjects.enabled;
+    mesh.objFlags={noInk:obj._noInk,wreck:obj._wreck,roguePalette:obj._roguePalette};
     for(const face of mesh.faces){
       if(cached.authored){
         face.flat=face.color??0xffffff;face.support=support;face.texture=face.texture||texture;
@@ -2067,18 +2146,43 @@
     const changed=state.angle!==angle;state.angle=angle;
     if(changed){
     const c=Math.cos(angle),s=Math.sin(angle);
-    for(const face of state.faces){let depth=0;
+    const k=LOOK.heightScale;
+    for(const face of state.faces){
+      const pts=face.points,proj=face.projected;
+      // A kept face at this heading (BuildingLowPoly.add's reseat) only moved
+      // with its frame: slide what is already projected.
+      if(face.projAngle===angle){
+        const dx=face.x-face.projX,dy=face.y-face.projY;
+        if(dx||dy){
+          for(let i=0;i<proj.length;i++){proj[i].x+=dx;proj[i].y+=dy;}
+          face.depth+=s*dx+c*dy;face.projX=face.x;face.projY=face.y;
+        }
+        face.support.depth=s*face.support.x+c*face.support.y;
+        continue;
+      }
+      let depth=0,lift=0;
       // Height projects screen-up, foreshortened like the billboard sprites.
-      face.points.forEach((p,i)=>{const v=face.projected[i];v.x=face.x+p.x-s*p.z*LOOK.heightScale;v.y=face.y+p.y-c*p.z*LOOK.heightScale;v.u=p.tu;v.v=p.tv;depth+=s*(face.x+p.x)+c*(face.y+p.y);});
-      if(!face.sourceArt&&((face.kind==='trim'&&!face.facadeDoor&&!face.rawUV)||face.solid))for(const p of face.projected){p.u=510/512;p.v=126/512;}
+      for(let i=0;i<pts.length;i++){const p=pts[i],v=proj[i];v.x=face.x+p.x-s*p.z*k;v.y=face.y+p.y-c*p.z*k;v.u=p.tu;v.v=p.tv;depth+=s*(face.x+p.x)+c*(face.y+p.y);lift+=p.z;}
+      if(!face.sourceArt&&((face.kind==='trim'&&!face.facadeDoor&&!face.rawUV)||face.solid))for(let i=0;i<proj.length;i++){proj[i].u=510/512;proj[i].v=126/512;}
       face.support.depth=s*face.support.x+c*face.support.y;
-      face.depth=depth/3+(face.sourceArt?face.points.reduce((sum,p)=>sum+p.z,0)/9:0);
-      if(!face.sourceArt&&((face.kind==='wall'&&(!face.interior||face.edge!=null))||(face.kind==='trim'&&face.wallDirection))){const a=face.points[0],b=face.points[1],dx=face.wallDirection?.x??b.x-a.x,dy=face.wallDirection?.y??b.y-a.y,len=Math.hypot(dx,dy)||1;face.light=.76+.23*(c*dx-s*dy)/-len;}
-      const p=face.projected;face.visible=cross(p[0],p[1],p[2])>1e-8;
+      face.depth=depth/3+(face.sourceArt?lift/9:0);
+      if(!face.sourceArt&&((face.kind==='wall'&&(!face.interior||face.edge!=null))||(face.kind==='trim'&&face.wallDirection))){const a=pts[0],b=pts[1],dx=face.wallDirection?.x??b.x-a.x,dy=face.wallDirection?.y??b.y-a.y,len=Math.hypot(dx,dy)||1;face.light=.76+.23*(c*dx-s*dy)/-len;}
+      face.visible=cross(proj[0],proj[1],proj[2])>1e-8;
+      face.projAngle=angle;face.projX=face.x;face.projY=face.y;
     }
     for(const mesh of state.buildings){
-      mesh.faces.sort((a,b)=>(a.layer??0)-(b.layer??0)||a.depth-b.depth);
-      mesh.visibleTriangles=mesh.faces.filter(f=>f.visible).map(f=>f.projected);
+      // A kept mesh keeps its order and its visible set: every face moved together.
+      if(mesh.sortedAngle!==angle){
+        mesh.faces.sort((a,b)=>(a.layer??0)-(b.layer??0)||a.depth-b.depth);
+        mesh.visibleTriangles=mesh.faces.filter(f=>f.visible).map(f=>f.projected);
+        mesh.sortedAngle=angle;
+      }
+      // What the render pass culls against (offCamera): every projected
+      // vertex, hidden faces included, so the box never under-covers.
+      let l=Infinity,t=Infinity,r=-Infinity,d=-Infinity;
+      for(const f of mesh.faces){const proj=f.projected;for(let i=0;i<proj.length;i++){const p=proj[i];if(p.x<l)l=p.x;if(p.x>r)r=p.x;if(p.y<t)t=p.y;if(p.y>d)d=p.y;}}
+      const box=mesh.obj._cull||(mesh.obj._cull={left:0,top:0,right:0,bottom:0});
+      box.left=l;box.top=t;box.right=r;box.bottom=d;
       // Standalone art viewers have no shared world sorter.
       if(!scene.worldContainer)mesh.obj.setDepth(mesh.ground?-Infinity:mesh.support.depth);
     }
@@ -2107,7 +2211,7 @@
   }
   function clear(scene){
     const state=scene._lowpoly;if(!state)return;
-    state.enabled=false;state.coversPlayer=false;state.faces=[];state.buildings=[];state.keys.clear();
+    state.enabled=false;state.coversPlayer=false;state.faces=[];state.buildings=[];state.keys.clear();state.kept=state.keeping=null;
     for(const obj of state.pool){obj.visible=false;obj._lowpolyFaces=[];}
   }
   const covers=(scene,o)=>active(scene)&&(scene.depth??0)===0&&scene._lowpoly?.enabled&&!!scene._lowpoly?.keys.has(o.id);

@@ -50,8 +50,8 @@ chest's position, id, tier, sprite or cave eligibility.
   Surface and cave gem groups use the full `GEM_DEPOSITS` ladder, deduplicated
   by item so the crystal alias does not give Sapphire extra weight.
   Furniture membership comes from catalog `kind: 'furniture'`, with one piece
-  per reward regardless of budget. Culture, Commerce and Roadside reserve 10%
-  for furniture in ordinary and T3+ tables; their other lanes shrink
+  per reward regardless of budget. Culture, Commerce and Roadside reserve
+  `ChestThemes.FURNITURE_SHARE` (20%) for furniture in ordinary and T3+ tables; their other lanes shrink
   proportionally. Cave, rare-relic and T2 Book overlays preserve that share.
   Boss and vista pools exclude furniture. Buried `treasure:default` gives its
   furniture class the same weight as supplies. Furnishings use the ordinary
@@ -116,7 +116,7 @@ stalls and coin pots keep their own interactions.
   budget); a theme only restricts gear slots (`ChestThemes.gearSlots`).
 - **Every chest carries equipment.** `ChestThemes.CHEST_GEAR` adds the
   `bonusGear` lane at `sharePerTier` points per displayed chest tier, up to
-  `maxShare`, taken from the row's non-gear lanes (themed gear lanes, unique
+  `maxShare` (4% per tier, 16% at T4+; it was crowding out furniture), taken from the row's non-gear lanes (themed gear lanes, unique
   relics and furniture keep their shares; a T2 Book share holds it too). It
   draws evenly over every armour and relic slot and, from T2 chests, the
   unique relics eligible at the gear tier. It is the only gear a T1 chest
@@ -147,7 +147,7 @@ A cave chest keeps its surface identity for most rolls and mixes in an
 underground lane (magic, field supplies, gems, the cave-only trap); the mix
 and its per-tier rows live in `ChestThemes.weights` (`opts.depth`). The
 rebalanced identities hold below ground too: commerce stays coins, gems and furniture. Its cave share adds gems while
-the furniture lane remains 10%.
+the furniture lane keeps `FURNITURE_SHARE`.
 The cave tier cap is `chestTierMaxFor` (`src/loot.js`).
 
 ## Saves

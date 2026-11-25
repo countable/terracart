@@ -182,9 +182,10 @@
       ledger: 'ms', cooldownMs: 12 * 60 * 60 * 1000, reward: 'favour', effect: 'A castellan\'s feast: a full bar, then a minute too full to eat', durationMs: 0,
       locations: ['Claimed castles'], spent: 'The castellan is away',
       body: 'The castellan receives you in the hall.',
-      // The castle guard's sword for hire (Macros.offerMercenary), at the
-      // castles Houses.castleHiresMercenaries names — about one in three.
-      mercenary: { name: 'Castle guard', art: 'castle_favour', hireLabel: 'Hire a guard',
+      // The castle guard's sword for hire (Macros.offerMercenary), offered
+      // instead of the feast at the castles Houses.castleHiresMercenaries
+      // names — about one in three.
+      mercenary: { name: 'Castle guard', art: 'castle_favour',
         hireLead: 'My lord, one of the guard will ride with you.',
         body: 'The guard takes your coins and buckles on his sword. He falls into step beside you.' } },
   };

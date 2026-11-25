@@ -49,6 +49,70 @@
   const withPhaser = (fn) => { const had = window.Phaser; window.Phaser = PHASER;
     try { return fn(); } finally { if (had === undefined) delete window.Phaser; else window.Phaser = had; } };
   const FOOT = [{ x: 100, y: 100 }, { x: 190, y: 100 }, { x: 190, y: 160 }, { x: 140, y: 160 }, { x: 140, y: 200 }, { x: 100, y: 200 }];
+  test('low-poly rebuild: a building still in the window keeps its placed meshes and projects where a fresh build would', () => withPhaser(() => {
+    const snapshot=scene=>scene._lowpoly.buildings.map(mesh=>({x:mesh.x,y:mesh.y,support:{x:+mesh.support.x.toFixed(6),y:+mesh.support.y.toFixed(6),order:mesh.support.order},
+      cull:Object.values(mesh.obj._cull).map(v=>+v.toFixed(6)),noInk:mesh.obj._noInk,wreck:mesh.obj._wreck,
+      // Faces level in depth sort by rounding noise, which differs with the
+      // frame position on a fresh build too: compare them as a set.
+      faces:mesh.faces.map(f=>JSON.stringify({visible:f.visible,depth:+f.depth.toFixed(6),light:f.light,x:f.x,y:f.y,
+        projected:f.projected.map(p=>[+p.x.toFixed(6),+p.y.toFixed(6),p.u,p.v])})).sort()}));
+    for(const role of ['wreck','market','home']){
+      const recipe=()=>BuildingLowPoly.recipeFor(role,{wall:0xd4cdb4,roof:0x709b9a,trim:0x614534});
+      const street=[[{x:0,y:400},{x:400,y:400}]],move=(pts,dx,dy)=>pts.map(p=>({x:p.x+dx,y:p.y+dy}));
+      const scene=stubScene();scene.mapRot=.4;
+      BuildingLowPoly.begin(scene);
+      const first=BuildingLowPoly.add(scene,FOOT,recipe(),'ridge','keep:'+role,street);
+      BuildingLowPoly.update(scene);
+      const pool=scene._lowpoly.pool.length;
+      // One cell over: the same lot and street, both moved with the frame.
+      BuildingLowPoly.begin(scene);
+      const second=BuildingLowPoly.add(scene,move(FOOT,CELL_PX,-2*CELL_PX),recipe(),'ridge','keep:'+role,street.map(line=>move(line,CELL_PX,-2*CELL_PX)));
+      BuildingLowPoly.update(scene);
+      assert.truthy(second.faces[0]===first.faces[0],role+' keeps its placed faces across the rebuild');
+      assert.eq(scene._lowpoly.pool.length,pool,role+' reuses its render objects');
+      assert.eq(scene._lowpoly.faces.length,second.faces.length,role+' registers each kept face once');
+      assert.truthy(BuildingLowPoly.covers(scene,{id:'keep:'+role}),role+' still claims its key');
+      const fresh=stubScene();fresh.mapRot=.4;
+      BuildingLowPoly.begin(fresh);
+      BuildingLowPoly.add(fresh,move(FOOT,CELL_PX,-2*CELL_PX),recipe(),'ridge','keep:'+role,street.map(line=>move(line,CELL_PX,-2*CELL_PX)));
+      BuildingLowPoly.update(fresh);
+      assert.eq(JSON.stringify(snapshot(scene)),JSON.stringify(snapshot(fresh)),role+' kept placement matches a fresh one');
+      // Turning the map re-projects kept faces like any other.
+      scene.mapRot=fresh.mapRot=1.3;BuildingLowPoly.update(scene);BuildingLowPoly.update(fresh);
+      assert.eq(JSON.stringify(snapshot(scene)),JSON.stringify(snapshot(fresh)),role+' kept placement turns with the map');
+      // Anything the placement depends on places it afresh: another roof
+      // variant, a changed recipe, or a street that moved against the lot.
+      for(const [label,args] of [['variant',[FOOT,recipe(),'hip','keep:'+role,street]],
+        ['recipe',[FOOT,{...recipe(),stories:(recipe().stories||1)+1},'ridge','keep:'+role,street]],
+        ['street',[FOOT,recipe(),'ridge','keep:'+role,[[{x:0,y:-60},{x:400,y:-60}]]]]]){
+        BuildingLowPoly.begin(scene);
+        const before=BuildingLowPoly.add(scene,FOOT,recipe(),'ridge','keep:'+role,street);
+        BuildingLowPoly.begin(scene);
+        const after=BuildingLowPoly.add(scene,...args);
+        assert.truthy(after.faces[0]!==before.faces[0],role+' is placed afresh when its '+label+' changes');
+      }
+    }
+  }));
+  test('low-poly render: a mesh outside the camera viewport submits nothing', () => withPhaser(() => {
+    const scene=stubScene();BuildingLowPoly.begin(scene);
+    const mesh=build(scene,'cull-render');
+    BuildingLowPoly.update(scene);
+    let vertices=0;
+    const pipeline={shouldFlush:()=>false,setTexture2D:()=>0,batchVert:()=>{vertices++;}};
+    const renderer={pipelines:{get:()=>pipeline,set:()=>pipeline,preBatch(){},postBatch(){}}};
+    const box=mesh.obj._cull,camera=(x,y)=>({alpha:1,zoom:1,x,y,width:100,height:100,addToRenderList(){}});
+    assert.truthy(box&&box.right>box.left&&box.bottom>box.top,'update records the projected box');
+    for(const f of mesh.faces)for(const p of f.projected)
+      assert.truthy(p.x>=box.left&&p.x<=box.right&&p.y>=box.top&&p.y<=box.bottom,'the box covers every projected vertex');
+    mesh.obj.renderWebGL(renderer,mesh.obj,camera(box.left,box.top));
+    assert.gt(vertices,0,'a mesh inside the viewport draws');
+    for(const [label,x,y] of [['left of',box.right+10,box.top],['right of',box.left-110,box.top],['above',box.left,box.bottom+10],['below',box.left,box.top-110]]){
+      vertices=0;mesh.obj.renderWebGL(renderer,mesh.obj,camera(x,y));
+      assert.eq(vertices,0,'a mesh '+label+' the viewport is skipped');
+    }
+    vertices=0;mesh.obj.renderWebGL(renderer,mesh.obj,camera(box.right-1,box.bottom-1));
+    assert.gt(vertices,0,'a mesh touching the viewport corner still draws');
+  }));
   test('low-poly rebuild: repeated wrecks reuse atlas splits with independent placement state', () => withPhaser(() => {
     const scene=stubScene(),recipe=BuildingLowPoly.recipeFor('wreck');
     const local=FOOT.map(p=>({x:p.x-100,y:p.y-100}));
@@ -65,6 +129,9 @@
       first.faces[0].points[0].tu=999;
       first.faces[0].color=0;
       BuildingLowPoly.update(scene);
+      // A build without the lot drops its kept placement (see the retention
+      // test below), so the next one places it afresh from the prepared parts.
+      BuildingLowPoly.begin(scene);
       BuildingLowPoly.begin(scene);
       const shifted=FOOT.map(p=>({x:p.x+CELL_PX,y:p.y-CELL_PX}));
       const second=BuildingLowPoly.add(scene,shifted,recipe,'ridge','atlas-reuse');

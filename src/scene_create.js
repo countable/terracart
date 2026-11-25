@@ -274,8 +274,11 @@ class SceneCreate {
     // time against the fix and could silently skip the capture.)
 
     _phase('authored buildings');
-    // Bake terrain patterns and building textures once.
-    AuthoredBuildings.prepare(this, { review: false });
+    // Bake terrain patterns and building textures once. The reviewed
+    // building models are only registered here; their materials are baked
+    // after the map is up (the warm-up below), or sooner for a building that
+    // is already in view (AuthoredBuildings.modelFor).
+    AuthoredBuildings.prepare(this, { review: false, defer: true });
     _phase('biome textures');
     makeBiomeTextures(this, CELL_PX);
     _phase('terrain transitions + props');
@@ -1473,6 +1476,11 @@ class SceneCreate {
         _endTiles?.();
         window.__boot?.mark('MAP PLAYABLE — boot overlay hidden');
         this._bootOverlayGone = true; window.__bootStatus?.(1);
+        // The reviewed building materials the first tile did not need, one
+        // model a tick, so a later tile's shop never bakes during a rebuild.
+        const warm = this.time?.addEvent?.({ delay: 150, loop: true, callback: () => {
+          if (!AuthoredBuildings.warm(this)) warm.remove(false);
+        } });
         // No launch card here: the STAY SAFE message is the loading screen
         // itself (index.html #safety), already read and acknowledged.
         // The map is the player's now, so responsiveness beats throughput:

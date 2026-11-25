@@ -5,12 +5,16 @@
   const TYPES = { Uint8Array, Uint8ClampedArray, Uint16Array, Uint32Array,
     Int8Array, Int16Array, Int32Array, Float32Array, Float64Array };
   let snapshot;
-  let lastSearch, activeMap = false;
+  // Asked per object by HomeVariant.anchor, thousands of times a frame, and
+  // reading location.search builds a string each time. The query only changes
+  // with a page load (nothing here uses the history API), so it is read once
+  // per location object; a headless host that swaps `location` is re-read.
+  let lastLocation, activeMap = false;
   function active() {
-    const search = root.location?.search || '';
-    if (search !== lastSearch) {
-      lastSearch = search;
-      activeMap = ['floor-viewer', 'scenario'].includes(new URLSearchParams(search).get('sandboxMap'));
+    const location = root.location;
+    if (location !== lastLocation || lastLocation === undefined) {
+      lastLocation = location || null;
+      activeMap = ['floor-viewer', 'scenario'].includes(new URLSearchParams(location?.search || '').get('sandboxMap'));
     }
     return activeMap;
   }

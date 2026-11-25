@@ -346,42 +346,79 @@ let source=uv.map(([u,v])=>[u,v+(['market','trader'].includes(key)?800:16)]);
   if(SHOP_ROOFS[role])return {key:['supply','relic','book'].includes(role)?'city_storefront':'market',palette:SHOP_ROOFS[role]};
   return null;
  }
+ // One record per texture manager: `variants` is every model the world can
+ // ask for (id = key:palette), `models` the ones built so far. Building one
+ // bakes a 512x1024 material and a recoloured roof copy, so:
+ //  - prepare(scene) builds them all before returning (reviews, tools);
+ //  - prepare(scene,{defer:true}) only registers them. The game boots this
+ //    way and calls warm(scene) from a timer once the map is up, one model a
+ //    call, so the bake never blocks the boot; a building that needs its
+ //    model before the warm-up reaches it gets it at once (modelFor).
  const caches=new WeakMap();
- const reviewPrepared=new WeakSet();
- function prepare(scene,{review=true}={}){
-  if(caches.has(scene.textures)&&(!review||reviewPrepared.has(scene.textures)))return;
-  const models=caches.get(scene.textures)||new Map(),variants=new Map(),emblems=new Map(),nativeModels=new Map(),paletteSources=new WeakMap();
+ function register(scene,review){
+  let cache=caches.get(scene.textures);
+  if(!cache)caches.set(scene.textures,cache={models:new Map(),variants:new Map(),emblems:new Map(),native:new Map(),review:false,sources:null});
+  if(cache.variants.size&&(!review||cache.review))return cache;
+  const {variants,emblems}=cache;
   for(const key of RESIDENCES){const palette=residencePalette(key);variants.set(key+':'+palette,{key,palette});}
   for(const role of ['home','workshop','blacksmith','trader','wizard','fort',...Object.keys(SHOP_ROOFS)])for(const tier of [1,2,4])for(const second of [false,true]){
    const r=recipeFor(role,'',tier,second);variants.set(r.key+':'+r.palette,r);
+   // Trades may share a roof color without sharing a symbol (generic/supply).
    if(r.emblem)emblems.set(r.emblem,r);
   }
-  for(const key of ['dreamland_house','dreamland_wide','dreamland_corner'])if(scene.textures.exists(imageKey(key)))variants.set(key+':native',{key,palette:'native'});
+  for(const key of ['dreamland_house','dreamland_wide','dreamland_corner'])variants.set(key+':native',{key,palette:'native'});
   // Native PP flat shops are selectable review models; keep their six source
   // colorways without changing the saved world's residential assignments.
-  if(review)for(const [key,spec] of Object.entries(SPECS))if(spec.ppFlat&&scene.textures.exists(imageKey(key)))variants.set(key+':native',{key,palette:'native'});
-  for(const [id,{key,palette}] of variants){
-   if(models.has(id))continue;
-   if(!scene.textures.exists(imageKey(key)))continue;
-   // Roof palettes change face textures, never the source mesh. Build each
-   // material's geometry once, then give each palette its own face records.
-   if(!nativeModels.has(key))nativeModels.set(key,buildNative(scene,key));
-   const native=nativeModels.get(key),model={...native,faces:native.faces.map(face=>({...face}))};
-   AuthoredRoofPalette.prepare(scene,model.texture,model,palette,paletteSources);
-   models.set(id,model);
-   if(['dreamland_house','dreamland_corner'].includes(key))models.set(key+'_chimney:'+palette,buildNative(scene,key,true));
+  if(review){for(const [key,spec] of Object.entries(SPECS))if(spec.ppFlat)variants.set(key+':native',{key,palette:'native'});cache.review=true;}
+  return cache;
+ }
+ // The model for one id, built on first ask. A source image that has not
+ // loaded answers null and is asked again next time.
+ function modelFor(scene,id){
+  const cache=caches.get(scene.textures);
+  if(!cache)return null;
+  const built=cache.models.get(id);
+  if(built)return built;
+  const variant=cache.variants.get(id);
+  if(!variant){
+   // A chimney twin is built with its house.
+   const twin=/^(.*)_chimney:(.*)$/.exec(id);
+   return twin&&modelFor(scene,twin[1]+':'+twin[2])?cache.models.get(id)||null:null;
   }
-  // Trades may share a roof color without sharing a symbol (generic/supply).
-  for(const {key,palette,emblem} of emblems.values()){
-   const model=models.get(key+':'+palette);
-   const roofTexture=model?.faces.find(face=>AuthoredRoofPalette.roofFace(face,key))?.texture;
-   if(roofTexture)AuthoredRoofPalette.prepareEmblem(scene,emblem,palette,roofTexture);
+  const {key,palette}=variant;
+  if(!scene.textures.exists(imageKey(key)))return null;
+  // Roof palettes change face textures, never the source mesh. Build each
+  // material's geometry once, then give each palette its own face records.
+  if(!cache.native.has(key))cache.native.set(key,buildNative(scene,key));
+  const native=cache.native.get(key),model={...native,faces:native.faces.map(face=>({...face}))};
+  AuthoredRoofPalette.prepare(scene,model.texture,model,palette,cache.sources);
+  cache.models.set(id,model);
+  if(['dreamland_house','dreamland_corner'].includes(key))cache.models.set(key+'_chimney:'+palette,buildNative(scene,key,true));
+  for(const r of cache.emblems.values()){
+   if(r.key+':'+r.palette!==id)continue;
+   const roofTexture=model.faces.find(face=>AuthoredRoofPalette.roofFace(face,key))?.texture;
+   if(roofTexture)AuthoredRoofPalette.prepareEmblem(scene,r.emblem,palette,roofTexture);
   }
-  caches.set(scene.textures,models);
-  if(review)reviewPrepared.add(scene.textures);
+  return model;
+ }
+ // Builds the next registered model that is not built yet; false when every
+ // one whose source image has loaded is done.
+ function warm(scene){
+  const cache=caches.get(scene.textures);
+  if(!cache)return false;
+  for(const id of cache.variants.keys())if(!cache.models.has(id)&&modelFor(scene,id))return true;
+  return false;
+ }
+ function prepare(scene,{review=true,defer=false}={}){
+  const cache=register(scene,review);
+  if(defer)return;
+  // One batch shares each source's pixel read between its roof palettes
+  // (AuthoredRoofPalette.indexedSource); the scratch arrays go with the batch.
+  cache.sources=new WeakMap();
+  try{while(warm(scene));}finally{cache.sources=null;}
  }
  function build(scene,key,palette){
-  const native=caches.get(scene.textures)?.get(key+':'+palette);
+  const native=modelFor(scene,key+':'+palette);
   if(!native)return null;
   return {...native,ring:native.ring.map(p=>({...p})),faces:native.faces.map(f=>({...f,points:f.points.map(p=>({...p})),projected:f.points.map(()=>({}))}))};
  }
@@ -401,8 +438,10 @@ let source=uv.map(([u,v])=>[u,v+(['market','trader'].includes(key)?800:16)]);
   city_storefront:{roof:{u:256,v:704,w:220,h:132}}
  };
  function skin(scene,key,palette){
-  const native=caches.get(scene.textures)?.get(key+':'+palette),a=SPECS[key];
-  if(!native||!a||OUTLINE_EXEMPT.has(key))return null;
+  const a=SPECS[key];
+  if(!a||OUTLINE_EXEMPT.has(key))return null;
+  const native=modelFor(scene,key+':'+palette);
+  if(!native)return null;
   if(native.skin)return native.skin;
   const o=SKIN_OVERRIDES[key]||{},period=roofTilePeriod(key)||[240,240];
   const [du,dv,dw,dh]=specialBuilder(key)||a.flatRoof?a.door:facadeDoorRect(a,key);
@@ -419,5 +458,5 @@ let source=uv.map(([u,v])=>[u,v+(['market','trader'].includes(key)?800:16)]);
    ...(key==='dreamland_house'?{trim:[3.5,100.5],gableWindow:{u:24,v:72,w:16,h:20,bottom:5}}:{}),
    recolor:faces=>AuthoredRoofPalette.prepare(scene,native.texture,{authoredKey:key,faces},palette)};
  }
- root.AuthoredBuildings={SPECS,RESIDENCES,SHOP_ROOFS,recipeFor,prepare,build,skin};
+ root.AuthoredBuildings={SPECS,RESIDENCES,SHOP_ROOFS,recipeFor,prepare,warm,build,skin};
 })(typeof window!=='undefined'?window:globalThis);

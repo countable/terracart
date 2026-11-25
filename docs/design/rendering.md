@@ -997,8 +997,15 @@ hop (the slimes) keeps its own beat, paced by the sim’s step.
   Authored building preparation shares each native mesh across roof palettes
   and recolors each distinct RGB only once per palette. Emblem atlases keep
   their original pixel art in a compact 128×32 texture with matching UVs.
-  Normal scene startup passes `{review:false}` to skip flat-shop review
-  variants; review tools can call the default `prepare` later to add them.
+  Normal scene startup passes `{review:false, defer:true}`: it skips flat-shop
+  review variants and only registers the models, because baking all of them
+  (thirty-odd 512×1024 materials) cost half a second of the boot for a handful
+  on screen. A timer started when the boot overlay lifts calls
+  `AuthoredBuildings.warm` for one model per tick; a building that needs its
+  model sooner bakes it on first ask (`modelFor`). That first ask is the one
+  pixel read a rebuild may make, and only until the warm-up finishes seconds
+  into the session. Review tools call the default `prepare`, which bakes
+  everything before returning and can add the review variants later.
   `test/authored-startup.cjs` checks geometry and pixels against an optional
   `BASELINE_DIR` containing the previous authored-building/palette sources.
 - Respect `FPS_LIMIT` and its elapsed-time cadence adapter. The default stays
@@ -1062,6 +1069,20 @@ hop (the slimes) keeps its own beat, paced by the sim’s step.
   slices, then swaps both atomically; each pass reuses its full-size scratch
   layers between rebuilds. Measured: one read-back per building per crossing
   was the walking stutter on iPhone.
+  Low-poly building meshes are kept from one rebuild to the next:
+  `BuildingLowPoly.add` signs each placement (lot shape, recipe, roof variant,
+  doorway wall and the door-reach streets, all relative to the lot) and
+  `begin` hands the previous build's placements back, so a building still in
+  the window is re-seated at its new frame position instead of re-cloning
+  its faces, and `update` slides its existing projection when the heading has
+  not turned. Anything in the signature that changes places it afresh; a
+  build that omits a building drops it. The mesh render pass runs for every
+  building every frame, so it allocates nothing per face (vertex tints are
+  kept on the face until its light or alpha changes) and submits nothing for
+  a mesh whose projected box (`_cull`, kept by `update`) lies outside the
+  camera viewport; the window holds several times the buildings the turned
+  map shows. Measured on recorded tiles: the mesh pass was three quarters of
+  Phaser's render time before the cull.
   Castle material meshes retain local triangles, UVs and decorations across
   camera translations. Each draw gets fresh projection state and is culled
   against the current view. Cache keys include footprint, family, restoration
@@ -1577,13 +1598,15 @@ existing palisade. Home, shop inventory, ownership, tiers and wizard story gates
 continue using their existing saved identities. The full mapping is maintained
 in [low-poly building styles](../art/lowpoly-building-styles.md).
 
-Source images load through `ASSETS`. `AuthoredBuildings.prepare` bakes shared
-materials and roof palettes at scene startup. Each source atlas is read and
-indexed once per preparation batch; its roof colors reuse that index, and the
-scratch arrays are released after preparation. `test/authored-startup.cjs`
+Source images load through `ASSETS`. `AuthoredBuildings.prepare` registers the
+models and bakes shared materials and roof palettes; the game defers that bake
+to a warm-up after boot (see the performance notes above). In a full
+preparation batch each source atlas is read and indexed once; its roof colors
+reuse that index, and the scratch arrays are released after preparation. A
+model baked on its own reads its source itself. `test/authored-startup.cjs`
 checks runtime pixels, geometry and plaque parity against a source baseline,
 and reports source reads and preparation timings separately. Cell rebuilds
-clone cached faces and skin the procedural lot-outline shape with them: walls on the lot ring, the
+clone cached faces (once per building while it stays in the window) and skin the procedural lot-outline shape with them: walls on the lot ring, the
 roof over the lot (`BuildingLowPoly.authoredOutline`, details in the styles
 doc). A shell fit inside a lot leaves its plank floor showing as a deck, so
 only wizard towers and the fort hall keep whole fitted shells. The depth

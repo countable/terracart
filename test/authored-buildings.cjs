@@ -26,6 +26,9 @@ const assert = require('node:assert/strict');
           const r = AuthoredBuildings.recipeFor(role, role, tier, second); recipes.set(r.key + ':' + r.palette, r);
         }
       }
+      // The game bakes these after boot (AuthoredBuildings.warm); finish that
+      // here, then a placement must only reuse what is baked.
+      AuthoredBuildings.prepare(scene, { review: false });
       const texturesBefore = scene.textures.getTextureKeys().length;
       const native = [...recipes.values()].map(r => {
         const first = AuthoredBuildings.build(scene, r.key, r.palette), second = AuthoredBuildings.build(scene, r.key, r.palette);

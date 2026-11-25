@@ -769,16 +769,30 @@
       lip: css(toward(stone, dark ? 0 : 255, LABEL_LIP_LIFT)),
     });
   }
+  // A base tile's pixels and stone luminance, keyed by its canvas. Emptied
+  // with the tiles themselves (prepareMaterials).
+  let basePixelCache = new Map();
+  function basePixels(base) {
+    let read = basePixelCache.get(base);
+    if (!read) {
+      const data = base.getContext('2d').getImageData(0, 0, base.width, base.height).data;
+      basePixelCache.set(base, read = { data, luminance: stoneLuminance(data) });
+    }
+    return read;
+  }
   function recolorRoadTile(variant,restored) {
     const base=baseRoadTile(variant,restored);
     if(variant==='burned')return base;
     if (!base) return null;
     const c=document.createElement('canvas');c.width=base.width;c.height=base.height;
-    const g=c.getContext('2d');g.drawImage(base,0,0);
-    const pixels=g.getImageData(0,0,c.width,c.height),data=pixels.data;
-    const source=stoneLuminance(data);
-    const reference=baseRoadTile('promenade',restored);
-    const contrast=stoneLuminance(reference.getContext('2d').getImageData(0,0,reference.width,reference.height).data);
+    const g=c.getContext('2d');
+    // Most themes share one base tile, and every theme matches the same
+    // Promenade reference: read each base canvas back once per bake
+    // (basePixels), not once per theme.
+    const read=basePixels(base),reference=baseRoadTile('promenade',restored);
+    const pixels=g.createImageData(c.width,c.height),data=pixels.data;
+    data.set(read.data);
+    const source=read.luminance,contrast=basePixels(reference).luminance;
     const target=themeColor(variant,restored);
     // A mixed theme picks each stone's colour off its sparse-layout slot
     // (the nearest stone centre, sparseRoadTile's 16-row staggered grid).
@@ -834,10 +848,13 @@
   function prepareMaterials() {
     for (const key of Object.keys(selectedRoadCanvases)) delete selectedRoadCanvases[key];
     for (const key of Object.keys(themedRoadCanvases)) delete themedRoadCanvases[key];
+    basePixelCache = new Map();
     for (const variant of Object.keys(ROAD_THEME_COLORS)) {
       selectedRoadTile(variant, false);
       selectedRoadTile(variant, true);
     }
+    // The readbacks served this bake; a theme asked for later reads its own.
+    basePixelCache = new Map();
   }
 
   // Shared preview swatch uses the same authored tiles and palette as the game.

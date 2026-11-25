@@ -166,6 +166,21 @@
     for (const color of ['red', 'brown', 'orange', 'blue', 'green', 'pink'])
       assert.truthy(requested.has('authored_source_pp_flat_' + color), 'a review can expand the same prepared texture manager');
   });
+  test('authored buildings: a deferred prepare registers models without baking; the warm-up and first asks bake them', () => {
+    const requested = [];
+    const scene = { textures: { exists(key) { requested.push(key); return false; } } };
+    AuthoredBuildings.prepare(scene, { review: false, defer: true });
+    assert.eq(requested.length, 0, 'the boot touches no source image');
+    assert.eq(AuthoredBuildings.build(scene, 'pp_plaster', 'yellow'), null, 'an unloaded source answers null');
+    assert.eq(requested.join(), 'authored_source_pp_plaster', 'a first ask reaches only its own source');
+    assert.eq(AuthoredBuildings.build(scene, 'pp_flat_red', 'native'), null);
+    assert.eq(requested.length, 1, 'an unregistered review model is never looked up');
+    requested.length = 0;
+    assert.eq(AuthoredBuildings.warm(scene), false, 'the warm-up reports nothing left once no source can bake');
+    for (const key of ['pp_plaster', 'fdr', 'steam_blacksmith', 'trader', 'market', 'city_storefront'])
+      assert.truthy(requested.includes('authored_source_' + key), key + ': the warm-up reaches every registered model');
+    assert.eq(AuthoredBuildings.warm({ textures: {} }), false, 'an unprepared texture manager has nothing to warm');
+  });
   test('authored buildings: wizard towers and the fort hall keep whole shells', () => {
     const scene = { textures: { exists: () => false } };
     for (const key of ['wizard', 'steam_wizard', 'city_gearhouse']) assert.eq(AuthoredBuildings.skin(scene, key, 'purple'), null, key);

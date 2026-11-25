@@ -47,9 +47,9 @@ test('books: a school chest beats every other chest at handing one over', () => 
 });
 
 test('books: the school theme owns the dedicated Book group', () => {
-  // 60 of the authored row, less the T3 equipment lane's 21 points (ChestThemes.CHEST_GEAR).
+  // 60 of the authored row, less the T3 equipment lane's 12 points (ChestThemes.CHEST_GEAR).
   assert.eq(ChestThemes.themes.school.weights.books, 60);
-  assert.inRange(ChestThemes.weights('school', 3).books, 47.4 - 1e-9, 47.4 + 1e-9);
+  assert.inRange(ChestThemes.weights('school', 3).books, 52.8 - 1e-9, 52.8 + 1e-9);
   assert.eq(ChestThemes.weights('civic', 3).books, undefined,
     'civic chests reserve their identity for relics, supplies and coins');
 });
