@@ -5120,7 +5120,7 @@ Render.drawObjects = function drawObjects(scene) {
     if (objList.some(it => it.o.id !== o.id && !isSpent(it.o, spentIds) && sameAbsCell(scene, it.o.x, it.o.y, o.x, o.y))
         || plantedList.some(({ p }) => sameAbsCell(scene, p.x, p.y, o.x, o.y))
         || (scene.save.furniture || []).some(p => sameAbsCell(scene, p.x, p.y, o.x, o.y))) return null;
-    return { o: Render.mintedArrival({ ...o, kind: 'tree_stump', _streetArt: 'stump' }), dx, dy };
+    return { o: Render.mintedArrival({ ...o, kind: 'tree_stump', _stumpOf: treeStumpLook(o) }), dx, dy };
   };
   const stumpSources = [...objList];
   for (const o of scene.save.treeStumps || []) {
@@ -6803,7 +6803,16 @@ const { RENDER_SPEC, resolveAppearance, _houseRole, _houseKey, _houseScale, _hou
   };
 
   const RENDER_SPEC = {
-    tree_stump: { key: 'street_decor_stump', frame: '__BASE', origin: [0.5, 0.5], scale: 1.0, seat: true, layer: WorldLayers.STANDING_PROP },
+    // A felled tree leaves the stump cut from its own sheet's trunk
+    // (tree_stumps.png, one 32×48 frame per TREE_STUMP_FRAME look) at the
+    // tree's species scale, so its width, colour and crown tint match the
+    // trunk that stood there. Street scenery stumps keep the decor art.
+    tree_stump: { key: o => o._stumpOf ? 'tree_stumps' : 'street_decor_stump',
+                  frame: o => o._stumpOf ? TREE_STUMP_FRAME[o._stumpOf] : '__BASE',
+                  origin: [0.5, 0.5],
+                  scale: o => o._stumpOf ? TREE_ART_SCALE[o._stumpOf === 'pine' ? 'pine' : 'maple'] : 1.0,
+                  seat: true, shadow: true, layer: WorldLayers.STANDING_PROP,
+                  after: (s, o) => { if (o._stumpOf && o.crown_color) s.setTint(_crownTint(o.crown_color)); } },
     // Temples use their entire source polygon; no house sprite covers the runes.
     temple: { key: null, layer: WorldLayers.GROUND_DECAL },
     shrine_spirit: {
