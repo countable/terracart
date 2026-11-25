@@ -49,9 +49,9 @@ pixels and decorative details do not define additional tap cells.
   castellan's twelve-hour feast. Already
   claimed castles keep their service. One claimed castle in three
   (`CastleStyles.hiresMercenaries`, a hash of the castle key above its style
-  and quest bits; `Houses.castleHiresMercenaries` adds the claim) also hires
-  out a guard: a "Hire a guard" button beside Feast, or the hire at once when
-  the feast is spent. It is the wagon's hire (`Macros.offerMercenary`: the
+  and quest bits; `Houses.castleHiresMercenaries` adds the claim) offers a guard
+  for hire instead of the feast: the tap pays the tax, then opens the hire,
+  with no feast and no feast timer. It is the wagon's hire (`Macros.offerMercenary`: the
   `Companions.KINDS.mercenary` price, contract and refusals), worded by the
   castle row's `mercenary` copy, with no ledger beyond the live contract. Citadels retain their enemy building and
   guard battle; active Hives retain their enemy building until defeated. Forts

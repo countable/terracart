@@ -203,7 +203,7 @@ test('castle service: the gate is per castle, not global', () => {
 // mercenaries for sale") ─────────────────────────────────────────────────────
 // One claimed castle in CastleStyles.MERCENARY_ONE_IN hires out a sword: the
 // wagon's own hire (Macros.offerMercenary — Companions.KINDS.mercenary's price
-// and contract), offered beside the castellan's feast.
+// and contract), offered INSTEAD of the castellan's feast.
 
 const ccKeys = (want, n = 2) => {
   const out = [];
@@ -254,54 +254,48 @@ test('castle guard for hire: only a claimed castle hires, and only a picked one'
   assert.falsy(Houses.castleHiresMercenaries(s.save, { kind: 'house', id: 'h_1_2' }), 'never a house');
 });
 
-test('castle guard for hire: the feast dialog adds the wagon\'s hire, at its price, and the feast is unchanged', () => {
+test('castle guard for hire: a guard castle offers the guard instead of the feast, at the wagon\'s price', () => {
   const [yes] = ccKeys(true, 1), [no] = ccKeys(false, 1);
   const s = ccHireScene();
   s._claimCastle(ccTower(yes)); s._claimCastle(ccTower(no));
   s.presentCastleServiceOffer(0, 0, ccTower(no));
-  assert.eq(s._offers.length, 1);
-  assert.eq(s._offers[0].secondary, undefined, 'an ordinary castle offers the feast alone');
+  assert.eq(s._offers.length, 1, 'an ordinary castle lays the feast');
+  assert.eq(s._offers[0].acceptLabel, 'Feast');
+  assert.eq(s._confirms.length, 0, 'and offers no guard');
+  s.save.money = Companions.KINDS.mercenary.hireCost;
+  const money = s.save.money;
   s.presentCastleServiceOffer(0, 0, ccTower(yes));
-  const offer = s._offers[1];
-  assert.eq(offer.acceptLabel, 'Feast', 'the feast stays the main act');
-  assert.truthy(offer.secondary.label.includes(`${Companions.KINDS.mercenary.hireCost}c`), 'priced off Companions.KINDS.mercenary');
-  const money = s.save.money;   // the day's tax has just flown in
-  s.save.money = money + Companions.KINDS.mercenary.hireCost;
-  offer.secondary.onClick();
-  assert.eq(s._confirms.length, 1, 'the wagon\'s confirm');
-  assert.eq(s.save.money, money + Companions.KINDS.mercenary.hireCost, 'nothing paid before the yes');
+  assert.eq(s._offers.length, 1, 'a guard castle lays no feast');
+  assert.eq(s._confirms.length, 1, 'it offers the wagon\'s hire');
+  assert.truthy(s._confirms[0].acceptLabel.includes(String(Companions.KINDS.mercenary.hireCost)), 'priced off Companions.KINDS.mercenary');
+  const taxed = s.save.money;
+  assert.gt(taxed, money, 'the day\'s tax still flies in first');
   const t0 = Date.now();
   s._confirms[0].onAccept(); s._confirms[0].onAccept();
-  assert.eq(s.save.money, money, 'paid once');
+  assert.eq(s.save.money, taxed - Companions.KINDS.mercenary.hireCost, 'paid once');
   assert.gte(s.save.mercenaryUntil, t0 + Companions.KINDS.mercenary.durationMs, 'the wagon\'s contract');
   assert.eq(s._stories.length, 1);
   assert.eq(s._stories[0].title, Macros.DAILY_VISIT_KINDS.castle.mercenary.name);
-  assert.eq(s.save.energy, 40, 'hiring spends no feast');
-  offer.onAccept();
-  assert.eq(s.save.energy, 100, 'and the feast is still there');
+  assert.eq(s.save.energy, 40, 'no feast is eaten');
 });
 
-test('castle guard for hire: a spent feast goes straight to the hire; refusals are the wagon\'s', () => {
-  const [yes] = ccKeys(true, 1), [no] = ccKeys(false, 1);
+test('castle guard for hire: no feast timer gates the guard; refusals are the wagon\'s', () => {
+  const [yes] = ccKeys(true, 1);
   const s = ccHireScene();
   const t = ccTower(yes);
-  s._claimCastle(t); s._claimCastle(ccTower(no));
-  s._castleFeast(0, 0, t); s._castleFeast(0, 0, ccTower(no));
-  s.presentCastleServiceOffer(0, 0, ccTower(no));
-  assert.eq(s._confirms.length + s._offers.length, 0, 'an ordinary castle only names its wait');
-  assert.truthy(/^The castellan is away — /.test(s._msgs[0]), s._msgs[0]);
+  s._claimCastle(t);
   s.save.money = 0;
   s.presentCastleServiceOffer(0, 0, t);   // its own day's tax: 10 coins
   assert.truthy(s._msgs.includes(`Need ${Companions.KINDS.mercenary.hireCost} coins to hire.`), 'too poor: the wagon\'s refusal');
+  assert.falsy(s._msgs.some(m => /castellan is away/.test(m)), 'no feast wait at a guard castle');
   s.save.money = 100;
   s.presentCastleServiceOffer(0, 0, t);
-  assert.eq(s._confirms.length, 1, 'with the feast spent, the guard is offered at once');
+  assert.eq(s._confirms.length, 1);
   s._confirms[0].onAccept();
   assert.truthy(Companions.active(s.save, 'mercenary'));
-  const before = s._msgs.length;
   s.presentCastleServiceOffer(0, 0, t);
   assert.eq(s._confirms.length, 1, 'one sword at a time');
-  assert.eq(s._msgs.length, before + 1, 'just the castellan\'s wait');
+  assert.truthy(s._msgs.includes('Your mercenary is still with you.'));
 });
 
 })();
