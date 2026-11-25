@@ -835,7 +835,7 @@ test('rerollPeek: every re-roll button draws through it with what is on display'
   const shared = src.slice(src.indexOf('  _makeRerollSecondary('), src.indexOf('  presentThemedShop('));
   assert.truthy(/const next = ShopsMath\.rerollPeek\(curState, peek, opts\.current\);/.test(shared), 'the shared button');
   assert.falsy(/curState\.rerolls \+= 1/.test(shared), 'and bumps the ladder nowhere else');
-  const trader = src.slice(src.indexOf('  presentTraderOffer('), src.indexOf('  // REST: a flat CASTLE_REST_ENERGY'));
+  const trader = src.slice(src.indexOf('  presentTraderOffer('), src.indexOf('  // THE FEAST: the bar filled outright'));
   assert.truthy(/\{ cost: ShopsMath\.traderRerollCost, peek: \(\) => this\.peekOrBuildTraderOffer\(house\), current: offer \}/.test(trader),
     'the trader rides the shared button with its own peek and ladder');
   assert.falsy(/curState\.rerolls \+= 1|ShopsMath\.rerollPeek\(/.test(trader), 'and draws nowhere else');

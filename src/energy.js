@@ -133,13 +133,25 @@
   // The deadline is stored on the SAVE (save.eatReadyAt), not in memory: a gate
   // a refresh clears is not a gate.
   const EAT_COOLDOWN_MS = 10 * 1000;
+  // A CASTLE FEAST (scene_shops.js _castleFeast) fills the bar outright and
+  // leaves the player too full to eat for a minute: the same gate, armed with
+  // a longer span. save.eatCooldownMs records the span of the wait in force,
+  // which is what the clamp and the Eat button's bar measure against.
+  const FEAST_COOLDOWN_MS = 60 * 1000;
 
-  // Ms left before the next bite, 0 when one is ready. Clamped to the cooldown
-  // so a far-future deadline (wound-back clock, edited save) reads as a
-  // ten-second wait, not hours.
+  // The span of the wait in force: a bite's ten seconds unless a feast armed
+  // its minute. Clamped to the two so an edited save can't stretch it.
+  function eatCooldownSpan(save) {
+    const ms = save?.eatCooldownMs;
+    return ms > EAT_COOLDOWN_MS ? Math.min(ms, FEAST_COOLDOWN_MS) : EAT_COOLDOWN_MS;
+  }
+
+  // Ms left before the next bite, 0 when one is ready. Clamped to the span
+  // so a far-future deadline (wound-back clock, edited save) reads as the
+  // armed wait, not hours.
   function eatCooldownLeft(save, now = Date.now()) {
     const left = (save.eatReadyAt ?? 0) - now;
-    return left > 0 ? Math.min(left, EAT_COOLDOWN_MS) : 0;
+    return left > 0 ? Math.min(left, eatCooldownSpan(save)) : 0;
   }
 
   // The gate itself: eatSelected refuses on it and the Eat button greys on it.
@@ -148,9 +160,12 @@
   }
 
   // Arm the cooldown once a bite has landed (never on a refusal, which would
-  // let a blocked tap extend its own block).
-  function startEatCooldown(save, now = Date.now()) {
-    save.eatReadyAt = now + EAT_COOLDOWN_MS;
+  // let a blocked tap extend its own block). `ms` is the span: a bite's
+  // EAT_COOLDOWN_MS by default, a feast's FEAST_COOLDOWN_MS.
+  function startEatCooldown(save, now = Date.now(), ms = EAT_COOLDOWN_MS) {
+    save.eatReadyAt = now + ms;
+    if (ms > EAT_COOLDOWN_MS) save.eatCooldownMs = ms;
+    else delete save.eatCooldownMs;
     return save.eatReadyAt;
   }
 
@@ -233,6 +248,6 @@
     return Math.max(1, Math.round((maxE || 0) * frac));
   }
 
-  root.Energy = { set, expireGiant, expireShrinking, dawnfruitActive, fullViewReachActive, tickShrineRegen, FISH_REGEN_MS, fishRegenTotal, fishRegenWait, startFishRegen, tickFishRegen, VIGOUR_ENERGY_STEP, REVIVE_FRAC, reviveLevel, OFFLINE_FULL_REST_MS, EAT_COOLDOWN_MS, maxEnergy, tasteBonus, tiredThreshold, crossedTired,
+  root.Energy = { set, expireGiant, expireShrinking, dawnfruitActive, fullViewReachActive, tickShrineRegen, FISH_REGEN_MS, fishRegenTotal, fishRegenWait, startFishRegen, tickFishRegen, VIGOUR_ENERGY_STEP, REVIVE_FRAC, reviveLevel, OFFLINE_FULL_REST_MS, EAT_COOLDOWN_MS, FEAST_COOLDOWN_MS, eatCooldownSpan, maxEnergy, tasteBonus, tiredThreshold, crossedTired,
                   spend, applyOfflineRest, eatCooldownLeft, canEat, startEatCooldown };
 })(typeof globalThis !== 'undefined' ? globalThis : this);

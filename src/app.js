@@ -1226,15 +1226,17 @@ const REST_SETTLE_S = 10;
 // The trade-off: a fire also repels slimes nearby, so it makes a safe, slow
 // recovery spot out in the wild. See the fire-warmth block in update().
 const FIRE_FULL_REST_S = 360;
-// A CLAIMED castle no longer trades relics — it's the player's own — and
-// instead its castellan offers ONE favour per Houses.CASTLE_SERVICE_MS, twelve
-// hours (save.castleServiceClaimed[key] holds when it was last used):
-// REST, a flat lump of CASTLE_REST_ENERGY handed over on arrival rather than a
-// rest rate like the ones above (the castle is somewhere you travel to, so
-// the payoff should land the moment you get there), or COLLECT, a flat tax
-// take in gold. Small enough either way that it can't replace food or
-// sleeping at Home — twice a day is a courtesy for the walk, not an income.
-const CASTLE_REST_ENERGY = 35;   // a flat 35⚡ (was a tenth of the bar until Sep 2026)
+// A CLAIMED castle no longer trades relics — it's the player's own. Its
+// castellan lays on ONE feast per Houses.CASTLE_SERVICE_MS, twelve hours
+// (save.castleServiceClaimed[key] holds when it was last laid): the bar
+// filled outright, and the player too full to eat for Energy.FEAST_COOLDOWN_MS
+// (scene_shops.js _castleFeast). The castle's TAX is separate — a daily
+// Houses.TAX_GOLD take paid on the tap, flown in by _flyTaxCoins.
+// How tax coins fly from a building to the player (_flyTaxCoins): how many
+// at most, the fan they lift off in, the arc, the flight, and where on the
+// body they land (px above the feet).
+const TAX_COIN_FLIGHT = { maxCoins: 10, spreadPx: 18, arcPx: 14, flightMs: 520, staggerMs: 70,
+  chestPx: 14, depth: 95 };
 // What a house says when the feet walk through it (_houseMutter). Each line
 // fits MAP_MSG_MAX.
 const HOUSE_WRECK_MUTTERS = ["It's a fixer upper.", 'I would fix that.', 'Needs a little TLC.'];
@@ -8555,6 +8557,43 @@ class MapScene extends Phaser.Scene {
     return this._toast(text, { tier: 'cell', color, ...at });
   }
 
+  // TAX DELIVERY (Houses.collectTax has already paid the purse; this is only
+  // the show). Up to TAX_COIN_FLIGHT.maxCoins coins lift off the building's
+  // drawn body — `fromWM` (world metres), raised `liftPx` — and arc to the
+  // player, chasing the body each frame so a walk away doesn't strand them;
+  // when the last one lands, "+N tax" pops on the head. Coins stay at their
+  // native size (Render.COIN_DROP_PX), like the ground piles. No scene,
+  // texture or motion budget: just the pop.
+  _flyTaxCoins(fromWM, amount, liftPx = CELL_PX) {
+    if (!(amount > 0)) return;
+    const pop = () => this._popEnergy(amount, { text: `+${amount} tax`, color: UI_GOLD });
+    const F = TAX_COIN_FLIGHT;
+    const s0 = fromWM && this.add && this.tweens && this.textures?.exists?.('coin_drop') && !this._reducedMotion
+      ? this.worldMetersToScreen(fromWM.x, fromWM.y) : null;
+    if (!s0 || !isFinite(s0.x) || !isFinite(s0.y)) { pop(); return; }
+    const n = Math.min(amount, F.maxCoins);
+    let landed = 0;
+    for (let i = 0; i < n; i++) {
+      // A small fan, so ten coins read as ten and not one.
+      const x0 = Math.round(s0.x + (n > 1 ? (i / (n - 1) - 0.5) * F.spreadPx : 0));
+      const y0 = Math.round(s0.y - liftPx);
+      const img = this.add.image(x0, y0, 'coin_drop').setOrigin(0.5, 0.5).setDepth(F.depth);
+      img.setScale(Render.COIN_DROP_PX / (img.width || Render.COIN_DROP_PX));
+      const t = { k: 0 };
+      this.tweens.add({
+        targets: t, k: 1, duration: F.flightMs, delay: i * F.staggerMs, ease: 'Sine.InOut',
+        onUpdate: () => {
+          const ps = this.playerScreen?.();
+          if (!ps || !isFinite(ps.x)) return;
+          const tx = ps.x, ty = ps.y - F.chestPx;
+          img.setPosition(Math.round(x0 + (tx - x0) * t.k),
+            Math.round(y0 + (ty - y0) * t.k - F.arcPx * Math.sin(Math.PI * t.k)));
+        },
+        onComplete: () => { img.destroy(); if (++landed === n) pop(); },
+      });
+    }
+  }
+
   // Small green "+N⚡" on the player when energy is RECOVERED (passive rest,
   // offline rest). No-ops before the viewport centre is known.
   _splashEnergyGain(amount) {
@@ -12008,7 +12047,7 @@ class MapScene extends Phaser.Scene {
   _paintEatCooldownBar(btn, leftMs) {
     const bar = btn.querySelector('.eat-cd');
     if (!bar) return;
-    const done = 1 - clamp01(leftMs / Energy.EAT_COOLDOWN_MS);
+    const done = 1 - clamp01(leftMs / Energy.eatCooldownSpan(this.save));
     // Hidden outright when there is nothing to count: a permanently full bar
     // under a ready button is just a green line with no meaning.
     bar.style.width = leftMs > 0 ? `${done * 100}%` : '0';

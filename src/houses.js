@@ -646,6 +646,41 @@ const FORT_UNLOCK_WOOD_STEP = 6;
     if (key) Ledger.stamp(save, 'castleServiceClaimed', key, now, now, CASTLE_SERVICE_MS);
   }
 
+  // TAX (owner, Nov 2026): what the player's restored places pay them, once
+  // per UTC day each — the day ledger the recurring sites share (Macros
+  // usedToday / markToday, under 'tax:<id>'). A restored house pays a coin
+  // when the feet walk through it (scene_streets.js _houseMutter); a claimed
+  // castle pays its crown's take when its gate is tapped
+  // (presentCastleServiceOffer). Home pays nothing: it is the player's own.
+  // Either way the coins fly from the building to the player
+  // (app.js _flyTaxCoins). The amounts are this table, nowhere else.
+  const TAX_GOLD = { house: 1, castle: 10 };
+  // Which row of TAX_GOLD `house` pays under, or null: a claimed castle, or
+  // a rebuilt tier-9 wreck that is not Home.
+  // (A castle is reached through any of its turrets — kind 'tower' — so the
+  // castle key is asked before the kind.)
+  function taxKind(save, house) {
+    if (!house || !save) return null;
+    if (castleKey(house)) return isCastleClaimed(save, house) ? 'castle' : null;
+    if (house.kind !== 'house' || house.tier !== 9 || house.id == null || displayRole(save, house) === 'trailer') return null;
+    return save.restoredHouses?.[house.id] ? 'house' : null;
+  }
+  const taxLedgerId = (house) => 'tax:' + (castleKey(house) || house.id);
+  // Coins `house` owes today (0 when it pays nothing or has paid).
+  function taxDue(save, house, now = Date.now()) {
+    const kind = taxKind(save, house);
+    if (!kind || Macros.usedToday(save, taxLedgerId(house), now)) return 0;
+    return TAX_GOLD[kind];
+  }
+  // Pay today's tax into the purse; returns the coins paid (0 = nothing due).
+  function collectTax(save, house, now = Date.now()) {
+    const due = taxDue(save, house, now);
+    if (!due) return 0;
+    Macros.markToday(save, taxLedgerId(house), now);
+    addMoney(save, due);
+    return due;
+  }
+
   root.Houses = {
     WRECK_OFFER_CHANCE, WRECK_OFFERS, BLESSED_BONUS_MUL, wreckOffer, constructionCost, completeWreckOffer, isBlessedSite, rerollPriceMul,
     STORY_RESTORES, BUILD_OPTIONS, buildOption, buildOptions, restoredCount, restoreAs,
@@ -661,5 +696,6 @@ const FORT_UNLOCK_WOOD_STEP = 6;
     castleKey, isBuildingSealed, isClaimedKey, isCastleClaimed, claimCastle, citadelBattleActive, startCitadelBattle, expireCitadelBattles, CITADEL_BATTLE_MS,
     CASTLE_KEY_RE, CITADEL_BATTLE_SKEW_MS, isCitadelKey, adoptCitadelBattle,
     CASTLE_SERVICE_MS, castleServiceWaitMs, castleServiceUsed, markCastleServiceUsed,
+    TAX_GOLD, taxKind, taxDue, collectTax,
   };
 })(typeof window !== 'undefined' ? window : globalThis);

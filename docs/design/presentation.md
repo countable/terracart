@@ -45,7 +45,8 @@ pixels and decorative details do not define additional tap cells.
 - A quest castle starts as a large house wreck. Its Restore offer costs 9 stone;
   the same three-second work sequence rechecks stock before charging and saves
   restoration by castle footprint. Restoration opens the existing quest, whose
-  completion unlocks the castellan’s usual recurring tithe/rest service. Already
+  completion unlocks the castle's daily tax (coins flown to the player) and the
+  castellan's twelve-hour feast. Already
   claimed castles keep their service. Citadels retain their enemy building and
   guard battle; active Hives retain their enemy building until defeated. Forts
   use the house wreck display and keep their wood unlock, capped at 12 wood.

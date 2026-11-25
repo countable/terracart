@@ -870,7 +870,12 @@ ECONOMY (buying & selling)
    them dormant. The choice survives reloads; clearing the guards opens them. Other castle
    variants have no guards; house and fort garrisons retain their usual rules.
    Claiming mans the turrets (COMBAT), lights the castle, and opens a castellan
-   favour (rest or a coin tax) on the Houses.CASTLE_SERVICE_MS timer.
+   feast on the Houses.CASTLE_SERVICE_MS timer: a full energy bar, then a
+   minute too full to eat (Energy.FEAST_COOLDOWN_MS on the bite gate).
+ - TAX: restored places pay the player once per UTC day (Houses.TAX_GOLD,
+   Houses.collectTax). A restored house (not Home) pays a coin when the feet
+   walk through it; a claimed castle pays its take when its gate is tapped.
+   The coins fly from the building to the player with a "+N tax" pop.
  - WIZARD TOWER: spends MEMORIES (`save.memories` — see SHINY VARIANTS &
    DISCOVERY) on rungs of power (`src/wizard.js` `Wizard.TRACKS`). Each visit
    offers two tracks, seeded so re-opening shows the same pair:
