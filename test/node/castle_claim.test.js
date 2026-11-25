@@ -199,4 +199,109 @@ test('castle service: the gate is per castle, not global', () => {
   assert.eq(s.save.energy, 100, 'a second castle has its own feast');
 });
 
+// ── The guard for hire (owner, Nov 2026: "some restored castles should offer
+// mercenaries for sale") ─────────────────────────────────────────────────────
+// One claimed castle in CastleStyles.MERCENARY_ONE_IN hires out a sword: the
+// wagon's own hire (Macros.offerMercenary — Companions.KINDS.mercenary's price
+// and contract), offered beside the castellan's feast.
+
+const ccKeys = (want, n = 2) => {
+  const out = [];
+  for (let x = 0; out.length < n; x++) {
+    const key = `b_${x}_${x * 3}`;
+    if (CastleStyles.hiresMercenaries(key) === want) out.push(key);
+  }
+  return out;
+};
+const ccHireScene = (over = {}) => {
+  const s = ccScene(Object.assign({
+    _offers: [], _confirms: [], _stories: [], _msgs: [],
+    presentCastleServiceOffer: SceneShops.prototype.presentCastleServiceOffer,
+    _castleHire: SceneShops.prototype._castleHire,
+    moneyHTML: (n) => `${n}c`,
+    showOfferModal(m) { this._offers.push(m); },
+    showConfirmModal(m) { this._confirms.push(m); },
+    showMessageModal(m) { this._stories.push(m); },
+    flash(m) { this._msgs.push(m); },
+  }, over));
+  return s;
+};
+
+test('castle guard for hire: about one castle in three, fixed by its key, across every style', () => {
+  assert.eq(CastleStyles.MERCENARY_ONE_IN, 3);
+  let hit = 0, n = 0;
+  const styles = new Map();
+  for (let x = -40; x < 40; x++) for (let y = -40; y < 40; y++) {
+    const key = `b_${x * 37}_${y * 53}`, h = CastleStyles.hiresMercenaries(key);
+    assert.eq(CastleStyles.hiresMercenaries(key), h, 'the same castle answers the same');
+    n++; hit += h ? 1 : 0;
+    const v = CastleStyles.variantFor(key), row = styles.get(v) || [0, 0];
+    row[0]++; row[1] += h ? 1 : 0; styles.set(v, row);
+  }
+  assert.gt(hit / n, 0.28, `about a third (${hit}/${n})`);
+  assert.lt(hit / n, 0.39, `about a third (${hit}/${n})`);
+  for (const [v, [all, hires]] of styles) assert.gt(hires / all, 0.2, `${v} castles hire out guards too`);
+  assert.falsy(CastleStyles.hiresMercenaries(null), 'no key, no guard');
+});
+
+test('castle guard for hire: only a claimed castle hires, and only a picked one', () => {
+  const s = ccHireScene();
+  const [yes] = ccKeys(true, 1), [no] = ccKeys(false, 1);
+  assert.falsy(Houses.castleHiresMercenaries(s.save, ccTower(yes)), 'not the player\'s yet');
+  s._claimCastle(ccTower(yes)); s._claimCastle(ccTower(no));
+  assert.truthy(Houses.castleHiresMercenaries(s.save, ccTower(yes)), 'claimed and picked');
+  assert.falsy(Houses.castleHiresMercenaries(s.save, ccTower(no)), 'claimed but not picked');
+  assert.falsy(Houses.castleHiresMercenaries(s.save, { kind: 'house', id: 'h_1_2' }), 'never a house');
+});
+
+test('castle guard for hire: the feast dialog adds the wagon\'s hire, at its price, and the feast is unchanged', () => {
+  const [yes] = ccKeys(true, 1), [no] = ccKeys(false, 1);
+  const s = ccHireScene();
+  s._claimCastle(ccTower(yes)); s._claimCastle(ccTower(no));
+  s.presentCastleServiceOffer(0, 0, ccTower(no));
+  assert.eq(s._offers.length, 1);
+  assert.eq(s._offers[0].secondary, undefined, 'an ordinary castle offers the feast alone');
+  s.presentCastleServiceOffer(0, 0, ccTower(yes));
+  const offer = s._offers[1];
+  assert.eq(offer.acceptLabel, 'Feast', 'the feast stays the main act');
+  assert.truthy(offer.secondary.label.includes(`${Companions.KINDS.mercenary.hireCost}c`), 'priced off Companions.KINDS.mercenary');
+  const money = s.save.money;   // the day's tax has just flown in
+  s.save.money = money + Companions.KINDS.mercenary.hireCost;
+  offer.secondary.onClick();
+  assert.eq(s._confirms.length, 1, 'the wagon\'s confirm');
+  assert.eq(s.save.money, money + Companions.KINDS.mercenary.hireCost, 'nothing paid before the yes');
+  const t0 = Date.now();
+  s._confirms[0].onAccept(); s._confirms[0].onAccept();
+  assert.eq(s.save.money, money, 'paid once');
+  assert.gte(s.save.mercenaryUntil, t0 + Companions.KINDS.mercenary.durationMs, 'the wagon\'s contract');
+  assert.eq(s._stories.length, 1);
+  assert.eq(s._stories[0].title, Macros.DAILY_VISIT_KINDS.castle.mercenary.name);
+  assert.eq(s.save.energy, 40, 'hiring spends no feast');
+  offer.onAccept();
+  assert.eq(s.save.energy, 100, 'and the feast is still there');
+});
+
+test('castle guard for hire: a spent feast goes straight to the hire; refusals are the wagon\'s', () => {
+  const [yes] = ccKeys(true, 1), [no] = ccKeys(false, 1);
+  const s = ccHireScene();
+  const t = ccTower(yes);
+  s._claimCastle(t); s._claimCastle(ccTower(no));
+  s._castleFeast(0, 0, t); s._castleFeast(0, 0, ccTower(no));
+  s.presentCastleServiceOffer(0, 0, ccTower(no));
+  assert.eq(s._confirms.length + s._offers.length, 0, 'an ordinary castle only names its wait');
+  assert.truthy(/^The castellan is away — /.test(s._msgs[0]), s._msgs[0]);
+  s.save.money = 0;
+  s.presentCastleServiceOffer(0, 0, t);   // its own day's tax: 10 coins
+  assert.truthy(s._msgs.includes(`Need ${Companions.KINDS.mercenary.hireCost} coins to hire.`), 'too poor: the wagon\'s refusal');
+  s.save.money = 100;
+  s.presentCastleServiceOffer(0, 0, t);
+  assert.eq(s._confirms.length, 1, 'with the feast spent, the guard is offered at once');
+  s._confirms[0].onAccept();
+  assert.truthy(Companions.active(s.save, 'mercenary'));
+  const before = s._msgs.length;
+  s.presentCastleServiceOffer(0, 0, t);
+  assert.eq(s._confirms.length, 1, 'one sword at a time');
+  assert.eq(s._msgs.length, before + 1, 'just the castellan\'s wait');
+});
+
 })();

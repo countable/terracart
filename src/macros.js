@@ -181,7 +181,12 @@
     castle: { name: 'Castle favour', art: 'castle_favour', sprite: { key: 'castle_tower_shapes', frame: 0, scale: 0.5 }, light: 0xf2d9a0,
       ledger: 'ms', cooldownMs: 12 * 60 * 60 * 1000, reward: 'favour', effect: 'A castellan\'s feast: a full bar, then a minute too full to eat', durationMs: 0,
       locations: ['Claimed castles'], spent: 'The castellan is away',
-      body: 'The castellan receives you in the hall.' },
+      body: 'The castellan receives you in the hall.',
+      // The castle guard's sword for hire (Macros.offerMercenary), at the
+      // castles Houses.castleHiresMercenaries names — about one in three.
+      mercenary: { name: 'Castle guard', art: 'castle_favour', hireLabel: 'Hire a guard',
+        hireLead: 'My lord, one of the guard will ride with you.',
+        body: 'The guard takes your coins and buckles on his sword. He falls into step beside you.' } },
   };
   // THE RESOLVER: the row `o` is, or null — a pure function of the object,
   // remembered per object for the per-frame readers.
@@ -276,45 +281,61 @@
     visit.present(afterStory ? () => { visit.finish(); afterStory(); } : null);
     return true;
   }
-  function hireMercenary(ctx, o) {
+  // THE HIRE, whoever offers the sword: one confirm, then Companions.hire —
+  // the price and the contract are Companions.KINDS.mercenary's, nowhere
+  // else. `row` names the offer (its name and art; `hireLead`, a line before
+  // the question); `claim()` runs once the coins change hands, `present()`
+  // after the save, and `done()` whenever the offer ends unhired. The wagon
+  // (hireMercenary below) wraps it in its day visit; a claimed castle whose
+  // guard hires out (Houses.castleHiresMercenaries) offers it from the
+  // castellan's gate (scene_shops.js presentCastleServiceOffer).
+  function offerMercenary(ctx, row, { claim, present, done } = {}) {
     const { scene, save, sx, sy } = ctx;
-    const row = DAILY_VISIT_KINDS.wagon;
+    const merc = root.Companions.KINDS.mercenary, price = merc.hireCost;
+    const end = () => done?.();
     if (scene._mercenaryHirePending) return true;
-    const visit = beginDailyVisit(ctx, o, { row });
-    if (!visit) return true;
     if (root.Companions.active(save, 'mercenary')) {
       scene.flash('Your mercenary is still with you.', sx, sy);
-      visit.finish();
+      end();
       return true;
     }
-    if ((save.money || 0) < row.price) {
-      scene.flash(`Need ${row.price} coins to hire.`, sx, sy);
-      visit.finish();
+    if ((save.money || 0) < price) {
+      scene.flash(`Need ${price} coins to hire.`, sx, sy);
+      end();
       return true;
     }
-    if (typeof scene.showConfirmModal !== 'function') { visit.finish(); return true; }
+    if (typeof scene.showConfirmModal !== 'function') { end(); return true; }
     let settled = false;
     scene._mercenaryHirePending = true;
     scene.showConfirmModal({ id: 'mercenary-hire', title: row.name, art: row.art,
-      body: `Hire a mercenary for ${row.price} coins? He follows you and fights enemies for ${shortDuration(row.durationMs)}.`,
-      acceptLabel: `Hire · ${row.price} coins`, cancelLabel: 'Later',
-      onCancel: () => { if (!settled) { settled = true; scene._mercenaryHirePending = false; visit.finish(); } },
+      body: (row.hireLead ? row.hireLead + ' ' : '')
+        + `Hire a mercenary for ${price} coins? He follows you and fights enemies for ${shortDuration(merc.durationMs)}.`,
+      acceptLabel: `Hire · ${price} coins`, cancelLabel: 'Later',
+      onCancel: () => { if (!settled) { settled = true; scene._mercenaryHirePending = false; end(); } },
       onAccept: () => {
         if (settled) return;
         settled = true;
         scene._mercenaryHirePending = false;
         if (!root.Companions.hire(scene, 'mercenary')) {
-          visit.finish();
+          end();
           scene.flash('Unable to hire right now.', sx, sy);
           return;
         }
-        visit.claim();
+        claim?.();
         Save.persist(save);
         scene._finishInventoryChange?.();
-        visit.present();
+        present?.();
       },
     });
     return true;
+  }
+  // The WAGON: the hire inside its once-a-UTC-day visit.
+  function hireMercenary(ctx, o) {
+    const row = DAILY_VISIT_KINDS.wagon;
+    if (ctx.scene._mercenaryHirePending) return true;
+    const visit = beginDailyVisit(ctx, o, { row });
+    if (!visit) return true;
+    return offerMercenary(ctx, row, { claim: () => visit.claim(), present: () => visit.present(), done: () => visit.finish() });
   }
 
   // What every stall counter charges for `id`: the market stall's price
@@ -827,7 +848,7 @@
   root.Macros = {
     usedToday, markToday, serviceLedgerId, serviceUsedToday, markServiceToday,
     DAILY_VISIT_KINDS, visitKindForObject, rowUsed, rowWaitMs, markUsed, takenBy, waitLine,
-    beginDailyVisit, dailyVisit, hireMercenary,
+    beginDailyVisit, dailyVisit, offerMercenary, hireMercenary,
     daysSinceTaken, stillBare, restockWaitMs, ledgerKeyDay, LEDGER_KEEP_DAYS, stallPrice,
     INN_RATE, innCoinsPerEnergy, innPrice, innRest,
     CHAPEL_TIER_DROP, chapelRollTier,

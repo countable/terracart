@@ -1755,16 +1755,21 @@ class SceneShops {
   // — see showQuestBoard/_claimCastle) no longer sells relics: it's home
   // turf. The tap pays the day's tax first (its coins fly in whether or not
   // the feast is on), then offers the feast, once per Houses.CASTLE_SERVICE_MS
-  // — the one timer on any building you trade at.
+  // — the one timer on any building you trade at. A castle whose guard hires
+  // out (Houses.castleHiresMercenaries) adds the wagon's hire beside it
+  // (_castleHire); with the feast spent, the tap goes straight to the hire.
   presentCastleServiceOffer(sx, sy, house) {
     this._collectTax(house, CASTLE_TAX_LIFT_PX);
+    const hires = Houses.castleHiresMercenaries(this.save, house);
     if (this._castleServiceUsed(house)) {
       // A timed gate names its wait, never "later" — the one refusal shape
       // every recurring site takes (Macros.waitLine, the castle row's `spent`
       // prefix): "The castellan is away — 12h".
       this.flash(Macros.waitLine(Macros.DAILY_VISIT_KINDS.castle.spent, this._castleServiceWaitMs(house)), sx, sy);
+      if (hires && !Companions.active(this.save, 'mercenary')) this._castleHire(sx, sy);
       return;
     }
+    const guard = Macros.DAILY_VISIT_KINDS.castle.mercenary;
     this.showOfferModal({
       kind: 'shop',
       title: 'Thank you for visiting us, my lord.',
@@ -1778,6 +1783,19 @@ class SceneShops {
       acceptLabel: 'Feast',
       cancelLabel: 'Later',
       onAccept: () => this._castleFeast(sx, sy, house),
+      secondary: hires ? {
+        label: `${guard.hireLabel}<br><span style="font-weight:400;font-size:10px;opacity:.85">${this.moneyHTML(Companions.KINDS.mercenary.hireCost, 12)}</span>`,
+        onClick: () => this._castleHire(sx, sy),
+      } : undefined,
+    });
+  }
+  // The castle guard's hire: the wagon's own (Macros.offerMercenary — its
+  // price, contract and refusals), told by the castle row's `mercenary` copy.
+  // No ledger of its own: the live contract is the only gate.
+  _castleHire(sx, sy) {
+    const guard = Macros.DAILY_VISIT_KINDS.castle.mercenary;
+    return Macros.offerMercenary({ scene: this, save: this.save, sx, sy }, guard, {
+      present: () => this.showMessageModal?.({ title: guard.name, body: guard.body, art: guard.art, kind: 'story' }),
     });
   }
 
