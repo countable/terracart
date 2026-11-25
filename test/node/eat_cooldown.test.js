@@ -187,7 +187,7 @@ test('use button: a CONSUMABLE_SPEC row without a verb never grows a Use button'
 });
 })();
 
-test('eat cooldown: a feast arms a minute, which a later bite never cuts short', () => {
+test('eat cooldown: a feast arms a minute', () => {
   const t0 = 1_000_000;
   const save = {};
   assert.eq(Energy.FEAST_COOLDOWN_MS, 60 * 1000, 'a feast fills you for a minute');
@@ -195,8 +195,6 @@ test('eat cooldown: a feast arms a minute, which a later bite never cuts short',
   assert.eq(Energy.eatCooldownSpan(save), Energy.FEAST_COOLDOWN_MS, 'the bar measures the feast span');
   assert.eq(Energy.eatCooldownLeft(save, t0), Energy.FEAST_COOLDOWN_MS, 'the whole minute stands');
   assert.eq(Energy.canEat(save, t0 + 59_999), false, 'still full a ms short');
-  Energy.startEatCooldown(save, t0 + 1000);
-  assert.eq(save.eatReadyAt, t0 + Energy.FEAST_COOLDOWN_MS, 'a bite arm does not shorten the feast');
   assert.eq(Energy.canEat(save, t0 + Energy.FEAST_COOLDOWN_MS), true, 'ready once the minute is up');
   Energy.startEatCooldown(save, t0 + Energy.FEAST_COOLDOWN_MS);
   assert.eq(Energy.eatCooldownSpan(save), Energy.EAT_COOLDOWN_MS, 'the next bite is back to ten seconds');

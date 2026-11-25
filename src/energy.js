@@ -161,15 +161,11 @@
 
   // Arm the cooldown once a bite has landed (never on a refusal, which would
   // let a blocked tap extend its own block). `ms` is the span: a bite's
-  // EAT_COOLDOWN_MS by default, a feast's FEAST_COOLDOWN_MS. A shorter arm
-  // never cuts a longer wait still running.
+  // EAT_COOLDOWN_MS by default, a feast's FEAST_COOLDOWN_MS.
   function startEatCooldown(save, now = Date.now(), ms = EAT_COOLDOWN_MS) {
-    const until = now + ms;
-    if (until > eatCooldownLeft(save, now) + now) {
-      save.eatReadyAt = until;
-      if (ms > EAT_COOLDOWN_MS) save.eatCooldownMs = ms;
-      else delete save.eatCooldownMs;
-    }
+    save.eatReadyAt = now + ms;
+    if (ms > EAT_COOLDOWN_MS) save.eatCooldownMs = ms;
+    else delete save.eatCooldownMs;
     return save.eatReadyAt;
   }
 
