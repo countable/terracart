@@ -245,3 +245,49 @@ test('turret: a restored turret wears the castle tower and fires on the castle l
   assert.eq(Houses.displayRole({ restoredHouses: { h: 'turret' } }, { kind: 'house', tier: 9, id: 'h' }), 'turret');
 });
 })();
+
+test('build choice: a shining wreck says so on both screens and on the Restored! card', () => {
+  const start = SCENE_SRC.indexOf('  presentWreckRestoreModal(sx, sy, house) {');
+  const body = SCENE_SRC.slice(start, SCENE_SRC.indexOf('\n  }\n', start) + 4).trim();
+  const stock = { rubble: 100, wood: 100 };
+  const inventory = { count: (s, id) => stock[id] || 0, ownedCount: (s, id) => stock[id] || 0, remove: (s, id, q) => { stock[id] -= q; } };
+  const present = new Function('Houses', 'Shops', 'Inventory', 'ITEM_BY_ID', 'Render',
+    'CastleStyles', 'tierBadgeHTML', 'persistSave', 'newBadgeHTML', 'UI_GREEN',
+    `return ({${body}}).presentWreckRestoreModal;`)(Houses, Shops, inventory, ITEM_BY_ID,
+      { houseTextureKey: () => 'house', houseTextureFrame: () => 'front' }, { get: () => ({ towerFrame: 0 }) },
+      (tier) => `quality-${tier}`, () => {}, () => 'NEW', '#7c9');
+  let modal, reward;
+  const scene = {
+    showOfferModal: (offer) => { modal = offer; }, showChestRewardModal: (r) => { reward = r; },
+    iconSpanHTML: () => '', worldIconHTML: () => '', flash() {},
+    _clampSelSlot() {}, _houseBlastGeometry: () => ({ x: 0, y: 0 }), shopLine: () => ({}),
+    _blastAt() {}, buildInventoryDOM() {}, questEvent() {}, _afterWreckGather(fn) { fn(); }, flashLoot() {},
+  };
+  for (const offer of Houses.WRECK_OFFERS) {
+    let house;
+    for (let i = 0; !house && i < 10000; i++) {
+      const o = { kind: 'house', tier: 9, id: `shine-${i}` };
+      if (Houses.wreckOffer({}, o)?.key === offer.key) house = o;
+    }
+    scene.save = { restoredHouses: { first: 'plain' }, inv: [] };
+    reward = null;
+    present.call(scene, 0, 0, house);
+    assert.includes(modal.blurb, 'This wreck shines', offer.key + ': the type screen says it shines');
+    assert.includes(modal.blurb, offer.blurb, offer.key + ': and what the offer is');
+    modal.onAccept('plain');
+    assert.truthy(reward, offer.key + ': restored');
+    assert.includes(reward.name, 'shiny', offer.key + ': the Restored! card names it shiny');
+    assert.includes(reward.sub, offer.done, offer.key + ': and what the site delivered');
+  }
+  // An ordinary wreck stays unmarked.
+  scene.save = { restoredHouses: { first: 'plain' }, inv: [] };
+  let plain;
+  for (let i = 0; !plain && i < 1000; i++) {
+    const o = { kind: 'house', tier: 9, id: `plain-${i}` };
+    if (!Houses.wreckOffer({}, o)) plain = o;
+  }
+  present.call(scene, 0, 0, plain);
+  assert.eq(modal.blurb, undefined, 'an ordinary wreck has no shine line');
+  modal.onAccept('plain');
+  assert.falsy(reward.name.includes('shiny'), 'nor a shiny Restored! card');
+});

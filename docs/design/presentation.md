@@ -56,8 +56,10 @@ pixels and decorative details do not define additional tap cells.
   offers have equal probability: Discount Build halves material costs, rounded
   down; Blessed Site gives 33% cheaper rerolls, +50% house luxury or +50% turret
   damage; Private Contract pays $50 once when the site is restored. Home, active
-  Hives and Citadels have no construction offer. House restore screens show the
-  offer, and completed Blessed Sites keep their glow. `save.wreckOffers` records
+  Hives and Citadels have no construction offer. House restore screens say the
+  wreck shines and show the offer; the Restored! card calls the building shiny
+  and states what the site delivered (the row's `done` copy). Completed Blessed
+  Sites keep their glow. `save.wreckOffers` records
   completion separately from Magic Hammer shine; bonuses survive reloads and
   contracts cannot be collected twice. Reroll prices round up to whole coins,
   with the existing one-coin minimum.
