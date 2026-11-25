@@ -224,8 +224,9 @@ test('the literal spellings are gone from the readers', () => {
     // the headstone and the grove shrine. + the POI props: the notice board
     // and the gate post. + the scenic viewpoint's scope. + the underground
     // streets' stalagmites; their inert vent lies flat and casts none.)
+    // A felled tree's stump casts one like the tree it was.
     // The scarecrow's PNG bakes its own contact shadow, so its row carries none.
-    const expected = ['tree', 'fruittree', 'chest', 'mineralrock', 'well',
+    const expected = ['tree', 'tree_stump', 'fruittree', 'chest', 'mineralrock', 'well',
                       '_fire', 'torch', 'waystone', 'stakes',
                       'headstone', 'grove_shrine', 'hive', 'roadsign', 'infoboard', 'gatepost', 'vista_scope',
                       'stalagmites', 'sandboxprop'];

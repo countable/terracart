@@ -695,7 +695,10 @@ class SceneModals {
   // `kind` (optional) — the MODAL_KINDS category; a plain message is a 'note'.
   // `keepOffer` leaves an open offer standing beneath (an item's line asked
   // from inside a shop, _itemDescTap); every other message replaces it.
-  showMessageModal({ title, body, okLabel, onDismiss, art, portrait, kind = art ? 'story' : 'note', kindLabel, mustAcknowledge = false, source, bookPage = false, sections, keepOffer = false }) {
+  // `actions` ([{ label, onClick }]) are choices above the OK button — a
+  // neighbour's "(offer home)": a tap closes the message (its onDismiss
+  // still runs) and then runs that choice.
+  showMessageModal({ title, body, okLabel, onDismiss, art, portrait, kind = art ? 'story' : 'note', kindLabel, mustAcknowledge = false, source, bookPage = false, sections, keepOffer = false, actions }) {
     if (!keepOffer) document.getElementById('offer-modal')?.closeModal?.();
     let dismissed = false;
     const dismiss = () => {
@@ -743,6 +746,17 @@ class SceneModals {
       }
     }
     const speech = kind === 'spirit' || kind === 'talk';
+    for (const action of Array.isArray(actions) ? actions : []) {
+      const choice = mkBtn(action.label, { variant: 'ghost' });
+      choice.style.margin = '0 8px 8px 0';
+      choice.addEventListener('click', (e) => {
+        e.stopPropagation();
+        wrap.remove();
+        dismiss();
+        action.onClick?.();
+      });
+      box.appendChild(choice);
+    }
     const btn = mkBtn(okLabel || (speech ? 'Got it' : 'OK'));
     btn.addEventListener('click', (e) => {
       e.stopPropagation();

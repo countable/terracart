@@ -519,7 +519,7 @@ class SceneCreatures {
     }
     this._restoreMimics(entry, tx, ty);
     NPC.shrineResidents(this, entry, tx, ty);
-    NPC.houseNeighbours(this, { offscreen: NPC.offscreenAt(this) });
+    NPC.houseNeighbours(this);
     NPC.arrivals(this, entry, tx, ty);
     stage('spawn commit residents');
 

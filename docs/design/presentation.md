@@ -45,7 +45,8 @@ pixels and decorative details do not define additional tap cells.
 - A quest castle starts as a large house wreck. Its Restore offer costs 9 stone;
   the same three-second work sequence rechecks stock before charging and saves
   restoration by castle footprint. Restoration opens the existing quest, whose
-  completion unlocks the castellan’s usual recurring tithe/rest service. Already
+  completion unlocks the castle's daily tax (coins flown to the player) and the
+  castellan's twelve-hour feast. Already
   claimed castles keep their service. Citadels retain their enemy building and
   guard battle; active Hives retain their enemy building until defeated. Forts
   use the house wreck display and keep their wood unlock, capped at 12 wood.
@@ -55,8 +56,10 @@ pixels and decorative details do not define additional tap cells.
   offers have equal probability: Discount Build halves material costs, rounded
   down; Blessed Site gives 33% cheaper rerolls, +50% house luxury or +50% turret
   damage; Private Contract pays $50 once when the site is restored. Home, active
-  Hives and Citadels have no construction offer. House restore screens show the
-  offer, and completed Blessed Sites keep their glow. `save.wreckOffers` records
+  Hives and Citadels have no construction offer. House restore screens say the
+  wreck shines and show the offer; the Restored! card calls the building shiny
+  and states what the site delivered (the row's `done` copy). Completed Blessed
+  Sites keep their glow. `save.wreckOffers` records
   completion separately from Magic Hammer shine; bonuses survive reloads and
   contracts cannot be collected twice. Reroll prices round up to whole coins,
   with the existing one-coin minimum.
@@ -810,11 +813,10 @@ pixels and decorative details do not define additional tap cells.
   residents are drawn in full by `NPC.spawn` but seated by `NPC.arrivals`:
   they return with memories, off screen, and wait on fixed, evenly spread
   starting-area pins outside Home's ring (`homeWaitBand`). A completed delivery
-  opens a restored plain house after 15 seconds; an available live neighbour
-  whom the player has spoken to may move in and wander near its entrance.
-  Talking records eligibility; the delivery requirement remains. Fixed housing
-  priority gives Tilly the first available home among eligible neighbours;
-  generation.md owns the full order and saved assignment rules.
+  opens a restored plain house, and moving in is the player's choice: an
+  unhoused neighbour's talk shows "(offer home)" (Tilly included), and taking
+  it moves them in to wander near its entrance, thanking the player in their
+  housed voice. generation.md owns the offer and saved assignment rules.
   a named zone's keeper stays. The warden's home plea is a tap, never a splash.
   The stranger (Ayo in human form) is such a role, flagged `transient` so a
   delivery never houses her; the lane's gossip about her is one extra page per

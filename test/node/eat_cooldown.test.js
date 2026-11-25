@@ -106,8 +106,8 @@ test('eat cooldown: the bar fills toward ready, and vanishes when there is nothi
   const body = app.slice(a, b);
   // 1 - left/COOLDOWN: a full bar is a ready button, so the growing green and
   // the shrinking number both point at the next bite.
-  assert.truthy(/const done = 1 - clamp01\(leftMs \/ Energy\.EAT_COOLDOWN_MS\)/.test(body),
-    'the bar measures elapsed, clamped (util.js clamp01), off the shared constant');
+  assert.truthy(/const done = 1 - clamp01\(leftMs \/ Energy\.eatCooldownSpan\(this\.save\)\)/.test(body),
+    'the bar measures elapsed, clamped (util.js clamp01), off the armed span');
   assert.truthy(/leftMs > 0 \? `\$\{done \* 100\}%` : '0'/.test(body),
     'no bar at all once the wait is over');
 });
@@ -186,3 +186,18 @@ test('use button: a CONSUMABLE_SPEC row without a verb never grows a Use button'
   }
 });
 })();
+
+test('eat cooldown: a feast arms a minute', () => {
+  const t0 = 1_000_000;
+  const save = {};
+  assert.eq(Energy.FEAST_COOLDOWN_MS, 60 * 1000, 'a feast fills you for a minute');
+  Energy.startEatCooldown(save, t0, Energy.FEAST_COOLDOWN_MS);
+  assert.eq(Energy.eatCooldownSpan(save), Energy.FEAST_COOLDOWN_MS, 'the bar measures the feast span');
+  assert.eq(Energy.eatCooldownLeft(save, t0), Energy.FEAST_COOLDOWN_MS, 'the whole minute stands');
+  assert.eq(Energy.canEat(save, t0 + 59_999), false, 'still full a ms short');
+  assert.eq(Energy.canEat(save, t0 + Energy.FEAST_COOLDOWN_MS), true, 'ready once the minute is up');
+  Energy.startEatCooldown(save, t0 + Energy.FEAST_COOLDOWN_MS);
+  assert.eq(Energy.eatCooldownSpan(save), Energy.EAT_COOLDOWN_MS, 'the next bite is back to ten seconds');
+  assert.eq(Energy.eatCooldownLeft({ eatReadyAt: 9e12, eatCooldownMs: 9e9 }, 0), Energy.FEAST_COOLDOWN_MS,
+    'an edited span is clamped to the feast');
+});
