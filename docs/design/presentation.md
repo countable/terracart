@@ -47,7 +47,13 @@ pixels and decorative details do not define additional tap cells.
   restoration by castle footprint. Restoration opens the existing quest, whose
   completion unlocks the castle's daily tax (coins flown to the player) and the
   castellan's twelve-hour feast. Already
-  claimed castles keep their service. Citadels retain their enemy building and
+  claimed castles keep their service. One claimed castle in three
+  (`CastleStyles.hiresMercenaries`, a hash of the castle key above its style
+  and quest bits; `Houses.castleHiresMercenaries` adds the claim) also hires
+  out a guard: a "Hire a guard" button beside Feast, or the hire at once when
+  the feast is spent. It is the wagon's hire (`Macros.offerMercenary`: the
+  `Companions.KINDS.mercenary` price, contract and refusals), worded by the
+  castle row's `mercenary` copy, with no ledger beyond the live contract. Citadels retain their enemy building and
   guard battle; active Hives retain their enemy building until defeated. Forts
   use the house wreck display and keep their wood unlock, capped at 12 wood.
 
