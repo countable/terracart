@@ -18,11 +18,17 @@
   const wood = { LITE: 0xc2a16b, BODY: 0x967549, FACE: 0x80613e, SHADOW: 0x624e37, DARK: 0x423b2d };
   const ids = variants.map(v => v.id);
   const cache = new Map();
+  // The castle key's FNV-1a hash: every per-castle draw below reads its own
+  // bits of it — the style the low two, the Archive's job bit 2, the guard
+  // for hire bits 3 and up.
+  function keyHash(key) {
+    let h = 0x811c9dc5;
+    for (const ch of String(key)) h = Math.imul(h ^ ch.charCodeAt(0), 0x01000193);
+    return h >>> 0;
+  }
   function variantFor(key) {
     if (ids.includes(key)) return key;
-    let h = 0x811c9dc5;
-    for (const ch of String(key || 'castle')) h = Math.imul(h ^ ch.charCodeAt(0), 0x01000193);
-    return ids[(h >>> 0) % ids.length];
+    return ids[keyHash(key || 'castle') % ids.length];
   }
   // Quest selection uses a hash bit above the two style bits. Reusing the
   // low parity bit would give every Archive the same job. The four styles
@@ -30,9 +36,15 @@
   function questTypeFor(key, variant) {
     const style = variants.find(v => v.id === variantFor(variant || key));
     if (!style.questTypes || ids.includes(key)) return style.questType || null;
-    let h = 0x811c9dc5;
-    for (const ch of String(key)) h = Math.imul(h ^ ch.charCodeAt(0), 0x01000193);
-    return style.questTypes[(h >>> 2) % style.questTypes.length];
+    return style.questTypes[(keyHash(key) >>> 2) % style.questTypes.length];
+  }
+  // THE GUARD FOR HIRE (owner, Nov 2026: "some restored castles should offer
+  // mercenaries"): one castle in MERCENARY_ONE_IN, any style, picked by the
+  // key's hash above the style and job bits so it cuts across both. Only a
+  // claimed castle ever offers it (Houses.castleHiresMercenaries).
+  const MERCENARY_ONE_IN = 3;
+  function hiresMercenaries(key) {
+    return !!key && (keyHash(key) >>> 3) % MERCENARY_ONE_IN === 0;
   }
   // A shared, pure condition treatment, already baked into every returned
   // colour. Callers must not apply the general building wash a second time.
@@ -390,5 +402,5 @@
     }
     return clusters;
   }
-  global.CastleStyles = Object.freeze({ TOWER_WIDTH: 32, TOWER_HEIGHT: 48, TURRET_STYLE: 'bastion', ids: Object.freeze(ids), renderStyle, paintInteriorCarpet, growthPatches, variantFor, questTypeFor, get, columnSites, columnTexture, damagePattern, damageCellIndex, damageCell, damageTexture });
+  global.CastleStyles = Object.freeze({ TOWER_WIDTH: 32, TOWER_HEIGHT: 48, TURRET_STYLE: 'bastion', ids: Object.freeze(ids), renderStyle, paintInteriorCarpet, growthPatches, variantFor, questTypeFor, MERCENARY_ONE_IN, hiresMercenaries, get, columnSites, columnTexture, damagePattern, damageCellIndex, damageCell, damageTexture });
 })(window);

@@ -651,6 +651,13 @@ const FORT_UNLOCK_WOOD_STEP = 6;
     if (key) Ledger.stamp(save, 'castleServiceClaimed', key, now, now, CASTLE_SERVICE_MS);
   }
 
+  // Does this castle's guard hire out a sword (Macros.offerMercenary, the
+  // wagon's price and contract)? Only the player's own castle — claimed —
+  // and only the castles CastleStyles.hiresMercenaries picks from the key.
+  function castleHiresMercenaries(save, house) {
+    return isCastleClaimed(save, house) && CastleStyles.hiresMercenaries(castleKey(house));
+  }
+
   // TAX (owner, Nov 2026): what the player's restored places pay them, once
   // per UTC day each — the day ledger the recurring sites share (Macros
   // usedToday / markToday, under 'tax:<id>'). A restored house pays a coin
@@ -700,7 +707,7 @@ const FORT_UNLOCK_WOOD_STEP = 6;
     fortUnlockCost, isFortLocked,
     castleKey, isBuildingSealed, isClaimedKey, isCastleClaimed, claimCastle, citadelBattleActive, startCitadelBattle, expireCitadelBattles, CITADEL_BATTLE_MS,
     CASTLE_KEY_RE, CITADEL_BATTLE_SKEW_MS, isCitadelKey, adoptCitadelBattle,
-    CASTLE_SERVICE_MS, castleServiceWaitMs, castleServiceUsed, markCastleServiceUsed,
+    CASTLE_SERVICE_MS, castleServiceWaitMs, castleServiceUsed, markCastleServiceUsed, castleHiresMercenaries,
     TAX_GOLD, taxKind, taxDue, collectTax,
   };
 })(typeof window !== 'undefined' ? window : globalThis);
