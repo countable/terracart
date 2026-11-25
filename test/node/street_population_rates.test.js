@@ -30,6 +30,7 @@ test('street population rates: ambient fauna and foes plus finite residents reta
    const gang=rule=>!!StreetVariants.STREET_GANGS[rule];
    assert.truthy(d.creatureRequests.some(q=>gang(q.rule)),variant+' holds a street gang post');
    const base=creatures.filter(c=>!gang(c._streetRequest));
+   assert.truthy(creatures.filter(c=>gang(c._streetRequest)).every(c=>c._streetGang?.sid&&Number.isInteger(c._streetGang.n)),variant+' gang bodies carry their visibility tag');
    sum.sites+=d.creatureRequests.filter(q=>!gang(q.rule)).length;
    sum.placed+=base.length;for(const c of base)sum.byKind[c.kind]=(sum.byKind[c.kind]||0)+1;
   }

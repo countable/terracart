@@ -872,6 +872,7 @@
               _featureHome: { x: tx * tileM + request.lx, y: ty * tileM + request.ly, quiet: true },
               ...(member.ambush ? { ambush: true } : {}),
               ...(member._landEnemyReserve ? { _landEnemyReserve: true } : {}),
+              ...(member._streetGang ? { _streetGang: member._streetGang } : {}),
               _habitatSpawn: { key: regionKey, profile: request._street, tx, ty, ...seat },
               _surfaceSpawn: { tx, ty, ...seat },
             }),

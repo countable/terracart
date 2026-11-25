@@ -2626,27 +2626,36 @@
   // Finite street populations share the main creature allocator. Geometry
   // supplies request anchors; this table owns counts and behaviour, never a
   // second building-garrison draw or a lazy lair wake.
-  // HARD MODE'S STREET GANGS (owner, Nov 2026: "on hard, every street should
-  // have a gang (random group)"): every themed street gets one gang post per
-  // owning tile, its group drawn off the street's identity (rec.key) from
-  // these rows, so every player sees the same gang in the same seats. Every
-  // member is `modeReserve`: generated for everyone, shown only where the
-  // mode's land-enemy reserve is shown (HabitatSpawns.reserveVisible — all of
-  // it on hard, none on easy). Posts are requested after every other street
-  // request and claim no dressing cell, so no existing seat moves.
+  // STREET GANGS (owner, Nov 2026: "on hard, every street should have a gang
+  // (random group)"; "on easy mode too, just smaller and often zero"): every
+  // themed street gets one gang post per owning tile, its group drawn off the
+  // street's identity (rec.key), so every player's world holds the same gang
+  // in the same seats. Rows list the leader first; how many a mode SHOWS is
+  // Difficulty `streetGangShown` (gangVisible: hard all, easy a few from the
+  // tail, often none) — hidden, never rerolled. Posts are requested after
+  // every other street request and claim no dressing cell, so no existing
+  // seat moves.
   const STREET_GANGS = Object.freeze({
     street_gang_runts: [{ kind: 'goblin_runt', count: 3 }],
     street_gang_clubs: [{ kind: 'club_goblin', count: 1 }, { kind: 'goblin_runt', count: 2 }],
     street_gang_spears: [{ kind: 'spear_goblin', count: 1 }, { kind: 'archer_goblin', count: 1 }, { kind: 'goblin_runt', count: 1 }],
     street_gang_bombers: [{ kind: 'bomb_goblin', count: 1 }, { kind: 'goblin_runt', count: 2 }],
-    street_gang_bones: [{ kind: 'skeleton', count: 2 }, { kind: 'skeleton_soldier', count: 1 }],
+    street_gang_bones: [{ kind: 'skeleton_soldier', count: 1 }, { kind: 'skeleton', count: 2 }],
     street_gang_thieves: [{ kind: 'thief', count: 1 }, { kind: 'goblin_runt', count: 2 }],
   });
   const STREET_GANG_RULES = Object.keys(STREET_GANGS);
   const streetGangRule = key => STREET_GANG_RULES[Math.floor(u01(avalanche32(fnv1a(`street-gang|${key}`))) * STREET_GANG_RULES.length)];
+  // Whether this mode shows a gang member: `shown` is the mode's list of
+  // equally likely gang sizes (null: the whole gang); the size is drawn per
+  // post and shows the members nearest the tail (the followers, not the leader).
+  function gangVisible(creature, modeProfile) {
+    const g = creature?._streetGang, shown = modeProfile?.streetGangShown;
+    if (!g || !shown) return true;
+    const size = shown[Math.floor(u01(avalanche32(fnv1a(`street-gang-shown|${g.sid}`))) * shown.length)];
+    return g.n >= g.of - size;
+  }
   const CREATURE_REQUEST_RULES = Object.freeze({
-    ...Object.fromEntries(Object.entries(STREET_GANGS).map(([rule, rows]) =>
-      [rule, rows.map(row => ({ ...row, modeReserve: true }))])),
+    ...STREET_GANGS,
     street_hedgerow: [{ kind: 'goblin_runt', count: 2, ambush: true }],
     street_overgrown: [{ kind: 'plant', count: 1 }],
     street_orchard: [{ kind: 'farmer_goblin', count: 1 }],
@@ -2662,10 +2671,13 @@
       [`street_slime_trail_${kind}`, [{ kind, count: VARIANT_BY_ID.slime_trail.guardsPerPost }]])),
   });
   function creatureRequestMembers(request) {
-    return (CREATURE_REQUEST_RULES[request.rule] || []).flatMap(row =>
+    const members = (CREATURE_REQUEST_RULES[request.rule] || []).flatMap(row =>
       Array.from({ length: row.count }, () => ({ kind: row.kind,
         ...(row.ambush ? { ambush: true } : {}),
         ...(row.modeReserve ? { _landEnemyReserve: true } : {}) })));
+    if (STREET_GANGS[request.rule])
+      members.forEach((m, n) => { m._streetGang = { sid: request.sid, n, of: members.length }; });
+    return members;
   }
 
   // ── Dressing (the end of rasterizeTileSteps; laid by spawnInTile) ─────────
@@ -3966,7 +3978,7 @@
   function isSlowKind(kind) { return SLOW_KINDS.has(kind); }
 
   root.StreetVariants = {
-    CREATURE_REQUEST_RULES, STREET_GANGS, streetGangRule, creatureRequestMembers, APPROVED_DECORATIONS, approvedDecorationRows, VERGE_ROAD_OVERLAP_MAX, vergeCellAt, TOADSTOOL_COVER_MAX, SNARE_STRAYS, SNARE_STRAY_GAP_CELLS, BARRICADE_STRAY_MAX,
+    CREATURE_REQUEST_RULES, STREET_GANGS, streetGangRule, gangVisible, creatureRequestMembers, APPROVED_DECORATIONS, approvedDecorationRows, VERGE_ROAD_OVERLAP_MAX, vergeCellAt, TOADSTOOL_COVER_MAX, SNARE_STRAYS, SNARE_STRAY_GAP_CELLS, BARRICADE_STRAY_MAX,
     SUPPRESSED_STYLE, pavementFor, pavementVariantFor, VERGE_ROWS, PARISH_TILES, NAME_NUDGE, NUDGED_SHARE_MAX, ROCK_STREET_SHARE, MINOR_VARIANT_SHARE, PLAIN_HERB_P, PLAIN_BUSH_P, PLAIN_BUSHES, VERGE_MAX_CELLS,
     BANDIT_STRETCH_UNITS, BANDIT_STRETCH_SHARE, BANDIT_STAMP_OUT_CELLS,
     stretchOf, isBanditStretch, stampBanditStretchesSteps,

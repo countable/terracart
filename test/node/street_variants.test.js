@@ -643,20 +643,30 @@ test('toadstool lane: a minor row at 5%, its verge holds glowing mushrooms with 
   }
 });
 
-test('street gangs: every themed street holds one hard-only gang, a random group off its identity', () => {
+test('street gangs: every themed street holds one gang, all of it on hard, a few or none on easy', () => {
   const rules = Object.keys(SV.STREET_GANGS);
   assert.gt(rules.length, 3, 'several groups to draw from');
+  const easy = Difficulty.PROFILES.easy, hard = Difficulty.PROFILES.hard;
+  const shownOnEasy = [];
   for (const rule of rules) {
-    const members = SV.creatureRequestMembers({ rule });
-    assert.gt(members.length, 1, `${rule} is a group`);
-    for (const m of members) {
-      assert.truthy(EnemyRoster.get(m.kind), `${rule}: ${m.kind} is a roster kind`);
-      assert.truthy(m._landEnemyReserve, `${rule}: ${m.kind} rides the mode reserve`);
-      const c = { ...m, id: `gang_${rule}_${m.kind}` };
-      assert.falsy(HabitatSpawns.reserveVisible(c, Difficulty.PROFILES.easy), 'hidden on easy');
-      assert.truthy(HabitatSpawns.reserveVisible(c, Difficulty.PROFILES.hard), 'shown on hard');
+    assert.gt(SV.creatureRequestMembers({ rule, sid: 'x' }).length, 1, `${rule} is a group`);
+    for (let i = 0; i < 200; i++) {
+      const members = SV.creatureRequestMembers({ rule, sid: `gang-${rule}-${i}` });
+      const bodies = members.map((m, n) => ({ ...m, id: `lair_gang-${i}_${n}` }));
+      for (const m of members) {
+        assert.truthy(EnemyRoster.get(m.kind), `${rule}: ${m.kind} is a roster kind`);
+        assert.falsy(m._landEnemyReserve, 'not the land reserve: easy sees some');
+      }
+      assert.truthy(bodies.every(c => SV.gangVisible(c, hard)), 'hard shows the whole gang');
+      const seen = bodies.map(c => SV.gangVisible(c, easy));
+      assert.truthy(seen.every((v, n) => !v || seen.slice(n).every(Boolean)), 'easy shows a tail of the gang');
+      shownOnEasy.push(seen.filter(Boolean).length);
     }
   }
+  const none = shownOnEasy.filter(n => n === 0).length / shownOnEasy.length;
+  assert.inRange(none, 0.4, 0.6, `easy shows no gang on about half the streets (${none})`);
+  assert.truthy(shownOnEasy.every(n => n <= Math.max(...easy.streetGangShown)), 'easy gangs stay small');
+  assert.gt(Math.max(...shownOnEasy), 0, 'easy sometimes meets one');
   const drawn = new Set();
   for (let i = 0; i < 400; i++) drawn.add(SV.streetGangRule(`street-${i}`));
   assert.eq(drawn.size, rules.length, 'every group is drawn somewhere');
