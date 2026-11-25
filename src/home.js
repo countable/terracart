@@ -216,6 +216,13 @@ const HomeArea = {
     // The plank floor's scale against the cell (building_overlay.js
     // patternFor 'home'): 1/n, n planks' worth per native tile.
     floorTexScale: 0.5,
+    // Where the planks sit against the cell lattice, px: the plank art's
+    // board joints fall 4px into its 32px swatch (2px at floorTexScale), so
+    // this lays one row of joints on every cell line instead of 2px beside it.
+    floorTexOffsetPx: [-2, 0],
+    // How the floor rules its cells (building_overlay.js drawHomeFloor):
+    // solid (no gap) at this alpha, over the ground grid's ink and weight.
+    floorGrid: { gap: 0, alpha: 0.22 },
   },
   // Is the cell (dx, dy) from the wagon cell one of the house's?
   inHouse(dx, dy) {

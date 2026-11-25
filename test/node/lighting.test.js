@@ -496,7 +496,7 @@ test('lighting: furniture emits indoors, across the sprite cull, and stops after
       const spec = furnitureSpec(lamp);
       const height = b.maxY - b.minY;
       const baseY = height * FURNITURE_SCALE <= CELL_PX ? height / 3 : 5;
-      assert.inRange(Math.abs(light.dyPx - (baseY + spec.lightFrameY - b.maxY)), 0, 1e-8,
+      assert.inRange(Math.abs(light.dyPx - (baseY + spec.lightFrameY - b.maxY) * FURNITURE_SCALE), 0, 1e-8,
         'glow follows the placed lamp base');
       assert.eq(Lighting.liftPx(s, light).y, light.dyPx, 'existing lift mechanism places the glow');
       assert.falsy(Lighting.consider(s, lamp, HALF_M + radius * s.cellM + 1, 0, HALF_M), 'own radius culls distant fixtures');
