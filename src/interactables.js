@@ -353,7 +353,7 @@ const INTERACTABLES = {
       // list hides — and the list grows a dead entry per fell, forever.
       if (o.planted && save.fruittrees) {
         save.treeStumps ||= [];
-        if (!save.treeStumps.some(p => p.id === o.id)) save.treeStumps.push({ id: o.id, x: o.x, y: o.y, depth: o.depth || 0 });
+        if (!save.treeStumps.some(p => p.id === o.id)) save.treeStumps.push({ id: o.id, x: o.x, y: o.y, depth: o.depth || 0, species: o.species, _objectArt: o._objectArt });
         save.fruittrees = save.fruittrees.filter(f => f.id !== o.id);
       }
       scene.addToInv('wood', wood);

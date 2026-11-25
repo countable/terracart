@@ -606,7 +606,8 @@ class SceneStreets {
   // Re-derived from the same fix every call, memoised on the feet's cell +
   // Streets.epoch, so standing still costs one string compare.
   // Flavour toast when the feet step onto a house's own cell: a wreck grumbles
-  // about itself, a restored house greets you. The `cell` toast tier, same as
+  // about itself, a restored house greets you — or, on the day's first visit,
+  // pays its tax (Houses.TAX_GOLD.house, flown in by _flyTaxCoins). The `cell` toast tier, same as
   // the energy pops (_popCellNumber); one line per entry, keyed on the
   // house id so standing still (or shuffling within the cell) says nothing.
   // Each line fits MAP_MSG_MAX. Surface only, like the lamp visits.
@@ -638,6 +639,10 @@ class SceneStreets {
     if (Houses.displayRole(this.save, house) === 'trailer') return;   // Home: your own door
     const wreck = Houses.isHouseWreck(this.save, house);
     if (!wreck && house.tier !== 9) return;      // forts / castles keep their peace
+    // A restored house's first visit of the UTC day pays its tax instead:
+    // a coin flies off the house to the player, "+1 tax" on landing
+    // (_collectTax → Houses.collectTax, the amount and the day ledger).
+    if (!wreck && this._collectTax?.(house, CELL_PX)) return;
     const lines = wreck ? HOUSE_WRECK_MUTTERS : HOUSE_RESTORED_MUTTERS;
     // Hash the id so a given house always has its own line for its state.
     let h = 0;

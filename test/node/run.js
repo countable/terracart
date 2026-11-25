@@ -648,30 +648,21 @@ Object.assign(ctx, {
 }
 
 // Claiming a castle (a footprint plus turrets, no house object) and its
-// once-a-day favour. The claim / key / daily-gate rules are houses.js
-// (houses.test.js); rest and tax use the loaded shop methods for
+// feast and tax. The claim / key / daily-gate rules are houses.js
+// (houses.test.js); the feast and tax use the loaded shop methods for
 // castle_claim.test.js.
 {
-  const src = SCENE_SRC;
-  let decls = '';
-  const rest = src.match(/const CASTLE_REST_ENERGY = (\d+);/);
-  if (!rest) { console.error('Could not find CASTLE_REST_ENERGY in src/app.js — update run.js'); process.exit(2); }
-  decls += `const CASTLE_REST_ENERGY = ${rest[1]};\n`;
-  // CASTLE_TAX_GOLD needs no lift: scene_shops.js, in the bundle, declares it.
   vm.runInContext(
-    decls
-    + 'globalThis.CASTLE_REST_ENERGY = CASTLE_REST_ENERGY;\n'
-    + 'globalThis.CASTLE_TAX_GOLD = CASTLE_TAX_GOLD;\n'
-    + 'globalThis.CastleMethods = {\n'
-    // The scene's one-line wrappers, so _castleRest / _castleTax reach the real rules.
+    'globalThis.CastleMethods = {\n'
+    // The scene's one-line wrappers, so _castleFeast / _collectTax reach the real rules.
     + '  _castleKey(house) { return Houses.castleKey(house); },\n'
     + '  isCastleClaimed(house) { return Houses.isCastleClaimed(this.save, house); },\n'
     + '  _claimCastle(house) { return Houses.claimCastle(this.save, house); },\n'
     + '  _castleServiceUsed(house) { return Houses.castleServiceUsed(this.save, house); },\n'
     + '  _castleServiceWaitMs(house) { return Houses.castleServiceWaitMs(this.save, house); },\n'
     + '  _markCastleServiceUsed(house) { return Houses.markCastleServiceUsed(this.save, house); },\n'
-    + '  _castleRest: SceneShops.prototype._castleRest,\n'
-    + '  _castleTax: SceneShops.prototype._castleTax,\n'
+    + '  _castleFeast: SceneShops.prototype._castleFeast,\n'
+    + '  _collectTax: SceneShops.prototype._collectTax,\n'
     + '};', ctx, { filename: 'castleClaim.js' });
 }
 

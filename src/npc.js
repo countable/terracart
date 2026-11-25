@@ -499,27 +499,15 @@ const NPC = (() => {
     if (pinned) Save.persist(scene.save);
     return added;
   }
-  // A conversation makes an arrived neighbour eligible; only a delivery opens
-  // a roof. Existing assignments remain valid when older saves lack this ledger.
+  // Talking records a durable meeting (the archaeologist's and the miner's
+  // own talks stamp it too). Existing assignments remain valid when older
+  // saves lack this ledger.
   function meetHomeNeighbour(scene, c) {
     if (!c?.id || c.kind !== 'npc' || STORY_ROLES[c.role]?.transient || (scene.depth || 0) !== 0) return false;
     const met = scene.save.npcMet ||= {};
     if (met[c.id]) return false;
     met[c.id] = true;
     Save.persist(scene.save);
-    return true;
-  }
-  const HOME_ROLE_PRIORITY = ['wanderer', 'warden', 'witness', 'believer', 'archaeologist', 'miner'];
-  function homePriority(c) {
-    const rank = HOME_ROLE_PRIORITY.indexOf(c.role);
-    return rank < 0 ? HOME_ROLE_PRIORITY.length : rank;
-  }
-  const MOVE_IN_DELAY_MS = 15000;
-  const MOVE_IN_VISIBLE_GRACE_MS = 15000;
-  function markDelivery(scene, house, now = Date.now()) {
-    if (!house?.id || (scene.depth || 0) !== 0) return false;
-    const due = scene.save.npcMoveInAfter ||= {};
-    if (!due[house.id]) { due[house.id] = now + MOVE_IN_DELAY_MS; Save.persist(scene.save); }
     return true;
   }
   function residentOf(save, house) {
@@ -559,28 +547,30 @@ const NPC = (() => {
     const door = BuildingLowPoly.streetDoor(points, streets);
     return door ? { x: door.center.x / scale, y: door.center.y / scale } : null;
   }
-  function houseNeighbours(scene, { offscreen, now = Date.now() } = {}) {
-    if ((scene.depth || 0) !== 0) return 0;
+  // THE HOUSING SURVEY: the loaded surface tiles, the live neighbours, and
+  // the delivered plain houses (Delivery.isSatisfied — a roof opens only
+  // after its delivery) with who claims them. Conversation-era claims that
+  // no longer name a delivered plain house are released first, so neither
+  // spawner decides the owner is absent. `move` is the one writer of a
+  // `save.npcHomes` assignment; houseNeighbours replays saved ones and
+  // offerHome (the dialog's "(offer home)") makes new ones.
+  function housingSurvey(scene) {
     const homes = scene.save.npcHomes ||= {};
-    const due = scene.save.npcMoveInAfter ||= {};
     const invalid = new Set(), playerHome = scene.homeWorldPos?.();
-    let moved = 0, dirty = false;
-    // Conversation-era claims were allowed before a delivery, even on shops.
-    // Release those claims before either spawner decides the owner is absent.
+    const survey = { homes, tiles: [], houses: new Map(), live: new Map(), claimed: null, dirty: false };
     for (const [id, record] of Object.entries(homes)) {
       if (!record.houseId || (record.houseId !== playerHome?.id
         && scene.save.restoredHouses?.[record.houseId] === 'plain'
         && Delivery.isSatisfied(scene.save, { id: record.houseId }))) continue;
       delete record.houseId; delete record.houseX; delete record.houseY;
-      invalid.add(id); dirty = true;
+      invalid.add(id); survey.dirty = true;
     }
     const hasDeliveredHouse = Object.keys(scene.save.restoredHouses || {}).some(id =>
       id !== playerHome?.id && scene.save.restoredHouses[id] === 'plain' && Delivery.isSatisfied(scene.save, { id }));
-    const tiles = [], houses = new Map(), live = new Map();
     for (const [key, entry] of WorldGen.tileCacheFor(0)) {
       if (!entry?._spawned || !entry.grid) continue;
       const [, tx, ty] = key.split('/').map(Number), tile = { entry, tx, ty };
-      tiles.push(tile);
+      survey.tiles.push(tile);
       for (const c of entry.creatures || []) if (c.kind === 'npc') {
         if (invalid.has(c.id)) {
           c._homeAnchor = '';
@@ -591,20 +581,18 @@ const NPC = (() => {
               Object.assign(c, { x: pin.x, y: pin.y, homeX: pin.x, homeY: pin.y, _npcSteps: 0, _moving: false });
           }
         }
-        live.set(c.id, { c, tile });
+        survey.live.set(c.id, { c, tile });
       }
       for (const a of hasDeliveredHouse ? anchorsIn(scene, entry, tx, ty) : []) {
         if (a.home || scene.save.restoredHouses?.[a.key] !== 'plain') continue;
         const object = entry.objects.find(o => o.id === a.key);
         if (!Delivery.isSatisfied(scene.save, object)) continue;
-        houses.set(a.key, { ...a, object, tile });
+        survey.houses.set(a.key, { ...a, object, tile });
       }
     }
-    const claimed = new Set(Object.values(homes).map(h => h.houseId).filter(Boolean));
+    survey.claimed = new Set(Object.values(homes).map(h => h.houseId).filter(Boolean));
     // Waiting beside a restored house never reserves it: only saved assignments do.
-    for (const [id, { c }] of live) if (c._homeAnchor && !homes[id]?.houseId) c._homeAnchor = '';
-    // Legacy delivered houses get the same short delay on their first visit.
-    for (const id of houses.keys()) if (!claimed.has(id) && !due[id]) { due[id] = now + MOVE_IN_DELAY_MS; dirty = true; }
+    for (const [id, { c }] of survey.live) if (c._homeAnchor && !homes[id]?.houseId) c._homeAnchor = '';
     const seatAt = (id, record, house) => {
       const { entry, tx, ty } = house.tile;
       const frame = WorldGen.tileFrame(entry, tx, ty, scene.tileEdgeM);
@@ -625,49 +613,86 @@ const NPC = (() => {
       cells.sort((a, b) => a.distance - b.distance || a.y - b.y || a.x - b.x);
       return cells[0] || null;
     };
-    const move = (id, record, house, current) => {
+    survey.move = (id, record, house, current) => {
       const seat = seatAt(id, record, house);
       if (!seat) return false;
-      // Leave a brief opportunity for an unseen move, but never wait forever
-      // when the player remains beside the house after their delivery.
-      if (!record.houseId && now < due[house.key] + MOVE_IN_VISIBLE_GRACE_MS && offscreen
-        && ((current && !offscreen(current.c.x, current.c.y)) || !offscreen(seat.x, seat.y))) return false;
       const c = current?.c || CreatureSpawns.createOwned('npcs', id, 'npc', seat.x, seat.y, id,
         STORY_ROLES[record.role] ? storyNeighbour(id, record.role) : { ...identity(id, record.culture, record.role), zoneKind: record.zoneKind });
       Object.assign(record, { houseId: house.key, x: seat.x, y: seat.y, houseX: house.x, houseY: house.y });
       homes[id] = record;
       if (scene.save.npcVillagePins) delete scene.save.npcVillagePins[id];
-      claimed.add(house.key);
-      for (const { entry } of tiles) entry.creatures = (entry.creatures || []).filter(other => other.id !== id);
+      survey.claimed.add(house.key);
+      for (const { entry } of survey.tiles) entry.creatures = (entry.creatures || []).filter(other => other.id !== id);
       Object.assign(c, { x: seat.x, y: seat.y, homeX: seat.x, homeY: seat.y,
         _homeHouseX: house.x, _homeHouseY: house.y, _homeAnchor: house.key, _moving: false, _npcSteps: 0 });
       restore(scene, c);
       house.tile.entry.creatures.push(c);
-      dirty = true; moved++;
-      return true;
+      survey.dirty = true;
+      return c;
     };
-    // Only existing assignments may reconstruct an NPC with its origin unloaded.
-    for (const [id, record] of Object.entries(homes)) {
+    return survey;
+  }
+  // Replays saved assignments: only these may reconstruct an NPC whose
+  // origin tile is unloaded. Nobody moves in here: a new resident is the
+  // player's offer (offerHome), never a timer.
+  function houseNeighbours(scene) {
+    if ((scene.depth || 0) !== 0) return 0;
+    const survey = housingSurvey(scene);
+    let moved = 0;
+    for (const [id, record] of Object.entries(survey.homes)) {
       if (!record.houseId) continue;
-      const current = live.get(id), house = houses.get(record.houseId);
+      const current = survey.live.get(id), house = survey.houses.get(record.houseId);
       if (!house || current?.c._homeAnchor === record.houseId || (current && isDormant(current.c))) continue;
-      move(id, record, house, current);
+      if (survey.move(id, record, house, current)) moved++;
     }
-    const available = [...live.entries()].filter(([id, { c }]) => (c._homeAnchor === '' || (STORY_ROLES[c.role] && !c._homeAnchor)) && !homes[id]?.houseId
-      && (c.role !== 'witness' || scene.save.storyEncounter?.status === 'rewarded')
-      && scene.save.npcMet?.[id] && !STORY_ROLES[c.role]?.transient && !isDormant(c))
-      .sort(([, a], [, b]) => homePriority(a.c) - homePriority(b.c) || a.c.id.localeCompare(b.c.id));
-    for (const house of [...houses.values()].sort((a, b) => due[a.key] - due[b.key] || a.key.localeCompare(b.key))) {
-      if (claimed.has(house.key) || now < due[house.key]) continue;
-      const ordered = available.filter(([id]) => !homes[id]?.houseId);
-      for (const [id, current] of ordered) {
-        const c = current.c, record = { role: c.role, culture: c.culture, zoneKind: c.zoneKind };
-        if (move(id, record, house, current)) break;
-      }
-    }
-    if (dirty) Save.persist(scene.save);
+    if (survey.dirty) Save.persist(scene.save);
     return moved;
   }
+  // Could this neighbour take a roof today? A live, unhoused, unwounded,
+  // non-transient surface neighbour; Maud only after her rescue reward.
+  function homeSeeker(scene, c, now = Date.now()) {
+    return c?.kind === 'npc' && !!c.id && (scene.depth || 0) === 0 && !STORY_ROLES[c.role]?.transient
+      && !scene.save.npcHomes?.[c.id]?.houseId && !isDormant(c, now)
+      && (c.role !== 'witness' || scene.save.storyEncounter?.status === 'rewarded');
+  }
+  // THE HOME OFFER: the delivered plain house, unclaimed, nearest the
+  // neighbour (ties by id) that a talk may offer them, or null. Read by the
+  // conversation to show "(offer home)"; offerHome takes the same house.
+  function homeOfferIn(survey, c) {
+    let best = null;
+    for (const house of survey.houses.values()) {
+      if (survey.claimed.has(house.key)) continue;
+      const d = Math.hypot(house.x - c.x, house.y - c.y);
+      if (!best || d < best.d || (d === best.d && house.key < best.house.key)) best = { house, d };
+    }
+    return best?.house || null;
+  }
+  function homeOffer(scene, c, now = Date.now()) {
+    if (!homeSeeker(scene, c, now)) return null;
+    const survey = housingSurvey(scene);
+    if (survey.dirty) Save.persist(scene.save);
+    if (!survey.live.has(c.id)) return null;
+    return homeOfferIn(survey, c)?.object || null;
+  }
+  // The player offers the roof: the neighbour moves in now, met by this
+  // talk. Returns the house taken, or null when none is open or no safe
+  // seat stands by its door.
+  function offerHome(scene, c, now = Date.now()) {
+    if (!homeSeeker(scene, c, now)) return null;
+    meetHomeNeighbour(scene, c);
+    const survey = housingSurvey(scene), current = survey.live.get(c.id);
+    const house = current && homeOfferIn(survey, current.c);
+    const moved = house && survey.move(c.id, { role: c.role, culture: c.culture, zoneKind: c.zoneKind }, house, current);
+    if (survey.dirty) Save.persist(scene.save);
+    return moved ? house.object : null;
+  }
+  // What a neighbour says on taking the offered roof. Tilly's thanks is
+  // her own (MemoryStory.wandererLine, now housed); everyone else's is here.
+  const MOVE_IN_LINE = '<em>Looks up at the mended roof, then at you.</em>\n“A door of my own again? Thank you, Hood. I will move in today.”';
+  function moveInLine(scene, c) {
+    return (c.role === 'wanderer' && typeof MemoryStory !== 'undefined' && MemoryStory.npcDialogue(scene, c)) || MOVE_IN_LINE;
+  }
+  const OFFER_HOME_LABEL = '(offer home)';
 
   // Is the world point out of the player's sight — past the viewport's half
   // width, plus a cell — so a neighbour seated there is found, not watched
@@ -686,7 +711,7 @@ const NPC = (() => {
     if ((scene.depth || 0) !== 0 || now < (scene._npcArrivalsNext || 0)) return 0;
     scene._npcArrivalsNext = now + ARRIVALS_MS;
     const offscreen = offscreenAt(scene);
-    let n = houseNeighbours(scene, { offscreen, now });
+    let n = houseNeighbours(scene);
     for (const entry of WorldGen.tileCacheFor(0).values()) {
       const at = entry?._residentsTile;
       if (!at || !entry._spawned || !entry.grid) continue;
@@ -867,8 +892,16 @@ const NPC = (() => {
     const benefit = !isDormant(c) && typeof NPCBenefits !== 'undefined' ? NPCBenefits.visit(scene, c) : null;
     const talk = dialogue(scene, c);
     if (benefit?.message && !talk.body.includes(benefit.message)) { talk.pages.push(benefit.message); talk.body = talk.pages.join('\n\n'); }
+    // THE HOME OFFER (homeOffer): a delivered, unclaimed roof is the
+    // player's to give — a choice in the talk, never a timer. Taking it
+    // moves the neighbour in and answers in their new (housed) voice.
+    const offer = homeOffer(scene, c);
+    const offerAction = offer ? { label: OFFER_HOME_LABEL, onClick: () => {
+      if (!offerHome(scene, c)) return;
+      MemoryStory.showPages(scene, [moveInLine(scene, c)], { ...speech(c), portrait: portrait(scene, c), source: dialogSource(scene, c) });
+    } } : null;
     // All sections share one scrolling conversation and its painting or portrait.
-    const say = () => {
+    const say = (extra = []) => {
       if (talk.targets?.length && !isDormant(c)) {
         // The rim label names who gave the directions (Wayfinder, Fieldwalker…).
         // Each neighbour's directions join the others' (Buffs.withMark).
@@ -879,8 +912,10 @@ const NPC = (() => {
         }
         persistSave(scene.save);
       }
+      const actions = [offerAction, ...extra].filter(Boolean);
       MemoryStory.showPages(scene, talk.pages, { ...speech(c),
-        ...(talk.art ? { art: talk.art } : { portrait: portrait(scene, c) }), source: dialogSource(scene, c) });
+        ...(talk.art ? { art: talk.art } : { portrait: portrait(scene, c) }), source: dialogSource(scene, c),
+        ...(actions.length ? { actions } : {}) });
     };
     if (isDormant(c)) { say(); return; }
     if (c.role === 'archaeologist' && typeof MemoryStory !== 'undefined') {
@@ -916,6 +951,7 @@ const NPC = (() => {
               }
             },
           })),
+          ...(offerAction ? [{ label: offerAction.label, onClick: () => { answered = true; offerAction.onClick(); } }] : []),
           // Leaving or reloading does not consume an introduction or a topic.
           { label: 'Another time', onClick: () => { answered = true; } },
         ],
@@ -930,14 +966,19 @@ const NPC = (() => {
     // row and number the trader's house flashes in shopInteract), and says
     // the wait in a speaking voice. The deal is banked through recordDeal for
     // the trader's stock turnover and that cooldown.
-    const dealWait = ShopsMath.dealWaitMs(scene.save, c, c.role);
-    if (dealWait > 0) {
-      scene.showMessageModal({ title: talk.title, body: `I have just traded. Come back in ${spokenDuration(dealWait)}.`, portrait: portrait(scene, c), ...speech(c), source: dialogSource(scene, c) });
-      return;
-    }
-    const record = () => { ShopsMath.recordDeal(scene.save, c); };
-    if (c.role === 'trader') scene.presentTraderOffer(sx, sy, c, record);
-    else scene.presentThemedShop(sx, sy, c, record);
+    const trade = () => {
+      const dealWait = ShopsMath.dealWaitMs(scene.save, c, c.role);
+      if (dealWait > 0) {
+        scene.showMessageModal({ title: talk.title, body: `I have just traded. Come back in ${spokenDuration(dealWait)}.`, portrait: portrait(scene, c), ...speech(c), source: dialogSource(scene, c) });
+        return;
+      }
+      const record = () => { ShopsMath.recordDeal(scene.save, c); };
+      if (c.role === 'trader') scene.presentTraderOffer(sx, sy, c, record);
+      else scene.presentThemedShop(sx, sy, c, record);
+    };
+    // A peddler with a roof on offer talks first; the wares are a choice.
+    if (offerAction) say([{ label: 'Trade', onClick: trade }]);
+    else trade();
   }
-  return { REST_MS_AFTER_HIT, RESTING_LINE, restore, isDormant, hit, canTarget, prepareTargets, enemyTarget, COUNT, CULTURES, LABELS, WALK_MPS, WANDER_CELLS, WARDEN_LINE, CHILD_SCALE, STORY_ROLES, STORY_NEIGHBOURS, storyNeighbour, warden, storyNeighbourDue, RETURN_PER_MEMORY, LINGER_CELLS, returnedCount, stayers, anchorsIn, arrivals, spreadSeat, startingSeat, rememberPin, meetHomeNeighbour, markDelivery, residentOf, houseResident, houseFront, MOVE_IN_DELAY_MS, houseNeighbours, offscreenAt, tickArrivals, KEEPER_DEFAULT, nearestWreck, identity, cultureFor, spawn, seatKeepers, shrineResidents, restoreShrine, tick, sightings, dialogue, portrait, speech, dialogSource, offerArt, interact };
+  return { REST_MS_AFTER_HIT, RESTING_LINE, restore, isDormant, hit, canTarget, prepareTargets, enemyTarget, COUNT, CULTURES, LABELS, WALK_MPS, WANDER_CELLS, WARDEN_LINE, CHILD_SCALE, STORY_ROLES, STORY_NEIGHBOURS, storyNeighbour, warden, storyNeighbourDue, RETURN_PER_MEMORY, LINGER_CELLS, returnedCount, stayers, anchorsIn, arrivals, spreadSeat, startingSeat, rememberPin, meetHomeNeighbour, residentOf, houseResident, houseFront, houseNeighbours, homeOffer, offerHome, moveInLine, MOVE_IN_LINE, OFFER_HOME_LABEL, offscreenAt, tickArrivals, KEEPER_DEFAULT, nearestWreck, identity, cultureFor, spawn, seatKeepers, shrineResidents, restoreShrine, tick, sightings, dialogue, portrait, speech, dialogSource, offerArt, interact };
 })();

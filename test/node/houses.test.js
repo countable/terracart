@@ -466,3 +466,27 @@ test('castle restoration: occupied citadels and legacy claims never require mate
   const castle = { kind: 'tower', castle: 'b_999_0' };
   assert.falsy(Houses.isCastleWreck({ claimedCastles: { b_999_0: 0 } }, castle));
 });
+
+test('tax: a restored house pays one coin a UTC day; wrecks, Home and shopless tiers pay nothing', () => {
+  const day = Date.UTC(2026, 10, 25, 12);
+  const save = { money: 0, restoredHouses: { h: 'plain', home: 'plain' }, starterShopId: 'home' };
+  const h = { kind: 'house', tier: 9, id: 'h', x: 1, y: 2 };
+  assert.eq(Houses.TAX_GOLD.house, 1, 'a coin a day');
+  assert.eq(Houses.taxKind(save, h), 'house');
+  assert.eq(Houses.collectTax(save, h, day), 1, 'the first visit pays');
+  assert.eq(save.money, 1);
+  assert.eq(Houses.collectTax(save, h, day + 60 * 60 * 1000), 0, 'later the same day it does not');
+  assert.eq(Houses.taxDue(save, h, day + 24 * 60 * 60 * 1000), 1, 'tomorrow it owes again');
+  assert.eq(Houses.taxDue(save, { kind: 'house', tier: 9, id: 'w' }, day), 0, 'a wreck owes nothing');
+  assert.eq(Houses.taxDue(save, { kind: 'house', tier: 9, id: 'home' }, day), 0, 'Home is the player\'s own');
+  assert.eq(Houses.taxDue(save, { kind: 'house', tier: 3, id: 'h' }, day), 0, 'only a rebuilt wreck pays');
+});
+
+test('tax: the walk-through pays it in place of the mutter, flown in by _flyTaxCoins', () => {
+  const body = SCENE_SRC.slice(SCENE_SRC.indexOf('  _houseMutter() {'), SCENE_SRC.indexOf('  _visitStreetLamps('));
+  assert.truthy(/if \(!wreck && this\._collectTax\?\.\(house, CELL_PX\)\) return;/.test(body), 'a paid visit says nothing else');
+  assert.truthy(/const paid = Houses\.collectTax\(this\.save, house\);[\s\S]*?this\._flyTaxCoins\?\.\(/.test(SCENE_SRC),
+    'the scene pays through Houses and then flies the coins');
+  assert.truthy(/this\._popEnergy\(amount, \{ text: `\+\$\{amount\} tax`, color: UI_GOLD \}\)/.test(SCENE_SRC),
+    'landing pops "+N tax" on the player');
+});

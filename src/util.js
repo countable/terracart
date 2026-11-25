@@ -423,6 +423,13 @@ function treeGrowthStage(o) {
   // Frames 0 and 4 are stumps — clamp to the live 1..3 range (default 2/young).
   return Number.isFinite(v) ? clamp(v, 1, 3) : 2;
 }
+// The stump a felled tree leaves: a frame of tree_stumps.png keyed by the
+// look of the tree it was (render.js › RENDER_SPEC.tree_stump).
+const TREE_STUMP_FRAME = { maple: 0, pine: 1, dead: 2 };
+function treeStumpLook(o) {
+  if (o && o._objectArt === 'dead_tree') return 'dead';
+  return o && o.species === 'pine' ? 'pine' : 'maple';
+}
 function treeArtFrame(o) {
   if (o.size === 'bush' || o.size === 'small') return 1;
   if (o.size === 'medium') return 2;

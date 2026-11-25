@@ -175,10 +175,11 @@
       reward: 'book', effect: 'Read one page of the Book', durationMs: 0,
       locations: ['The waterline'], spent: 'Only sand here now', read: 'You read the message.',
       body: 'You read the message.' },
-    // The CASTLE's favour (scene_shops.js): twelve hours, a rolling clock in
-    // save.castleServiceClaimed (houses.js; owner, Sep 2026).
+    // The CASTLE's feast (scene_shops.js _castleFeast): twelve hours, a
+    // rolling clock in save.castleServiceClaimed (houses.js; owner, Sep 2026).
+    // Its daily tax is Houses.collectTax, not this row.
     castle: { name: 'Castle favour', art: 'castle_favour', sprite: { key: 'castle_tower_shapes', frame: 0, scale: 0.5 }, light: 0xf2d9a0,
-      ledger: 'ms', cooldownMs: 12 * 60 * 60 * 1000, reward: 'favour', effect: 'A castellan\'s favour: rest, a meal or the hearth', durationMs: 0,
+      ledger: 'ms', cooldownMs: 12 * 60 * 60 * 1000, reward: 'favour', effect: 'A castellan\'s feast: a full bar, then a minute too full to eat', durationMs: 0,
       locations: ['Claimed castles'], spent: 'The castellan is away',
       body: 'The castellan receives you in the hall.' },
   };

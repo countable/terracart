@@ -29,9 +29,21 @@ access or tile lifecycle mechanics.
   retains rolls, seats, visit counters, departure progress and behavior clocks;
   reloads and tile eviction never give a second draw. Defeat/capture IDs remain final
   within the visit. Pets are exempt from encounter departure and time visibility.
-- Rare seats use the shared spawn gate, exact owner, water restrictions, occupancy
-  and Home bands. Declared rare encounters gain the existing signature tier exception
-  only beyond the final Home band. Night-only Nighthops and rainy Spectrus also need
+- Rare seats use the shared spawn gate, exact owner, water restrictions and
+  occupancy. Home bands and the Home fauna circle never hide a rare encounter
+  (`EnemySpawns.creatureHomeAllows`): it is a once-per-visit event, so the safe
+  area made it unseeable for a player who stays near Home. A seat is sought 3-8
+  cells from the entry point first, then ring by ring over the whole area across
+  the loaded 3x3 tiles, as a search budgeted per tick; only when no cell of the
+  area is eligible does the visit end without its monster.
+- Water rows (`water: true`: Dire Toad, Tidal Force, Leviathan, Locylady) seat
+  only in water, and also own the water within three cells of
+  their area. A reef, cove or causeway maps the beach or road;
+  the water beside it belongs to the plain water owner, so without that
+  shoreline reach Leviathan had no seat on the Kelowna fixtures. The spawn gate
+  still keeps every seat off open water. Fungusaur seats on land in wetland or a
+  Mushroom Grove (mapped wetland is Excluded ground, so the groves carry it) and
+  `rareBehaviour.swims` lets it cross water without being seated there. Night-only Nighthops and rainy Spectrus also need
   their live weather/time condition; those gates never reroll a visit. Hidden Dire
   Toads and Sproutlings use the ordinary adjacent-reveal mechanism.
 - Goldenberry harvesting on Berry Lane rolls a separate 15% trigger once per bush
@@ -1598,26 +1610,25 @@ roof does not reserve it. Named-zone keepers and special story arrivals keep
 their authored places until eligible to move.
 
 A restored **plain** house becomes available only after its delivery discovery
-(`Delivery.isSatisfied`). `NPC.markDelivery` records a 15-second move-in delay
-in `save.npcMoveInAfter`; old delivered houses start that delay when loaded.
-One live, unhoused, unwounded resident whom the player has spoken to may then
-move in. Conversation records eligibility in `save.npcMet`; delivery still opens
-the roof, and absent pending records cannot create a resident. Eligible neighbours
-take homes in a fixed role order: Tilly, Bryn, Maud, Edda, Orrin, Cobb, then
-ordinary residents by stable id. Distance and tile loading order do not change that priority.
-Unmet residents wait until a conversation; existing saved assignments remain
-valid without a meeting stamp. The transient
-stranger is excluded; Maud is eligible after her rescue reward; Cobb the miner
-is stamped met by the talk that finds him underground. The move prefers
-an unseen moment for at most another 15 seconds. `save.npcHomes` owns the
+(`Delivery.isSatisfied`). Nobody moves in by timer or priority: the player
+offers the roof. While a delivered, unclaimed plain house is loaded,
+`NPC.homeOffer` names the one nearest a live, unhoused, unwounded neighbour,
+and that neighbour's talk carries an "(offer home)" choice (`NPC.interact`; a
+peddler's talk adds "Trade" beside it). Taking it runs `NPC.offerHome`, which
+moves them in at once and answers in their housed voice (Tilly's own thanks,
+otherwise `NPC.MOVE_IN_LINE`). The transient stranger is never offered a roof;
+Maud is after her rescue reward. Talking still records `save.npcMet`; absent
+pending records cannot create a resident. `save.npcHomes` owns the
 one-resident-per-house assignment, identity and safe outside wander centre,
-plus the actual house position. Reloading reconstructs existing assignments
-without needing their origin tile. Seats prefer the renderer's source doorway
-when available, otherwise safe nearby cells within four cells of the house;
-movement keeps the four-cell leash and asks the live NPC spawn gate on each
-step. The player Home and specialty buildings never accept NPC assignments.
-The first restored plain house asks for one potato. A housed Tilly thanks the
-player on their next conversation; that conversation completes her starter lesson.
+plus the actual house position; `NPC.houseNeighbours` only replays those
+saved assignments, so reloading reconstructs a resident without needing
+their origin tile. Seats prefer the renderer's source doorway
+when available, otherwise safe nearby cells within four cells of the house; a
+house with no safe seat is not taken. Movement keeps the four-cell leash and
+asks the live NPC spawn gate on each step. The resident's portrait marks the
+house (`Render.residentPlaque`) and heads its furniture dialog.
+The player Home and specialty buildings never accept NPC assignments.
+The first restored plain house asks for one potato.
 Trying to move Home onto an occupied NPC house is rejected with a message asking the
 player to move elsewhere; the resident and furnishings remain untouched.
 

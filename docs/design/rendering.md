@@ -213,7 +213,11 @@ the overlay each frame so collected, covered and out-of-view marks disappear.
 `ObstacleStep.profile` with positive lift for step-over props; all other objects are standing props.
 Do not infer a category from image size, shadows, or whether an object is lit.
 Saplings and tree stumps are standing props despite their small size; stumps
-counterrotate with the compass and use upright ground-contact seating. `ObstacleStep` measures
+counterrotate with the compass and use upright ground-contact seating. A felled
+tree's stump is its own trunk: `treeStumpLook` picks a `tree_stumps.png` frame
+(maple, pine or dead snag, recoloured from the pine sheet's stump) drawn at the
+tree's `TREE_ART_SCALE` with its crown tint; street scenery stumps keep the decor
+art. `ObstacleStep` measures
 support continuously from world coordinates, so stopping on a prop keeps the
 player raised; this is not a timed jump. Connected support masks stay in world
 coordinates when the artwork counterrotates.

@@ -1483,7 +1483,9 @@ function creatureStepRefused(scene, c, x, y, { row = null, retreating = false, e
   }
   if (c.kind === 'npc' && inBuildingMoatAt(scene, x, y) && !inBuildingMoatAt(scene, c.x, c.y)) return true;
   const rare = row?.rareBehaviour;
-  const amphibious = !!(rare?.amphibious || rare?.waterSpawn);
+  // amphibious / waterSpawn rows are also seated in water (the spawn gates
+  // read them); `swims` only lets a land-seated rare cross water.
+  const amphibious = !!(rare?.amphibious || rare?.waterSpawn || rare?.swims);
   if (rare?.shoreHuntSeconds && !Combat.isTame(c)
       && !(rareEnemyState(scene, c).shoreHuntMs > 0)
       && scene.cellAt(c.x, c.y).type === WorldGen.T.WATER && cell.type !== WorldGen.T.WATER) return true;

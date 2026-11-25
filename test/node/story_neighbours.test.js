@@ -152,7 +152,7 @@
     assert.truthy(/, Wanderer$/.test(NPC.dialogue(s, w).title));
   });
 
-  test('story neighbours: Tilly remains homeless during the post-delivery move-in delay', () => {
+  test('story neighbours: Tilly stays homeless after delivery until the player offers the roof', () => {
     const cache = WorldGen.tileCacheFor(0), previous = [...cache]; cache.clear();
     try {
       const home = { id: 'player_home', kind: 'house', x: 10.5 * CELL_M, y: 10.5 * CELL_M };
@@ -164,12 +164,12 @@
       const entry = starterEntry(); entry.objects = [home, roof]; entry.creatures = [w];
       cache.set(WorldGen.tileKey(0, 0), entry);
       NPC.meetHomeNeighbour(s, w);
-      NPC.markDelivery(s, roof, 1000);
-      assert.eq(NPC.houseNeighbours(s, { now: 1000 + NPC.MOVE_IN_DELAY_MS - 1 }), 0);
+      assert.eq(NPC.houseNeighbours(s), 0, 'no move-in by timer');
       assert.falsy(MemoryStory.wandererHoused(s.save, w));
       assert.eq(NPC.portrait(s, w), 'assets/portraits/wanderer.png');
       assert.eq(MemoryStory.wandererLine(s, w), MemoryStory.NEIGHBOURS.wanderer.homeless);
-      assert.eq(NPC.houseNeighbours(s, { now: 1000 + NPC.MOVE_IN_DELAY_MS }), 1);
+      assert.eq(NPC.homeOffer(s, w), roof);
+      assert.eq(NPC.offerHome(s, w), roof);
       assert.truthy(MemoryStory.wandererHoused(s.save, w));
       assert.eq(NPC.portrait(s, w), 'assets/portraits/wanderer_housed.png');
       assert.eq(MemoryStory.wandererLine(s, w), MemoryStory.NEIGHBOURS.wanderer.housed);
