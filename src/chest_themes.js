@@ -70,12 +70,17 @@
     bonusGear: { kind: 'gear', withUniques: true, everyTier: true, fallback: 'torch' },
   };
   // GEAR IN EVERY CHEST. Each chest tier adds sharePerTier points of the
-  // bonusGear lane, up to maxShare (T1 7%, T2 14%, T3 21%, T4+ 28%), taken
+  // bonusGear lane, up to maxShare (T1 4%, T2 8%, T3 12%, T4+ 16%; Nov 2026,
+  // owner's call: gear was crowding out furniture), taken
   // from the row's non-gear lanes. Chest gear rolls start tierPenalty below
   // the rolled tier; a roll that lands on a piece the player holds at exactly
   // that tier rerolls once without the penalty before paying coins
   // (rarity.js rollChestGear).
-  const CHEST_GEAR = Object.freeze({ sharePerTier: 7, maxShare: 28, tierPenalty: 1 });
+  const CHEST_GEAR = Object.freeze({ sharePerTier: 4, maxShare: 16, tierPenalty: 1 });
+  // THE FURNITURE LANE: the share every furnishing theme (roadside,
+  // commerce, culture) gives furniture, held through every tier, cave and
+  // gear overlay. Raised from 10 (Nov 2026) as the gear lane shrank.
+  const FURNITURE_SHARE = 20;
   const isGearLane = group => groups[group]?.kind === 'gear' || group === 'uniqueRelics';
   // THE OCT 2026 REBALANCE — one clean identity per theme:
   //   roadside  supplies, minerals, coins and furniture - never produce
@@ -100,17 +105,17 @@
     cache_paralysis_path: { cache: true, weights: { cacheParalysis: 100 }, t1Fallback: 'cacheParalysis' },
     cache_confusion_path: { cache: true, weights: { cacheConfusion: 100 }, t1Fallback: 'cacheConfusion' },
 
-    roadside: { weights: { supplies: 40.5, materials: 36, cash: 13.5, furniture: 10 } },
-    commerce: { weights: { cash: 63, gems: 27, furniture: 10 } },
+    roadside: { weights: { supplies: 36, materials: 32, cash: 12, furniture: FURNITURE_SHARE } },
+    commerce: { weights: { cash: 56, gems: 24, furniture: FURNITURE_SHARE } },
     food: { weights: { food: 100 } },
     park: { weights: { parkSeeds: 70, forage: 20, growth: 10 } },
     farm: { weights: { farmSeeds: 40, farmProduce: 45, farmSupplies: 10, growth: 5 } },
     flora: { weights: { flowerSeeds: 50, flowers: 50 } },
     health: { weights: { medicalMagic: 100 } },
     school: { weights: { books: 60, study: 40 } },
-    culture: { weights: { culturalGear: 18, gems: 18, books: 18, magic: 18, cash: 18, furniture: 10 } },
+    culture: { weights: { culturalGear: 16, gems: 16, books: 16, magic: 16, cash: 16, furniture: FURNITURE_SHARE } },
     worship: { weights: { revival: 50, shield: 25, books: 15, flowers: 10 } },
-    civic: { weights: { uniqueRelics: 25, supplies: 45, cash: 30 } },
+    civic: { weights: { uniqueRelics: 15, supplies: 50, cash: 35 } },
     authority: { weights: { protectiveGear: 40, supplies: 25, combatMagic: 35 } },
     // One-time grails reward equipment, unique relics or magic only. Their
     // exhausted/owned equipment and relic lanes also terminate in magic.
@@ -122,8 +127,8 @@
   // Final surface weights for displayed T3+ chests. Starter chests keep
   // their supplies; higher-tier chests favour progression and useful magic.
   const highTierWeights = {
-    roadside: { supplies: 40.5, materials: 36, cash: 13.5, furniture: 10 },
-    commerce: { cash: 63, gems: 27, furniture: 10 },
+    roadside: { supplies: 36, materials: 32, cash: 12, furniture: FURNITURE_SHARE },
+    commerce: { cash: 56, gems: 24, furniture: FURNITURE_SHARE },
     food: { food: 100 },
     // Crop seeds and tree seeds share the park's seed pool.
     park: { parkSeeds: 60, forage: 15, growth: 25 },
@@ -131,9 +136,9 @@
     flora: { flowerSeeds: 50, flowers: 50 },
     health: { medicalMagic: 100 },
     school: { books: 60, study: 40 },
-    culture: { culturalGear: 18, gems: 18, books: 18, magic: 18, cash: 18, furniture: 10 },
+    culture: { culturalGear: 16, gems: 16, books: 16, magic: 16, cash: 16, furniture: FURNITURE_SHARE },
     worship: { revival: 55, shield: 20, books: 15, healing: 10 },
-    civic: { uniqueRelics: 25, supplies: 45, cash: 30 },
+    civic: { uniqueRelics: 15, supplies: 50, cash: 35 },
     authority: { protectiveGear: 40, supplies: 25, combatMagic: 35 },
   };
   const qualityFloor = chestTier => chestTier >= 3 ? chestTier : 1;
@@ -195,7 +200,7 @@
       }
     }
     // The equipment lane (CHEST_GEAR) comes out of the non-gear lanes only, so
-    // it adds its full share; furniture keeps its authored 10%.
+    // it adds its full share; furniture keeps its FURNITURE_SHARE.
     const gearShare = Math.min(CHEST_GEAR.maxShare, CHEST_GEAR.sharePerTier * Math.max(1, opts.tier ?? tier));
     const nonGear = Object.keys(out).filter(key => key !== 'furniture' && !isGearLane(key));
     const nonGearTotal = nonGear.reduce((sum, key) => sum + out[key], 0);
@@ -210,7 +215,7 @@
     // T1, rarity.js rollRewardQuality) carries at least BOOK_T2_SHARE of
     // books, the rest of the row scaled to make room. Rows already past the
     // share (the school's 60) and the rare-finds lane above (uniqueRelics —
-    // exactly 5 where it exists), the equipment lane and furniture's 10%, are left alone. A row with a books lane
+    // exactly 5 where it exists), the equipment lane and furniture's FURNITURE_SHARE, are left alone. A row with a books lane
     // (culture, worship) has it topped up; a row without one gets the
     // plainBook group. Applied last: the net share.
     if ((opts.tier ?? tier) === 2) {
@@ -373,5 +378,5 @@
   // Catch authored errors early; runtime still has each theme's declared T1
   // terminal so an unexpected bad entry cannot consume a chest for nothing.
   try { validate(); } catch (error) { console.error('Chest theme validation failed', error); }
-  global.ChestThemes = { themes, highTierWeights, qualityFloor, groups, CHEST_GEAR, normalize, weights, members, BOOK_T2_SHARE, eligible, resolve, selectableIds, pickItem, cap, budget, BUDGET_SHARE, BUDGET_PER_BRACKET, quantity, quantityForBudget, gearSlots, seedMultiplier, validate };
+  global.ChestThemes = { themes, highTierWeights, qualityFloor, groups, CHEST_GEAR, FURNITURE_SHARE, normalize, weights, members, BOOK_T2_SHARE, eligible, resolve, selectableIds, pickItem, cap, budget, BUDGET_SHARE, BUDGET_PER_BRACKET, quantity, quantityForBudget, gearSlots, seedMultiplier, validate };
 })(window);
