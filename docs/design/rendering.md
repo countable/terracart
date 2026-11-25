@@ -496,8 +496,11 @@ The overlay replaces the host shell with Home's open-roof, per-wall geometry;
 courtyards are excluded from both the floor and the lit interior. This changes
 rendering only: shop rewards retain their existing interior/frontage positions.
 
-Every surface castle opens an interior when the player's feet enter its source
-footprint, before or after claim. The keep, exterior towers and their flags
+Every restored surface castle opens an interior when the player's feet enter
+its source footprint, before or after claim. A castle still in ruins
+(`Houses.isCastleWreck`) never does: it keeps its rubble floor, which would
+otherwise swap with the carpeted room every time GPS jitter crossed the
+footprint edge. The keep, exterior towers and their flags
 are absent indoors; low perimeter walls use the castle family's stone palette.
 The floor keeps its paving beneath a clipped patterned carpet: burgundy/gold
 diamonds for Citadel, terracotta bands for Bastion, and teal checks for Archive.

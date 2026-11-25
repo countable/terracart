@@ -2,7 +2,7 @@
   function fixture(ring = [0,0,50,0,50,50,0,50]) {
     const cache = new Map();
     const world = { T: WorldGen.T, tileCache: cache, tileKey: (x,y) => `${x}/${y}` };
-    const scene = { depth: 0, save: {}, tileEdgeM: 100,
+    const scene = { depth: 0, save: { restoredCastles: { b_10_10: true } }, tileEdgeM: 100,
       startWorldM: { x: 1000, y: 1000 }, playerM: { x: 5, y: 5 },
       homeInterior: () => null,
       activeInterior: liftSceneMethod('activeInterior', { WorldGen: world,
@@ -11,10 +11,27 @@
     cache.set('10/10', { tileEdgeM: 100, buildingShapes: [shape] });
     return {scene,cache,shape};
   }
-  test('castle interiors: every castle opens indoors before and after claim', () => {
+  // Every fixture castle stands restored unless a test says otherwise.
+  const restore=(scene,key)=>{(scene.save.restoredCastles||={})[key]=true;};
+  test('castle interiors: a ruined castle stays outdoors until restored', () => {
+    const {scene,shape}=fixture();
+    // Find a castle key whose style is a restorable wreck (no garrison).
+    let key=null;
+    for(let i=0;i<500&&!key;i++){const k=`b_${i}_7`;if(!CastleStyles.get(k).guards)key=k;}
+    assert.truthy(key,'fixture finds a restorable castle');
+    shape.key=key;
+    assert.truthy(Houses.isCastleWreck(scene.save,{kind:'tower',castle:key}),'unrestored castle is a wreck');
+    assert.eq(scene.activeInterior(),null,'an unrestored castle has no indoor view');
+    restore(scene,key);
+    assert.eq(scene.activeInterior()?.kind,'castle','restored castle opens indoors');
+    scene.save={claimedCastles:{[key]:0}};
+    assert.eq(scene.activeInterior()?.kind,'castle','a claimed castle opens indoors');
+  });
+  test('castle interiors: a restored castle opens indoors before and after claim', () => {
     const {scene,shape}=fixture();
     for(const claimed of [false,true]) {
       scene.save.claimedCastles=claimed?{[shape.key]:0}:{};
+      restore(scene,shape.key);
       const room=scene.activeInterior();
       assert.eq(room.kind,'castle');assert.eq(room.key,shape.key);assert.eq(room.buildingKey,shape.key);
       assert.eq(JSON.stringify(room.ring[0]),JSON.stringify({x:1000,y:1000}),'source coordinates become world metres');
