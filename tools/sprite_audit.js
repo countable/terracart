@@ -284,6 +284,7 @@ const SHEETS = {
   trees:         { file: 'assets/Objects/Approved/trees.png',                    fw: 32, fh: 48, frames: [1, 2, 3] },
   // 32×48, not 32×64: at 64 the birch frame picked up the tip of the red tree below (see assets.js).
   pine_tree:     { file: 'assets/Objects/Approved/pine_tree.png',          fw: 32, fh: 48, frames: [1, 2, 3] },
+  tree_stumps:   { file: 'assets/Objects/Approved/tree_stumps.png',        fw: 32, fh: 48, frames: [0, 1, 2] },
   beach_palms: { file: ASSETS.beach_palms.path, fw: ASSETS.beach_palms.frameWidth, fh: ASSETS.beach_palms.frameHeight, frames: [0, 1, 2, 3, 4, 5] },
   bushes: { file: ASSETS.bushes.path, fw: 24, fh: 24, frames: [0,1,2,3,4,5,6,7] },
   selected_shrub: { file: ASSETS.selected_shrub.path, fw: 16, fh: 16, frames: [0] },
