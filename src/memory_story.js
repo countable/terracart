@@ -260,7 +260,7 @@ const MemoryStory = (() => {
   // saves resume at `from`. Acknowledgement callbacks run only on dismissal,
   // never on scrolling, and a stale section aborts the remaining callbacks.
   function showPages(scene, pages, { title, art, portrait, kind = 'note', kindLabel, source, lastLabel = kind === 'talk' || kind === 'spirit' ? 'Got it' : 'OK',
-    mustAcknowledge = false, from = 0, onTurn, onDone, onFail } = {}) {
+    mustAcknowledge = false, from = 0, onTurn, onDone, onFail, actions } = {}) {
     const remaining = pages.slice(from);
     const panels = remaining.map(page => typeof page === 'string' ? { body: page } : page);
     const combined = remaining.every(page => typeof page === 'string');
@@ -270,7 +270,7 @@ const MemoryStory = (() => {
         title, art, portrait, kind, kindLabel, source,
         ...(combined ? { body: remaining.join('\n\n') } : panels.length === 1 ? panels[0]
           : { title: undefined, art: false, sections: panels }),
-        mustAcknowledge, okLabel: lastLabel,
+        mustAcknowledge, okLabel: lastLabel, actions,
         onDismiss: () => {
           if (dismissed) return;
           dismissed = true;

@@ -866,7 +866,6 @@ class SceneShops {
         // (keyed `house:<id>` so a house can't collide with an item id).
         const firstHere = this._bankDiscovery(`house:${house.id}`,
           'a first delivery to a new household');
-        NPC.markDelivery(this, house);
         // That ledger key IS the household's "fed" record (Delivery.isSatisfied
         // reads it): it stops asking and shows a smiling face for good.
         this._settleDeal(recordDeal, [`+${gain}`, UI_GOLD, 1, wanted[0]]);

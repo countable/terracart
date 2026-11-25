@@ -811,11 +811,10 @@ pixels and decorative details do not define additional tap cells.
   residents are drawn in full by `NPC.spawn` but seated by `NPC.arrivals`:
   they return with memories, off screen, and wait on fixed, evenly spread
   starting-area pins outside Home's ring (`homeWaitBand`). A completed delivery
-  opens a restored plain house after 15 seconds; an available live neighbour
-  whom the player has spoken to may move in and wander near its entrance.
-  Talking records eligibility; the delivery requirement remains. Fixed housing
-  priority gives Tilly the first available home among eligible neighbours;
-  generation.md owns the full order and saved assignment rules.
+  opens a restored plain house, and moving in is the player's choice: an
+  unhoused neighbour's talk shows "(offer home)" (Tilly included), and taking
+  it moves them in to wander near its entrance, thanking the player in their
+  housed voice. generation.md owns the offer and saved assignment rules.
   a named zone's keeper stays. The warden's home plea is a tap, never a splash.
   The stranger (Ayo in human form) is such a role, flagged `transient` so a
   delivery never houses her; the lane's gossip about her is one extra page per
