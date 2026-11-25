@@ -1552,9 +1552,12 @@ class SceneVenues {
     const inspect = (entry, entryTx, entryTy) => {
       // Castle occupancy follows the real footprint, independently of claim
       // state, renderer, camera position or the availability of tower art.
+      // A castle still in ruins (Houses.isCastleWreck) has no inside to open:
+      // it keeps its rubble until restored.
       for (const shape of entry?.buildingShapes || []) {
         if (shape.tier !== WorldGen.T.BUILDING_LARGE || shape.templeZone || shape.cleared
           || !shape.key || !shape.ring || shape.ring.length < 6) continue;
+        if (Houses.isCastleWreck(this.save, { kind: 'tower', castle: shape.key })) continue;
         const edge = entry.tileEdgeM || this.tileEdgeM;
         const ox = entryTx * edge, oy = entryTy * edge;
         if (!Number.isFinite(ox) || !Number.isFinite(oy)) continue;
