@@ -222,10 +222,15 @@ const FORT_UNLOCK_WOOD_STEP = 6;
   }
   const WRECK_OFFER_CHANCE = 0.15;
   const BLESSED_BONUS_MUL = 1.5;
+  // `blurb` is the restore screens' promise; `done` is what the Restored!
+  // card says the shining site delivered.
   const WRECK_OFFERS = Object.freeze([
-    Object.freeze({ key: 'discount', name: 'Discount Build', blurb: 'Discount Build: half the building materials, rounded down.' }),
-    Object.freeze({ key: 'blessed', name: 'Blessed Site', blurb: 'Blessed Site: 33% cheaper rerolls, +50% luxury for a house, or +50% turret damage. The finished building glows.' }),
-    Object.freeze({ key: 'contract', name: 'Private Contract', reward: 50, blurb: 'Private Contract: earn 50 coins for restoring this site as any building.' }),
+    Object.freeze({ key: 'discount', name: 'Discount Build', blurb: 'Discount Build: half the building materials, rounded down.',
+      done: 'The shining site took only half the materials.' }),
+    Object.freeze({ key: 'blessed', name: 'Blessed Site', blurb: 'Blessed Site: 33% cheaper rerolls, +50% luxury for a house, or +50% turret damage. The finished building glows.',
+      done: 'The site is blessed: it keeps its glow, with cheaper rerolls and +50% luxury or turret damage.' }),
+    Object.freeze({ key: 'contract', name: 'Private Contract', reward: 50, blurb: 'Private Contract: earn 50 coins for restoring this site as any building.',
+      done: 'The private contract paid 50 coins.' }),
   ]);
   const wreckSiteKey = house => house?.id;
   function generatedWreckOffer(house) {

@@ -10113,6 +10113,10 @@ class MapScene extends Phaser.Scene {
     // (Shops.roleLabel — a Shop card for its line); a rank card wears its
     // badge. restoreAs re-checks the catalogue at accept.
     const siteOffer = Houses.wreckOffer(this.save, house);
+    // A SHINING WRECK (Houses.wreckOffer, Render.buildingShines) says so on
+    // both screens, and the Restored! card names what it delivered (`done`).
+    const siteBlurb = siteOffer
+      ? `<span style="color:${UI_GOLD}">✨ This wreck shines.</span> ${siteOffer.blurb}` : null;
     const options = Houses.buildOptions(this.save, house);
     const types = Houses.buildTypes(this.save, house);
     const typeByKey = (key) => types.find((t) => t.key === key) || null;
@@ -10156,7 +10160,7 @@ class MapScene extends Phaser.Scene {
     const showTypes = (choice = null) => this.showOfferModal({
       kind: 'build',
       title: 'Building type',
-      blurb: siteOffer?.blurb,
+      blurb: siteBlurb || undefined,
       choices: types.map((t) => {
         const row = t.ranks[0], sole = soleRank(t);
         const c = sole ? costFor(sole) : null;
@@ -10218,7 +10222,7 @@ class MapScene extends Phaser.Scene {
         acceptLabel: 'Restore',
         cancelLabel: 'Back',
         onCancel: () => showTypes(typeKey),
-        blurb: [siteOffer?.blurb, hasHammer
+        blurb: [siteBlurb, hasHammer
           ? `${this.iconSpanHTML(Houses.HAMMER_ID)} With the ${hammer?.name || 'Magic Hammer'} it gleams: folk deal kindly, archers strike hard.`
           : null].filter(Boolean).join('<br>') || undefined,
         secondary: hammerSecondary((key) => options.find((r) => r.key === key), (key) => restore(key, true)),
@@ -10278,9 +10282,10 @@ class MapScene extends Phaser.Scene {
           iconHTML: '',
           art: row.art,
           header: 'Restored!',
-          name: `You restored a ${hammer ? 'shiny ' : ''}${name}`,
+          name: `You restored a ${hammer || siteOffer ? 'shiny ' : ''}${name}`,
           tier,
           sub: (hammer ? 'The walls gleam under the hammer’s work. ' : '')
+            + (siteOffer?.done ? `<span style="color:${UI_GOLD}">✨ ${siteOffer.done}</span> ` : '')
             + (order === 0 ? "The family stares at the repaired building, amazed. How did you finish so quickly?" : blurb),
           color: UI_GREEN, accent: UI_GREEN,
           onDismiss: row.role === 'wizard'
