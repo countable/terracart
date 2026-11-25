@@ -67,7 +67,9 @@ function deliverySetPrice(wanted) {
 // effective per-unit buy price ~0.6× base, which a mid-tier Sword (sell
 // 0.5→1.0×) turned into a buy-then-resell money loop.
 const TRADE_OFFER_QTY     = 2;
-const CASTLE_TAX_GOLD = 10;
+// Tax coins from a claimed castle lift off its drawn keep, this far above
+// the castle's data point (_collectTax; the amount is Houses.TAX_GOLD).
+const CASTLE_TAX_LIFT_PX = 48;
 // Tool slots the starter blacksmith can forge a wooden (T1) relic for. All
 // six have wooden-tier art via gearAssetPath. The smithy picks 2 at random
 // (see starterSmithSlots) as the player's bootstrap tools.
@@ -341,7 +343,7 @@ class SceneShops {
     // gate so a bouquet can't be spent on a shut door, and skipped while a charm
     // is already running so repeat taps don't burn the stack. A RESTORED
     // castle is excluded too — it sells nothing to discount, only
-    // the daily rest/tax favour (see presentCastleServiceOffer).
+    // the daily tax and the feast (see presentCastleServiceOffer).
     if (house && house.id != null && sel && sel.id === 'flowers' && (sel.count ?? 0) > 0
         && ((castle && !this.isCastleClaimed(house)) || shopType === 'shop')
         && this.shopCharmMul(house) === 1) {
@@ -424,13 +426,13 @@ class SceneShops {
     // their trailer to cash out.
     // BUY — generate an offer and present a confirmation modal.
     // Special tracks come BEFORE the regular seed/produce rotation:
-    //   (a) Claimed castle — the castellan's favour (presentCastleServiceOffer).
+    //   (a) Claimed castle — its tax and the castellan's feast (presentCastleServiceOffer).
     //   (b) Blacksmith     — forges relics from bars (presentBlacksmithOffer).
     //   (c) Regular house  — 10% chance to swap the normal offer for a relic.
     // (Home / starter trailer is handled at the top of this function — it
     // only sells, never buys.)
     if (castle) {
-      // The seal above admits claimed castles, whose castellan offers a daily favour.
+      // The seal above admits claimed castles: their tax, then the castellan's feast.
       this.presentCastleServiceOffer(sx, sy, house);
       return;
     }
@@ -781,8 +783,8 @@ class SceneShops {
   // UTC day stamp ("YYYYMMDD") — the ONE day key every day-gated thing on the
   // scene reads (delivery wishlists + happy state, the coin-burst POI cap), so
   // every "back in <wait>" counts down to the same rollover (msToNextUtcDay).
-  // The castle favour is NOT day-gated: it runs on its own twelve-hour clock
-  // (Houses.CASTLE_SERVICE_MS).
+  // The castle's feast is NOT day-gated: it runs on its own twelve-hour clock
+  // (Houses.CASTLE_SERVICE_MS). Its tax is (Houses.collectTax).
   // Delivery wishlist logic lives in delivery.js (headlessly tested). These stay
   // as scene methods because render.js + the interact/present handlers call them
   // as scene.wantedProduce(o) / scene.isHouseSatisfied(o) / etc. The day key
@@ -1720,36 +1722,43 @@ class SceneShops {
       { cost: ShopsMath.traderRerollCost, peek: () => this.peekOrBuildTraderOffer(house), current: offer });
   }
 
-  // REST: a flat CASTLE_REST_ENERGY, once per Houses.CASTLE_SERVICE_MS. Silent (no-op) while the favour is
-  // still spent or the castle isn't claimed; the modal that calls this never
-  // offers the choice in either case.
-  _castleRest(sx, sy, house) {
+  // THE FEAST: the bar filled outright, once per Houses.CASTLE_SERVICE_MS,
+  // and the bite gate armed for Energy.FEAST_COOLDOWN_MS — too full to eat
+  // for a minute. Silent (no-op) while the feast is still spent or the
+  // castle isn't claimed; the modal that calls this never offers it then.
+  _castleFeast(sx, sy, house) {
     if (!this.isCastleClaimed(house) || this._castleServiceUsed(house)) return;
     const maxE = this.getMaxEnergy();
     const cur = this.save.energy ?? 0;
-    const gain = CASTLE_REST_ENERGY;
-    Energy.set(this.save, cur + gain, maxE);
+    Energy.set(this.save, maxE, maxE);
+    Energy.startEatCooldown(this.save, Date.now(), Energy.FEAST_COOLDOWN_MS);
     this._markCastleServiceUsed(house);
     if (typeof persistSave === 'function') persistSave(this.save);
     this.buildInventoryDOM();
+    this.updateEnergyDOM?.();
     // A gain to the BODY: it lands on the player's own cell (_popEnergy's
     // default), not on the castle the modal was opened from.
-    this._popEnergy(Math.max(0, Math.min(gain, maxE - cur)));
+    this._popEnergy(Math.max(0, maxE - cur), { label: 'feast' });
   }
-  // COLLECT: a flat CASTLE_TAX_GOLD from the crown's coffers instead of rest.
-  _castleTax(sx, sy, house) {
-    if (!this.isCastleClaimed(house) || this._castleServiceUsed(house)) return;
-    addMoney(this.save, CASTLE_TAX_GOLD);
-    this._markCastleServiceUsed(house);
+  // TODAY'S TAX from a restored house or a claimed castle (Houses.collectTax
+  // — the amounts and the day ledger live there), flown from the building to
+  // the player (_flyTaxCoins). `liftPx` raises the coins' start from the
+  // building's data point to its drawn body. Returns the coins paid.
+  _collectTax(house, liftPx) {
+    const paid = Houses.collectTax(this.save, house);
+    if (!paid) return 0;
     if (typeof persistSave === 'function') persistSave(this.save);
     this.buildInventoryDOM();
-    this.flashLoot(`+${CASTLE_TAX_GOLD} taxes`, UI_GOLD, 1, null, this.coinIconEl?.());
+    this._flyTaxCoins?.({ x: house.x, y: house.y }, paid, liftPx);
+    return paid;
   }
-  // The castellan's greeting and offer. A RESTORED castle (the player solved
-  // its quest — see showQuestBoard/_claimCastle) no longer sells relics: it's
-  // home turf, so instead of a trade it's a favour, once per
-  // Houses.CASTLE_SERVICE_MS — the one timer on any building you trade at.
+  // The castellan's greeting. A RESTORED castle (the player solved its quest
+  // — see showQuestBoard/_claimCastle) no longer sells relics: it's home
+  // turf. The tap pays the day's tax first (its coins fly in whether or not
+  // the feast is on), then offers the feast, once per Houses.CASTLE_SERVICE_MS
+  // — the one timer on any building you trade at.
   presentCastleServiceOffer(sx, sy, house) {
+    this._collectTax(house, CASTLE_TAX_LIFT_PX);
     if (this._castleServiceUsed(house)) {
       // A timed gate names its wait, never "later" — the one refusal shape
       // every recurring site takes (Macros.waitLine, the castle row's `spent`
@@ -1763,16 +1772,13 @@ class SceneShops {
       // The castellan at his gate — the survivor who runs the place you
       // restored, greeting the player the banner flew for.
       art: 'castle_favour',
-      get: 'My lord, which kindness may we offer?',
-      blurb: `Whichever you pick, it won't be on offer again for ${shortDuration(Houses.CASTLE_SERVICE_MS)}.`,
+      get: 'My lord, a feast is laid in the hall. Eat, and be restored.',
+      blurb: `It fills you to the brim: no more food for ${shortDuration(Energy.FEAST_COOLDOWN_MS)}, `
+        + `and no more feasts for ${shortDuration(Houses.CASTLE_SERVICE_MS)}.`,
       canAfford: true,
-      acceptLabel: `Rest +${CASTLE_REST_ENERGY}⚡`,
-      secondary: {
-        label: `Collect ${this.moneyHTML(CASTLE_TAX_GOLD, 12)} taxes`,
-        onClick: () => this._castleTax(sx, sy, house),
-      },
+      acceptLabel: 'Feast',
       cancelLabel: 'Later',
-      onAccept: () => this._castleRest(sx, sy, house),
+      onAccept: () => this._castleFeast(sx, sy, house),
     });
   }
 

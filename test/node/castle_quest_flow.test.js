@@ -104,11 +104,7 @@
     assert.eq(reloaded.offers[0].acceptLabel, 'Locked');
     assert.eq(Inventory.count(reloaded.save, 'rubble'), 0);
     assert.falsy(reloaded.isCastleClaimed(h));
-    const taxStart = SCENE_SRC.indexOf('\n  _castleTax(sx, sy, house) {');
-    const taxEnd = SCENE_SRC.indexOf('\n  }\n', taxStart);
-    const tax = (0, eval)('({' + SCENE_SRC.slice(taxStart + 1, taxEnd + 4) + '})')._castleTax;
-    tax.call(reloaded, 0, 0, h);
-    assert.eq(reloaded.save.money, 0, 'restored but unclaimed castles pay no tithe');
+    assert.eq(Houses.taxDue(reloaded.save, h), 0, 'restored but unclaimed castles pay no tithe');
     deliver(reloaded.save);
     reloaded.showQuestBoard(0, 0, h);
     reloaded.offers[1].onAccept();

@@ -1,5 +1,5 @@
-// Claiming a castle: which castle it IS, what claiming does, and its daily
-// favour (rest for energy, or collect a small tax) once it's the player's.
+// Claiming a castle: which castle it IS, what claiming does, and what it
+// gives once it's the player's: a daily tax, and a feast every twelve hours.
 //
 // WHY THE IDENTITY HALF EXISTS. A castle is the one building the data model
 // has no object for. worldgen skips the sprite for BUILDING_LARGE, so a castle
@@ -86,6 +86,7 @@ const ccScene = (over = {}) => Object.assign({
   getMaxEnergy() { return this._maxE; },
   buildInventoryDOM() {},
   _popEnergy() {},
+  _flyTaxCoins(from, n) { (this._flights ||= []).push(n); },
   flashLoot() { this._flashes = (this._flashes || 0) + 1; },
 }, CastleMethods, over);
 
@@ -129,84 +130,73 @@ test('castle claim: a building with no castle key can never be claimed', () => {
 
 test('castle service: an unclaimed castle gives nothing, either way', () => {
   const s = ccScene();
-  s._castleRest(0, 0, ccTower('b_1_1'));
-  assert.eq(s.save.energy, 40, 'no claim, no rest');
-  s._castleTax(0, 0, ccTower('b_1_1'));
-  assert.eq(s.save.money, undefined, 'no claim, no tax either');
+  s._castleFeast(0, 0, ccTower('b_1_1'));
+  assert.eq(s.save.energy, 40, 'no claim, no feast');
+  assert.eq(s._collectTax(ccTower('b_1_1'), 0), 0, 'no claim, no tax either');
+  assert.eq(s.save.money ?? 0, 0);
 });
 
-test('castle service: resting at a claimed castle gives a flat 35 energy', () => {
+test('castle service: a feast fills the bar and leaves you too full to eat for a minute', () => {
   const s = ccScene();
   const t = ccTower('b_1_1');
   s._claimCastle(t);
-  s._castleRest(0, 0, t);
-  assert.eq(CASTLE_REST_ENERGY, 35);
-  assert.eq(s.save.energy, 40 + CASTLE_REST_ENERGY, '+35, whatever the bar');
+  const t0 = Date.now();
+  s._castleFeast(0, 0, t);
+  assert.eq(s.save.energy, 100, 'the whole bar, whatever it was');
+  assert.falsy(Energy.canEat(s.save, t0 + 59_000), 'still full just short of the minute');
+  assert.truthy(Energy.canEat(s.save, t0 + Energy.FEAST_COOLDOWN_MS + 1000), 'hungry again after it');
+  assert.eq(s.save.money ?? 0, 0, 'and no coin changed hands');
 });
 
-test('castle service: collecting taxes adds the flat gold amount', () => {
+test('castle service: the tax is Houses.TAX_GOLD.castle, flown in once a UTC day', () => {
   const s = ccScene();
   const t = ccTower('b_1_1');
   s._claimCastle(t);
-  s._castleTax(0, 0, t);
-  assert.eq(s.save.money, CASTLE_TAX_GOLD, 'flat tax collected');
-  assert.eq(s.save.energy, 40, 'and no energy changed hands');
+  assert.eq(Houses.TAX_GOLD.castle, 10);
+  assert.eq(s._collectTax(t, 0), Houses.TAX_GOLD.castle, 'the day\'s take');
+  assert.eq(s.save.money, Houses.TAX_GOLD.castle, 'into the purse');
+  assert.eq(JSON.stringify(s._flights), JSON.stringify([Houses.TAX_GOLD.castle]), 'and the coins fly');
+  assert.eq(s._collectTax(t, 0), 0, 'once a day');
+  assert.eq(s.save.money, Houses.TAX_GOLD.castle);
+  assert.eq(s.save.energy, 40, 'the tax spends no feast');
+  s._castleFeast(0, 0, t);
+  assert.eq(s.save.energy, 100, 'and the feast is still on after it');
+  assert.eq(s._collectTax(ccTower('b_9_9'), 0), 0, 'an unclaimed castle down the road pays nothing');
 });
 
-test('castle service: it will not pour twice in the same day', () => {
+test('castle service: it will not feast twice', () => {
   const s = ccScene();
   const t = ccTower('b_1_1');
   s._claimCastle(t);
-  s._castleRest(0, 0, t);
-  const after = s.save.energy;
-  s._castleRest(0, 0, t);
-  s._castleRest(0, 0, t);
-  assert.eq(s.save.energy, after, 'walking in and out changes nothing');
+  s._castleFeast(0, 0, t);
+  s.save.energy = 40;
+  s._castleFeast(0, 0, t);
+  assert.eq(s.save.energy, 40, 'walking in and out changes nothing');
 });
 
-test('castle service: resting and collecting share the same twelve-hour gate', () => {
-  // One favour per CASTLE_SERVICE_MS, whichever it is — picking one closes
-  // off the other for the same wait rather than opening a second freebie.
+test('castle service: twelve hours on it feasts again — not a minute sooner', () => {
   const s = ccScene();
   const t = ccTower('b_1_1');
   s._claimCastle(t);
-  s._castleRest(0, 0, t);
-  const afterRest = s.save.energy;
-  s._castleTax(0, 0, t);
-  assert.eq(s.save.money, undefined, 'already spent today\'s favour on rest');
-  assert.eq(s.save.energy, afterRest, 'and resting again does nothing either');
-});
-
-test('castle service: twelve hours on it pours again — not a minute sooner', () => {
-  const s = ccScene();
-  const t = ccTower('b_1_1');
-  s._claimCastle(t);
-  s._castleRest(0, 0, t);
-  const after = s.save.energy;
-  assert.eq(Houses.CASTLE_SERVICE_MS, 12 * 60 * 60 * 1000, 'the favour comes round twice a day');
+  s._castleFeast(0, 0, t);
+  s.save.energy = 40;
+  assert.eq(Houses.CASTLE_SERVICE_MS, 12 * 60 * 60 * 1000, 'the feast comes round twice a day');
   s.save.castleServiceClaimed['b_1_1'] = Date.now() - Houses.CASTLE_SERVICE_MS + 60 * 1000;   // 11h59 ago
-  s._castleRest(0, 0, t);
-  assert.eq(s.save.energy, after, 'still spent a minute short');
+  s._castleFeast(0, 0, t);
+  assert.eq(s.save.energy, 40, 'still spent a minute short');
   s.save.castleServiceClaimed['b_1_1'] = Date.now() - Houses.CASTLE_SERVICE_MS - 1;           // 12h ago
-  s._castleRest(0, 0, t);
-  assert.gt(s.save.energy, after, 'the twelve hours are up');
+  s._castleFeast(0, 0, t);
+  assert.eq(s.save.energy, 100, 'the twelve hours are up');
 });
 
 test('castle service: the gate is per castle, not global', () => {
   const s = ccScene();
   const a = ccTower('b_1_1'), b = ccTower('b_9_9');
   s._claimCastle(a); s._claimCastle(b);
-  s._castleRest(0, 0, a);
-  const afterA = s.save.energy;
-  s._castleRest(0, 0, b);
-  assert.gt(s.save.energy, afterA, 'a second castle has its own favour');
+  s._castleFeast(0, 0, a);
+  s.save.energy = 40;
+  s._castleFeast(0, 0, b);
+  assert.eq(s.save.energy, 100, 'a second castle has its own feast');
 });
 
-test('castle service: it never overfills', () => {
-  const s = ccScene({ save: SaveState.defaults({ energy: 97 }) });
-  const t = ccTower('b_1_1');
-  s._claimCastle(t);
-  s._castleRest(0, 0, t);
-  assert.eq(s.save.energy, 100, 'clamped to max');
-});
 })();
