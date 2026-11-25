@@ -110,7 +110,7 @@ test('acorn: the fell rolls it, says so, and retires a felled planted tree', () 
 });
 
 test('acorn: chopping retires a planted tree but saves a visual stump at its own position', () => {
-  const o = { id: 'planted_stump_test', kind: 'tree', planted: true, x: 21, y: 35, depth: 2, variant: 3, size: 'large' };
+  const o = { id: 'planted_stump_test', kind: 'tree', planted: true, species: 'pine', x: 21, y: 35, depth: 2, variant: 3, size: 'large' };
   const save = { fruittrees: [{ ...o }], chopped: [], relics: {} };
   const scene = makeScene();
   INTERACTABLES.tree.complete(makeCtx(scene, save), o);
@@ -119,6 +119,7 @@ test('acorn: chopping retires a planted tree but saves a visual stump at its own
   assert.eq(save.treeStumps[0].x, 21);
   assert.eq(save.treeStumps[0].y, 35);
   assert.eq(save.treeStumps[0].depth, 2);
+  assert.eq(save.treeStumps[0].species, 'pine', 'the saved stump remembers which trunk to draw');
   assert.eq(INTERACTABLES.tree.spentAction, 'skip', 'stump never consumes the tap for planting');
   const reload = JSON.parse(JSON.stringify(save));
   SaveState.normalize(reload);
