@@ -1,5 +1,6 @@
-/* Roof variants share the authored UVs and shading. Prepare these alongside
-   the source materials at startup; placement only reuses cached textures. */
+/* Roof variants share the authored UVs and shading. They are prepared with
+   their model (AuthoredBuildings.modelFor: the post-boot warm-up, or a first
+   ask before it finishes); a placement after that only reuses the texture. */
 (function(root) {
   'use strict';
   const COLORS = Object.freeze({
