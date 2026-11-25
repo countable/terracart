@@ -252,6 +252,9 @@ const ASSETS = {
   // Pine uses the upper 32×48 growth strip; the lower band is separate
   // ground decoration and must not enter the standing tree frame.
   pine_tree:     { kind: 'spritesheet', path: 'assets/Objects/Approved/pine_tree.png',     frameWidth: 32, frameHeight: 48 },
+  // Felled-tree stumps (maple, pine, dead snag), cut from pine_tree frame 6
+  // and recoloured to each trunk; same 32×48 frame as the tree sheets.
+  tree_stumps:   { kind: 'spritesheet', path: 'assets/Objects/Approved/tree_stumps.png',   frameWidth: 32, frameHeight: 48 },
   // Approved DG-style rocks — 128×144 atlas of 16px frames; 65 runtime identities.
   prop_materials: {"kind": "image", "path": "assets/ArtTrials/RogueProps/flora-lowpoly-materials.png"},
   rock_variants: {"kind": "spritesheet", "path": "assets/ArtTrials/RogueProps/flora-rock_variants.png", "frameWidth": 16, "frameHeight": 16},

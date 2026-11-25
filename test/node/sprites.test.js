@@ -536,6 +536,25 @@ test('maple and pine canopy sizes use authored growth art at a fixed species sca
 });
 
 
+test('a felled tree leaves its own trunk: stump frame, scale and tint follow the tree', () => {
+  const spec = Render.objectAppearance({textures:{exists:()=>true},save:{}},new Map(),false).RENDER_SPEC.tree_stump;
+  const cases = [[{species:'maple'},'maple',0], [{species:'pine'},'pine',1], [{species:'pine',_objectArt:'dead_tree'},'dead',2]];
+  for (const [tree, look, frame] of cases) {
+    assert.eq(treeStumpLook(tree), look);
+    const o = { ...tree, kind:'tree_stump', _stumpOf: look };
+    assert.eq(spec.key(o), 'tree_stumps');
+    assert.eq(spec.frame(o), frame);
+    assert.eq(spec.scale(o), TREE_ART_SCALE[look === 'pine' ? 'pine' : 'maple'], 'drawn at the tree sheet scale');
+    assert.truthy(SpriteLayout.ART_BOUNDS[`tree_stumps:${frame}`]);
+  }
+  const street = { kind:'tree_stump', _streetArt:'stump' };
+  assert.eq(spec.key(street), 'street_decor_stump', 'street scenery stumps keep the decor art');
+  assert.eq(spec.frame(street), '__BASE');
+  let tint = null;
+  spec.after({ setTint: t => { tint = t; } }, { _stumpOf:'maple', crown_color:'#336633' });
+  assert.truthy(tint != null, 'a tinted grove tree leaves a tinted stump');
+});
+
 test('down ladder uses only the centered bottom half while the up ladder stays whole', () => {
   // Run the registered callback against a recording texture, so the assertion
   // checks the actual frame rectangle supplied to Phaser.
