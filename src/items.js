@@ -521,7 +521,9 @@ const BAR_IDS = Object.freeze([1, 2, 3, 4, 5, 6, 7].map(barForTier));
 function furnitureTierFrames(row) {
   return Object.fromEntries(Array.from({ length: 7 }, (_, index) => [index + 1, 16 + row * 7 + index]));
 }
-const FURNITURE_SCALE = 1;
+// Furniture draws at this fraction of its art's cell size (seat, light and
+// planter offsets all read it), leaving floor around each piece.
+const FURNITURE_SCALE = 0.7;
 const FURNITURE = {
   bed_quilted: { frame: 1, tierSheetFrame: furnitureTierFrames(0), flip: true, height: "mid", ability: "sleep", light: null, luxury: null },
   washtub: { seatFoot: 2 / 3, frame: 2, tierSheetFrame: furnitureTierFrames(1), flip: true, height: "basin", ability: "wash", light: null, luxury: null },

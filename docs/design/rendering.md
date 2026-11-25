@@ -228,8 +228,8 @@ flat rugs are ground decals and mid pieces use `ObstacleStep.PROFILES.furniture`
 for continuous support. Basins are walkable ground decals with no step lift;
 they draw under the player, whose submersion crop hides only the lower body.
 `RENDER_SPEC.furniture` seats each piece from its trimmed bounds at
-`FURNITURE_SCALE` (1: approved 24px art cells map to 32px runtime cells;
-24×32 beds/bookcases can extend above the cell).
+`FURNITURE_SCALE` (0.7: pieces leave floor showing round them in their cell;
+tall beds and bookcases still rise a little above it). Seating, emitters and planter crops all read that one scale.
 Upright furniture uses the shared contact seating: medium hoppable pieces pin
 one-third of their opaque sprite height above the bottom to the cell centre.
 Art taller than one cell instead pins five source pixels above its opaque bottom. Flat rugs and
@@ -371,7 +371,11 @@ Building interiors use 32px swatches from the PP Interiors Pack's `all floors.pn
 and masonry for civic buildings. Forts and Home keep the procedural plank floor
 (`biome11_0`); Home's is the same tile at `HomeArea.HOUSE.floorTexScale`
 (`patternFor('home')`). The patterns
-remain anchored to world coordinates and clipped to each footprint.
+remain anchored to world coordinates and clipped to each footprint, except
+Home's: its planks anchor to the cell lattice, shifted by
+`HomeArea.HOUSE.floorTexOffsetPx` so a row of board joints lies on each cell
+line, and its cells are ruled with a solid line (`HomeArea.HOUSE.floorGrid`)
+rather than the ground's dashes, which broke into stray ticks against the seams.
 `drawInteriorFloorTexture` repeats unshaded 32×16 source courses at half size
 (16×8 at the 32px runtime cell), keeping floor motifs in proportion to furniture.
 Nearest sampling preserves crisp edges. The wood and masonry swatches skip the

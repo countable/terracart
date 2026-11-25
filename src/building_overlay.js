@@ -792,7 +792,8 @@
         ctx.clip();
         ctx.lineWidth = style.width;
         ctx.strokeStyle = rgbaOf(style.color, style.alpha);
-        ctx.setLineDash([style.dash, style.gap]);
+        // A style with no gap is a solid lattice (Home's floor).
+        ctx.setLineDash(style.gap > 0 ? [style.dash, style.gap] : []);
         ctx.beginPath();
         for (let x = gx + Math.ceil((x0 - gx) / CELL_PX) * CELL_PX; x <= x1; x += CELL_PX) {
           const sy = phase(vy) + Math.floor((y0 - phase(vy)) / period) * period;
@@ -833,7 +834,10 @@
       // The tier's material, laid inside the ring. One clip + one pattern fill
       // per building; rebuilds are rare (a cell crossing or a tile load), so
       // this is nothing per frame.
-      texturePoly(pts, tier, holes = [], scale = 1, alpha = 1) {
+      // `anchor: 'grid'` seats the pattern's corner on the cell lattice
+      // gridPoly rules (same viewport origin) instead of the world phase, so
+      // Home's board seams meet its cell lines.
+      texturePoly(pts, tier, holes = [], scale = 1, alpha = 1, anchor = null) {
         const p = patternFor(tier);
         if (!p || !pts || pts.length < 3) return;
         ctx.save();
@@ -841,7 +845,10 @@
         ctx.clip('evenodd');
         ctx.fillStyle = p.fill;
         ctx.globalAlpha = alpha;
-        const x = wrap(phaseX, p.width * scale), y = wrap(phaseY, p.height * scale);
+        const grid = anchor === 'grid', [ox, oy] = grid ? HomeArea.HOUSE.floorTexOffsetPx : [0, 0];
+        const ax = grid ? Math.round(scene.viewLeft + CELL_PX / 2 - originX + ox) : phaseX;
+        const ay = grid ? Math.round(scene.viewTop + CELL_PX / 2 - originY + oy) : phaseY;
+        const x = wrap(ax, p.width * scale), y = wrap(ay, p.height * scale);
         ctx.translate(x, y);
         if (scale !== 1) ctx.scale(scale, scale);
         ctx.fillRect(-x / scale, -y / scale, size / scale, size / scale);
@@ -2010,8 +2017,11 @@
     // No walls at all (a bare fill target): the tiled south face under the floor.
     if (!walled && !d.retail) g.fillPoly(d.pts.map((p) => ({ x: p.x, y: p.y + facePx(9) })), tune(faceColor(9, true)));
     g.fillPoly(d.pts, floor, undefined, d.holes);
-    if (g.texturePoly) g.texturePoly(d.pts, d.retail ? tier : 'home', d.holes);
-    if (g.gridPoly && !d.retail) g.gridPoly(d.pts, gridInkFor(GRID, floor));
+    // Home's planks start on the cell lattice, so each cell holds whole
+    // boards, and its cells are ruled with a SOLID line: the ground's dashes,
+    // laid across world-phased plank seams, broke into stray ticks.
+    if (g.texturePoly) g.texturePoly(d.pts, d.retail ? tier : 'home', d.holes, 1, 1, d.retail ? null : 'grid');
+    if (g.gridPoly && !d.retail) g.gridPoly(d.pts, { ...gridInkFor(GRID, floor), ...HomeArea.HOUSE.floorGrid });
     g.strokePoly(d.pts, OUTLINE_PX, tune(dim(floorColor(9, true), OUTLINE_MUL)));
   }
   // The door edge: the ring edge nearest the doorway point, and where along
