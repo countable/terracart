@@ -147,18 +147,18 @@ test('chest themes: cooked meals, spears and minerals are reachable at their qua
 // also follows the chest tier: 7 points at T1, 28 from T4.
 const nearShare = (got, want, msg) => assert.inRange(got, want - 1e-9, want + 1e-9, msg);
 test('chest themes: high-tier weights use the chest tier, not jackpot quality', () => {
-  nearShare(ChestThemes.weights('roadside', 7, { tier: 1 }).supplies, 40.5 * 83 / 90);
-  nearShare(ChestThemes.weights('roadside', 1, { tier: 4 }).supplies, 40.5 * 62 / 90);
-  nearShare(ChestThemes.weights('flora', 4, { tier: 4 }).flowerSeeds, 36);
-  nearShare(ChestThemes.weights('flora', 7, { tier: 4 }).flowerSeeds, 36);
-  nearShare(ChestThemes.weights('food', 4, { tier: 1 }).food, 93,
+  nearShare(ChestThemes.weights('roadside', 7, { tier: 1 }).supplies, 36 * 76 / 80);
+  nearShare(ChestThemes.weights('roadside', 1, { tier: 4 }).supplies, 36 * 64 / 80);
+  nearShare(ChestThemes.weights('flora', 4, { tier: 4 }).flowerSeeds, 42);
+  nearShare(ChestThemes.weights('flora', 7, { tier: 4 }).flowerSeeds, 42);
+  nearShare(ChestThemes.weights('food', 4, { tier: 1 }).food, 96,
     'a starter jackpot keeps the food chest identity');
 });
 
 test('chest themes: cave mixture adds medicine and retains the location share', () => {
   for (let tier = 1; tier <= 7; tier++) {
     const w = ChestThemes.weights('school', tier, { depth: 1 });
-    const rest = (100 - Math.min(28, 7 * tier)) / 100;   // less the equipment lane
+    const rest = (100 - Math.min(ChestThemes.CHEST_GEAR.maxShare, ChestThemes.CHEST_GEAR.sharePerTier * tier)) / 100;   // less the equipment lane
     nearShare(w.books, 36 * rest, '60% of the surface book share');
     if (tier === 1) nearShare(w.antidote, 24 * rest);
     else nearShare(w.caveMagic, (tier === 2 ? 24 : 32) * rest);
@@ -192,7 +192,7 @@ test('chest themes: health stays in its medical-magic lane', () => {
     // (A T2 chest lends a fifth of its row to the Book — ChestThemes.BOOK_T2_SHARE.)
     // ... and the equipment lane its CHEST_GEAR share.
     nearShare(ChestThemes.weights('health', tier).medicalMagic,
-      100 - Math.min(28, 7 * tier) - (tier === 2 ? ChestThemes.BOOK_T2_SHARE : 0));
+      100 - Math.min(ChestThemes.CHEST_GEAR.maxShare, ChestThemes.CHEST_GEAR.sharePerTier * tier) - (tier === 2 ? ChestThemes.BOOK_T2_SHARE : 0));
     const resolved = ChestThemes.resolve('medicalMagic', tier, opts);
     assert.eq(resolved.group, tier === 1 ? 'antidote' : 'medicalMagic');
     for (const id of ChestThemes.selectableIds(resolved)) {
@@ -439,15 +439,15 @@ test('chest themes: materials spend the same price-based budget at every tier', 
 });
 
 
-test('chest themes: furniture keeps a ten percent lane through tier and cave overlays', () => {
+test('chest themes: furniture keeps its FURNITURE_SHARE lane through tier and cave overlays', () => {
   const catalog = ITEMS.filter(item => item.kind === 'furniture').map(item => item.id).sort();
   assert.eq(Object.keys(ChestThemes.members('furniture')).sort().join(), catalog.join());
   for (const theme of ['culture', 'commerce', 'roadside']) {
-    assert.eq(ChestThemes.themes[theme].weights.furniture, 10);
-    assert.eq(ChestThemes.highTierWeights[theme].furniture, 10);
+    assert.eq(ChestThemes.themes[theme].weights.furniture, ChestThemes.FURNITURE_SHARE);
+    assert.eq(ChestThemes.highTierWeights[theme].furniture, ChestThemes.FURNITURE_SHARE);
     for (let tier = 1; tier <= 7; tier++) for (const depth of [0, 1]) {
       const weights = ChestThemes.weights(theme, tier, { tier, depth });
-      assert.eq(weights.furniture, 10, `${theme}/${tier}/${depth}`);
+      assert.eq(weights.furniture, ChestThemes.FURNITURE_SHARE, `${theme}/${tier}/${depth}`);
       assert.inRange(Object.values(weights).reduce((a, b) => a + b, 0), 99.999999, 100.000001);
       const pool = ChestThemes.resolve('furniture', tier, { theme, depth, chestTier: tier });
       assert.eq(pool.group, 'furniture', 'every rung terminates in a furnishing');

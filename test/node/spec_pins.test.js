@@ -79,7 +79,7 @@ test('#1 reward grant: the interact path equips the same way', () => {
 test('chest themes: ordinary chests carry the equipment lane, dedicated caches do not', () => {
   for (const theme of Object.keys(ChestThemes.themes).filter(t => t !== 'boss' && !ChestThemes.themes[t].cache)) for (let tier = 1; tier <= 7; tier++) {
     const row = ChestThemes.weights(theme, tier);
-    assert.eq(row.bonusGear, Math.min(28, 7 * tier), `${theme} T${tier}`);
+    assert.eq(row.bonusGear, Math.min(16, 4 * tier), `${theme} T${tier}`);
     if (['roadside', 'commerce', 'food', 'health', 'park', 'farm', 'flora', 'worship', 'civic', 'school'].includes(theme)) {
       const themeGear = Object.entries(row)
         .filter(([group]) => group !== 'bonusGear' && ChestThemes.groups[group].kind === 'gear')
@@ -95,10 +95,10 @@ test('chest themes: ordinary chests carry the equipment lane, dedicated caches d
     }
   }
   assert.eq(ChestThemes.weights('boss', 4).bonusGear, undefined, 'a hoard that is all gear has nothing to give up');
-  assert.eq(ChestThemes.weights('civic', 4).uniqueRelics, 25);
-  assert.eq(ChestThemes.weights('culture', 4).culturalGear, 18 * 85 / 90);
+  assert.eq(ChestThemes.weights('civic', 4).uniqueRelics, 15);
+  assert.eq(ChestThemes.weights('culture', 4).culturalGear, 16 * 75 / 80);
   assert.eq(ChestThemes.weights('authority', 4).protectiveGear, 40 * 0.95);
-  assert.eq(ChestThemes.weights('roadside', 4).furniture, 10, 'furniture keeps its share');
+  assert.eq(ChestThemes.weights('roadside', 4).furniture, 20, 'furniture keeps its share');
 });
 
 test('chest themes: roadside gear comes only through the equipment lane', () => {
@@ -110,7 +110,7 @@ test('chest themes: roadside gear comes only through the equipment lane', () => 
     assert.truthy(reward.kind === 'item' || reward.kind === 'gold');
     assert.truthy(['supplies', 'materials', 'cash', 'furniture'].includes(reward.group));
   }
-  assert.inRange(gear / 2000, 0.25, 0.31, 'T5 roadside gear share');
+  assert.inRange(gear / 2000, 0.13, 0.19, 'T5 roadside gear share');
 });
 
 test('#7 no milestone gate on gear tiers: a top chest can roll every tier', () => {

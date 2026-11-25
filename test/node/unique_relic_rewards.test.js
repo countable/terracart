@@ -2,16 +2,17 @@
   const uniques = () => ITEMS.filter(item => item.kind === 'unique_relic' && !isTome(item.id) && !item.progressionOnly);
   const held = ids => ({ inv: ids.map(id => ({ id, count: 1 })), relics: {}, armor: {} });
   const quality = { tier: 7, bracket: 5, jackpotApplied: 0 };
-  // A T4 culture roll whose group draw lands on uniqueRelics (just ahead of
-  // the trailing equipment lane), then takes the top of every later draw.
-  const uniqueLaneRng = () => { let n = 0; return () => (n++ ? 0.999 : 0.7); };
+  // A T4 culture roll whose group draw lands on uniqueRelics (after the
+  // furniture lane, just ahead of the trailing equipment lane), then takes
+  // the top of every later draw.
+  const uniqueLaneRng = () => { let n = 0; return () => (n++ ? 0.999 : 0.81); };
 
   test('unique relic rewards: civic owns a broad lane; culture, authority and vista add 5%', () => {
     // A boss's hoard is its own lane: half equipment, half unique relics.
     assert.eq(JSON.stringify(ChestThemes.weights('boss', 4, { depth: 0 })), JSON.stringify({ culturalGear: 50, uniqueRelics: 50 }));
     for (const theme of Object.keys(ChestThemes.themes).filter(t => t !== 'boss')) for (const tier of [1, 2, 7]) for (const depth of [0, 2]) {
       const weights = ChestThemes.weights(theme, tier, { depth });
-      const share = theme === 'civic' ? 25 * (depth > 0 ? 0.6 : 1)
+      const share = theme === 'civic' ? 15 * (depth > 0 ? 0.6 : 1)
         : tier >= 2 && ['culture', 'authority', 'vista'].includes(theme) ? 5 : 0;
       assert.eq(weights.uniqueRelics || 0, share, `${theme} T${tier} depth${depth}`);
       assert.inRange(Object.values(weights).reduce((sum, value) => sum + value, 0), 100 - 1e-9, 100 + 1e-9);

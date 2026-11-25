@@ -127,8 +127,8 @@ function xorRng(seed) {
 }
 
 test('roadside chest: every tier stays with supplies, minerals, cash, furniture and the equipment lane', () => {
-  assert.eq(ChestThemes.themes.roadside.weights.supplies, 40.5);
-  assert.eq(ChestThemes.weights('roadside', 1).supplies, 40.5 * 83 / 90, 'the T1 equipment lane takes 7 of the 90 non-furniture points');
+  assert.eq(ChestThemes.themes.roadside.weights.supplies, 36);
+  assert.inRange(ChestThemes.weights('roadside', 1).supplies, 36 * 76 / 80 - 1e-9, 36 * 76 / 80 + 1e-9, 'the T1 equipment lane takes 4 of the 80 non-furniture points');
   const supplyIds = new Set(['torch', 'rope', 'trap_disarm_kit', 'throwing_spear', 'barricade', 'sugar_potion', 'blank_scroll', 'javelin', 'renovation_permit', 'evertorch']);
   for (const tier of [1, 2, 3, 5]) {
     const rng = xorRng(0x70C4 + tier);
