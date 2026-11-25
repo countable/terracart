@@ -103,6 +103,12 @@ access or tile lifecycle mechanics.
   share without rerolling identities. Counts are expected density, not an exact
   1.5× ratio in each individual tile. Nexus density singles opt into existing
   party scaling, which creates owned extras without changing their base rates.
+- Every themed street holds one hard-only gang post per owning tile
+  (`StreetVariants.STREET_GANGS`): a group drawn off the street's `rec.key`,
+  every member a mode reserve. The posts are requested after all other street
+  requests and claim no dressing cell, so base seats and scenery never move;
+  `street_population_rates.test.js` pins the baseline with them excluded.
+  Plain, unthemed roads have no street owner and get no gang.
 - `HabitatSpawns.ENEMY_PACKS` opts rats, goblin fighters, skeletons and pirates
   into spatial groups in both surface and cave ambient generation. An anchor
   is solo 35% of the time or requests 2–4 members 65% of the time. Rates remain

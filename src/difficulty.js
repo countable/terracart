@@ -119,7 +119,9 @@
       enemyHpMul: 1,            // shared enemy stats across players
       enemyDmgMul: 1,           // damage penalty belongs to the recipient
       monsterCountMul: 1,       // shared enemy population
-      landEnemyCountMul: 1.5,   // half again the landcover enemies (owner, Oct 2026)
+      landEnemyCountMul: 1.5,   // half again the landcover enemies (owner, Oct 2026);
+                                 // also shows every themed street's gang
+                                 // (StreetVariants.STREET_GANGS), a reserve row
       crowCountMul: 1,          // all generated habitat Crows are visible
       trapCountMul: 25,         // hard means it — 100 read as a minefield; halved twice (Sep 2026).
                                  // Per tile it spreads 0.3..1.7x around this (Traps.tileDanger)

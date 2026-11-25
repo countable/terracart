@@ -643,6 +643,34 @@ test('toadstool lane: a minor row at 5%, its verge holds glowing mushrooms with 
   }
 });
 
+test('street gangs: every themed street holds one hard-only gang, a random group off its identity', () => {
+  const rules = Object.keys(SV.STREET_GANGS);
+  assert.gt(rules.length, 3, 'several groups to draw from');
+  for (const rule of rules) {
+    const members = SV.creatureRequestMembers({ rule });
+    assert.gt(members.length, 1, `${rule} is a group`);
+    for (const m of members) {
+      assert.truthy(EnemyRoster.get(m.kind), `${rule}: ${m.kind} is a roster kind`);
+      assert.truthy(m._landEnemyReserve, `${rule}: ${m.kind} rides the mode reserve`);
+      const c = { ...m, id: `gang_${rule}_${m.kind}` };
+      assert.falsy(HabitatSpawns.reserveVisible(c, Difficulty.PROFILES.easy), 'hidden on easy');
+      assert.truthy(HabitatSpawns.reserveVisible(c, Difficulty.PROFILES.hard), 'shown on hard');
+    }
+  }
+  const drawn = new Set();
+  for (let i = 0; i < 400; i++) drawn.add(SV.streetGangRule(`street-${i}`));
+  assert.eq(drawn.size, rules.length, 'every group is drawn somewhere');
+  assert.eq(SV.streetGangRule('a street'), SV.streetGangRule('a street'), 'the same street, the same gang');
+  const { d } = dressedVariants();
+  const requests = d.creatureRequests, gangs = requests.filter(q => rules.includes(q.rule));
+  const first = requests.findIndex(q => rules.includes(q.rule));
+  assert.gt(gangs.length, 0, 'the fixture streets hold gangs');
+  assert.truthy(requests.slice(first).every(q => rules.includes(q.rule)), 'gang posts follow every older request');
+  assert.eq(new Set(gangs.map(q => q.sid)).size, gangs.length, 'one gang per street and tile');
+  const themed = new Set(requests.filter(q => !rules.includes(q.rule)).map(q => q._street));
+  for (const v of themed) assert.truthy(gangs.some(q => q._street === v), `${v} has a gang`);
+});
+
 test('barricade road: shared guards use the existing mode reserve', () => {
   const easy=SV.creatureRequestMembers({rule:'barricade'},'easy');
   const hard=SV.creatureRequestMembers({rule:'barricade'},'hard');

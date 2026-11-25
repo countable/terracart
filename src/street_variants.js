@@ -2626,7 +2626,27 @@
   // Finite street populations share the main creature allocator. Geometry
   // supplies request anchors; this table owns counts and behaviour, never a
   // second building-garrison draw or a lazy lair wake.
+  // HARD MODE'S STREET GANGS (owner, Nov 2026: "on hard, every street should
+  // have a gang (random group)"): every themed street gets one gang post per
+  // owning tile, its group drawn off the street's identity (rec.key) from
+  // these rows, so every player sees the same gang in the same seats. Every
+  // member is `modeReserve`: generated for everyone, shown only where the
+  // mode's land-enemy reserve is shown (HabitatSpawns.reserveVisible — all of
+  // it on hard, none on easy). Posts are requested after every other street
+  // request and claim no dressing cell, so no existing seat moves.
+  const STREET_GANGS = Object.freeze({
+    street_gang_runts: [{ kind: 'goblin_runt', count: 3 }],
+    street_gang_clubs: [{ kind: 'club_goblin', count: 1 }, { kind: 'goblin_runt', count: 2 }],
+    street_gang_spears: [{ kind: 'spear_goblin', count: 1 }, { kind: 'archer_goblin', count: 1 }, { kind: 'goblin_runt', count: 1 }],
+    street_gang_bombers: [{ kind: 'bomb_goblin', count: 1 }, { kind: 'goblin_runt', count: 2 }],
+    street_gang_bones: [{ kind: 'skeleton', count: 2 }, { kind: 'skeleton_soldier', count: 1 }],
+    street_gang_thieves: [{ kind: 'thief', count: 1 }, { kind: 'goblin_runt', count: 2 }],
+  });
+  const STREET_GANG_RULES = Object.keys(STREET_GANGS);
+  const streetGangRule = key => STREET_GANG_RULES[Math.floor(u01(avalanche32(fnv1a(`street-gang|${key}`))) * STREET_GANG_RULES.length)];
   const CREATURE_REQUEST_RULES = Object.freeze({
+    ...Object.fromEntries(Object.entries(STREET_GANGS).map(([rule, rows]) =>
+      [rule, rows.map(row => ({ ...row, modeReserve: true }))])),
     street_hedgerow: [{ kind: 'goblin_runt', count: 2, ambush: true }],
     street_overgrown: [{ kind: 'plant', count: 1 }],
     street_orchard: [{ kind: 'farmer_goblin', count: 1 }],
@@ -2918,7 +2938,7 @@
     const pilgrimSeats = new Map();
     const streetEnds = new Map(), habitatSeats = new Set(), snareSeats = new Set();
     // Snare street key → its pieces here and its cluster cells, for the strays.
-    const snareStreets = new Map(), gangStreets = new Map();
+    const snareStreets = new Map(), gangStreets = new Map(), gangRequests = [];
     // Street key → its dressed pieces here, for the street shrines.
     const shrineStreets = new Map(), thornyShrines = new Set();
     for (const rec of (idx.dressingLines || idx.lines)) {
@@ -2988,6 +3008,22 @@
           }
         });
       }
+      // The street's gang post (STREET_GANGS): the first verge cell a foe
+      // could hold, read but not claimed, so scenery keeps every cell.
+      const gangRule = streetGangRule(rec.key), gangSid = `street_gang_${tx}_${ty}_${rec.key}`;
+      if (!habitatSeats.has(gangSid)) sampleLine(rec.line, gM, BURNED_GUARD_STEP_M, BURNED_GUARD_STEP_M / 2, (s, x, y, nx, ny) => {
+        if (habitatSeats.has(gangSid)) return false;
+        if (!S.covers(spans, s)) return;
+        for (const side of [1, -1]) {
+          const candidate = verge(rec, x, y, nx, ny, side, row.encounterVergeCell || 1);
+          const c = candidate && foeSeat(candidate.ix, candidate.iy);
+          if (!c) continue;
+          habitatSeats.add(gangSid);
+          gangRequests.push({ rule: gangRule, sid: gangSid, _street: v,
+            lx: (c.ix + 0.5) * frameCellM, ly: (c.iy + 0.5) * frameCellM });
+          return false;
+        }
+      });
       // A HIDDEN PET (the row's `hiddenPets` — Grassy Lane): one per themed
       // street and owning tile, shared by the street's fragments here. Its
       // SPECIES is the street's (off rec.key, the same for every player) and
@@ -3833,6 +3869,7 @@
         }
       });
     }
+    res.creatureRequests.push(...gangRequests);
     if (marked) res.marks = marks;
     return res;
   }
@@ -3929,7 +3966,7 @@
   function isSlowKind(kind) { return SLOW_KINDS.has(kind); }
 
   root.StreetVariants = {
-    CREATURE_REQUEST_RULES, creatureRequestMembers, APPROVED_DECORATIONS, approvedDecorationRows, VERGE_ROAD_OVERLAP_MAX, vergeCellAt, TOADSTOOL_COVER_MAX, SNARE_STRAYS, SNARE_STRAY_GAP_CELLS, BARRICADE_STRAY_MAX,
+    CREATURE_REQUEST_RULES, STREET_GANGS, streetGangRule, creatureRequestMembers, APPROVED_DECORATIONS, approvedDecorationRows, VERGE_ROAD_OVERLAP_MAX, vergeCellAt, TOADSTOOL_COVER_MAX, SNARE_STRAYS, SNARE_STRAY_GAP_CELLS, BARRICADE_STRAY_MAX,
     SUPPRESSED_STYLE, pavementFor, pavementVariantFor, VERGE_ROWS, PARISH_TILES, NAME_NUDGE, NUDGED_SHARE_MAX, ROCK_STREET_SHARE, MINOR_VARIANT_SHARE, PLAIN_HERB_P, PLAIN_BUSH_P, PLAIN_BUSHES, VERGE_MAX_CELLS,
     BANDIT_STRETCH_UNITS, BANDIT_STRETCH_SHARE, BANDIT_STAMP_OUT_CELLS,
     stretchOf, isBanditStretch, stampBanditStretchesSteps,
