@@ -1754,22 +1754,21 @@ class SceneShops {
   // The castellan's greeting. A RESTORED castle (the player solved its quest
   // — see showQuestBoard/_claimCastle) no longer sells relics: it's home
   // turf. The tap pays the day's tax first (its coins fly in whether or not
-  // the feast is on), then offers the feast, once per Houses.CASTLE_SERVICE_MS
-  // — the one timer on any building you trade at. A castle whose guard hires
-  // out (Houses.castleHiresMercenaries) adds the wagon's hire beside it
-  // (_castleHire); with the feast spent, the tap goes straight to the hire.
+  // the service is on), then offers the castle's service. A castle whose
+  // guard hires out (Houses.castleHiresMercenaries) offers the guard INSTEAD
+  // of the feast (owner, Nov 2026): the wagon's hire (_castleHire), gated
+  // only by its live contract. Every other castle lays the feast, once per
+  // Houses.CASTLE_SERVICE_MS — the one timer on any building you trade at.
   presentCastleServiceOffer(sx, sy, house) {
     this._collectTax(house, CASTLE_TAX_LIFT_PX);
-    const hires = Houses.castleHiresMercenaries(this.save, house);
+    if (Houses.castleHiresMercenaries(this.save, house)) { this._castleHire(sx, sy); return; }
     if (this._castleServiceUsed(house)) {
       // A timed gate names its wait, never "later" — the one refusal shape
       // every recurring site takes (Macros.waitLine, the castle row's `spent`
       // prefix): "The castellan is away — 12h".
       this.flash(Macros.waitLine(Macros.DAILY_VISIT_KINDS.castle.spent, this._castleServiceWaitMs(house)), sx, sy);
-      if (hires && !Companions.active(this.save, 'mercenary')) this._castleHire(sx, sy);
       return;
     }
-    const guard = Macros.DAILY_VISIT_KINDS.castle.mercenary;
     this.showOfferModal({
       kind: 'shop',
       title: 'Thank you for visiting us, my lord.',
@@ -1783,10 +1782,6 @@ class SceneShops {
       acceptLabel: 'Feast',
       cancelLabel: 'Later',
       onAccept: () => this._castleFeast(sx, sy, house),
-      secondary: hires ? {
-        label: `${guard.hireLabel}<br><span style="font-weight:400;font-size:10px;opacity:.85">${this.moneyHTML(Companions.KINDS.mercenary.hireCost, 12)}</span>`,
-        onClick: () => this._castleHire(sx, sy),
-      } : undefined,
     });
   }
   // The castle guard's hire: the wagon's own (Macros.offerMercenary — its
