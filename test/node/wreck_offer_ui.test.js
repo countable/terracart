@@ -17,7 +17,7 @@
       save, showOfferModal(o) { modal = o; }, iconSpanHTML: () => '', worldIconHTML: () => '',
     };
     present.call(scene, 0, 0, { kind: 'house', tier: 9, id: 'site' });
-    assert.eq(modal.blurb, offer.blurb);
+    assert.truthy(modal.blurb.includes('This wreck shines') && modal.blurb.includes(offer.blurb), 'the type screen says the wreck shines and names the offer');
     const ranked = modal.choices.find(c => c.onSelect);
     assert.truthy(ranked, 'advanced player has a ranked construction choice');
     ranked.onSelect();
