@@ -725,6 +725,7 @@ class SceneCreatures {
     const kindStr = creature.kind, at = creature._habitatSpawn;
     if ((kindStr === 'crow' || kindStr === 'raven') && pestFree && pestFree.has(at.cx, at.cy)) return false;
     if (!HabitatSpawns.reserveVisible(creature, Difficulty.get())) return false;
+    if (!StreetVariants.gangVisible(creature, Difficulty.get())) return false;
     return kindStr !== 'crow' || EnemySpawns.roll(creature.id + ':mode') < Difficulty.get().crowCountMul;
   }
 

@@ -66,6 +66,11 @@
       // the largest mode's figure for everyone; a smaller mode hides the
       // reserve (HabitatSpawns.reserveVisible), never rerolls the base.
       landEnemyCountMul: 1,
+      // STREET GANGS (StreetVariants.STREET_GANGS — every themed street holds
+      // one, the same for everyone): the equally likely numbers of its
+      // members easy shows, from the gang's tail — half the streets none, a
+      // third a lone follower, a sixth a pair. null shows the whole gang.
+      streetGangShown: [0, 0, 0, 1, 1, 2],
       crowCountMul: 0.5,        // visibility share of generated habitat Crows
                                  // as many wild crows on easy (a quieter sky,
                                  // fewer birds casing your field)
@@ -120,6 +125,7 @@
       enemyDmgMul: 1,           // damage penalty belongs to the recipient
       monsterCountMul: 1,       // shared enemy population
       landEnemyCountMul: 1.5,   // half again the landcover enemies (owner, Oct 2026)
+      streetGangShown: null,    // every themed street's gang in full (StreetVariants.STREET_GANGS)
       crowCountMul: 1,          // all generated habitat Crows are visible
       trapCountMul: 25,         // hard means it — 100 read as a minefield; halved twice (Sep 2026).
                                  // Per tile it spreads 0.3..1.7x around this (Traps.tileDanger)

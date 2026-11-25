@@ -20,7 +20,9 @@
     assert.eq(JSON.stringify(a.webs), JSON.stringify(b.webs));
     assert.eq(new Set(a.webs.map(w => w.id)).size, a.webs.length);
     assert.truthy(a.webs.every(w => w.permanent && w._street === 'spider_path' && w.expiresAt == null));
-    assert.eq(a.creatureRequests.length, 1); assert.eq(a.creatureRequests[0]._street, 'spider_path');
+    // The path's own garrison; hard's street gang post (STREET_GANGS) is additive.
+    const own = a.creatureRequests.filter(q => !StreetVariants.STREET_GANGS[q.rule]);
+    assert.eq(own.length, 1); assert.eq(own[0]._street, 'spider_path');
     assert.eq(StreetVariants.CREATURE_REQUEST_RULES.street_spider_path[0].kind, 'spider');
     assert.eq(StreetVariants.CREATURE_REQUEST_RULES.street_spider_path[0].count, 2);
   });

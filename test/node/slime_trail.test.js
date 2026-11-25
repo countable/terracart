@@ -12,16 +12,18 @@
       tx: 0, ty: 0, N, tileEdgeM: edge, grid, spawnOpts });
     return { result, grid, spawnOpts, N, edge };
   }
+  // The trail's own posts; hard's street gang post (STREET_GANGS) is additive.
+  const own = q => !StreetVariants.STREET_GANGS[q.rule];
   test('slime trail: deterministic section species, finite posts and short-path fallback', () => {
     const a = fixture(), b = fixture();
-    assert.eq(JSON.stringify(a.result.creatureRequests), JSON.stringify(b.result.creatureRequests));
-    assert.eq(a.result.creatureRequests.length, 4, 'one post per 70 m');
-    assert.eq(new Set(a.result.creatureRequests.map(l => l.rule)).size, 1, 'one species for the section');
-    assert.truthy(a.result.creatureRequests.every(l => l._street === 'slime_trail'));
-    assert.eq(fixture('short', 10).result.creatureRequests.length, 1, 'short trail gets its midpoint encounter');
-    assert.eq(fixture('blocked', 280, true).result.creatureRequests.length, 0, 'spawn restrictions are respected');
+    assert.eq(JSON.stringify(a.result.creatureRequests.filter(own)), JSON.stringify(b.result.creatureRequests.filter(own)));
+    assert.eq(a.result.creatureRequests.filter(own).length, 4, 'one post per 70 m');
+    assert.eq(new Set(a.result.creatureRequests.filter(own).map(l => l.rule)).size, 1, 'one species for the section');
+    assert.truthy(a.result.creatureRequests.filter(own).every(l => l._street === 'slime_trail'));
+    assert.eq(fixture('short', 10).result.creatureRequests.filter(own).length, 1, 'short trail gets its midpoint encounter');
+    assert.eq(fixture('blocked', 280, true).result.creatureRequests.filter(own).length, 0, 'spawn restrictions are respected');
     const species = new Set();
-    for (let i = 0; i < 100; i++) species.add(fixture(`species-${i}`, 10).result.creatureRequests[0].rule);
+    for (let i = 0; i < 100; i++) species.add(fixture(`species-${i}`, 10).result.creatureRequests.filter(own)[0].rule);
     assert.eq(species.size, row.enemyKinds.length, 'different sections can select every species');
   });
   test('slime trail: each species uses the regular population with persistent pair identities', () => {
