@@ -156,6 +156,24 @@
     }
     assert.truthy(found > 0);
   }));
+  // Mapped wetland is Excluded ground (Kelowna: 0 of 61 cells could seat it),
+  // so Fungusaur also lives in Mushroom Groves, on land; `swims` is movement only.
+  test('rare encounters: Fungusaur seats on dry Mushroom Grove ground', () => fixture((scene, entry) => {
+    entry.zone.anchors[0].variant = 'mushroom_grove';
+    assert.truthy(EnemyRoster.get('fungusaur').rareBehaviour.swims);
+    assert.falsy(EnemyRoster.get('fungusaur').rareBehaviour.amphibious, 'never seated in water');
+    let found = 0;
+    for (let n = 0; n < 80 && !found; n++) {
+      entry.zone.anchors[0].key = 'mushroom_' + n; scene.save = { caught: [] }; delete scene._rareTickAt; entry.creatures = [];
+      for (let t = 0; t < 200 && !entry.creatures.length; t++) RareEncounters.tick(scene, 1000 + t * 300);
+      for (const c of entry.creatures) {
+        assert.eq(c.kind, 'fungusaur');
+        assert.eq(entry.grid[Math.floor(c.y / 10) * 64 + Math.floor(c.x / 10)], WorldGen.T.GRASS, 'on land');
+        found++;
+      }
+    }
+    assert.truthy(found > 0);
+  }));
   test('rare encounters: saved expiry hides cave encounters while captured pets stay available', () => fixture((scene, entry) => {
     const key='2:habitat_2_0_0', visit=1;
     const c={kind:'darkling',id:`rare:${EnemySpawns.hash(key).toString(36)}:1:darkling`,_rareEncounter:{key,visit}};

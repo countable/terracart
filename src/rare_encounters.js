@@ -11,7 +11,8 @@
   add('wolfling', ['Nexus:meadow']);
   add('butterfairy', ['Terrain:SCHOOL'], { chance: .9 });
   add('nighthop', ['tar'], { night: true });
-  add('fungusaur', ['Terrain:WETLAND'], { water: true });
+  // Mapped wetland is Excluded ground, so the mushroom groves carry it.
+  add('fungusaur', ['Terrain:WETLAND', 'Nexus:mushroom_grove']);
   add('corrupticore', ['Terrain:RESIDENTIAL']);
   add('tidal_force', ['Nexus:mystic_reef'], { water: true });
   add('leviathan', ['Nexus:pirate_cove'], { water: true, chance: .7 });

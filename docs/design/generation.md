@@ -36,12 +36,14 @@ access or tile lifecycle mechanics.
   cells from the entry point first, then ring by ring over the whole area across
   the loaded 3x3 tiles, as a search budgeted per tick; only when no cell of the
   area is eligible does the visit end without its monster.
-- Water rows (`water: true`: Dire Toad, Tidal Force, Leviathan, Fungusaur,
-  Locylady) seat only in water, and also own the water within three cells of
-  their area. A reef, cove, causeway or wetland maps the beach, road or marsh;
+- Water rows (`water: true`: Dire Toad, Tidal Force, Leviathan, Locylady) seat
+  only in water, and also own the water within three cells of
+  their area. A reef, cove or causeway maps the beach or road;
   the water beside it belongs to the plain water owner, so without that
   shoreline reach Leviathan had no seat on the Kelowna fixtures. The spawn gate
-  still keeps every seat off open water. Night-only Nighthops and rainy Spectrus also need
+  still keeps every seat off open water. Fungusaur seats on land in wetland or a
+  Mushroom Grove (mapped wetland is Excluded ground, so the groves carry it) and
+  `rareBehaviour.swims` lets it cross water without being seated there. Night-only Nighthops and rainy Spectrus also need
   their live weather/time condition; those gates never reroll a visit. Hidden Dire
   Toads and Sproutlings use the ordinary adjacent-reveal mechanism.
 - Goldenberry harvesting on Berry Lane rolls a separate 15% trigger once per bush
