@@ -11,7 +11,7 @@
   const SAVE_DEFAULTS = Object.freeze({
     caught: [], released: [], wildAnimals: [], picked: [], opened: [], chopped: [], treeStumps: [], fires: [], scarecrows: [], fruittrees: [],
     creepingVines: [], vineGrowth: {}, magicTraps: [], barricades: [], furniture: [], houseFurniture: {}, houseLuxury: {}, donated: [],
-    npcHomes: {}, npcVillagePins: {}, npcMoveInAfter: {}, npcBenefits: {},
+    npcHomes: {}, npcVillagePins: {}, npcBenefits: {},
     waystoneUntil: {}, waystoneSets: {},
     lastProduce: {}, fruitPicked: {}, chestHold: {}, coinBurstClaimed: {},
     grassRegrowth: {}, trainingDrills: {}, training: {}, quarryMined: {}, npcRestUntil: {}, boonUntil: {},

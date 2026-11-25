@@ -60,18 +60,23 @@
       s.save.restoredHouses[house.id] = 'plain'; s.questEvent('restore');
       assert.truthy(Quests.starterAllDone(s.save), 'the first repaired house ends the tutorial');
       assert.eq(Delivery.wantedProduce(s.save, house).join(','), 'potato');
-      NPC.interact(s, tilly, 0, 0); message.onDismiss();
+      NPC.interact(s, tilly, 0, 0);
+      assert.falsy(message.actions, 'no roof to offer before the potato');
+      message.onDismiss();
       assert.truthy(s.save.npcMet[tilly.id]);
-      assert.eq(NPC.houseNeighbours(s, { now: Date.now() + NPC.MOVE_IN_DELAY_MS }), 0,
-        'meeting and restoring cannot bypass the potato');
+      assert.eq(NPC.houseNeighbours(s), 0, 'meeting and restoring cannot bypass the potato');
       Inventory.add(s.save, 'potato', 1); // The one harvested crop; growth timing has separate crop tests.
       s.presentDeliveryOffer(0, 0, house); offer.onAccept();
       assert.eq(Inventory.count(s.save, 'potato'), 0);
       assert.truthy(Delivery.isSatisfied(s.save, house));
       assert.eq(s.save.deliveryCount, 1);
-      assert.eq(NPC.houseNeighbours(s, { now: s.save.npcMoveInAfter[house.id] }), 1);
-      assert.eq(NPC.residentOf(s.save, house).id, tilly.id);
+      assert.eq(NPC.houseNeighbours(s), 0, 'delivery alone moves nobody in');
+      assert.falsy(NPC.residentOf(s.save, house));
       NPC.interact(s, tilly, 0, 0);
+      const cta = message.actions?.find(a => a.label === NPC.OFFER_HOME_LABEL);
+      assert.truthy(cta, 'the talk offers the delivered roof');
+      message.onDismiss(); cta.onClick();
+      assert.eq(NPC.residentOf(s.save, house).id, tilly.id);
       assert.truthy(message.body.includes('Thank you, Hood'));
       message.onDismiss();
       Starter.placeHomeGreeter(s, entry, 0, 0);

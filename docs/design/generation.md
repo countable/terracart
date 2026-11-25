@@ -1598,26 +1598,25 @@ roof does not reserve it. Named-zone keepers and special story arrivals keep
 their authored places until eligible to move.
 
 A restored **plain** house becomes available only after its delivery discovery
-(`Delivery.isSatisfied`). `NPC.markDelivery` records a 15-second move-in delay
-in `save.npcMoveInAfter`; old delivered houses start that delay when loaded.
-One live, unhoused, unwounded resident whom the player has spoken to may then
-move in. Conversation records eligibility in `save.npcMet`; delivery still opens
-the roof, and absent pending records cannot create a resident. Eligible neighbours
-take homes in a fixed role order: Tilly, Bryn, Maud, Edda, Orrin, Cobb, then
-ordinary residents by stable id. Distance and tile loading order do not change that priority.
-Unmet residents wait until a conversation; existing saved assignments remain
-valid without a meeting stamp. The transient
-stranger is excluded; Maud is eligible after her rescue reward; Cobb the miner
-is stamped met by the talk that finds him underground. The move prefers
-an unseen moment for at most another 15 seconds. `save.npcHomes` owns the
+(`Delivery.isSatisfied`). Nobody moves in by timer or priority: the player
+offers the roof. While a delivered, unclaimed plain house is loaded,
+`NPC.homeOffer` names the one nearest a live, unhoused, unwounded neighbour,
+and that neighbour's talk carries an "(offer home)" choice (`NPC.interact`; a
+peddler's talk adds "Trade" beside it). Taking it runs `NPC.offerHome`, which
+moves them in at once and answers in their housed voice (Tilly's own thanks,
+otherwise `NPC.MOVE_IN_LINE`). The transient stranger is never offered a roof;
+Maud is after her rescue reward. Talking still records `save.npcMet`; absent
+pending records cannot create a resident. `save.npcHomes` owns the
 one-resident-per-house assignment, identity and safe outside wander centre,
-plus the actual house position. Reloading reconstructs existing assignments
-without needing their origin tile. Seats prefer the renderer's source doorway
-when available, otherwise safe nearby cells within four cells of the house;
-movement keeps the four-cell leash and asks the live NPC spawn gate on each
-step. The player Home and specialty buildings never accept NPC assignments.
-The first restored plain house asks for one potato. A housed Tilly thanks the
-player on their next conversation; that conversation completes her starter lesson.
+plus the actual house position; `NPC.houseNeighbours` only replays those
+saved assignments, so reloading reconstructs a resident without needing
+their origin tile. Seats prefer the renderer's source doorway
+when available, otherwise safe nearby cells within four cells of the house; a
+house with no safe seat is not taken. Movement keeps the four-cell leash and
+asks the live NPC spawn gate on each step. The resident's portrait marks the
+house (`Render.residentPlaque`) and heads its furniture dialog.
+The player Home and specialty buildings never accept NPC assignments.
+The first restored plain house asks for one potato.
 Trying to move Home onto an occupied NPC house is rejected with a message asking the
 player to move elsewhere; the resident and furnishings remain untouched.
 
