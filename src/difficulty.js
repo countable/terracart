@@ -71,6 +71,7 @@
       // members easy shows, from the gang's tail — half the streets none, a
       // third a lone follower, a sixth a pair. null shows the whole gang.
       streetGangShown: [0, 0, 0, 1, 1, 2],
+      streetHordes: false,      // no street hordes (StreetVariants.STREET_HORDES)
       crowCountMul: 0.5,        // visibility share of generated habitat Crows
                                  // as many wild crows on easy (a quieter sky,
                                  // fewer birds casing your field)
@@ -126,6 +127,7 @@
       monsterCountMul: 1,       // shared enemy population
       landEnemyCountMul: 1.5,   // half again the landcover enemies (owner, Oct 2026)
       streetGangShown: null,    // every themed street's gang in full (StreetVariants.STREET_GANGS)
+      streetHordes: true,       // half the themed streets hold a larger horde too
       crowCountMul: 1,          // all generated habitat Crows are visible
       trapCountMul: 25,         // hard means it — 100 read as a minefield; halved twice (Sep 2026).
                                  // Per tile it spreads 0.3..1.7x around this (Traps.tileDanger)

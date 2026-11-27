@@ -2649,17 +2649,41 @@
   });
   const STREET_GANG_RULES = Object.keys(STREET_GANGS);
   const streetGangRule = key => STREET_GANG_RULES[Math.floor(u01(avalanche32(fnv1a(`street-gang|${key}`))) * STREET_GANG_RULES.length)];
+  // STREET HORDES (owner, Nov 2026: "in hardmode i want more and larger
+  // hordes of enemies in road variants; flocks of ravens would be neat
+  // sometimes or bats; hordes are in half of variants based on seeded roll"):
+  // STREET_HORDE_SHARE of themed streets, drawn off rec.key, also hold a horde
+  // post per owning tile — a larger group from these rows, seated mid-street,
+  // away from the gang. Difficulty `streetHordes` shows them (hard only); a
+  // `night` row shows only after dark (EnemySpawns.surfaceActive `_nightOnly`).
+  const STREET_HORDE_SHARE = 0.5;
+  const STREET_HORDES = Object.freeze({
+    street_horde_warband: [{ kind: 'club_goblin', count: 1 }, { kind: 'spear_goblin', count: 1 }, { kind: 'archer_goblin', count: 1 }, { kind: 'goblin_runt', count: 4 }],
+    street_horde_mob: [{ kind: 'goblin_runt', count: 8 }],
+    street_horde_bones: [{ kind: 'skeleton_soldier', count: 2 }, { kind: 'skeleton', count: 4 }],
+    street_horde_bombers: [{ kind: 'bomb_goblin', count: 2 }, { kind: 'goblin_runt', count: 4 }],
+    street_horde_thieves: [{ kind: 'thief', count: 2 }, { kind: 'goblin_runt', count: 4 }],
+    street_horde_ravens: [{ kind: 'raven', count: 7 }],
+    street_horde_bats: [{ kind: 'vampire_bat', count: 1, night: true }, { kind: 'bat', count: 6, night: true }],
+  });
+  const STREET_HORDE_RULES = Object.keys(STREET_HORDES);
+  function streetHordeRule(key) {
+    if (u01(avalanche32(fnv1a(`street-horde|${key}`))) >= STREET_HORDE_SHARE) return null;
+    return STREET_HORDE_RULES[Math.floor(u01(avalanche32(fnv1a(`street-horde-kind|${key}`))) * STREET_HORDE_RULES.length)];
+  }
   // Whether this mode shows a gang member: `shown` is the mode's list of
   // equally likely gang sizes (null: the whole gang); the size is drawn per
   // post and shows the members nearest the tail (the followers, not the leader).
   function gangVisible(creature, modeProfile) {
     const g = creature?._streetGang, shown = modeProfile?.streetGangShown;
+    if (g?.horde) return !!modeProfile?.streetHordes;
     if (!g || !shown) return true;
     const size = shown[Math.floor(u01(avalanche32(fnv1a(`street-gang-shown|${g.sid}`))) * shown.length)];
     return g.n >= g.of - size;
   }
   const CREATURE_REQUEST_RULES = Object.freeze({
     ...STREET_GANGS,
+    ...STREET_HORDES,
     street_hedgerow: [{ kind: 'goblin_runt', count: 2, ambush: true }],
     street_overgrown: [{ kind: 'plant', count: 1 }],
     street_orchard: [{ kind: 'farmer_goblin', count: 1 }],
@@ -2678,9 +2702,11 @@
     const members = (CREATURE_REQUEST_RULES[request.rule] || []).flatMap(row =>
       Array.from({ length: row.count }, () => ({ kind: row.kind,
         ...(row.ambush ? { ambush: true } : {}),
+        ...(row.night ? { _nightOnly: true } : {}),
         ...(row.modeReserve ? { _landEnemyReserve: true } : {}) })));
-    if (STREET_GANGS[request.rule])
-      members.forEach((m, n) => { m._streetGang = { sid: request.sid, n, of: members.length }; });
+    const horde = !!STREET_HORDES[request.rule];
+    if (STREET_GANGS[request.rule] || horde)
+      members.forEach((m, n) => { m._streetGang = { sid: request.sid, n, of: members.length, ...(horde ? { horde: true } : {}) }; });
     return members;
   }
 
@@ -3040,6 +3066,26 @@
           return false;
         }
       });
+      // The street's horde post (STREET_HORDES), on half the streets: the
+      // legal verge seat nearest the fragment's middle, read but not claimed.
+      const hordeRule = streetHordeRule(rec.key), hordeSid = `street_horde_${tx}_${ty}_${rec.key}`;
+      if (hordeRule && !habitatSeats.has(hordeSid)) {
+        const seats = [];
+        sampleLine(rec.line, gM, BURNED_GUARD_STEP_M, BURNED_GUARD_STEP_M / 2, (s, x, y, nx, ny) => {
+          if (!S.covers(spans, s)) return;
+          for (const side of [-1, 1]) {
+            const candidate = verge(rec, x, y, nx, ny, side, row.encounterVergeCell || 1);
+            const c = candidate && foeSeat(candidate.ix, candidate.iy);
+            if (c) { seats.push(c); break; }
+          }
+        });
+        if (seats.length) {
+          const c = seats[Math.floor(seats.length / 2)];
+          habitatSeats.add(hordeSid);
+          gangRequests.push({ rule: hordeRule, sid: hordeSid, _street: v,
+            lx: (c.ix + 0.5) * frameCellM, ly: (c.iy + 0.5) * frameCellM });
+        }
+      }
       // A HIDDEN PET (the row's `hiddenPets` — Grassy Lane): one per themed
       // street and owning tile, shared by the street's fragments here. Its
       // SPECIES is the street's (off rec.key, the same for every player) and
@@ -3982,7 +4028,7 @@
   function isSlowKind(kind) { return SLOW_KINDS.has(kind); }
 
   root.StreetVariants = {
-    CREATURE_REQUEST_RULES, STREET_GANGS, streetGangRule, gangVisible, creatureRequestMembers, APPROVED_DECORATIONS, approvedDecorationRows, VERGE_ROAD_OVERLAP_MAX, vergeCellAt, TOADSTOOL_COVER_MAX, SNARE_STRAYS, SNARE_STRAY_GAP_CELLS, BARRICADE_STRAY_MAX,
+    CREATURE_REQUEST_RULES, STREET_GANGS, streetGangRule, STREET_HORDES, STREET_HORDE_SHARE, streetHordeRule, gangVisible, creatureRequestMembers, APPROVED_DECORATIONS, approvedDecorationRows, VERGE_ROAD_OVERLAP_MAX, vergeCellAt, TOADSTOOL_COVER_MAX, SNARE_STRAYS, SNARE_STRAY_GAP_CELLS, BARRICADE_STRAY_MAX,
     SUPPRESSED_STYLE, pavementFor, pavementVariantFor, VERGE_ROWS, PARISH_TILES, NAME_NUDGE, NUDGED_SHARE_MAX, ROCK_STREET_SHARE, MINOR_VARIANT_SHARE, PLAIN_HERB_P, PLAIN_BUSH_P, PLAIN_BUSHES, VERGE_MAX_CELLS,
     BANDIT_STRETCH_UNITS, BANDIT_STRETCH_SHARE, BANDIT_STAMP_OUT_CELLS,
     stretchOf, isBanditStretch, stampBanditStretchesSteps,

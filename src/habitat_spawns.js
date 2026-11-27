@@ -883,6 +883,7 @@
               ...(member.ambush ? { ambush: true } : {}),
               ...(member._landEnemyReserve ? { _landEnemyReserve: true } : {}),
               ...(member._streetGang ? { _streetGang: member._streetGang } : {}),
+              ...(member._nightOnly ? { _nightOnly: true } : {}),
               _habitatSpawn: { key: regionKey, profile: request._street, tx, ty, ...seat },
               _surfaceSpawn: { tx, ty, ...seat },
             }),

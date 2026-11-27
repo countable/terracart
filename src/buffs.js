@@ -131,6 +131,7 @@
     work: () => `Work wheels turn ${S.WORK_SPEED_MUL}× faster.`,
     regen: () => `You regain ${S.REGEN_PER_SECOND} energy a second.`,
     wand: () => `Your staff casts as a tier ${S.WAND_TIER} staff.`,
+    barrow: () => `Walking with the stick is ${S.BARROW_SPEED_MUL}× faster.`,
   };
   if (S) {
     for (const id of S.KIND_IDS) {
