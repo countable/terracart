@@ -82,8 +82,11 @@
     const bonus = Math.max(0, Number.isFinite(t.bonusM) ? t.bonusM : 0);
     return Math.max(0, totalMetres(t.metres, t.prizes, playerClass) - bonus);
   }
-  // The first repair story is the player's opt-in. Existing road progress
-  // keeps older saves repairing without asking them to start over.
+  // The first repair story is the player's opt-in: once given, a road tap
+  // repairs (or relights) its section straight away, without the question.
+  // Existing road progress counts as that opt-in. It never starts the
+  // automatic sweep by itself — that is the Engineer's Ring
+  // (Gear.roadAutoRepair).
   function repairEnabled(save) {
     const t = save?.trail;
     return !!t?.greeted || (t?.metres || 0) > 0 || (t?.prizes || 0) > 0 || (save?.streetsEpoch || 0) > 0;
@@ -194,13 +197,29 @@
   const FIXED_PRIZES = {
     5: { kind: 'item', id: 'wood_serpent_idol', qty: 1, tier: 1, cls: 'magic', jackpot: 0, consolation: 0, sole: true },
   };
+  // The Engineer's Ring (items.js UNIQUE_JEWELRY roadAutoRepair) is the road's
+  // own gift: until it is carried, a street mends only where it is tapped.
+  // Offered alone at ENGINEER_RING_RUNG, and at every later free rung (no
+  // FIXED_PRIZES row; a relic milestone still wins in _fireTrailPrize) while
+  // the save does not carry one — a save already past the rung is not left
+  // tapping forever.
+  const ENGINEER_RING_RUNG = 6;
+  const ENGINEER_RING_PRIZE = Object.freeze({ kind: 'item', id: 'engineer_ring', qty: 1, tier: 3, cls: 'magic',
+    jackpot: 0, consolation: 0, sole: true });
+  function carriesEngineerRing(save) {
+    return (save?.inv || []).some(s => s && s.id === 'engineer_ring' && s.count > 0);
+  }
   function fixedPrize(n, save) {
     // The third choice supplies the first pick; a better pick also counts.
     // cls places this equipment offer in the magic card's group.
     if ((n | 0) === 3 && !(save?.relics?.pickaxe?.tier > 0)) {
       return { kind: 'relic', slot: 'pickaxe', tier: 1, cls: 'magic', jackpot: 0, consolation: 0 };
     }
-    return FIXED_PRIZES[n | 0] ? { ...FIXED_PRIZES[n | 0] } : null;
+    if (FIXED_PRIZES[n | 0]) return { ...FIXED_PRIZES[n | 0] };
+    if ((n | 0) === ENGINEER_RING_RUNG || ((n | 0) > ENGINEER_RING_RUNG && save)) {
+      return carriesEngineerRing(save) ? null : { ...ENGINEER_RING_PRIZE };
+    }
+    return null;
   }
 
   // ── The prize is a CHOICE ────────────────────────────────────────────────
@@ -392,6 +411,7 @@
     STICK_METRES_MUL, PRIZE_CARDS, BOOTS_M_PER_TIER, bootsTierCap, CASH_PER_SQRT_KM, cashPrize, prizeCardClasses, rollCardRow,
     GOAL_STEP_M, RUNNER_GOAL_DIV, goalDiv, goalFor, totalMetres, restoredMetres, repairEnabled, distanceLabel, progress, bank, readout, label,
     PRIZE_CONTEXT, FIRST_WEAPON_SLOTS, firstWeaponChoices, secondDistanceChoices, FIXED_PRIZES, fixedPrize,
+    ENGINEER_RING_RUNG, ENGINEER_RING_PRIZE,
     PRIZE_CHOICES, PRIZE_ROLL_TRIES, rewardKey, RELIC_MILESTONES, relicChoices, rewardFor, rewardsBetween, rewardProgress,
     PRIZE_ROLL_BONUS, PRIZE_TIER_PER_PRIZE, PRIZE_ROLL_BONUS_MAX, rollBonusFor,
   };

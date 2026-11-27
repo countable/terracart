@@ -458,9 +458,11 @@ const starterWrapper = (name) => {
                    '_energyPopAt(ix, iy) {', '_isPlayerCell(ix, iy) {',
                    '_cellAtScreen(sx, sy) {', 'playerScreen() {',
                    '_sweepStreets() {', '_streetSweepPoint() {', '_resetStreetSight() {',
-                   '_rescanStreets(p, reachM, now, sight) {',
+                   '_rescanStreets(p, reachM, now, sight) {', '_streetLinesOf(entry) {',
                    '_setStreetPreview(meta, iv) {', '_streetSpreadPts(meta, s0, s1, k) {',
-                   '_ripenStreets(now, sight) {', '_oneRoadPay(perLine, now) {',
+                   '_ripenStreets(now, sight) {', '_restoreStreetRuns(runs, now, payAll) {',
+                   '_oneRoadPay(perLine, now) {',
+                   '_roadSectionAt(wx, wy) {', '_tapRoadSection(hit, sx, sy) {',
                    '_roadMetresMul() {', '_offGps() {',
                    '_scenicIntervals(tileKey, lineKey) {',
                    '_scenicWalkStory(kind, meta, newly) {', '_afterRestoreBeat(fn) {',
@@ -495,6 +497,8 @@ const starterWrapper = (name) => {
     `globalThis.CELL_PX = ${constOf('CELL_PX')};\n` +
     `globalThis.STREET_COUNTER_LIFT_PX = ${constOf('STREET_COUNTER_LIFT_PX')};\n` +
     `globalThis.STREET_SWEEP_STEP_CELLS = ${constOf('STREET_SWEEP_STEP_CELLS')};\n` +
+    `globalThis.TAP_REPAIR_SLACK_M = ${constOf('TAP_REPAIR_SLACK_M')};\n` +
+    `globalThis.TAP_RELIGHT_FRESH_LINE = ${constOf('TAP_RELIGHT_FRESH_LINE')};\n` +
     `globalThis.PATH_STONE_DWELL_MS = ${constOf('PATH_STONE_DWELL_MS')};\n` +
     `globalThis.ONE_ROAD_WINDOW_MS = ${constOf('ONE_ROAD_WINDOW_MS')};\n` +
     // The sweep's blast, the shine's clock, the preview's ceiling and the counter's throttle.
@@ -533,7 +537,8 @@ const starterWrapper = (name) => {
   for (const k of ['_worldToastAt', '_cellToastAt', '_energyPopAt', '_isPlayerCell',
                    '_cellAtScreen', 'playerScreen',
                    '_sweepStreets', '_resetStreetSight', '_rescanStreets',
-                   '_setStreetPreview', '_ripenStreets', '_oneRoadPay', '_roadMetresMul', '_offGps',
+                   '_streetLinesOf', '_setStreetPreview', '_ripenStreets', '_restoreStreetRuns', '_oneRoadPay',
+                   '_roadSectionAt', '_tapRoadSection', '_roadMetresMul', '_offGps',
                    '_scenicIntervals', '_scenicWalkStory',
                    '_afterRestoreBeat', '_bankStreetMetres', '_showTrailIntro', '_enqueueCeremony', '_drainCeremonies', '_dialogOpen',
                    '_armTrailIntro', '_openTrailIntroIfDue',

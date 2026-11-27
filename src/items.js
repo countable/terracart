@@ -736,6 +736,8 @@ const MINERAL_ICON_SHEET = {
   // Gathering (7) and Perception (10) share theirs; the tier badge tells them.
   comet_ring:        { sheet: 'icon_rings',   frame: 14 },
   meteor_ring:       { sheet: 'icon_rings',   frame: 17 },
+  // The plain steel band with its blue stone (Rings.png row 0).
+  engineer_ring:     { sheet: 'icon_rings',   frame: 2 },
   regeneration_amulet:      { sheet: 'icon_amulets', frame: 10 },
   vigor_amulet:      { sheet: 'icon_amulets', frame: 17 },
   sleep_powder:  { sheet: 'icon_potions', frame: 3 }, // scoop of violet dream dust
@@ -988,7 +990,7 @@ const BASE_TIER = {
   poison_flask: 2,
   // Unique jewelry is intrinsically magical, never a metal rung.
   portal_stone: 3, depth_key: 4, commerce_key: 1,
-  stealth_ring: 2, perception_ring: 2, coin_ring: 2, invisibility_ring: 4, ember_ring: 3, vampire_ring: 4, xray_ring: 3, meteor_ring: 3, comet_ring: 6, regeneration_amulet: 3, vigor_amulet: 5,
+  stealth_ring: 2, perception_ring: 2, coin_ring: 2, invisibility_ring: 4, ember_ring: 3, vampire_ring: 4, xray_ring: 3, meteor_ring: 3, comet_ring: 6, engineer_ring: 3, regeneration_amulet: 3, vigor_amulet: 5,
   // Tomes: a tome's tier is one above the potion it channels (the books
   // group's top-tier pick makes each tier's chest hand its own tome).
   tome_reach: 3, tome_raven: 4, tome_thunder: 5, tome_fire_wall: 4,
@@ -1259,6 +1261,10 @@ const ITEMS = [
   { id: 'xray_ring',         name: 'X-Ray Ring',            kind: 'unique_relic', uniqueJewelry: true },
   { id: 'meteor_ring',       name: 'Meteor Ring',           kind: 'unique_relic', uniqueJewelry: true },
   { id: 'comet_ring',        name: 'Comet Ring',            kind: 'unique_relic', uniqueJewelry: true },
+  // The Engineer's Ring: the road trail's own gift (trail.js fixedPrize), never
+  // a chest or shop roll. Carried, streets mend themselves as you linger by
+  // them and lamps relight as you pass (UNIQUE_JEWELRY roadAutoRepair).
+  { id: 'engineer_ring',     name: "Engineer's Ring",       kind: 'unique_relic', uniqueJewelry: true },
   { id: 'regeneration_amulet',      name: 'Amulet of Regeneration', kind: 'unique_relic', uniqueJewelry: true },
   { id: 'vigor_amulet',      name: 'Amulet of Vigour',        kind: 'unique_relic', uniqueJewelry: true },
   // Rope: use it (Use button with it selected) and the dialog asks which way —
@@ -2053,7 +2059,7 @@ const PRICES = {
                        //      effect, not the tier: the T2 butterfly is 100 too)
   frost_powder:  100,  // T3 — every enemy in reach chilled (slowed) for 30 s
   // Initial entries are replaced by fixed-tier equipment values after gearPrice is defined.
-  stealth_ring: 0, perception_ring: 0, coin_ring: 0, invisibility_ring: 0, ember_ring: 0, vampire_ring: 0, xray_ring: 0, meteor_ring: 0, comet_ring: 0, regeneration_amulet: 0, vigor_amulet: 0,
+  stealth_ring: 0, perception_ring: 0, coin_ring: 0, invisibility_ring: 0, ember_ring: 0, vampire_ring: 0, xray_ring: 0, meteor_ring: 0, comet_ring: 0, engineer_ring: 0, regeneration_amulet: 0, vigor_amulet: 0,
   rope:          15,   // T2 — one climb up or down a level, in place (cheaper than a sapphire's brief round trip); crafted from 5 long grass, so not a money pump
   trap_disarm_kit:      20,   // T2 — permanently removes a trap; situational, not a staple
   magic_trap:    40,   // T3 — one tier-3 shot and a staff beat's hold on one foe
@@ -2302,6 +2308,7 @@ const ITEM_EFFECTS = {
   meteor_ring: 'A stone that fell burning rides at your heels and never touches you. The faster you run, the wider and hotter it burns, though what it lights soon gutters. Outrun the wind and it snuffs the flame for a while.',
   comet_ring: 'Fire rides at your heels and never touches you. The faster you run, the wider and hotter it burns. Outrun the wind and it snuffs the flame for a while.',
   invisibility_ring: 'The eye forgets the hand it almost saw.',
+  engineer_ring: 'Streets knit themselves back together while you linger beside them, and their lamps rekindle as you pass.',
   regeneration_amulet: 'A slow warmth mends what the day takes.',
   vigor_amulet: 'A quickened warmth mends what the day takes.',
   sunflower: 'Its petals hold a warmth that gold seems to answer.',
@@ -3127,6 +3134,10 @@ const UNIQUE_JEWELRY = Object.freeze({
   // is worn until it is taken off (jewelryWorn).
   meteor_ring: Object.freeze({ equippable: true, cometAura: Object.freeze({ ...COMET_AURA, burnDurationMul: 1 / 3 }) }),
   comet_ring: Object.freeze({ equippable: true, cometAura: Object.freeze({ ...COMET_AURA, burnDurationMul: 1 }) }),
+  // ROAD AUTO-REPAIR: without it a street mends only where it is tapped, one
+  // section at a time (scene_streets.js _tapRoadSection); carried, the reach
+  // sweep and the walk-by lamp visits run as well (Gear.roadAutoRepair).
+  engineer_ring: Object.freeze({ roadAutoRepair: true }),
   regeneration_amulet: Object.freeze({ regenMs: 4000 }),
   vigor_amulet: Object.freeze({ regenMs: 2000 }),
 });

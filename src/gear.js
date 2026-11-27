@@ -22,6 +22,12 @@
   function hasXRay(save) {
     return Object.entries(UNIQUE_JEWELRY).some(([id, row]) => row.xray && carriesItem(save, id));
   }
+  // The Engineer's Ring (UNIQUE_JEWELRY.roadAutoRepair): streets restore by
+  // dwell and lamps relight by walking past. Without it, both happen only on
+  // a tap (scene_streets.js _tapRoadSection).
+  function roadAutoRepair(save) {
+    return Object.entries(UNIQUE_JEWELRY).some(([id, row]) => row.roadAutoRepair && carriesItem(save, id));
+  }
   function hasCompass(save) {
     return Object.entries(CARRIED_ITEM_SPEC).some(([id, row]) => row.treasureCompass && carriesItem(save, id));
   }
@@ -342,7 +348,7 @@
     if (save.activeWeapon === piece.slot) unequipWeapon(save);
   }
 
-  root.Gear = { hasPerception, hasXRay, hasCompass, coinMagnetCells, effectiveRelics, spellSlots, activeWeapon, meleeActive, selectWeapon, unequipWeapon, wearJewelry, workDurationMs, equip, gearTier, canUpgrade, buildRelicOffer, relicOfferWeights, SMITHY_NEXT_RUNG_BIAS, SMITHY_OWN_TIER_BIAS,
+  root.Gear = { hasPerception, hasXRay, roadAutoRepair, hasCompass, coinMagnetCells, effectiveRelics, spellSlots, activeWeapon, meleeActive, selectWeapon, unequipWeapon, wearJewelry, workDurationMs, equip, gearTier, canUpgrade, buildRelicOffer, relicOfferWeights, SMITHY_NEXT_RUNG_BIAS, SMITHY_OWN_TIER_BIAS,
                 blacksmithRecipe, smeltingRecipe, smeltUnlockedBars, WEAPON_SLOTS,
                 TRADER_GEAR_CHANCE, uniqueRelics, traderGearSwap, traderSwapValid, surrenderPiece };
 })(typeof globalThis !== 'undefined' ? globalThis : this);

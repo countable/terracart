@@ -12,15 +12,24 @@
 // How far the body walks before the street sweep and the lamp visit look
 // again, in cells (_streetSweepPoint).
 const STREET_SWEEP_STEP_CELLS = 0.25;
+// A tap counts as on a band up to this far outside its drawn half-width, in
+// metres: a finger is wider than a kerb.
+const TAP_REPAIR_SLACK_M = 1;
+// The line for a tap on a mended section whose lamps were relit too recently
+// to pay anything.
+const TAP_RELIGHT_FRESH_LINE = 'The lamps here are already lit.';
 
 class SceneStreets {
   // ─── STREET RESTORATION ──────────────────────────────────────────────────
   // The road band is DILAPIDATED by default — cracked, damp, missing setts
   // (road_overlay.js's base pass) — and wherever a stretch of it has sat
   // inside the player's lit reach CONTINUOUSLY for PATH_STONE_DWELL_MS it is
-  // rebuilt: clean black cobble with a hairline kerb, forever, saved. There is
-  // one initial decision: tap a damaged road and agree to fix it. From then
-  // on, linger by a street and it comes back under you.
+  // rebuilt: clean black cobble with a hairline kerb, forever, saved — but
+  // ONLY while the player carries the Engineer's Ring (Gear.roadAutoRepair).
+  // Without it a street mends where it is TAPPED, one Streets.TAP_SECTION_M
+  // section per tap (_tapRoadSection), and a tap on a section already mended
+  // relights its lamps for their fade's credit. The first road tap asks once
+  // (_offerRoadRepair); every tap after that just works.
   //
   // A STRETCH IS METRES, NOT CELLS. What restores is an interval of arclength
   // along ONE LINE of one OSM way (src/streets.js), because that is the
@@ -52,6 +61,8 @@ class SceneStreets {
     if (typeof Streets === 'undefined') return;
     if (!Trail.repairEnabled(this.save)) { this._resetStreetSight(); return; }
     this._openTrailIntroIfDue();
+    // No ring, no automatic repair: the street waits for a tap.
+    if (!Gear.roadAutoRepair(this.save)) { this._resetStreetSight(); return; }
     const surface = (this.depth ?? 0) === 0;
     // Cave levels carry no streets at all, so don't pay for the scan down
     // there — and the auto-walk home banks nothing.
@@ -70,7 +81,9 @@ class SceneStreets {
     this._ripenStreets(now, sight);
   }
 
-  _offerRoadRepair() {
+  // `hit` (optional, a _roadSectionAt answer) is the section the asking tap
+  // landed on: Yes mends it straight away, under the introduction.
+  _offerRoadRepair(hit) {
     if (Trail.repairEnabled(this.save)) return false;
     this.showConfirmModal({ id: 'road-repair-confirm', kind: 'note',
       body: 'Road is in disrepair. Fix it?', acceptLabel: 'Yes', cancelLabel: 'No',
@@ -81,9 +94,90 @@ class SceneStreets {
         // The accepted tap opens the introduction now, not through the
         // idle ceremony queue or the legacy first-metres delay.
         this._showTrailIntro();
+        if (hit) this._tapRoadSection(hit);
         this._sweepStreets();
       },
     });
+    return true;
+  }
+
+  // ── TAP REPAIR ───────────────────────────────────────────────────────────
+  // The section of street under a tap at world metres (wx, wy): the nearest
+  // restorable line (the sweep's own catalogue, _streetLinesOf) whose drawn
+  // band the point is on, the fixed Streets.sectionAt ladder rung its
+  // projection lands in, clipped to the tile square, and what of that rung
+  // is still dilapidated (`todo`) and how many lamps stand on it (`lamps`).
+  // Null off every band, or while the tile is still loading.
+  _roadSectionAt(wx, wy) {
+    if (typeof Streets === 'undefined' || (this.depth ?? 0) !== 0) return null;
+    const c = worldMetersToAbsCell(this, wx, wy);
+    const { tx, ty } = absCellToTile(this, c.cellIX, c.cellIY);
+    const tileKey = WorldGen.tileKey(tx, ty);
+    const entry = WorldGen.tileCache.get(tileKey);
+    if (!entry || !entry.layers || !(entry.tileEdgeM > 0)) return null;
+    const tileEdgeM = entry.tileEdgeM;
+    const lx = wx - tx * tileEdgeM, ly = wy - ty * tileEdgeM;
+    let best = null;
+    for (const rec of this._streetLinesOf(entry)) {
+      const halfM = WorldGen.roadOverlayWidthM(rec.tags || {}) / 2 + TAP_REPAIR_SLACK_M;
+      if (rec.x1 < lx - halfM || rec.x0 > lx + halfM || rec.y1 < ly - halfM || rec.y0 > ly + halfM) continue;
+      const q = Streets.projectOnLine(rec.line, rec.mvtToM, lx, ly);
+      if (!q || q.d > halfM || (best && q.d >= best.q.d)) continue;
+      best = { rec, q };
+    }
+    if (!best) return null;
+    const { rec, q } = best;
+    const lineKey = rec.lineKey || (rec.lineKey = Streets.lineKey(rec.feature, rec.lineIdx));
+    const spans = rec.tileSpans || (rec.tileSpans = Streets.tileSpans(rec.line, rec.mvtToM, rec.extent));
+    const rung = Streets.sectionAt(Streets.lineLengthM(rec.line, rec.mvtToM), q.s);
+    const section = rung ? Streets.intersect([rung], spans) : [];
+    if (!section.length) return null;
+    const todo = Streets.subtract(section, Streets.restoredList(this.save, tileKey, lineKey));
+    const meta = { tileKey, lineKey, line: rec.line, mvtToM: rec.mvtToM, tx, ty, tileEdgeM, tags: rec.tags };
+    let lamps = 0;
+    for (const L of this._streetLampsForTile(tx, ty, entry)) {
+      if (L.lineKey === lineKey && Streets.covers(section, L.s) && !HomeVariant.contains(this, L.x, L.y)) lamps++;
+    }
+    return { key: `${tileKey}|${lineKey}`, meta, section, todo, lamps };
+  }
+
+  // Mend the tapped section (`hit`, a _roadSectionAt answer) and light every
+  // lamp on it. The metres newly restored bank in full (no one-road window: a
+  // tap names its road); lamps on the stretch that was ALREADY mended relight
+  // for their own fade's credit (Streets.visitLamp — a lamp relit a moment
+  // ago pays nothing). The sweep's gates hold: surface, no drift home, no
+  // passenger, a reach to work with. Returns true when the tap did anything.
+  _tapRoadSection(hit, sx, sy) {
+    if (!hit || (this.depth ?? 0) !== 0 || this._driftingHome || this.isTooFast?.()
+        || !(reachRadiusM(this) > 0)) return false;
+    const now = Date.now();
+    const { meta, section, todo } = hit;
+    const addedM = todo.length ? this._restoreStreetRuns([{ key: hit.key, meta, intervals: todo }], now, true) : 0;
+    // Relight what was mended before this tap; the restore lit the rest.
+    const entry = WorldGen.tileCache.get(meta.tileKey);
+    const mended = Streets.subtract(section, todo);
+    const mul = this._roadMetresMul();
+    let lit = 0, paid = 0;
+    if (entry && entry.layers && mended.length) {
+      for (const L of this._streetLampsForTile(meta.tx, meta.ty, entry)) {
+        if (L.lineKey !== meta.lineKey || !Streets.covers(mended, L.s) || HomeVariant.contains(this, L.x, L.y)) continue;
+        const m = Streets.visitLamp(this.save, L, now) * mul;
+        lit++;
+        if (this._lampsInRange) this._lampsInRange.add(L.id);
+        if (!(m > 0)) continue;
+        paid += m;
+        const shown = Math.round(m);
+        if (shown >= 1 && this._popCellNumber) {
+          const c = worldMetersToAbsCell(this, L.x, L.y);
+          this._popCellNumber(`+${shown}m`, UI_STREET_INK, c.cellIX, c.cellIY);
+        }
+      }
+    }
+    if (lit) this._lampVisitEpoch = (this._lampVisitEpoch | 0) + 1;
+    if (paid > 0) this._bankStreetMetres(paid, null, now, { quiet: true });
+    if (!(addedM > 0) && !lit) return false;
+    if (!(addedM > 0) && !(paid >= 1) && this.flash) this.flash(TAP_RELIGHT_FRESH_LINE, sx, sy);
+    persistSave(this.save);
     return true;
   }
 
@@ -152,43 +246,7 @@ class SceneStreets {
       // whose square the padded reach cannot touch before building or walking
       // its line catalogue; buffered MVT metres outside the square never count.
       if (lx + pad < 0 || lx - pad > tileEdgeM || ly + pad < 0 || ly - pad > tileEdgeM) return;
-      // Build the immutable line catalogue once on the tile entry. A city
-      // tile can carry hundreds of lines; before this cache every reach-cell
-      // move walked every vertex merely to rediscover each bbox. New tile
-      // entries (and sandbox's replacement layers) miss by object identity,
-      // so rebuilds derive fresh geometry without a global epoch.
-      let reachLines = entry._streetReachLines;
-      if (!reachLines || entry._streetReachLinesLayers !== entry.layers
-          || entry._streetReachLinesEdgeM !== tileEdgeM) {
-        reachLines = [];
-        for (const layer of entry.layers) {
-          if (layer.name !== 'transportation') continue;
-          const extent = layer.extent || 4096;
-          const mvtToM = tileEdgeM / extent;
-          for (const f of layer.features) {
-            if (f.type !== 2 || !f.geom) continue;      // lines only
-            const cls = (f.tags && f.tags.class) || '';
-            if (cls === 'rail' || cls === 'transit') continue;
-            if (WorldGen.isParkingAisle(f.tags)) continue;
-            for (let i = 0; i < f.geom.length; i++) {
-              const line = f.geom[i];
-              if (!line || line.length < 2) continue;
-              const b = Streets.lineBounds(f, i);
-              if (!b) continue;
-              reachLines.push({
-                feature: f, lineIdx: i, line, lineKey: null, tags: f.tags,
-                mvtToM, extent,
-                x0: b.x0 * mvtToM, y0: b.y0 * mvtToM,
-                x1: b.x1 * mvtToM, y1: b.y1 * mvtToM,
-                tileSpans: null,
-              });
-            }
-          }
-        }
-        entry._streetReachLines = reachLines;
-        entry._streetReachLinesLayers = entry.layers;
-        entry._streetReachLinesEdgeM = tileEdgeM;
-      }
+      const reachLines = this._streetLinesOf(entry);
       for (const rec of reachLines) {
         if (rec.x1 < lx - pad || rec.x0 > lx + pad || rec.y1 < ly - pad || rec.y0 > ly + pad) continue;
         const line = rec.line, mvtToM = rec.mvtToM;
@@ -225,6 +283,52 @@ class SceneStreets {
     // the same rule said once.
     for (const key of sight.keys()) if (!seen.has(key)) sight.drop(key);
     for (const key of [...lines.keys()]) if (!seen.has(key)) lines.delete(key);
+  }
+
+  // Every restorable transportation line of one tile, with its bounds in
+  // tile-local metres — the sweep's scan and the tap repair share it.
+  // Rail is skipped (a railway is not a street to rebuild), and so are
+  // parking aisles — they draw no band anywhere (WorldGen.isParkingAisle).
+  _streetLinesOf(entry) {
+    // Build the immutable line catalogue once on the tile entry. A city
+    // tile can carry hundreds of lines; before this cache every reach-cell
+    // move walked every vertex merely to rediscover each bbox. New tile
+    // entries (and sandbox's replacement layers) miss by object identity,
+    // so rebuilds derive fresh geometry without a global epoch.
+    const tileEdgeM = entry.tileEdgeM;
+    let reachLines = entry._streetReachLines;
+    if (!reachLines || entry._streetReachLinesLayers !== entry.layers
+        || entry._streetReachLinesEdgeM !== tileEdgeM) {
+      reachLines = [];
+      for (const layer of entry.layers) {
+        if (layer.name !== 'transportation') continue;
+        const extent = layer.extent || 4096;
+        const mvtToM = tileEdgeM / extent;
+        for (const f of layer.features) {
+          if (f.type !== 2 || !f.geom) continue;      // lines only
+          const cls = (f.tags && f.tags.class) || '';
+          if (cls === 'rail' || cls === 'transit') continue;
+          if (WorldGen.isParkingAisle(f.tags)) continue;
+          for (let i = 0; i < f.geom.length; i++) {
+            const line = f.geom[i];
+            if (!line || line.length < 2) continue;
+            const b = Streets.lineBounds(f, i);
+            if (!b) continue;
+            reachLines.push({
+              feature: f, lineIdx: i, line, lineKey: null, tags: f.tags,
+              mvtToM, extent,
+              x0: b.x0 * mvtToM, y0: b.y0 * mvtToM,
+              x1: b.x1 * mvtToM, y1: b.y1 * mvtToM,
+              tileSpans: null,
+            });
+          }
+        }
+      }
+      entry._streetReachLines = reachLines;
+      entry._streetReachLinesLayers = entry.layers;
+      entry._streetReachLinesEdgeM = tileEdgeM;
+    }
+    return reachLines;
   }
 
   // Cache one line's in-sight-unrestored intervals AND the world-metre
@@ -423,6 +527,20 @@ class SceneStreets {
     if (!lines || !lines.size) return;
     const ripe = sight.ripeAll(now, PATH_STONE_DWELL_MS);
     if (!ripe.length) return;
+    const runs = [];
+    for (const { key, intervals } of ripe) {
+      const meta = lines.get(key);
+      if (!meta) { sight.drop(key); continue; }
+      runs.push({ key, meta, intervals });
+    }
+    this._restoreStreetRuns(runs, now, false);
+  }
+
+  // Restore `runs` ([{ key, meta, intervals }], meta as the scan builds it)
+  // and bank the step ONCE. `payAll` (a tap: it names its own road) banks
+  // every way's metres; the sweep pays one road per window (_oneRoadPay).
+  // Returns the metres newly restored.
+  _restoreStreetRuns(runs, now, payAll) {
     let addedM = 0;
     // SCENIC METRES (src/scenic.js): what the same restore banks ON TOP on the
     // one ladder — a path by the water, along a greenway or through a park
@@ -436,9 +554,7 @@ class SceneStreets {
     // back — the stretch the player will actually be looking at, rather than
     // a metre of driveway at the far rim of the bubble.
     let best = null, bestLen = 0;
-    for (const { key, intervals } of ripe) {
-      const meta = lines.get(key);
-      if (!meta) { sight.drop(key); continue; }
+    for (const { key, meta, intervals } of runs) {
       const out = Streets.restore(this.save, meta.tileKey, meta.lineKey, intervals);
       if (!(out.addedM > 0)) continue;
       addedM += out.addedM;
@@ -483,7 +599,7 @@ class SceneStreets {
       // yet, so the preview stops drawing over the clean band the same frame.
       this._setStreetPreview(meta, Streets.subtract(meta.iv || [], out.newly));
     }
-    if (!(addedM > 0)) return;
+    if (!(addedM > 0)) return 0;
     const at = best ? Streets.pointAtWorld(best.meta, best.s) : null;
     if (at) {
       // THE BLAST, on the stretch's own midpoint (projected): the near-white
@@ -502,13 +618,16 @@ class SceneStreets {
         gather: 'stonegather', gatherPts: best.spread, durationMs: STREET_SHINE_MS,
       }));
     }
-    const pay = this._oneRoadPay(perLine, now);
+    let pay = { m: 0, bonus: 0 };
+    if (payAll) for (const l of perLine.values()) { pay.m += l.m; pay.bonus += l.bonus; }
+    else pay = this._oneRoadPay(perLine, now);
     const mul = this._roadMetresMul();
     if (pay.m > 0 || pay.bonus > 0) {
       this._bankStreetMetres(pay.m * mul, at, now, pay.bonus > 0 ? { bonusM: pay.bonus * mul } : undefined);
     }
     if (scenicKind) this._scenicWalkStory(scenicKind, scenicStoryMeta, scenicStoryNewly);
     persistSave(this.save);
+    return addedM;
   }
 
   // ONE ROAD AT A TIME (ONE_ROAD_WINDOW_MS): of every way restored inside the
@@ -655,8 +774,10 @@ class SceneStreets {
     if (typeof Streets === 'undefined') return 0;
     const surface = (this.depth ?? 0) === 0;
     const reachM = surface ? reachRadiusM(this) : 0;
+    // Walk-by relighting is the Engineer's Ring's too; without it a lamp
+    // relights only when its section is tapped (_tapRoadSection).
     if (!surface || this._driftingHome || this.isTooFast?.() || !(reachM > 0)
-        || !this.startWorldM || !this.playerM) {
+        || !this.startWorldM || !this.playerM || !Gear.roadAutoRepair(this.save)) {
       this._lampsInRange = null;
       this._lampVisitKey = null;
       return 0;

@@ -745,11 +745,13 @@ pixels and decorative details do not define additional tap cells.
 - The first road-repair panel shows the Hood working alone: “You Start Fixing
   The Roads” / “They are the arteries of civilization.” New saves repair no
   roads until the player taps a damaged road and accepts “Road is in disrepair.
-  Fix it?” Yes enables proximity repair and opens that story immediately;
+  Fix it?” Yes mends the tapped section and opens that story immediately;
   No leaves roads untouched and a later tap can ask again. The story's existing
-  `trail.greeted` flag remembers consent. Saves with restored metres, prizes,
-  or a streets epoch retain automatic repair; ungreeted legacy saves keep the
-  50 m threshold and two-second delay. Neighbours enter the story at the first
+  `trail.greeted` flag remembers consent; saves with restored metres, prizes,
+  or a streets epoch count as having consented. After consent each road tap
+  mends (or relights) its section without asking. Automatic repair belongs to
+  the Engineer's Ring alone; ungreeted legacy saves keep the 50 m threshold
+  and two-second delay. Neighbours enter the story at the first
   reward, headed “The survivors are watching”; later rewards use the thank-you
   heading. The first repair and first gift remain separate moments.
 - A street variant tells its story once, on the feet's first entry
@@ -761,7 +763,9 @@ pixels and decorative details do not define additional tap cells.
   Highway story. Their identities come from the mapped road class and have
   separate first-visit records, without assigning a street variant. The
   existing Old Trade Road record remains valid for returning players.
-- Tapping a road or path flashes its street's title only. The tap is read
+- Tapping a dilapidated section repairs it, and tapping a mended section with
+  lamps relights them (`road-repair` handler); a mended section with no lamps,
+  or one out of reach, flashes its street's title instead. The tap is read
   at its own point inside the cell (`StreetVariants.roadAtPoint`, through
   interact.js `roadUnderTap`), because most road cells are only partly
   covered by their band and some are crossed by two ways. Each band that
