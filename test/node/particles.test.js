@@ -200,7 +200,9 @@ test('particles: a restoring sweep blasts ONCE, on the stretch it brought back',
   // separate stretches of street it rebuilt, and it goes off at the midpoint
   // of the LONGEST of them — the one the player is actually looking at,
   // rather than a metre of driveway at the far rim of the bubble.
-  const a = app.indexOf('  _ripenStreets(now, sight) {');
+  // The sweep and a road tap share one restore-and-bank pass.
+  assert.truthy(/this\._restoreStreetRuns\(runs, now, false\);/.test(app), 'the sweep restores through it');
+  const a = app.indexOf('  _restoreStreetRuns(runs, now, payAll) {');
   const body = app.slice(a, app.indexOf('\n  }\n', a));
   assert.truthy(/if \(len > bestLen\) \{/.test(body) && /bestLen = len;/.test(body),
     'the longest newly restored piece wins');

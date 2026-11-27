@@ -248,6 +248,7 @@ test('map copy: nothing else reaches flash() through a variable unmeasured', () 
     'itemName', 'fav', 'Pets', 'foeName', // the creature tap's name / favourite / offer lines, measured below
     'street',                          // a road tap's street title, measured below
     'zone',                            // a ground tap's zone variant name, measured below
+    'TAP_RELIGHT_FRESH_LINE',          // a road tap on freshly lit lamps, measured below
   ]);
   const seen = new Set();
   for (const src of [SCENE_SRC, INTERACT_SRC, INTERACTABLES_SRC]) {
@@ -257,6 +258,12 @@ test('map copy: nothing else reaches flash() through a variable unmeasured', () 
   const unknown = [...seen].filter((v) => !known.has(v));
   assert.eq(unknown.length, 0,
     'flash fed from an unmeasured variable: ' + unknown.join(', '));
+});
+
+test('map copy: a road tap on freshly lit lamps fits a map line', () => {
+  const m = SCENE_SRC.match(/const TAP_RELIGHT_FRESH_LINE = '([^']+)';/);
+  assert.truthy(m, 'the line is a literal constant');
+  assert.lte([...m[1]].length, MAP_MSG_MAX, m[1]);
 });
 
 test('map copy: a road tap names its street within a map line', () => {

@@ -53,5 +53,34 @@
     return true;
   }
 
-  root.PlayerTime = { reset };
+  // Bring every running ITEM cooldown closer — the same item gates reset()
+  // clears: the bite (save.eatReadyAt), each resting tome
+  // (save.tomeMagicCd[id]) and the shared throw recovery
+  // (scene._throwReadyAt, a performance.now clock). Each timer loses
+  // max(cutMs, frac × what is left on IT), never past ready; a timer already
+  // run out is untouched. Lighting a Torch calls it (CONSUMABLE_SPEC.torch
+  // cooldownCutMs / cooldownCutFrac). Returns how many timers moved.
+  function cutLeft(left, cutMs, frac) {
+    return Math.max(0, left - Math.max(cutMs, frac * left));
+  }
+  function shortenItemCooldowns(scene, cutMs, frac, now = Date.now(), perfNow = performance.now()) {
+    const save = scene.save;
+    let n = 0;
+    if (typeof save.eatReadyAt === 'number' && save.eatReadyAt > now) {
+      save.eatReadyAt = now + cutLeft(save.eatReadyAt - now, cutMs, frac); n++;
+    }
+    const cd = save.tomeMagicCd;
+    if (cd && typeof cd === 'object') {
+      for (const id of Object.keys(cd)) {
+        if (typeof cd[id] === 'number' && cd[id] > now) { cd[id] = now + cutLeft(cd[id] - now, cutMs, frac); n++; }
+      }
+    }
+    if ((scene._throwReadyAt || 0) > perfNow) {
+      scene._throwReadyAt = perfNow + cutLeft(scene._throwReadyAt - perfNow, cutMs, frac); n++;
+    }
+    if (n) { scene.syncEatButton?.(); scene.syncConsumableButton?.(); }
+    return n;
+  }
+
+  root.PlayerTime = { reset, shortenItemCooldowns };
 })(typeof globalThis !== 'undefined' ? globalThis : this);

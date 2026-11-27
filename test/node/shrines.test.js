@@ -4,7 +4,7 @@
   const T0 = 1_700_000_000_000;
 
   test('shrines: sheet idols and the drill share boon and light definitions', () => {
-    assert.eq(Shrines.KIND_IDS.length, 17);
+    assert.eq(Shrines.KIND_IDS.length, 18);
     assert.eq(K.golden_path_idol.frame, K.golden_idol.frame, 'Golden Path reuses the Golden Road idol art');
     const aliases = { golden_path_idol: 'golden_idol', poison_path_shrine: 'toad_idol',
       fire_path_shrine: 'ember_altar', paralysis_path_shrine: 'bone_watcher', confusion_path_shrine: 'lantern_saint' };

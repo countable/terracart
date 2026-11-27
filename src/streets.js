@@ -283,6 +283,41 @@
     return mergeIntervals(out);
   }
 
+  // ── TAP REPAIR: one section at a time ───────────────────────────────────
+  // Without the Engineer's Ring (Gear.roadAutoRepair) a street mends only
+  // where the player TAPS it, TAP_SECTION_M of it per tap. Sections are a
+  // fixed ladder along the line's own arclength — [0,100), [100,200), … —
+  // so the same tap point always names the same section, on every device,
+  // and two taps on one stretch never double-pay (restore() pays only the
+  // metres that were not already restored). The last section is whatever
+  // the line has left; the caller clips it to the tile square.
+  const TAP_SECTION_M = 100;
+  function sectionAt(lenM, s) {
+    if (!(lenM > 0) || !Number.isFinite(s)) return null;
+    const at = Math.max(0, Math.min(lenM, s));
+    let a = Math.floor(at / TAP_SECTION_M) * TAP_SECTION_M;
+    if (a >= lenM) a = Math.max(0, a - TAP_SECTION_M);   // a tap on the very end
+    return [a, Math.min(lenM, a + TAP_SECTION_M)];
+  }
+
+  // The closest point of `line` to the tile-local metre point (px, py):
+  // its arclength `s` and distance `d`, both in metres. Null for a line with
+  // fewer than two vertices.
+  function projectOnLine(line, mvtToM, px, py) {
+    if (!line || line.length < 2) return null;
+    let best = null, acc = 0;
+    for (let i = 1; i < line.length; i++) {
+      const ax = line[i - 1].x * mvtToM, ay = line[i - 1].y * mvtToM;
+      const dx = line[i].x * mvtToM - ax, dy = line[i].y * mvtToM - ay;
+      const len2 = dx * dx + dy * dy, len = Math.sqrt(len2);
+      const u = len2 ? Math.max(0, Math.min(1, ((px - ax) * dx + (py - ay) * dy) / len2)) : 0;
+      const d = Math.hypot(px - ax - u * dx, py - ay - u * dy);
+      if (!best || d < best.d) best = { s: acc + u * len, d };
+      acc += len;
+    }
+    return best;
+  }
+
   // ── The LAMPS ───────────────────────────────────────────────────────────
   // A restored street LIGHTS ITS OWN WAY: one glowing cobble every
   // lampSpacingM() metres of it. streets.js says where the stones stand,
@@ -705,6 +740,7 @@
   root.Streets = {
     EPS,
     lineKey, lineBounds, lineLengthM, pointAtM, subLineM, tileSpans, reachIntervals,
+    TAP_SECTION_M, sectionAt, projectOnLine,
     runPtsWorld, pointAtWorld,
     LAMP_SPACING_M, LAMP_EDGE_CLEARANCE_M, lampSpacingM, lampsAlong, lampOffsetM, covers,
     LAMP_PATH_SPACING_DIV, LAMP_PATH_SPACING_M, LAMP_PATH_MIN_LEN_M, isWalkingPath, lampLayFor,

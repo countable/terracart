@@ -180,6 +180,7 @@ class SceneConsumables {
     hook?.before?.(this, spec);
     Buffs.extend(this.save, this, buff, spec.durationMs * mul);
     hook?.after?.(this, spec);
+    if (spec.cooldownCutMs > 0) PlayerTime.shortenItemCooldowns(this, spec.cooldownCutMs, spec.cooldownCutFrac || 0);
     if (!spend) return true;
     this._spendScroll(id);
     this.showMessageModal({ title, body, art: used.art || spec.art });

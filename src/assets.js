@@ -303,6 +303,8 @@ const ASSETS = {
   clay_pot: {"kind": "spritesheet", "path": "assets/ArtTrials/RogueProps/containers/clay_pot.png", "frameWidth": 16, "frameHeight": 16},
   clay_pot_smashed: { kind: 'spritesheet', path: 'assets/Objects/CelProps/pots-smashed.png', frameWidth: 24, frameHeight: 24 },
   bike_rack:      { kind: 'spritesheet', path: 'assets/Objects/Approved/bike_rack.png', frameWidth: 16, frameHeight: 16 },
+  // The Grassy Lane wheelbarrow shrine (shrines.js SHRINE_KINDS.wheelbarrow).
+  wheelbarrow:    { kind: 'spritesheet', path: 'assets/Objects/Approved/wheelbarrow.png', frameWidth: 24, frameHeight: 24 },
   signpost: {"kind": "atlas-alias", "path": "assets/Objects/SelectedWorld/world.png", "atlasKey": "selected_world_atlas", "frameWidth": 16, "frameHeight": 16, "sheetRect": {"x": 240, "y": 140, "width": 16, "height": 16}, "frameRects": {"0": {"x": 240, "y": 140, "width": 16, "height": 16}}, "sourcePath": "assets/Objects/SelectedProps/signpost.png"},
   gatepost:       {"kind": "spritesheet", "path": "assets/ArtTrials/RogueProps/fixtures/gatepost.png", "frameWidth": 16, "frameHeight": 16},
   // THE MACRO STALLS (loot.js MACRO_KIND_BY_CLASS / macroFor): the in-building

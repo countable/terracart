@@ -83,6 +83,7 @@ ICONS = {
     'lettuce': (*effect('Luck_Up'), 'Lucky green clover'),
     'fish': (*tile(RA, 16, 4), 'Blue fish'),
     'bike': (*effect('Speed_Up'), 'Travel speed boot'),
+    'barrow': (*effect('Speed_Up'), 'Travel speed boot'),
     'field_scope': (*tile(RA, 20, 22), 'Blue discovery reticle'),
     'wayfarer': (*tile(RA, 20, 24), 'Golden directions reticle'),
     'compass': (*tile(RA, 20, 26), 'Green compass reticle'),

@@ -31,6 +31,9 @@
   const REGEN_PER_SECOND = 1;
   const WAND_TIER = 6;
   const MINING_TIER = 7;
+  // The wheelbarrow's push: a factor on stick-walking speed, beside the bike
+  // rack's and the horse's (app.js _walkRelics — the fastest one counts).
+  const BARROW_SPEED_MUL = 1.5;
   // Each special street independently receives a shrine with this chance;
   // safe seating still decides whether it can stand there. Scenic paths keep
   // their separate per-tile limit.
@@ -46,6 +49,7 @@
   // sheet's order.
   const SHRINE_KINDS = {
     drill: { art: 'underground_miners_way', light: 0x9fdcff, lever: 'mining', durationMs: MIN, boon: 'Mining',
+      sprite: { key: 'cave_props', frame: 6, scale: 4 / 3 }, spriteName: 'Drill construct',
       zoneVariants: [], streets: [], locations: ['Underground'], perTile: 10,
       name: 'Drill shrine', flash: 'Your pick feels weightless.',
       body: 'You touch the humming drill. Your hands tingle, and your pick feels weightless.' },
@@ -106,6 +110,13 @@
       zoneVariants: [], streets: ['confusion_path'], streetChance: 1,
       name: 'Confusion path shrine', flash: 'Her lantern warms your hand.',
       body: 'The lantern offers a steady light among the swirling vapours.' },
+    // The GRASSY LANE's wheelbarrow: off the shared sheet (`sprite`), it
+    // speeds walking with the stick (ghost walking) for a while.
+    wheelbarrow: { art: 'street_grassy_lane', sprite: { key: 'wheelbarrow', frame: 0, scale: 1.6 }, light: 0xd9b27a,
+      lever: 'barrow', durationMs: 5 * MIN, boon: 'Barrow',
+      zoneVariants: [], streets: ['grassy_lane'],
+      name: 'Wheelbarrow', flash: 'Your steps roll lighter.',
+      body: 'An old wheelbarrow leans by the lane. You give it a push, and your feet keep rolling after it.', },
     // The GOLDEN ROAD's shrine: no boon — once a UTC day it spills a coin on
     // every free verge cell of its road on this tile (`coinSeats`, laid by
     // street_variants.js; app.js _coinBurstInteract's path mode). Every
@@ -157,7 +168,7 @@
     mining: 'mining',
     pairy: null,
     shield: 'shield', reach: 'reach', light: 'torch',
-    hidden: 'hidden', melee: 'melee', fortune: 'fortune', work: 'work', regen: 'regen', wand: 'wand',
+    hidden: 'hidden', melee: 'melee', fortune: 'fortune', work: 'work', regen: 'regen', wand: 'wand', barrow: 'barrow',
   };
 
   function leverUntil(save, lever, scene) {
@@ -214,7 +225,7 @@
   }
 
   root.Shrines = {
-    SHRINE_KINDS, REWARD_KINDS, kindForObject, KIND_IDS, LEVERS, FORTUNE_LUCK_BONUS, WORK_SPEED_MUL, REGEN_PER_SECOND, WAND_TIER, MINING_TIER, STREET_SHRINE_CHANCE, SCENIC_SHRINES_PER_TILE,
+    SHRINE_KINDS, REWARD_KINDS, kindForObject, KIND_IDS, LEVERS, FORTUNE_LUCK_BONUS, WORK_SPEED_MUL, REGEN_PER_SECOND, WAND_TIER, MINING_TIER, BARROW_SPEED_MUL, STREET_SHRINE_CHANCE, SCENIC_SHRINES_PER_TILE,
     kindForZoneVariant, kindForStreet, leverUntil, leverActive, grant, extend, boonFlash, cardBody, normalize,
   };
 })(typeof globalThis !== 'undefined' ? globalThis : this);

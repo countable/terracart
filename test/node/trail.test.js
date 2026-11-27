@@ -641,8 +641,9 @@ const sweepScene = (over) => Object.assign({
   ...SW,
   _offerRoadRepair: liftSceneMethod('_offerRoadRepair'),
 }, over || {}, {
-  // Existing restoration tests exercise an already-started legacy save.
-  save: { streetsEpoch: 1, energy: 10, reachUpgrades: 0,
+  // Existing restoration tests exercise an already-started legacy save that
+  // carries the Engineer's Ring — the automatic sweep is the ring's.
+  save: { streetsEpoch: 1, energy: 10, reachUpgrades: 0, inv: [{ id: 'engineer_ring', count: 1 }],
     starter: { sequence: 'first-neighbour', step: STARTER_CHAIN.length, chickenArrived: true }, ...over?.save },
 });
 
@@ -712,6 +713,43 @@ test('streets: No leaves repair disabled; Yes opens the story immediately and en
     assert.gt(restoredM(s), 0, 'the normal automatic sweep repairs after consent');
     decisions[1].onAccept();
     assert.falsy(s._offerRoadRepair()); assert.eq(s.intros.length, 1, 'no duplicate introduction');
+  });
+});
+
+test("streets: without the Engineer's Ring the sweep mends nothing, however long the dwell", () => {
+  withStreet(clock => {
+    const s = sweepScene();
+    s.save.inv = [];
+    for (const t of [0, PATH_STONE_DWELL_MS, 10 * PATH_STONE_DWELL_MS]) { clock.at(t); s._sweepStreets(); }
+    assert.eq(restoredM(s), 0, 'no automatic repair');
+    assert.falsy(s._streetSight && s._streetSight.keys().length, 'no dwell accumulates');
+    s.save.inv = [{ id: 'engineer_ring', count: 1 }];
+    clock.at(20 * PATH_STONE_DWELL_MS); s._sweepStreets();
+    clock.at(21 * PATH_STONE_DWELL_MS); s._sweepStreets();
+    assert.gt(restoredM(s), 0, 'carried, the sweep repairs again');
+  });
+});
+
+test('streets: a road tap mends exactly its 100 m section and banks it', () => {
+  withStreet(clock => {
+    const s = sweepScene({ _streetLampsForTile: __streetLampPasses._streetLampsForTile,
+      flashes: [], flash(t) { this.flashes.push(t); } });
+    s.save.inv = [];
+    const hit = s._roadSectionAt(MID_M, TILE_EDGE_M / 2);
+    assert.truthy(hit, 'the tap is on the band');
+    assert.eq(JSON.stringify(hit.section.map(iv => iv.map(Math.round))), '[[100,200]]', 'the fixed 100 m rung under the tap');
+    assert.eq(JSON.stringify(hit.todo), JSON.stringify(hit.section), 'all of it still dilapidated');
+    assert.falsy(s._roadSectionAt(MID_M, TILE_EDGE_M / 2 + 20), 'well off the band: no section');
+    assert.truthy(s._tapRoadSection(hit));
+    assert.inRange(restoredM(s), 100 - 1e-6, 100 + 1e-6, 'exactly the section');
+    assert.inRange(s.save.trail.metres, 100 - 1e-6, 100 + 1e-6, 'banked in full on the ladder');
+    const again = s._roadSectionAt(MID_M, TILE_EDGE_M / 2);
+    assert.eq(again.todo.length, 0, 'mended');
+    clock.at(1000);
+    s._tapRoadSection(again);
+    assert.inRange(s.save.trail.metres, 100 - 1e-6, 100.01, 'a second tap never re-pays the repair (only a second of lamp fade)');
+    const next = s._roadSectionAt(MID_M + 100, TILE_EDGE_M / 2);
+    assert.eq(Math.round(next.section[0][0]), 200, 'the neighbouring rung is its own section');
   });
 });
 
@@ -1429,7 +1467,23 @@ test('trail prize: third rung offers a wooden pick only when no pick is owned', 
     assert.eq(Trail.fixedPrize(3, { relics: { pickaxe: { tier } } }), null,
       'an owned wooden or better pick keeps the normal roll');
   }
-  for (const n of [2, 4, 6]) assert.eq(Trail.fixedPrize(n, {}), null);
+  for (const n of [2, 4]) assert.eq(Trail.fixedPrize(n, {}), null);
+});
+
+test("trail prize: the Engineer's Ring is offered alone at its rung, and later until carried", () => {
+  const R = Trail.ENGINEER_RING_RUNG;
+  const p = Trail.fixedPrize(R, {});
+  assert.eq(p.id, 'engineer_ring'); assert.truthy(p.sole, 'offered alone');
+  assert.eq(Trail.fixedPrize(4, {}), null, 'not before its rung');
+  assert.eq(Trail.fixedPrize(R + 2, {}).id, 'engineer_ring', 'a save past the rung without one is offered it');
+  const carrying = { inv: [{ id: 'engineer_ring', count: 1 }] };
+  for (const n of [R, R + 2]) assert.eq(Trail.fixedPrize(n, carrying), null, 'carried: never again');
+  assert.eq(Trail.fixedPrize(5, {}).id, 'wood_serpent_idol', 'a fixed row keeps its rung');
+  const item = ITEM_BY_ID.engineer_ring;
+  assert.truthy(item && item.kind === 'unique_relic' && item.uniqueJewelry);
+  assert.truthy(UNIQUE_JEWELRY.engineer_ring.roadAutoRepair);
+  assert.falsy(Gear.roadAutoRepair({}));
+  assert.truthy(Gear.roadAutoRepair(carrying));
 });
 
 test('trail prize: the cash card pays 15 × √(km walked + 1)', () => {

@@ -1954,13 +1954,28 @@ const TAP_HANDLERS = [
       } });
   }},
 
-  // Object actions keep priority; only a bare road offers the initial repair.
+  // Object actions keep priority; a bare road band repairs the section the
+  // tap landed on (scene_streets.js _tapRoadSection) — or, mended already,
+  // relights its lamps. The first such tap asks once (_offerRoadRepair). A
+  // mended section with no lamps, or one out of reach, falls through to the
+  // street's name; a dilapidated one out of reach says so.
   { name: 'road-repair', try: (ctx) => {
     const { scene, cell } = ctx;
-    if ((scene.depth ?? 0) !== 0 || Trail.repairEnabled(scene.save)) return false;
+    if ((scene.depth ?? 0) !== 0) return false;
     if (!cell.underRoad && !WorldGen.isRoadTerrain(cell.type) && cell.type !== TERRAIN.PATH) return false;
     if (roadUnderTap(ctx) === null) return false;   // the ground beside the band
-    return scene._offerRoadRepair?.() || false;
+    const hit = ctx.wm ? scene._roadSectionAt?.(ctx.wm.x, ctx.wm.y) : null;
+    if (!Trail.repairEnabled(scene.save)) {
+      if (hit && !hit.todo.length) return false;
+      if (hit && tooFar(ctx, ctx.wm.x, ctx.wm.y)) return 'far';
+      return scene._offerRoadRepair?.(hit) || false;
+    }
+    if (!hit || (!hit.todo.length && !hit.lamps)) return false;
+    if (!hit.todo.length) {
+      const tap = worldMetersToAbsCell(scene, ctx.wm.x, ctx.wm.y);
+      if (!cellInReach(scene, tap.cellIX, tap.cellIY)) return false;
+    } else if (tooFar(ctx, ctx.wm.x, ctx.wm.y)) return 'far';
+    return scene._tapRoadSection?.(hit, ctx.sx, ctx.sy) || false;
   }},
 
   // 2b) Tap non-tillable terrain → flavor label. A road-BAND cell (grass in

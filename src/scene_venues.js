@@ -717,7 +717,9 @@ class SceneVenues {
       return;
     }
     if (ITEM_BY_ID[sel.id]?.progressionOnly) {
-      this.showMessageModal({ kind: 'story', art: 'progression_portal', title: 'A journey still ahead', body: 'Keep this relic. There are places only it can open.' });
+      // A progression ring (the Engineer's Ring) opens no place; it does a job.
+      const body = UNIQUE_JEWELRY[sel.id] ? 'Keep this ring. The roads still need it.' : 'Keep this relic. There are places only it can open.';
+      this.showMessageModal({ kind: 'story', art: 'progression_portal', title: 'A journey still ahead', body });
       return;
     }
     const unitPrice = trailerSellPrice(itemValue(sel.id));

@@ -405,6 +405,7 @@
     'waystone:1': { fw: 16, fh: 16, minX: 2, minY: 1, maxX: 14, maxY: 15 },
     'clay_pot_smashed:0': { fw: 24, fh: 24, minX: 1, minY: 4, maxX: 23, maxY: 23 },
     'bike_rack:0': { fw: 16, fh: 16, minX: 0, minY: 0, maxX: 15, maxY: 16 },
+    'wheelbarrow:0': { fw: 24, fh: 24, minX: 1, minY: 2, maxX: 23, maxY: 21 },
     'gatepost:0': { fw: 16, fh: 16, minX: 0, minY: 1, maxX: 16, maxY: 16 },
   };
 
@@ -423,9 +424,10 @@
   // this file without Shrines; shrines.test.js pins every row's frame here.
   const SHRINE_KIND_ART = { key: 'shrines', scale: 1.6 * 2 / 3, frames: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10] };
   function groveShrineArt(o) {
-    if (o?.shrineKind === 'drill') return { key: 'cave_props', frame: 6, scale: 4 / 3, name: 'Drill construct' };
     if (o?._shrineArt === 'shipwreck') return SHIPWRECK_SHRINE_ART;
     const kind = o?.shrineKind && root.Shrines && root.Shrines.SHRINE_KINDS[o.shrineKind];
+    // A row off the shared sheet names its own sprite (the drill, the wheelbarrow).
+    if (kind?.sprite) return { ...kind.sprite, name: kind.spriteName || kind.name };
     if (kind) return { key: SHRINE_KIND_ART.key, frame: kind.frame, scale: SHRINE_KIND_ART.scale, name: kind.name };
     return GROVE_SHRINE_ART[root.fnv1a(String(o?.id ?? '') + '#shrine') % GROVE_SHRINE_ART.length];
   }
