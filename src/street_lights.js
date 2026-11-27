@@ -36,6 +36,19 @@ const StreetLights = (() => {
   function statePixels(data, width, name, lit) {
     if (!ART[name]) return data;
     const glass = GLASS[name];
+    const isFlame = (x, y, r, g, b) => name === 'fire_pedestal' && r >= 200 && b < 160
+      || name === 'flame_pillar' && r === 255
+      || name === 'upright_flame' && r >= 240
+      || name === 'paired_candles' && y < 6;
+    // Per row: the outermost non-flame opaque pixels, which bound a vessel.
+    const height = data.length / 4 / width, rows = [];
+    for (let y = 0; y < height; y++) rows.push([Infinity, -Infinity]);
+    if (!lit) for (let i = 0; i < data.length; i += 4) {
+      if (!data[i + 3]) continue;
+      const x = i / 4 % width, y = Math.floor(i / 4 / width);
+      if (isFlame(x, y, data[i], data[i + 1], data[i + 2])) continue;
+      rows[y][0] = Math.min(rows[y][0], x); rows[y][1] = Math.max(rows[y][1], x);
+    }
     for (let i = 0; i < data.length; i += 4) {
       if (!data[i + 3]) continue;
       const x = i / 4 % width, y = Math.floor(i / 4 / width);
@@ -48,11 +61,15 @@ const StreetLights = (() => {
         }
         continue;
       }
-      const flame = name === 'fire_pedestal' && r >= 200 && b < 160
-        || name === 'flame_pillar' && r === 255
-        || name === 'upright_flame' && r >= 240
-        || name === 'paired_candles' && y < 6;
-      if (flame) { data[i] = data[i + 1] = data[i + 2] = data[i + 3] = 0; continue; }
+      const flame = isFlame(x, y, r, g, b);
+      if (flame) {
+        // Flame inside the bowl or pillar mouth (base pixels flank it on
+        // its row) becomes cold ash; flame above the rim clears to air.
+        const [l, r2] = rows[y];
+        if (x > l && x < r2) { data[i] = 38; data[i + 1] = 28; data[i + 2] = 28; data[i + 3] = 255; }
+        else data[i] = data[i + 1] = data[i + 2] = data[i + 3] = 0;
+        continue;
+      }
       if (glass && x >= glass[0] && x < glass[2] && y >= glass[1] && y < glass[3]) {
         const shade = Math.round((r * .2126 + g * .7152 + b * .0722) * .28);
         data[i] = shade; data[i + 1] = shade + 3; data[i + 2] = shade + 5;
