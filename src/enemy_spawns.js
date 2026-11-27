@@ -285,6 +285,10 @@
     const anchor = homeAnchor(scene);
     if (feature) {
       active = homeEligible(scene, creature);
+      // A night-only street resident (StreetVariants.STREET_HORDES `night`:
+      // the bat swarm) keeps the surface's own night threshold.
+      if (active && creature._nightOnly)
+        active = !!root.Lighting && root.Lighting.daylight(scene, Date.now()) < SURFACE_NIGHT_DAYLIGHT;
       creature._surfaceInactive = !active;
       return active;
     }

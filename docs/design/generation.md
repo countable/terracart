@@ -125,6 +125,11 @@ access or tile lifecycle mechanics.
   tail, often none) — hidden, never rerolled. The posts are requested after all
   other street requests and claim no dressing cell, so base seats and scenery
   never move; `street_population_rates.test.js` pins the baseline with them excluded.
+  Half the themed streets (`STREET_HORDE_SHARE`, off `rec.key`) also hold a
+  larger horde post mid-fragment (`StreetVariants.STREET_HORDES`, raven flocks
+  and night-only bat swarms among them), shown only where `Difficulty`
+  `streetHordes` is set (hard). A `night` row's members carry `_nightOnly`,
+  which `EnemySpawns.surfaceActive` gates on the surface night threshold.
   Plain, unthemed roads have no street owner and get no gang.
 - `HabitatSpawns.ENEMY_PACKS` opts rats, goblin fighters, skeletons and pirates
   into spatial groups in both surface and cave ambient generation. An anchor

@@ -13,7 +13,7 @@
     return { result, grid, spawnOpts, N, edge };
   }
   // The trail's own posts; hard's street gang post (STREET_GANGS) is additive.
-  const own = q => !StreetVariants.STREET_GANGS[q.rule];
+  const own = q => !StreetVariants.STREET_GANGS[q.rule] && !StreetVariants.STREET_HORDES[q.rule];
   test('slime trail: deterministic section species, finite posts and short-path fallback', () => {
     const a = fixture(), b = fixture();
     assert.eq(JSON.stringify(a.result.creatureRequests.filter(own)), JSON.stringify(b.result.creatureRequests.filter(own)));

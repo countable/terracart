@@ -34,7 +34,7 @@ test('street population rates: ambient fauna and foes plus finite residents reta
     .filter(c=>c._streetRequest==='barricade').map(c=>`${c.id}:${c.kind}:${!!c._landEnemyReserve}@${c.x},${c.y}`));
    // Hard's street gangs (StreetVariants.STREET_GANGS) are additive: the
    // baseline below must hold with them excluded, and every street has one.
-   const gang=rule=>!!StreetVariants.STREET_GANGS[rule];
+   const gang=rule=>!!(StreetVariants.STREET_GANGS[rule]||StreetVariants.STREET_HORDES[rule]);
    assert.truthy(d.creatureRequests.some(q=>gang(q.rule)),variant+' holds a street gang post');
    if(lendsGround(variant)&&layout===0)assert.truthy(creatures.some(lentByRoad),variant+' lends its ground\'s animals back');
    const base=creatures.filter(c=>!gang(c._streetRequest)&&!lentByRoad(c));
