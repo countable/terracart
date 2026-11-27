@@ -234,6 +234,11 @@ mechanics.
 - Lantern (saved item id `evertorch`) is a T6 timed supply: two hours of blue light, with expiry
   saved through `Buffs.evertorch`. Another extends that expiry. Ordinary
   Torches keep their short, scene-local timer; either flame ignites melee foes.
+  Lighting a Torch (first or another) brings every running item cooldown —
+  the bite, each resting tome, the throw recovery — closer by the larger of
+  5 s or 5% of that timer's own wait (`CONSUMABLE_SPEC.torch`
+  `cooldownCutMs` / `cooldownCutFrac`, applied by
+  `PlayerTime.shortenItemCooldowns` in `_useTimedBuff`).
   A Starflower held up (`CONSUMABLE_SPEC.starflower`, the `starlight` buff) is a
   torch with the torch's duration and reach derived off its row, in a softer,
   colder light; it has no flame and ignites nothing.

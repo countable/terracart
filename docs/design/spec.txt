@@ -708,10 +708,18 @@ TREASURE MARKS (X on the ground)
 ================================================================================
 STREET RESTORATION (the road band itself)
 ================================================================================
- - THE ROAD BAND IS DILAPIDATED BY DEFAULT and the player rebuilds it. Wherever
-   a stretch has sat inside the player's lit reach CONTINUOUSLY for a short
-   dwell (`app.js` `PATH_STONE_DWELL_MS`) it turns to clean cobble, forever,
-   saved. Footpaths restore too. Rail and parking aisles never
+ - THE ROAD BAND IS DILAPIDATED BY DEFAULT and the player rebuilds it BY
+   TAPPING it: each tap mends the fixed `Streets.TAP_SECTION_M` (100 m) rung
+   of its line under the tap point (`Streets.sectionAt`, clipped to the tile
+   square), lights that section's lamps and banks the metres in full
+   (`_tapRoadSection`). A tap on a section already mended relights its lamps
+   for their fade credit — some bonus distance, nothing for a lamp relit a
+   moment ago. Only the ENGINEER'S RING (`engineer_ring`, the road ladder's
+   own gift at `Trail.ENGINEER_RING_RUNG`, offered at every later free rung
+   until carried) brings back AUTOMATIC repair: carried, a stretch that has
+   sat inside the lit reach CONTINUOUSLY for a short dwell
+   (`PATH_STONE_DWELL_MS`) turns to clean cobble by itself, and lamps relight
+   as the feet pass (`Gear.roadAutoRepair`). Footpaths restore too. Rail and parking aisles never
    (`WorldGen.isParkingAisle` — an aisle is not a street).
  - A STRETCH IS METRES, NOT CELLS: an interval of arclength along ONE LINE of
    one way, keyed by `Streets.lineKey` (never the feature alone — merged
@@ -719,7 +727,7 @@ STREET RESTORATION (the road band itself)
    (`Streets.tileSpans`) so a way crossing a seam is never paid twice. The
    terrain grid under-reports roads, so a per-cell rule could never match what
    the player sees. CLAUDE.md ("Lighting and streets") owns the invariants.
- - THE SWEEP (`app.js` `_sweepStreets`) scans what is in reach from the
+ - THE SWEEP (ring only; `_sweepStreets`) scans what is in reach from the
    player's reach cell (never the camera anchor) and ripens what has been in
    sight for the whole dwell (`Streets.createSight`). Sight is CONTINUOUS:
    clipping the bubble in passing restarts the clock. The auto-walk home, a

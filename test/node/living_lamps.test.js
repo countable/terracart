@@ -152,7 +152,7 @@ const way = (cls) => ({ id: 9, type: 2, tags: { class: cls },
 const mkEntry = (cls) => ({ cellsPerEdge: N, tileEdgeM: TILE_EDGE_M,
   layers: [{ name: 'transportation', extent: EXTENT, features: [way(cls)] }] });
 const scene = (over) => Object.assign({
-  depth: 0, save: { energy: 10, reachUpgrades: 0, trail: { greeted: true } }, cellM: CELL_M, cellsPerTile: N, mPerPx: M_PER_PX,
+  depth: 0, save: { energy: 10, reachUpgrades: 0, trail: { greeted: true }, inv: [{ id: 'engineer_ring', count: 1 }] }, cellM: CELL_M, cellsPerTile: N, mPerPx: M_PER_PX,
   originPx: { x: 0, y: 0 }, startWorldM: { x: 0, y: 0 }, feetOffsetM: 0,
   playerM: { x: 0, y: 0 }, peekM: { x: 0, y: 0 }, gpsM: { x: 0, y: 0 },
   toasts: [], _toast(text, opts) { this.toasts.push({ text, opts }); },
@@ -178,6 +178,40 @@ const withTile = (entry, fn) => {
 // Stand the feet on lamp L (its verge point), and move them well away.
 const standAt = (s, L) => { s.playerM = { x: L.x, y: L.y }; };
 const walkAway = (s) => { s.playerM = { x: 5, y: 5 }; };
+
+test("living lamps: without the Engineer's Ring walking past relights nothing; a tap does", () => {
+  const entry = mkEntry('minor');
+  withTile(entry, (clock) => {
+    const flashes = [];
+    const s = scene({ save: { energy: 10, reachUpgrades: 0, trail: { greeted: true } }, flash(t) { flashes.push(t); } });
+    const lamps = s._streetLampsForTile(0, 0, entry);
+    const L = lamps.find(l => l.s > 100 && l.s < 200);
+    standAt(s, L);
+    const hit = s._roadSectionAt(L.x, TILE_EDGE_M / 2);
+    assert.gt(hit.lamps, 0, 'the section has lamps');
+    // The tap mends the section and lights its lamps for nothing extra.
+    assert.truthy(s._tapRoadSection(hit));
+    const repaired = s.save.trail.metres;
+    assert.eq(Streets.lampVisitAt(s.save, L.id), T0, 'the repair lit its lamp');
+    // Walking past, a day later, relights nothing without the ring…
+    clock.at(24 * H); walkAway(s); s._visitStreetLamps(T0 + 24 * H);
+    standAt(s, L);
+    assert.eq(s._visitStreetLamps(T0 + 24 * H), 0, 'no walk-by relight without the ring');
+    assert.eq(Streets.lampVisitAt(s.save, L.id), T0);
+    // …but a tap on the mended section relights every lamp on it, for credit.
+    const relight = s._roadSectionAt(L.x, TILE_EDGE_M / 2);
+    assert.eq(relight.todo.length, 0, 'already mended');
+    assert.truthy(s._tapRoadSection(relight));
+    const want = hit.lamps * L.creditM * Streets.LAMP_CREDIT_SHARE;
+    assert.inRange(s.save.trail.metres - repaired, want - 1e-6, want + 1e-6, 'each lamp pays its full fade credit');
+    assert.eq(Streets.lampVisitAt(s.save, L.id), T0 + 24 * H, 'relit');
+    // Tapped again at once: lit, nothing more to pay.
+    const before = s.save.trail.metres;
+    assert.truthy(s._tapRoadSection(s._roadSectionAt(L.x, TILE_EDGE_M / 2)));
+    assert.eq(s.save.trail.metres, before, 'a lamp relit a moment ago pays nothing');
+    assert.eq(flashes.pop(), TAP_RELIGHT_FRESH_LINE);
+  });
+});
 
 test('living lamps: a visit to a lit lamp pays its credit onto the ladder, popped on its cell', () => {
   const entry = mkEntry('minor');
