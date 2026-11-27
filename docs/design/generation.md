@@ -1082,8 +1082,11 @@ spawn-rate roll.
   Whether a foe is an elite is `EnemySpawns.rollsElite`: the eligible kind,
   the id's shiny roll, and never within `ELITE_STAIR_CLEAR_CELLS` of a
   generated staircase (a seat by the stairs keeps its foe, plain; no extra
-  draw). Every spawner that rolls elites asks it; a group's authored elite
-  is the exception.
+  draw). Every world enemy spawner asks it — habitat and cave populations,
+  lairs and zone guards, finite cave seats, bone caches, container foes,
+  nest and fished foes, party extras and rare encounters; a group's
+  authored elite is the exception. Deliberately plain: splits, summons and
+  illusions (copies of a foe), bounty and story foes, bosses and dev spawns.
   A RETREAT among houses
   (a bolt, Home's rout, wandering off, a pet's shove) runs the ROADSIDE:
   `roadsideRunAngle` (creature_ai.js) bends the away angle along the nearest

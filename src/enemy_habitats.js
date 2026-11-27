@@ -226,7 +226,7 @@
         const cellM = entry.tileEdgeM / N, x = at.tx * entry.tileEdgeM + (seat.cx + .5) * cellM;
         const y = at.ty * entry.tileEdgeM + (seat.cy + .5) * cellM, childId = `${id}_${n}`;
         return root.CreatureSpawns.createOwned('party-scaling', id, creature.kind, x, y, childId, {
-          zoneVariant: creature.zoneVariant, shiny: false,
+          zoneVariant: creature.zoneVariant, shiny: root.EnemySpawns.rollsElite(entry, creature.kind, childId, x, y, cellM),
           _densityParent: creature.id, _densityOwner: ownerKey,
           _spawnTime: creature._spawnTime, _spawnRowKind: creature._spawnRowKind,
           _parkCharacter: creature._parkCharacter,

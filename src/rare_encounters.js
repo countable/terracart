@@ -141,6 +141,8 @@
     if (root.EnemyRoster.get(seat.kind)?.rareBehaviour?.hiddenUntilAdjacent) extra.hidden = true;
     if (!at.depth) extra._surfaceSpawn = { x: seat.x, y: seat.y, tx: target.tx, ty: target.ty };
     else extra._cave = true;
+    // The world's elite roll, off the seat's stable id (EnemySpawns.rollsElite).
+    if (extra.shiny === undefined) extra.shiny = root.EnemySpawns.rollsElite(target.entry, seat.kind, seat.id, seat.x, seat.y, at.cellM);
     const c = root.CreatureSpawns.createOwned('rare-encounters', at.key, seat.kind, seat.x, seat.y, seat.id, extra);
     if (root.CreatureSpawns.register(target.entry, c)) { root.EnemySpawns.surfaceActive(scene, c); (scene._rareBodies ||= new Map()).set(c, target.entry); }
   }

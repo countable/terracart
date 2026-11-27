@@ -704,9 +704,11 @@ function fishedSlimeSpawn(scene, now, px, py, pcW) {
     member: () => ({ kind: 'slime' }),
     seat: () => ringSeat(px, py, scene.cellM, Math.floor(Math.random() * 8) * Math.PI / 4,
       (x, y) => CreatureSpawns.gateAt(scene, x, y, 'slime')),
-    create: (member, seat) => WorldGen.makeCreature('slime', seat.x, seat.y,
-      `fished_slime_${pcW.tx}_${pcW.ty}_${Math.floor(now)}_${Math.floor(Math.random() * 1e4)}`,
-      { _lastDamagedT: Date.now() }),
+    create: (member, seat) => {
+      const id = `fished_slime_${pcW.tx}_${pcW.ty}_${Math.floor(now)}_${Math.floor(Math.random() * 1e4)}`;
+      return WorldGen.makeCreature('slime', seat.x, seat.y, id, { _lastDamagedT: Date.now(),
+        shiny: EnemySpawns.rollsElite(entry, 'slime', id, seat.x, seat.y, scene.cellM) });
+    },
     onPlaced: slime => CreatureSpawns.register(entry, slime),
   }));
   return generated[0] || null;
@@ -832,7 +834,8 @@ function spawnNestBushCreature(scene, bush, type) {
   const generated = WorldGen.runSteps(CreatureSpawns.generateOwnedSteps('nest', bush.id, {
     frequency: CreatureSpawnTriggers.nest.frequency,
     member: () => ({ kind, id }), seat: () => point,
-    create: () => EnemySpawns.markShared(WorldGen.makeCreature(kind, point.x, point.y, id, { shiny: false,
+    create: () => EnemySpawns.markShared(WorldGen.makeCreature(kind, point.x, point.y, id, {
+      shiny: enemy && EnemySpawns.rollsElite(point.entry, kind, id, point.x, point.y, scene.cellM),
       ...(enemy ? { _surfaceSpawn: { x: point.x, y: point.y, tx: point.tx, ty: point.ty, cx: point.ix, cy: point.iy } } : {}) })),
     onPlaced: creature => CreatureSpawns.register(point.entry, creature),
   }));
