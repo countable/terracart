@@ -565,6 +565,16 @@
   function densityRows(owner, entry, index, shore = false) {
     const key = typeof owner === 'string' ? owner : owner?.key;
     let rows = DENSITY_ROWS[key] || [];
+    // A ROAD THEME WITH NO ANIMALS LENDS ITS GROUND BACK (owner, Nov 2026:
+    // "have the empty rows fall back"): its cells take the fauna rows of the
+    // land underneath (the generated grid's own terrain), so the five
+    // baseline themes no longer empty a town's verges of wildlife. Only
+    // fauna, only roads; the theme's own enemy rows stand, and a theme with
+    // any fauna row of its own keeps exactly those.
+    if (key?.startsWith('Roads and paths:') && entry && index != null && !rows.some(row => row.category === 'fauna')) {
+      const land = nameOf((entry.baseGrid || entry.grid)?.[index]);
+      if (land) rows = rows.concat(densityRows('Terrain:' + land, entry, index).filter(row => row.category === 'fauna'));
+    }
     // Park character replaces only the base park signature; it never adds a
     // second owner allowance, and cannot reach through Nexus/road ownership.
     if (key === 'Terrain:PARK' && entry && index != null) {

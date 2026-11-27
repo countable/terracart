@@ -333,4 +333,18 @@
     assert.includes(row.surface.biomes,'GRASS','the corridor uses the shared native snake');
   });
 
+  test('habitat: a road theme with no animals falls back to the land underneath, animals only', () => {
+    const H=HabitatSpawns, T=WorldGen.T, entry={cellsPerEdge:2,grid:new Uint8Array([T.GRASS,T.FOREST,T.ROAD,T.GRASS])};
+    const fauna=rows=>rows.filter(r=>r.category==='fauna').map(r=>r.kind+'@'+r.per1000).join();
+    const enemies=rows=>rows.filter(r=>r.category==='enemy').map(r=>r.kind).join();
+    const own=H.densityRows('Roads and paths:grassy_lane');
+    assert.eq(fauna(own),'','the fixture theme has no animals of its own');
+    assert.eq(fauna(H.densityRows('Roads and paths:grassy_lane',entry,0)),fauna(H.densityRows('Terrain:GRASS',entry,0)),'grass verge: grass animals');
+    assert.eq(fauna(H.densityRows('Roads and paths:grassy_lane',entry,1)),fauna(H.densityRows('Terrain:FOREST',entry,1)),'forest verge: forest animals');
+    assert.eq(fauna(H.densityRows('Roads and paths:grassy_lane',entry,2)),'','the road surface lends nothing');
+    assert.eq(enemies(H.densityRows('Roads and paths:grassy_lane',entry,0)),enemies(own),'the theme keeps its own enemies, never the land\'s');
+    assert.eq(fauna(H.densityRows('Roads and paths:hedgerow',entry,0)),fauna(H.densityRows('Roads and paths:hedgerow')),'a theme with animals keeps exactly its own');
+    assert.eq(fauna(H.densityRows('Nexus:meadow',entry,1)),fauna(H.densityRows('Nexus:meadow')),'Nexus owners never fall back');
+  });
+
 })();
