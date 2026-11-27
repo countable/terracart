@@ -457,7 +457,7 @@
     },
     populate(s) {
       s.object('grove_shrine', 5, 3, { name: 'Sandbox Grove Shrine' });
-      // The ten shrine kinds (src/shrines.js), down the east edge.
+      // Every shrine kind (src/shrines.js), down the east edge.
       Shrines.KIND_IDS.forEach((k, i) => s.object('grove_shrine', 10, 2 * i, { shrineKind: k }));
       s.object('infoboard', 1, 9, { name: 'Sandbox History Board' });
       s.house(5, 10, 0, T.BUILDING_LARGE, { _sandboxTemple: true });

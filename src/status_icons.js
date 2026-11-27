@@ -43,6 +43,7 @@ globalThis.StatusIcons = Object.freeze({
     "lettuce": 33,
     "fish": 34,
     "bike": 18,
+    "barrow": 18,
     "field_scope": 35,
     "wayfarer": 36,
     "compass": 37,

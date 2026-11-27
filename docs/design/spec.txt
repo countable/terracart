@@ -948,9 +948,14 @@ GEAR: RELICS & ARMOR
    Underground the body always mines its way over. Walking WITH the GPS is
    free — that's you actually walking. Stick walking costs energy per cell and
    BOOTS set its speed and cost (`items.js` `steerSpeedMul`,
-   `steerEnergyCost`); buffs such as Dragon Powder, the Speed potion, coffee
-   and a bike rack lend it pace (`Buffs.KINDS`). At 0 energy the stick stops;
-   the GPS still moves you.
+   `steerEnergyCost`); buffs such as Dragon Powder, the Speed potion, coffee,
+   a bike rack and a Grassy Lane wheelbarrow shrine (`shrines.js`
+   `BARROW_SPEED_MUL`) lend it pace (`Buffs.KINDS`); the speed factors (bike,
+   barrow, a ridden horse) do not stack, the fastest counts. At 0 energy the
+   stick stops; the GPS still moves you.
+   Walked off the fix, the player's own attacks land a third softer
+   (`Combat.OFF_GPS_ATTACK_MUL`, `app.js` `_attackMul`) — unless they ride a
+   horse (`isRiding`), which fights at full strength anywhere.
    Straying is shaped by a ring around your real position: inside it the
    stick is nearly free; outside it you pay full price and the character
    darkens with a pulsing halo. At 0 energy the tint and halo turn red.

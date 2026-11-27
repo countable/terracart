@@ -933,8 +933,18 @@ test('combat: off the GPS the player attacks a third softer, through the one att
   assert.inRange(Combat.OFF_GPS_ATTACK_MUL - 2 / 3, -1e-12, 1e-12, 'a third off');
   assert.eq(Combat.meleeSwingDamage({ sword: { tier: 3 } }, Combat.OFF_GPS_ATTACK_MUL) /
             Combat.meleeSwingDamage({ sword: { tier: 3 } }, 1), Combat.OFF_GPS_ATTACK_MUL, 'the swing scales by it');
-  const m = /_attackMul\(\) \{\s*return \(this\.isDragonActive\(\) \? CONSUMABLE_SPEC\.dragon_powder\.damageMul : 1\)\s*\* \(this\._offGps\(\) \? Combat\.OFF_GPS_ATTACK_MUL : 1\);/;
-  assert.truthy(m.test(SCENE_SRC), '_attackMul folds the owned dragon multiplier and the off-GPS third');
+  const a = SCENE_SRC.indexOf('\n  _attackMul() {'), b = SCENE_SRC.indexOf('\n  }\n', a);
+  const attackMul = new Function(`return function () {${SCENE_SRC.slice(SCENE_SRC.indexOf('{', a) + 1, b)}\n};`)();
+  const self = (offGps, dragon = false, save = {}) => ({ save, _offGps: () => offGps, isDragonActive: () => dragon });
+  assert.eq(attackMul.call(self(false)), 1, 'on the GPS: full strength');
+  assert.eq(attackMul.call(self(true)), Combat.OFF_GPS_ATTACK_MUL, 'off it: a third softer');
+  assert.eq(attackMul.call(self(true, true)), CONSUMABLE_SPEC.dragon_powder.damageMul * Combat.OFF_GPS_ATTACK_MUL, 'the dragon multiplies it');
+  const horse = { id: 'pet_horse', pet: true, kind: 'horse', hp: 4, carried: true };
+  const rider = { riding: true, released: [horse] };
+  assert.eq(attackMul.call(self(true, false, rider)), 1, 'a mounted rider loses no strength off the GPS');
+  assert.eq(attackMul.call(self(true, false, { released: [horse] })), Combat.OFF_GPS_ATTACK_MUL, 'a horse led on foot does not');
+  const resting = { riding: true, released: [{ ...horse, recoverUntil: Date.now() + 60000 }] };
+  assert.eq(attackMul.call(self(true, false, resting)), Combat.OFF_GPS_ATTACK_MUL, 'nor a resting one');
   assert.truthy(/const dmgMul = this\._attackMul\(\);/.test(SCENE_SRC), 'the bow / staff read it');
   assert.truthy(/meleeSwingDamage\(this\.save\.relics, this\._attackMul\(\),/.test(SCENE_SRC), 'and the melee wheel');
   assert.truthy(/_offGps\(\) \{\s*if \(!this\.gpsM\) return false;/.test(SCENE_SRC), 'no fix, nothing to be away from');

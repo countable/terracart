@@ -7138,10 +7138,12 @@ class MapScene extends Phaser.Scene {
   }
   // The multiplier on the player's OWN attacks (melee wheel, bow, staff):
   // Dragon Powder doubles them, being off the GPS takes a third off
-  // (Combat.OFF_GPS_ATTACK_MUL). One answer both attack paths read.
+  // (Combat.OFF_GPS_ATTACK_MUL) unless the player rides a horse (isRiding —
+  // a mounted rider fights at full strength anywhere). One answer both
+  // attack paths read.
   _attackMul() {
     return (this.isDragonActive() ? CONSUMABLE_SPEC.dragon_powder.damageMul : 1)
-      * (this._offGps() ? Combat.OFF_GPS_ATTACK_MUL : 1);
+      * (this._offGps() && !isRiding(this.save) ? Combat.OFF_GPS_ATTACK_MUL : 1);
   }
   // The FLAT damage a hit of the player's own carries on top, after
   // _attackMul — its own attack type's training ('melee' a blow, 'ranged' an
@@ -7181,9 +7183,12 @@ class MapScene extends Phaser.Scene {
     // factor; a horse and a rack do not stack, the faster one counts. Only the
     // horse charges for it: its energyMul rides the boots' costTier to
     // steerEnergyCost.
+    // A WHEELBARROW shrine's push (Shrines.BARROW_SPEED_MUL, boon `barrow`)
+    // joins them on the same terms.
     const bike = (this.save.bikeUntil ?? 0) > Date.now() ? BIKE_RACK_SPEED_MUL : 1;
+    const barrow = Shrines.leverActive(this.save, 'barrow') ? Shrines.BARROW_SPEED_MUL : 1;
     const riding = isRiding(this.save);
-    const boost = Math.max(bike, riding ? HORSE_RIDE.speedMul : 1);
+    const boost = Math.max(bike, barrow, riding ? HORSE_RIDE.speedMul : 1);
     const costMul = riding ? HORSE_RIDE.energyMul : 1;
     return { boots: { tier: speedTier, costTier, boost, costMul } };
   }

@@ -374,6 +374,23 @@
     assert.eq(steerSpeedMul(dragon), 2 * steerSpeedMul({ boots: { tier: dragon.boots.tier } }), 'on top of the dragon');
   });
 
+  test('wheelbarrow shrine: its push speeds the stick through the one speed lane, never stacking', () => {
+    const walk = liftWalkRelics(), now = Date.now();
+    const scene = (save) => ({ save, isDragonActive: () => false });
+    const boots = { boots: { tier: 3 } };
+    const plain = walk.call(scene({ armor: boots, relics: {} }));
+    const save = { armor: boots, relics: {} };
+    assert.truthy(Shrines.grant(save, 'wheelbarrow', now), 'the shrine lends its boon');
+    assert.eq(save.boonUntil.barrow, now + Shrines.SHRINE_KINDS.wheelbarrow.durationMs);
+    const pushed = walk.call(scene(save));
+    assert.eq(steerSpeedMul(pushed), Shrines.BARROW_SPEED_MUL * steerSpeedMul(plain), 'the stick runs faster');
+    assert.eq(steerEnergyCost(pushed), steerEnergyCost(plain), 'at no extra cost per cell');
+    const both = walk.call(scene({ ...save, bikeUntil: now + 60000 }));
+    assert.eq(steerSpeedMul(both), BIKE_RACK_SPEED_MUL * steerSpeedMul(plain), 'beside a bike the faster one counts');
+    save.boonUntil.barrow = now - 1;
+    assert.eq(steerSpeedMul(walk.call(scene(save))), steerSpeedMul(plain), 'gone once it lapses');
+  });
+
   test('bike rack: stick walking only — the GPS walk never reads the lane', () => {
     // Every steerSpeedMul reader in the scene is a stick path: the stick itself,
     // the drift back home and the follow cap while the stick is pushed. The
@@ -385,7 +402,7 @@
       'the follow cap, only while the stick is pushed');
     assert.truthy(/const bike = \(this\.save\.bikeUntil \?\? 0\) > Date\.now\(\) \? BIKE_RACK_SPEED_MUL : 1;/.test(SCENE_SRC),
       '_walkRelics reads the loan');
-    assert.truthy(/const boost = Math\.max\(bike, riding \? HORSE_RIDE\.speedMul : 1\);/.test(SCENE_SRC),
+    assert.truthy(/const boost = Math\.max\(bike, barrow, riding \? HORSE_RIDE\.speedMul : 1\);/.test(SCENE_SRC),
       'a ridden horse is the same kind of factor, never stacked on the loan');
     assert.falsy(/bikeUntil/.test(SCENE_SRC.replace(/_walkRelics\(\) \{[\s\S]*?\n  \}\n/, '')), 'nothing else in app.js reads it');
   });
