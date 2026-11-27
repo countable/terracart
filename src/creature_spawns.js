@@ -163,7 +163,7 @@
     // Citadel is an audit alias: Lairs always uses building-garrisons, one population.
     ['feature', ['building-garrisons', 'citadel-guards', 'road-lairs', 'tar-guards',
       'gate-guards', 'habitat-lairs', 'zone-formations', 'cave-finite',
-      'dragon-roost', 'bone-gallery', 'serpent', 'shore-fauna', 'path-fauna', 'street-residents']],
+      'dragon-roost', 'bone-gallery', 'serpent', 'shore-fauna', 'path-fauna', 'street-residents', 'bush-ambush']],
     ['trigger', ['rare-encounters', 'mushroom-hive', 'honey-bees', 'nest', 'mimic', 'pot-snake',
       'bone-cache', 'headstone', 'haunting', 'fishing-slime', 'crop-pests']],
     ['contract', ['guild-bounty', 'debt-collector', 'temple-trials']],

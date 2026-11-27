@@ -678,6 +678,12 @@ class SceneCreatures {
     this.spawnPathVariantFauna(creatures, pathCells, N, tx, ty, cellM, genGrid, _spawnOpts, caughtSet, entry, zoneGuards);
     stage('spawn commit path fauna');
 
+    // BUSH AMBUSHERS (EnvironmentalPopulations.BUSH_AMBUSHERS): after every
+    // other draw, so no existing seat moves; each mode's share shows through
+    // EnemySpawns.surfaceActive (bushAmbushVisible).
+    this.spawnBushAmbushers(creatures, N, tx, ty, cellM, genGrid, _spawnOpts, caughtSet, entry, zoneGuards);
+    stage('spawn commit bush ambushers');
+
     // The per-player cull, AFTER every draw of the shared stream above.
     this._cullOffLiveGround(entry, tx, ty, N, cellM, genGrid, genObjects, creatures);
     stage('spawn commit live ground');
@@ -734,6 +740,9 @@ class SceneCreatures {
     return EnvironmentalPopulations.shore(this, creatures, shore, pierCells, N, tx, ty, cellM, grid, faunaOpts, foeOpts, caughtSet, zoneCoverage, entry, authoredCreatures);
   }
 
+  spawnBushAmbushers(creatures, N, tx, ty, cellM, grid, opts, caughtSet, entry, authoredCreatures = []) {
+    return EnvironmentalPopulations.bushes(this, creatures, N, tx, ty, cellM, grid, opts, caughtSet, entry, authoredCreatures);
+  }
   spawnPathVariantFauna(creatures, allPathCells, N, tx, ty, cellM, grid, opts, caughtSet, entry, authoredCreatures = []) {
     return EnvironmentalPopulations.path(this, creatures, allPathCells, N, tx, ty, cellM, grid, opts, caughtSet, entry, authoredCreatures);
   }

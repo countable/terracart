@@ -281,6 +281,12 @@
     const at = creature?._surfaceSpawn;
     const feature = anchoredHome(creature);
     if (!at && !feature) return true;
+    // A bush ambusher past this mode's share (EnvironmentalPopulations
+    // bushAmbushVisible) is not here for this player: hidden, never rerolled.
+    if (!(root.EnvironmentalPopulations?.bushAmbushVisible?.(creature, root.Difficulty?.get?.()) ?? true)) {
+      creature._surfaceInactive = true;
+      return false;
+    }
     let active = true;
     const anchor = homeAnchor(scene);
     if (feature) {

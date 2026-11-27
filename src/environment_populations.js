@@ -178,5 +178,92 @@
     return out;
   }
 
-  root.EnvironmentalPopulations = { run, shore, path };
+  // ── BUSH AMBUSHERS ──────────────────────────────────────────────────────
+  // A bush may hide a foe (owner, Nov 2026: "15% of bushes should have
+  // ambushes" on hard, 3% on easy; "thieves, slimes, depending on area").
+  // Every wild bush (items.js BUSH_CROPS — a nest bush and a golden bush keep
+  // their own secret) rolls once off its id; under the largest mode's
+  // Difficulty `bushAmbushShare` the world seats an AMBUSHER (`ambush: true`,
+  // creature_ai.js isAmbusher) in it for everyone, its kind drawn from the
+  // bush's ground below. Each mode then shows the bushes whose same roll is
+  // under its own share (bushAmbushVisible, read by EnemySpawns.surfaceActive)
+  // — hidden, never rerolled, so easy's bushes are a subset of hard's. The
+  // safe area (a thief's own 250 m) and the starter pest amnesty hide a foe
+  // through the ordinary `_surfaceSpawn` lane. Unlisted ground holds none.
+  const BUSH_AMBUSHERS = Object.freeze({
+    RESIDENTIAL: [{ kind: 'thief', weight: 3 }, { kind: 'slime', weight: 1 }],
+    COMMERCIAL: [{ kind: 'thief', weight: 3 }, { kind: 'slime', weight: 1 }],
+    SCHOOL: [{ kind: 'thief', weight: 1 }, { kind: 'slime', weight: 1 }],
+    GRASS: [{ kind: 'slime', weight: 2 }, { kind: 'mini_slime', weight: 1 }],
+    PARK: [{ kind: 'slime', weight: 2 }, { kind: 'mini_slime', weight: 1 }],
+    PLAYGROUND: [{ kind: 'mini_slime', weight: 1 }],
+    PITCH: [{ kind: 'slime', weight: 1 }],
+    GOLF: [{ kind: 'slime', weight: 1 }],
+    FARMLAND: [{ kind: 'slime', weight: 1 }],
+    WETLAND: [{ kind: 'slime', weight: 1 }],
+    FOREST: [{ kind: 'moss_slime', weight: 1 }],
+    ORCHARD: [{ kind: 'moss_slime', weight: 1 }],
+  });
+  const ambushShare = profile => Math.max(0, Math.min(1, profile?.bushAmbushShare || 0));
+  const maxBushAmbushShare = () => Math.max(0, ...Object.values(root.Difficulty?.PROFILES || {}).map(ambushShare));
+  const bushRoll = id => root.EnemySpawns.roll(id + '|ambush');
+  function isAmbushBush(o) {
+    return !!o && o.kind === 'wildplant' && o.id != null && typeof BUSH_CROPS !== 'undefined' && BUSH_CROPS.has(o.crop)
+      && !(typeof isNestBush === 'function' && isNestBush(o.crop, o.id));
+  }
+  // Which foe this bush seats, or null (no roll under the world's share, or
+  // ground no row lists). Pure in the bush's id and the ground's terrain.
+  function bushAmbusherKind(id, terrain) {
+    if (bushRoll(id) >= maxBushAmbushShare()) return null;
+    const name = typeof terrain === 'string' ? terrain
+      : Object.keys(root.WorldGen.T).find(key => root.WorldGen.T[key] === terrain);
+    const rows = BUSH_AMBUSHERS[name];
+    if (!rows?.length) return null;
+    const total = rows.reduce((sum, row) => sum + row.weight, 0);
+    let r = root.EnemySpawns.roll(id + '|ambush-kind') * total;
+    for (const row of rows) if ((r -= row.weight) < 0) return row.kind;
+    return rows[rows.length - 1].kind;
+  }
+  // Does this mode show the foe? Only a bush ambusher (`_bushAmbush`, its
+  // bush's id) is ever hidden here.
+  function bushAmbushVisible(creature, profile) {
+    return !creature?._bushAmbush || bushRoll(creature._bushAmbush) < ambushShare(profile);
+  }
+  function bushes(scene, creatures, N, tx, ty, cellM, grid, opts, caughtSet, entry, authoredCreatures = []) {
+    const tileM = scene.tileEdgeM, picks = [];
+    for (const o of entry?.wildplants || []) {
+      if (!isAmbushBush(o)) continue;
+      const cx = Math.floor((o.x - tx * tileM) / cellM), cy = Math.floor((o.y - ty * tileM) / cellM);
+      if (cx < 0 || cy < 0 || cx >= N || cy >= N) continue;
+      const kind = bushAmbusherKind(o.id, grid[cy * N + cx]);
+      if (kind) picks.push({ bush: o, kind, cell: cy * N + cx });
+    }
+    picks.sort((a, b) => (a.bush.id < b.bush.id ? -1 : a.bush.id > b.bush.id ? 1 : 0));
+    if (!picks.length) { if (entry) entry.bushAmbushPopulation = { requested: 0, placed: 0 }; return []; }
+    const result = run(scene, { entry, creatures, N, tx, ty, cellM, grid, opts, caughtSet, authoredCreatures }, {
+      source: 'bush-ambush', owner: `bushes|${tx},${ty}`, count: picks.length,
+      member: n => ({ kind: picks[n].kind, pick: picks[n], id: `bushfoe_${picks[n].bush.id}` }),
+      // The bush's own cell first (a bush never blocks a body), then its ring:
+      // a foe seated beside it walks in (lurkSpot) before it is ever drawn.
+      *candidates(member) {
+        const { cell } = member.pick, px = cell % N, py = Math.floor(cell / N);
+        yield cell;
+        for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) {
+          const x = px + dx, y = py + dy;
+          if ((dx || dy) && x >= 0 && y >= 0 && x < N && y < N) yield y * N + x;
+        }
+      },
+      point: (cell, member) => cell === member.pick.cell ? { x: member.pick.bush.x, y: member.pick.bush.y } : null,
+      extra: (member, seat) => ({
+        shiny: root.EnemySpawns.rollsElite(entry, member.kind, member.id, seat.x, seat.y, cellM),
+        ambush: true, _bushAmbush: member.pick.bush.id, _sharedId: true,
+        homeX: member.pick.bush.x, homeY: member.pick.bush.y,
+        _surfaceSpawn: { tx, ty, cx: seat.cx, cy: seat.cy, x: seat.x, y: seat.y },
+      }),
+    });
+    if (entry) entry.bushAmbushPopulation = { requested: result.requested, placed: result.placed };
+    return result.creatures;
+  }
+
+  root.EnvironmentalPopulations = { run, shore, path, BUSH_AMBUSHERS, isAmbushBush, bushAmbusherKind, bushAmbushVisible, bushes };
 })(globalThis);

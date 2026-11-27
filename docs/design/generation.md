@@ -161,6 +161,16 @@ access or tile lifecycle mechanics.
   include tile-boundary cuts: this does not claim to stitch an entire OSM path
   across tiles. Variety's three snakes are likewise section-owned requests,
   separate from ambient density, and remain inside the winning corridor.
+- Bush ambushers (`EnvironmentalPopulations.BUSH_AMBUSHERS`, `bushes`) run
+  last, after path fauna and before the per-player cull, so no earlier seat
+  moves. Each wild bush (`BUSH_CROPS`, never a nest or golden bush) rolls once
+  off its id; under the largest `Difficulty` `bushAmbushShare` it seats an
+  `ambush: true` foe for everyone (`bushfoe_<bush id>`, shared), its kind
+  weighted by the bush's ground (thieves among houses and shops, slimes in the
+  open, moss slimes in woods; unlisted ground such as a grove's thicket holds
+  none). Each mode shows the bushes whose roll is under its own share
+  (`bushAmbushVisible` in `EnemySpawns.surfaceActive`), so easy's are a subset
+  of hard's. The safe area and pest amnesty hide them through `_surfaceSpawn`.
 - Runtime births share `CreatureSpawns.canPlaceAt` for terrain, optional live
   clearance and duplicate checks, then `register` for a single insertion by ID.
   Registration never rolls or relocates. Interaction, rare-visit, summon, hive,

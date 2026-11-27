@@ -349,6 +349,10 @@ mechanics.
   a burst of leaves), and return to the same hide once they give up. A bush or
   hedge with any live foe on its cell wiggles on `LURK_BUSH_BEAT` (render.js
   `Render.foeCells`), the nest bush's wiggle on a quicker beat.
+  BUSH AMBUSHERS: a share of the world's wild bushes hold one
+  (`Difficulty` `bushAmbushShare`: easy 3%, hard 15%; placement in
+  [generation](generation.md)). They are ordinary ambushers whose home is
+  their bush, so `lurkSpot` picks it and they return to it.
   THE SNAKE'S HIDE: a row whose `ambush` is `{ hide: 'grass' }` lurks in a
   LONG-GRASS cell instead (`Visibility.grassHide`, the grid's `GRASS_HIDE`
   bit; `concealingCellNear`'s `hide` argument, `ambushHide`). Long grass
