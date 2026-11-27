@@ -98,6 +98,42 @@
     assert.eq(s.hits.length, 1, 'explicit equip resumes normal strikes');
   });
 
+  test('catch: a released butterfly resumes from where the net left it, not its stale hop', () => {
+    // The flee writes x/y directly; the hop it was in when the catch began
+    // must not pull it back toward the player once the wheel lets go.
+    const s = scene();
+    const bfly = { id: 'b', kind: 'amber_butterfly', x: 30, y: 0, _beingCaught: true,
+      _startX: 10, _startY: 0, _targetX: 5, _targetY: 0, _stepT0: 900 };
+    s._workProgress = { startT: 1000, durationMs: 3000, flee: bfly, onComplete() {} };
+    s.cancelWorkProgress();
+    assert.eq(bfly._beingCaught, false);
+    assert.eq([bfly._startX, bfly._targetX, bfly._startY, bfly._targetY].join(), '30,30,0,0');
+  });
+
+  test('catch: every butterfly colour flees the net at butterfly pace', () => {
+    const s = scene();
+    // Out of Home's fauna circle: that ward is homeFaunaAllows' own test.
+    const saved = { cellInReach: globalThis.cellInReach, worldMetersToAbsCell: globalThis.worldMetersToAbsCell };
+    const allows = EnemySpawns.homeFaunaAllows;
+    EnemySpawns.homeFaunaAllows = () => true;
+    globalThis.cellInReach = () => true;
+    globalThis.worldMetersToAbsCell = () => ({ cellIX: 0, cellIY: 0 });
+    try {
+      const fled = kind => {
+        const c = { id: kind, kind, x: 10, y: 0 };
+        now = 1000;
+        s._workProgress = { startT: 1000, _lastT: 1000, durationMs: 50, flee: c, onComplete() {} };  // completes this frame, after the flee step
+        now = 1100;
+        s._drawWorkProgress();
+        s.cancelWorkProgress();
+        return c.x - 10;
+      };
+      const base = fled('butterfly');
+      assert.gt(base, 0.3, 'the azure butterfly bolts at its net pace');
+      for (const row of SpriteLayout.BUTTERFLY_VARIANTS) assert.eq(fled(row.id).toFixed(3), base.toFixed(3), row.id);
+    } finally { Object.assign(globalThis, saved); EnemySpawns.homeFaunaAllows = allows; }
+  });
+
   test('death: cancels overdue work without completion or refund, releases catch, clears attacks', () => {
     const s = scene(), caught = { _beingCaught: true };
     s._workProgress = { startT: 1, durationMs: 100, energyRefund: 10, flee: caught,

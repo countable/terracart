@@ -5748,9 +5748,13 @@ class MapScene extends Phaser.Scene {
 
   // Clear the wheel WITHOUT refunding energy. Used by the completion path and
   // test helpers — the work actually finished, so the up-front spend was earned.
-  // Always releases a fleeing catch target so it resumes normal wandering.
+  // Always releases a fleeing catch target so it resumes normal wandering —
+  // from WHERE THE WHEEL LEFT IT: the flee wrote its x/y directly, so the hop
+  // it was in when the catch began is dropped (Combat.cancelCreatureAction),
+  // or wanderCreatures' step lerp would pull it back along that stale hop.
   cancelWorkProgress() {
-    if (this._workProgress?.flee) this._workProgress.flee._beingCaught = false;
+    const fled = this._workProgress?.flee;
+    if (fled) { fled._beingCaught = false; Combat.cancelCreatureAction(fled); }
     this._workProgress = null;
     this._workActionLabel?.setVisible(false);
     this._workProgressGfx?.clear();
@@ -5868,9 +5872,10 @@ class MapScene extends Phaser.Scene {
       let dx = c.x - px, dy = c.y - py;
       let dist = Math.hypot(dx, dy);
       if (dist < 0.001) { dx = 1; dy = 0; dist = 1; }   // degenerate — pick a heading
-      // Butterflies bolt 2.7× faster than other fauna while the net wheel runs.
+      // Butterflies bolt 2.7× faster than other fauna while the net wheel runs
+      // — every colour variant (SpriteLayout.baseKind), not just the azure one.
       // Shiny animals use their reduced escape bonus while being caught.
-      const isButterfly = c.kind === 'butterfly';
+      const isButterfly = SpriteLayout.baseKind(c.kind) === 'butterfly';
       const shinyFast = Combat.shinySpeedMul(c, true);
       // An ENEMY flees no faster than its own roster walk (a rooted plant,
       // speed 0, cannot run at all); an animal, its CREATURE_BEHAVIOUR top.
