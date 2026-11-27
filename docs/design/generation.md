@@ -1617,6 +1617,14 @@ enough space for their four-cell wander radius. Waiting near another restored
 roof does not reserve it. Named-zone keepers and special story arrivals keep
 their authored places until eligible to move.
 
+Neighbours stay out of buildings, the player's Home and restored houses
+included: nobody is seated on a footprint or in its one-cell building moat,
+and the step test never lets a neighbour in from outside. One found there
+anyway (a footprint stamped under them, an older save) walks out along the
+shortest route through the building to the nearest cell the NPC spawn gate
+would seat them on (`NPC.tick`'s walk-out, bounded to twelve cells), and that
+cell becomes their wander centre when the old one is inside or out of reach.
+
 A restored **plain** house becomes available only after its delivery discovery
 (`Delivery.isSatisfied`). Nobody moves in by timer or priority: the player
 offers the roof. While a delivered, unclaimed plain house is loaded,

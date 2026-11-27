@@ -306,6 +306,38 @@
     assert.gt(eastward, 0, 'some legs head for the wall, so the refusal is exercised');
   });
 
+  test('NPC movement: a neighbour caught inside a building or its moat walks out and stays out', () => {
+    // A 4×4 house (cells 4..7) with water east of it: a neighbour stamped in
+    // its middle (Home placed over them, an old save) cannot stroll — every
+    // footprint and moat cell refuses the ordinary step — so they walk out
+    // through the house to the nearest seatable cell, never into the water.
+    const houseAt = (ix, iy) => ix >= 4 && ix <= 7 && iy >= 4 && iy <= 7;
+    const typeAt = (ix, iy) => houseAt(ix, iy) ? T.BUILDING : ix >= 10 ? T.WATER : T.PARK;
+    const s = Object.assign(scene(), {
+      cellAt: (x, y) => {
+        const ix = Math.floor(x / CELL_M), iy = Math.floor(y / CELL_M);
+        return { loaded: true, type: typeAt(ix, iy), tx: 0, ty: 0, ix, iy };
+      },
+      _cellBlocked: () => false,
+    });
+    const P = (ix, iy) => [(ix + 0.5) * CELL_M, (iy + 0.5) * CELL_M];
+    const moat = c => inBuildingMoatAt(s, c.x, c.y);
+    for (const [ix, iy, label] of [[5, 5, 'inside'], [6, 6, 'deep inside'], [3, 5, 'against the wall']]) {
+      const id = `npc_exit_${ix}_${iy}`;
+      const c = WorldGen.makeCreature('npc', ...P(ix, iy), id, { ...NPC.identity(id), homeX: P(ix, iy)[0], homeY: P(ix, iy)[1] });
+      let outAt = -1;
+      for (let i = 0; i < 3000; i++) {
+        NPC.tick(s, c, 100000 + i * 100, 0.1);
+        const cell = s.cellAt(c.x, c.y);
+        assert.falsy(cell.type === T.WATER, `${label}: walked into water at tick ${i}`);
+        if (outAt < 0 && !moat(c)) outAt = i;
+        if (outAt >= 0) assert.falsy(moat(c), `${label}: wandered back into the building at tick ${i}`);
+      }
+      assert.gte(outAt, 0, `${label}: the neighbour walked out`);
+      assert.falsy(inBuildingMoatAt(s, c.homeX, c.homeY), `${label}: the wander centre is outside the building`);
+    }
+  });
+
   test('NPC movement: closed terrain prevents wandering, while open ground permits slow movement', () => {
     const make = () => NPC.spawn(scene(), entry(), 0, 0, {})[0];
     const open = make(), blocked = make(), road = make(), resting = make();

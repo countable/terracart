@@ -226,11 +226,98 @@ const NPC = (() => {
         row.visionCells - PotionEffects.visionReduction(c)) && !enemySightBlocked(scene, enemy, c.x, c.y);
     }, { los: true, pool: scene._npcCombatTargets || [] });
   }
+  // WALKING OUT OF A BUILDING. Nobody is seated on a footprint or in the
+  // BUILDING MOAT (creature_ai.js inBuildingMoatAt — the cells touching one,
+  // Home's stamped house and restored houses included), and the step test
+  // never lets a neighbour in from outside. A neighbour who is there all the
+  // same (a footprint stamped under them, a save from before the moat) cannot
+  // stroll: every footprint and moat cell refuses the ordinary step. So they
+  // walk out: one bounded breadth-first search, in whole-cell offsets from
+  // where they stand, through footprint and moat cells to the nearest cell
+  // the NPC spawn gate would seat them on; they follow it at their walking
+  // pace and take it as their wander centre when the old one is unreachable.
+  const EXIT_SEARCH_CELLS = 12;
+  const EXIT_RETRY_MS = 2000;
+  function exitPassable(scene, x, y) {
+    const cell = scene.cellAt(x, y);
+    return cell.loaded && !cell.underRoad && !WorldGen.isRoadTerrain(cell.type)
+      && (WorldGen.isBuildingTerrain(cell.type) || !Combat.faunaBlocksCell(cell.type));
+  }
+  function exitSeat(scene, c, x, y) {
+    const cell = scene.cellAt(x, y);
+    if (!cell.loaded || cell.underRoad || Combat.faunaBlocksCell(cell.type) || WorldGen.isRoadTerrain(cell.type)
+      || inBuildingMoatAt(scene, x, y) || creatureStepRefused(scene, c, x, y)) return false;
+    const entry = cell.tx != null && WorldGen.tileCacheFor(scene.depth || 0).get(WorldGen.tileKey(cell.tx, cell.ty));
+    return !entry?.grid || WorldGen.isSpawnCell(entry.grid, entry.cellsPerEdge, entry.cellsPerEdge,
+      cell.ix, cell.iy, WorldGen.spawnOptsOf(entry), 'npc');
+  }
+  function exitRoute(scene, c) {
+    const R = EXIT_SEARCH_CELLS, W = 2 * R + 1, cellM = scene.cellM;
+    const parent = new Int32Array(W * W).fill(-1);
+    const at = k => ({ x: c.x + ((k % W) - R) * cellM, y: c.y + (Math.floor(k / W) - R) * cellM });
+    const open = k => { const p = at(k); return exitPassable(scene, p.x, p.y); };
+    const start = R * W + R, queue = [start];
+    parent[start] = start;
+    for (let head = 0; head < queue.length; head++) {
+      const k = queue[head], kx = k % W, ky = Math.floor(k / W);
+      for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1], [1, 1], [1, -1], [-1, 1], [-1, -1]]) {
+        const nx = kx + dx, ny = ky + dy;
+        if (nx < 0 || ny < 0 || nx >= W || ny >= W) continue;
+        const n = ny * W + nx;
+        if (parent[n] >= 0) continue;
+        if (!open(n)) continue;
+        // A diagonal never cuts the corner of an impassable cell.
+        if (dx && dy && !(open(ky * W + nx) && open(ny * W + kx))) continue;
+        parent[n] = k;
+        const p = at(n);
+        if (exitSeat(scene, c, p.x, p.y)) {
+          const path = [];
+          for (let j = n; j !== start; j = parent[j]) path.unshift(at(j));
+          return path;
+        }
+        queue.push(n);
+      }
+    }
+    return null;
+  }
+  // True while this tick was spent leaving (or waiting to retry the search).
+  // Out: an unreachable wander centre (inside, or past the leash) moves here.
+  function settleOutside(scene, c) {
+    c._npcExit = null;
+    c._npcSteps = 0;
+    const hx = c.homeX ?? c.x, hy = c.homeY ?? c.y;
+    if (inBuildingMoatAt(scene, hx, hy) || Math.hypot(c.x - hx, c.y - hy) > scene.cellM * WANDER_CELLS) {
+      c.homeX = c.x; c.homeY = c.y;
+    }
+  }
+  function walkOut(scene, c, now, dt) {
+    if (!inBuildingMoatAt(scene, c.x, c.y)) {
+      if (c._npcExit) settleOutside(scene, c);
+      return false;
+    }
+    if (!c._npcExit?.length) {
+      if (now < (c._npcExitRetry || 0)) { c._moving = false; return true; }
+      c._npcExit = exitRoute(scene, c);
+      if (!c._npcExit) { c._npcExitRetry = now + EXIT_RETRY_MS; c._moving = false; return true; }
+    }
+    let budget = WALK_MPS * Math.min(0.1, Math.max(0, dt)) * Combat.paceMul(c);
+    const sx = c.x, sy = c.y;
+    while (budget > 0 && c._npcExit.length) {
+      const goal = c._npcExit[0], d = Math.hypot(goal.x - c.x, goal.y - c.y);
+      if (d <= budget) { c.x = goal.x; c.y = goal.y; budget -= d; c._npcExit.shift(); }
+      else { c.x += (goal.x - c.x) / d * budget; c.y += (goal.y - c.y) / d * budget; budget = 0; }
+    }
+    c._moving = c.x !== sx || c.y !== sy;
+    if (c._moving) SpriteLayout.updateCreatureFacing(c, c.x - sx, c.y - sy, now);
+    if (!c._npcExit.length || !inBuildingMoatAt(scene, c.x, c.y)) settleOutside(scene, c);
+    return true;
+  }
   function tick(scene, c, now, dt) {
     restore(scene, c);
     if (Combat.isParalyzed(c)) { Combat.cancelCreatureAction(c); return; }
     if (isDormant(c)) { c._moving = false; return; }
     standUp(c);
+    if (walkOut(scene, c, now, dt)) return;
     if (typeof NPCBenefits !== 'undefined' && NPCBenefits.tick(scene, c, now, dt)) return;
     // Integrate only active time: returning to a neighbour never jumps them
     // across their old path. Small steps cannot skip a road cell or building.
