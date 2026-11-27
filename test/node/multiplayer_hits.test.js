@@ -537,8 +537,9 @@ test('shared ids: only creatures marked where the world makes them; every per-de
   // lair_sid_ordinal identities; allocation now lives in the main population.
   // enemy_habitats.js: a party's extra encounter members, scaleEncounters.
   // scene_boss.js: a boss's pieces, keyed by the fight every participant
-  // adopted — shared only while that save holds the fight live, isSharedId.)
-  assert.eq(marking.join(), ['creature_ai.js', 'enemy_habitats.js', 'enemy_spawns.js', 'habitat_spawns.js', 'lairs.js', 'scene_boss.js', 'scene_creatures.js'].join(),
+  // adopted — shared only while that save holds the fight live, isSharedId.
+  // environment_populations.js: bush ambushers, keyed by their bush's id.)
+  assert.eq(marking.join(), ['creature_ai.js', 'enemy_habitats.js', 'enemy_spawns.js', 'environment_populations.js', 'habitat_spawns.js', 'lairs.js', 'scene_boss.js', 'scene_creatures.js'].join(),
     'a new marking site is a deliberate, reviewed choice');
 });
 })();

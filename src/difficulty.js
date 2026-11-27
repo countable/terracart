@@ -72,6 +72,11 @@
       // third a lone follower, a sixth a pair. null shows the whole gang.
       streetGangShown: [0, 0, 0, 1, 1, 2],
       streetHordes: false,      // no street hordes (StreetVariants.STREET_HORDES)
+      // BUSH AMBUSHERS (EnvironmentalPopulations.BUSH_AMBUSHERS): the share of
+      // bushes this mode shows a foe hiding in. The world seats the largest
+      // mode's share for everyone; a smaller share shows the bushes whose
+      // roll is under it (bushAmbushVisible) — a subset, never a reroll.
+      bushAmbushShare: 0.03,
       crowCountMul: 0.5,        // visibility share of generated habitat Crows
                                  // as many wild crows on easy (a quieter sky,
                                  // fewer birds casing your field)
@@ -106,7 +111,7 @@
     [HARD]: {
       id: HARD,
       label: 'Hard mode',
-      blurb: 'Greedy traders, more damage taken.',
+      blurb: 'Greedy traders, more damage taken, foes in the bushes.',
       tutorial: false,
       starterCrates: false,
       pestAmnesty: false,
@@ -128,6 +133,7 @@
       landEnemyCountMul: 1.5,   // half again the landcover enemies (owner, Oct 2026)
       streetGangShown: null,    // every themed street's gang in full (StreetVariants.STREET_GANGS)
       streetHordes: true,       // half the themed streets hold a larger horde too
+      bushAmbushShare: 0.15,    // one bush in seven hides a thief or a slime (owner, Nov 2026)
       crowCountMul: 1,          // all generated habitat Crows are visible
       trapCountMul: 25,         // hard means it — 100 read as a minefield; halved twice (Sep 2026).
                                  // Per tile it spreads 0.3..1.7x around this (Traps.tileDanger)
