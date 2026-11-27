@@ -672,13 +672,52 @@ test('street gangs: every themed street holds one gang, all of it on hard, a few
   assert.eq(drawn.size, rules.length, 'every group is drawn somewhere');
   assert.eq(SV.streetGangRule('a street'), SV.streetGangRule('a street'), 'the same street, the same gang');
   const { d } = dressedVariants();
+  const hordeRules = Object.keys(SV.STREET_HORDES), late = q => rules.includes(q.rule) || hordeRules.includes(q.rule);
   const requests = d.creatureRequests, gangs = requests.filter(q => rules.includes(q.rule));
-  const first = requests.findIndex(q => rules.includes(q.rule));
+  const first = requests.findIndex(late);
   assert.gt(gangs.length, 0, 'the fixture streets hold gangs');
-  assert.truthy(requests.slice(first).every(q => rules.includes(q.rule)), 'gang posts follow every older request');
+  assert.truthy(requests.slice(first).every(late), 'gang and horde posts follow every older request');
   assert.eq(new Set(gangs.map(q => q.sid)).size, gangs.length, 'one gang per street and tile');
-  const themed = new Set(requests.filter(q => !rules.includes(q.rule)).map(q => q._street));
+  const themed = new Set(requests.filter(q => !late(q)).map(q => q._street));
   for (const v of themed) assert.truthy(gangs.some(q => q._street === v), `${v} has a gang`);
+});
+
+test('street hordes: half the themed streets add a larger hard-only horde; ravens and night bats among them', () => {
+  const rules = Object.keys(SV.STREET_HORDES), easy = Difficulty.PROFILES.easy, hard = Difficulty.PROFILES.hard;
+  const gangMax = Math.max(...Object.keys(SV.STREET_GANGS).map(rule => SV.creatureRequestMembers({ rule, sid: 'g' }).length));
+  for (const rule of rules) {
+    const members = SV.creatureRequestMembers({ rule, sid: 'h-' + rule });
+    assert.gt(members.length, gangMax, `${rule} outnumbers any gang`);
+    for (const m of members) {
+      assert.truthy(EnemyRoster.get(m.kind), `${rule}: ${m.kind} is a roster kind`);
+      assert.truthy(Combat.isEnemyKind(m.kind), `${rule}: ${m.kind} is hostile`);
+      const c = { ...m, id: 'x' };
+      assert.falsy(SV.gangVisible(c, easy), 'never on easy');
+      assert.truthy(SV.gangVisible(c, hard), 'always on hard');
+    }
+  }
+  assert.truthy(SV.creatureRequestMembers({ rule: 'street_horde_ravens', sid: 'r' }).every(m => m.kind === 'raven'), 'a raven flock');
+  assert.truthy(SV.creatureRequestMembers({ rule: 'street_horde_bats', sid: 'b' }).every(m => m._nightOnly), 'bats keep to the night');
+  let held = 0; const kinds = new Set();
+  for (let i = 0; i < 2000; i++) { const r = SV.streetHordeRule('street-' + i); if (r) { held++; kinds.add(r); } }
+  assert.inRange(held / 2000, 0.45, 0.55, `about half the streets hold a horde (${held / 2000})`);
+  assert.eq(kinds.size, rules.length, 'every horde is drawn somewhere');
+  const { d } = dressedVariants();
+  const hordes = d.creatureRequests.filter(q => rules.includes(q.rule));
+  assert.gt(hordes.length, 0, 'the fixture streets hold hordes');
+  assert.eq(new Set(hordes.map(q => q.sid)).size, hordes.length, 'one horde per street and tile');
+});
+
+test('street hordes: a night-only resident is hidden by day and shown after dark', () => {
+  const old = globalThis.Lighting;
+  try {
+    const bat = { kind: 'bat', id: 'night-bat', _nightOnly: true, _featureHome: { x: 0, y: 0, quiet: true }, _surfaceSpawn: { tx: 0, ty: 0, cx: 0, cy: 0, x: 0, y: 0 } };
+    const scene = { save: {}, _pestFreeZone: null };
+    globalThis.Lighting = { ...old, daylight: () => 1 };
+    assert.falsy(EnemySpawns.surfaceActive(scene, bat), 'by day it is away');
+    globalThis.Lighting = { ...old, daylight: () => 0 };
+    assert.truthy(EnemySpawns.surfaceActive(scene, bat), 'after dark it is out');
+  } finally { globalThis.Lighting = old; }
 });
 
 test('barricade road: shared guards use the existing mode reserve', () => {
