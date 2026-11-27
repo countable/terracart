@@ -103,3 +103,18 @@ test('delivery: the first delivery to a house banks a memory, once', () => {
     'the ledger is the ONLY place a memory is handed out');
   assert.falsy(/addToInv\('discovery'/.test(app), 'and no bag stack is');
 });
+
+test('elite: every world enemy spawner asks the shared elite roll, not a hard-coded plain', () => {
+  // Zone guards, finite cave seats, bone-cache skeletons, revealed pot
+  // snakes, nest foes, fished slimes and party extras each roll
+  // EnemySpawns.rollsElite off their stable id; kind eligibility stays the
+  // roster's eliteEligible column.
+  const scene = SCENE_SRC, ai = CREATURE_AI_SRC;
+  assert.truthy(/: EnemySpawns\.rollsElite\(entry, guard\.kind, guard\.id, guard\.x, guard\.y, cellM\)/.test(scene), 'zone guards');
+  assert.truthy(/shiny: EnemySpawns\.rollsElite\(entry, seat\.kind, seat\.id, seat\.x, seat\.y, cellSizeM\), caveArea/.test(scene), 'finite cave seats');
+  assert.truthy(/shiny: EnemySpawns\.rollsElite\(entry, 'skeleton', id,/.test(scene), 'bone-cache skeleton');
+  assert.eq((scene.match(/depth: 0, shiny: EnemySpawns\.rollsElite\(entry, kind,/g) || []).length, 2, 'revealed and restored container foes');
+  assert.truthy(/shiny: enemy && EnemySpawns\.rollsElite\(point\.entry, kind, id,/.test(ai), 'nest foes');
+  assert.truthy(/shiny: EnemySpawns\.rollsElite\(entry, 'slime', id,/.test(ai), 'fished slimes');
+  assert.truthy(/shiny: root\.EnemySpawns\.rollsElite\(entry, creature\.kind, childId,/.test(String(EnemyHabitats.registerDensityEncounter)), 'party extras');
+});

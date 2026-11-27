@@ -62,7 +62,8 @@ class SceneCreatures {
     if (!entry?.creatures) return;
     if (!CreatureSpawns.canPlaceAt(this, entry, o.x, o.y, 'skeleton', { id })) return;
     CreatureSpawns.register(entry, EnemySpawns.markShared(CreatureSpawns.createOwned('bone-cache', o.id, 'skeleton', o.x, o.y, id,
-      { depth: o.depth, shiny: false, _hunting: true })));
+      { depth: o.depth, shiny: EnemySpawns.rollsElite(entry, 'skeleton', id, o.x, o.y, entry.tileEdgeM / entry.cellsPerEdge),
+        _hunting: true })));
   }
 
   // A foe that was a container until tapped: the chest's mimic
@@ -80,7 +81,7 @@ class SceneCreatures {
     if (!revealed.some(c => c.id === id)) revealed.push({ id, chestId: o.id, kind, x: o.x, y: o.y });
     if (!entry.creatures.some(c => c.id === id)) {
       CreatureSpawns.register(entry, EnemySpawns.markShared(CreatureSpawns.createOwned(kind === 'snake' ? 'pot-snake' : 'mimic', o.id, kind, o.x, o.y, id, {
-        depth: 0, shiny: false, _hunting: true,
+        depth: 0, shiny: EnemySpawns.rollsElite(entry, kind, id, o.x, o.y, entry.tileEdgeM / entry.cellsPerEdge), _hunting: true,
       })));
     }
     return true;
@@ -96,7 +97,7 @@ class SceneCreatures {
       const kind = c.kind || 'mimic';
       if (!CreatureSpawns.canPlaceAt(this, entry, c.x, c.y, kind, { id: c.id })) continue;
       CreatureSpawns.register(entry, EnemySpawns.markShared(CreatureSpawns.createOwned(kind === 'snake' ? 'pot-snake' : 'mimic', c.chestId || c.id, kind, c.x, c.y, c.id, {
-        depth: 0, shiny: false, _hunting: true,
+        depth: 0, shiny: EnemySpawns.rollsElite(entry, kind, c.id, c.x, c.y, entry.tileEdgeM / entry.cellsPerEdge), _hunting: true,
       })));
       liveIds.add(c.id);
     }
@@ -422,7 +423,9 @@ class SceneCreatures {
         || (!Combat.isEnemyKind(guard.kind) && ITEM_BY_ID[guard.kind]?.kind === 'animal');
       const creature = CreatureSpawns.createOwned('zone-formations', guard.lair || guard.id, guard.kind, guard.x, guard.y, guard.id, {
         ...guard, ...(guard.zone === 'grove' ? EnemySpawns.concealment(guard.kind, guard.id, guard.zoneVariant) : {}),
-        shiny: fauna ? faunaShiny(guard.kind, guard.id) : false, immobile: !fauna && !guard.burrowCells,
+        shiny: fauna ? faunaShiny(guard.kind, guard.id)
+          : EnemySpawns.rollsElite(entry, guard.kind, guard.id, guard.x, guard.y, cellM),
+        immobile: !fauna && !guard.burrowCells,
         ...(guard.kind === 'wurm' ? { _burrowed: true } : {}),
         lair: fauna || guard.burrowCells ? null : (guard.lair || guard.id),
         lairX: guard.homeX ?? guard.x, lairY: guard.homeY ?? guard.y,
@@ -943,7 +946,7 @@ class SceneCreatures {
       monsterSeats.add(seat.id);
       if (caughtSet.has(seat.id)) continue;
       creatures.push(CreatureSpawns.createOwned('cave-finite', seat.caveArea || seat.id, seat.kind, seat.x, seat.y, seat.id, {
-        depth, shiny: false, caveArea: seat.caveArea,
+        depth, shiny: EnemySpawns.rollsElite(entry, seat.kind, seat.id, seat.x, seat.y, cellSizeM), caveArea: seat.caveArea,
         hidden: !!seat.hidden, dormant: !!seat.dormant,
         revealDistanceCells: seat.revealDistanceCells,
       }));
