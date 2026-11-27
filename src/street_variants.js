@@ -917,6 +917,9 @@
   // the themed dressing section drawn over it there (dressingLines, after any
   // Nexus cut), else none. Returns { tier, row } on a band, null off every
   // band, or undefined when the tile has no line geometry to test.
+  // A band narrower than a fingertip (a 2 m footway is under a third of a
+  // 7 m cell) is hit within TAP_MIN_HALF_M of its centreline instead, so a
+  // tap on a drawn path names it; wider bands keep their own edge.
   function roadAtPoint(entry, fx, fy) {
     const WG = root.WorldGen, N = entry?.cellsPerEdge, E = entry?.tileEdgeM;
     const layer = entry?.layers?.find(l => l.name === 'transportation');
@@ -942,7 +945,7 @@
       for (const line of f.geom) {
         if (!line || line.length < 2) continue;
         const d = distM(line, mvtToM);
-        if (d <= halfM && (!hit || d < hit.d)) hit = { d, fi, halfM, tier, tags: f.tags };
+        if (d <= Math.max(halfM, TAP_MIN_HALF_M) && (!hit || d < hit.d)) hit = { d, fi, halfM, tier, tags: f.tags };
       }
     }
     if (!hit) return null;
@@ -962,12 +965,13 @@
         const d = distM(rec.line, k);
         const same = rec.fi === hit.fi
           || (Math.abs(rec.halfW - hit.halfM) < 1e-6 && Math.abs(d - hit.d) <= DRESSING_MATCH_M);
-        if (d <= rec.halfW && same && d < best) { best = d; row = owned; }
+        if (d <= Math.max(rec.halfW, TAP_MIN_HALF_M) && same && d < best) { best = d; row = owned; }
       }
     }
     return { tier: hit.tier, row };
   }
   const DRESSING_MATCH_M = 0.5;
+  const TAP_MIN_HALF_M = 2.5;
   // Per-cell marks (dress().marks): a variant's code 1..n, BANDIT_CODE for a
   // plain Major-and-Medium road cell (resolved from roadClass by the caller).
   function variantByCode(code) { return STREET_VARIANTS[code - 1] || null; }

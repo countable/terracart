@@ -1324,6 +1324,16 @@ test('flavor: a tapped road cell names its street variant, as the feet story rea
     assert.eq(at(2.9, 4.05), null, 'the cell\'s corner beside both bands is ground');
   });
 
+  test('road tap: a narrow footway is hit within a fingertip of its centreline', () => {
+    const e = entry(), at = (x, y) => StreetVariants.roadAtPoint(e, x, y);
+    // 0.3 cells = 2.1 m off a 2 m footway's centreline: off its drawn band,
+    // inside the tap reach, so the path still names itself.
+    const near = at(2.8, 1.5);
+    assert.eq(near?.tier, TERRAIN.PATH, 'a near-miss lands on the path');
+    assert.eq(near.row, park, 'and reads its park-path name');
+    assert.eq(at(2.95, 1.5), null, 'well past the reach is ground');
+  });
+
   test('road tap: without line geometry the cell still decides', () => {
     assert.eq(StreetVariants.roadAtPoint({ cellsPerEdge: N, tileEdgeM: E }, 1, 1), undefined);
   });

@@ -1521,7 +1521,8 @@ the reach rim within the existing player-light radius.
   fire pedestals, green orbs, paired candles and standing flames by route theme, with native Rogue lit/unlit
   assets as the fallback. Themed silhouettes bake an unlit texture once at load:
   lantern glass and orbs darken, and candle/brazier flames disappear while their
-  supports remain. Both states share frame dimensions and ground-contact bounds.
+  supports remain. Flame pixels flanked on their row by the vessel become cold
+  ash rather than air, so an empty bowl never shows a hole. Both states share frame dimensions and ground-contact bounds.
   Only restored lamps visited within the last 24 real hours emit light. `RENDER_SPEC._streetlamp`
   and `Lighting.collectLamps` share this table's scale and emitter offsets. Their source pixels and contact seating stay in
   the normal object renderer; there is no alternate foundation painter

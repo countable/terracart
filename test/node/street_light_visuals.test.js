@@ -16,6 +16,16 @@
       assert.eq(at(data,16,7,29),base.join(','),name+': contact ink is unchanged');
     }
   });
+  test('street light visuals: an extinguished flame inside its bowl leaves ash, not a hole', () => {
+    for (const [name, flame] of [['upright_flame',[255,141,86,255]], ['flame_pillar',[255,255,153,255]], ['fire_pedestal',[255,195,25,255]]]) {
+      const rim = [63,28,28,255], data = pixels(16,32,[[5,14,rim],[7,14,flame],[9,14,rim],[7,8,flame]]);
+      StreetLights.statePixels(data,16,name,false);
+      const i = (14 * 16 + 7) * 4;
+      assert.eq(data[i + 3], 255, name + ': the bowl stays opaque');
+      assert.lt(Math.max(data[i], data[i + 1], data[i + 2]), 60, name + ': and reads as cold ash');
+      assert.eq(at(data,16,7,8),'0,0,0,0',name+': flame above the rim clears');
+    }
+  });
   test('street light visuals: dark glass and orbs retain alpha and leave posts unchanged', () => {
     for (const [name,width,height,x,y] of [
       ['hanging_lantern',32,32,20,15],['wooden_lantern',16,32,12,13],

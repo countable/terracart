@@ -766,8 +766,9 @@ pixels and decorative details do not define additional tap cells.
   interact.js `roadUnderTap`), because most road cells are only partly
   covered by their band and some are crossed by two ways. Each band that
   reaches the cell (the overlay's stroke, `WorldGen.roadOverlayWidthM`
-  wide) is tested at that point, and the nearest centreline holding it
-  wins. That way names an MD/LG road's story, the themed dressing section
+  wide, but never under `TAP_MIN_HALF_M` from its centreline, so a
+  footway narrower than a fingertip still answers) is tested at that
+  point, and the nearest centreline holding it wins. That way names an MD/LG road's story, the themed dressing section
   cut from it there, or its tier's ground line. A tap that misses every
   band reads as the ground beside the road and offers no road repair.
   Without line geometry the cell decides (`StreetVariants.streetNameAt`).
