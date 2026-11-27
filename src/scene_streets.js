@@ -17,7 +17,7 @@ const STREET_SWEEP_STEP_CELLS = 0.25;
 const TAP_REPAIR_SLACK_M = 1;
 // The line for a tap on a mended section whose lamps were relit too recently
 // to pay anything.
-const TAP_RELIGHT_FRESH_LINE = 'The lamps here are already lit.';
+const TAP_RELIGHT_FRESH_LINE = 'These lamps are already lit.';
 
 class SceneStreets {
   // ─── STREET RESTORATION ──────────────────────────────────────────────────
