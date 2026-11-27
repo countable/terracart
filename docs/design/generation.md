@@ -58,8 +58,11 @@ access or tile lifecycle mechanics.
   Existing residents retain their rates. The two new enemies have no ordinary
   landcover or cave pool; all four species use normal ownership and placement gates.
 - `SpawnPipeline.ownerAt` resolves the most-specific existing owner: Nexus or
-  road coverage removes cells from basic terrain. Empty or incomplete owner
-  tables mean no ambient inhabitants, never fallback to the underlying terrain.
+  road coverage removes cells from basic terrain. One exception: a road theme
+  with no fauna rows takes the fauna rows of the land underneath, cell by cell
+  (`HabitatSpawns.densityRows`); its own enemy rows stand. Otherwise empty or
+  incomplete owner tables mean no ambient inhabitants, never fallback to the
+  underlying terrain.
   Existing Home/protected coverage and deterministic overlap decisions remain
   authoritative. A corridor owns its full area, including empty furniture gaps.
 - `HabitatSpawns.DENSITY_ROWS` declares independent fauna/enemy probabilities per
