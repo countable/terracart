@@ -93,11 +93,14 @@
     return typeof goldenBushCrop === 'function' ? goldenBushCrop(crop, id) : crop;
   }
   function makeCreature(kind, x, y, id, extra) {
-    // Wild animals wait for discovery; released pets are already known.
+    // Wild animals wait for discovery; released pets are already known. A
+    // shiny FOE is an elite, never a hidden shiny animal — a catchable slime
+    // included.
     const behaviour = SpriteLayout.creatureBehaviour(kind);
     const concealment = extra?.pet === true ? null
       : behaviour?.concealment || (extra?.shiny && typeof ITEM_BY_ID !== 'undefined'
-        && ITEM_BY_ID[kind]?.kind === 'animal' ? 'hidden' : null);
+        && ITEM_BY_ID[kind]?.kind === 'animal'
+        && !(typeof Combat !== 'undefined' && Combat.isEnemyKind(kind)) ? 'hidden' : null);
     // A shiny foe's elite rank (Combat.ELITE_RANKS) is rolled here, off its
     // id, so every spawner's elites share one roll.
     const rank = extra?.shiny && !extra.eliteRank && typeof Combat !== 'undefined' ? Combat.rollEliteRank(kind, id) : null;

@@ -17,6 +17,7 @@
     }
     assert.falsy(WorldGen.makeCreature('dog', 0, 0, 'ordinary').hidden);
     assert.falsy(WorldGen.makeCreature('skeleton', 0, 0, 'elite', { shiny: true }).hidden);
+    assert.falsy(WorldGen.makeCreature('slime', 0, 0, 'elite', { shiny: true }).hidden, 'an elite slime is a foe, not a shiny animal');
   });
   test('pet concealment: cats and crabs use vision even when shiny', () => {
     for (const kind of ['cat', 'crab']) for (const shiny of [false, true]) {
