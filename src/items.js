@@ -1849,12 +1849,16 @@ const CONSUMABLE_SPEC = {
   },
   torch: {
     durationMs: 3 * _CONSUMABLE_MINUTE_MS, radiusMul: 2, buff: 'torch',
+    // Lighting one — first or another — brings every running item cooldown
+    // closer by the larger of these: cooldownCutMs, or cooldownCutFrac of
+    // what that timer has left (PlayerTime.shortenItemCooldowns).
+    cooldownCutMs: 5000, cooldownCutFrac: 0.05,
     verb: 'Light', title: 'Light the Torch?', art: 'torch_light',
     get: scene => scene.isTorchActive()
       ? 'Fresh flame feeds the light already around you.'
       : 'Firelight opens the dark around you.',
     used: { title: scene => (scene.isTorchActive() ? '🔥 You light another Torch' : '🔥 You light the Torch'),
-      body: 'The flame takes with a soft roar. Shadows retreat beyond the reach of your footsteps.' },
+      body: 'The flame takes with a soft roar. Shadows retreat beyond the reach of your footsteps. Your resting belongings stir sooner.' },
   },
   evertorch: {
     durationMs: 120 * _CONSUMABLE_MINUTE_MS, radiusMul: 2, buff: 'evertorch',
