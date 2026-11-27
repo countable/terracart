@@ -1264,7 +1264,7 @@ const ITEMS = [
   // The Engineer's Ring: the road trail's own gift (trail.js fixedPrize), never
   // a chest or shop roll. Carried, streets mend themselves as you linger by
   // them and lamps relight as you pass (UNIQUE_JEWELRY roadAutoRepair).
-  { id: 'engineer_ring',     name: "Engineer's Ring",       kind: 'unique_relic', uniqueJewelry: true },
+  { id: 'engineer_ring',     name: "Engineer's Ring",       kind: 'unique_relic', uniqueJewelry: true, progressionOnly: true },
   { id: 'regeneration_amulet',      name: 'Amulet of Regeneration', kind: 'unique_relic', uniqueJewelry: true },
   { id: 'vigor_amulet',      name: 'Amulet of Vigour',        kind: 'unique_relic', uniqueJewelry: true },
   // Rope: use it (Use button with it selected) and the dialog asks which way —

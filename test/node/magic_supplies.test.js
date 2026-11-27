@@ -36,7 +36,7 @@ test('seed descriptions hint at planting without a growth formula', () => {
 
 test('unique relics: fixed-tier equipment values and no ordinary shop or loot stock', () => {
   const unique = ITEMS.filter(item => item.kind === 'unique_relic');
-  assert.eq(unique.length, 34, 'twenty-two finds, three progression relics and nine reusable tomes');
+  assert.eq(unique.length, 35, "twenty-two finds, four progression relics (the Engineer's Ring among them) and nine reusable tomes");
   for (const item of unique) {
     assert.eq(itemValue(item.id), gearPrice('relic', 'sword', item.baseTier), item.id);
     assert.eq(invCatForItem(item.id), 'relics', item.id);
